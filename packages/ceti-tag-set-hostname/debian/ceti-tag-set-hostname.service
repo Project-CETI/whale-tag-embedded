@@ -1,0 +1,10 @@
+[Unit]
+Description=Set hostname of the system to UID of the device
+
+[Service]
+Type=oneshot
+ExecStart=-/opt/ceti-tag-set-hostname.sh
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target
