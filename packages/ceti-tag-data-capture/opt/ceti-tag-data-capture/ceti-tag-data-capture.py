@@ -11,15 +11,13 @@
 # Library imports
 from gpiozero import LED
 import gzip
+import multiprocessing
 import os
 import qwiic_icm20948
 import subprocess
 import sys
-import threading
 import time
 import traceback
-
-threads = []
 
 
 def blink_forever():
@@ -30,11 +28,10 @@ def blink_forever():
         led.on()
         time.sleep(0.2)
 
-# directory where to save the data
-# assume the filesystem for data storage is mounted at /data
-
 
 def get_data_path():
+# directory where to save the data
+# assume the filesystem for data storage is mounted at /data
     try:
         with open("/etc/hostname", "r") as f:
             hname = f.read().strip()
@@ -48,7 +45,6 @@ def get_data_path():
         except:
             return("/home/pi/")
     return datapath
-
 
 
 def capture_imu(path=""):
@@ -72,6 +68,10 @@ def capture_imu(path=""):
                 (time.time(), imu.axRaw, imu.ayRaw, imu.azRaw))
             f.flush()
             os.fsync(f.fileno())
+            # Capture IMU data at 1Hz
+            # Note that flush() and fsync() calls can take time too
+            # Consider timing those calls and substract time taken
+            # from the 1 second sleep that is needed for 1Hz freq.
             time.sleep(1)
         sys.stderr.write("Error reading IMU: data not ready")
 
@@ -82,32 +82,29 @@ def capture_audio(path=""):
         return(1)
     while True:
         filename = os.path.join(path, "audio_%d.flac" % time.time())
-        command = 'arecord -q -t wav -d 300 -f S16_LE -c 6 -r 96000 | flac - -f --endian=little --channels=6 --bps=16 --sign=signed --sample-rate=96000 -s -o ' + filename
-        subprocess.run(command, shell=True)
-        # Please note that running sync is a blocking call that takes time.
-        # Consider calling sync in non-blocking fashion to start recording the
-        # next chunk imediately
-        subprocess.run("sync")
+        command_injector_zero = 'arecord --device=hw:0,0 -q -t wav -d 300 -f S16_LE -c 2 -r 96000 | flac - -f -s -o ' + filename
+        command_octo = 'arecord -q -t wav -d 300 -f S16_LE -c 6 -r 96000 | flac - -f -s -o ' + filename
+        # Make sure to pass the correct command based on your current hardware
+        subprocess.run(command_injector_zero, shell=True)
 
 
 def main():
-    datapath = get_data_path()
-    threads.append(threading.Thread(target=capture_imu, args=(datapath,)))
-    threads.append(threading.Thread(target=capture_audio, args=(datapath,)))
-    for thread in threads:
-        thread.start()
-    blink_forever()
-    for thread in threads:
-        thread.join()
-
+    Processes = []
+    try:
+        datapath = get_data_path()
+        sys.stdout.write("Starting data recording to " + datapath)
+        Processes.append(multiprocessing.Process(target=capture_imu, args=(datapath,)))
+        Processes.append(multiprocessing.Process(target=capture_audio, args=(datapath,)))
+        for process in Processes:
+            process.start()
+        blink_forever()
+    except Exception:
+        os.stderr.write(traceback.format_exc())
+        for process in Processes:
+            process.terminate()
+        exit(1)
     exit(0)
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        os.stderr.write(traceback.format_exc())
-        for thread in threads:
-            thread.join()
-        exit(1)
+    main()
