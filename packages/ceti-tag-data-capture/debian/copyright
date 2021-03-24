@@ -1,0 +1,7 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: ceti-tag-data-capture
+Source: https://projectceti.org
+
+Files: *
+Copyright: Project CETI <projectceti.org>
+License: MIT

@@ -1,0 +1,10 @@
+Source: ceti-tag-data-capture
+Section: misc
+Priority: optional
+Maintainer: CETI Project <projectceti.org>
+Build-Depends: debhelper (>= 10)
+Standards-Version: 3.8.1
+
+Package: ceti-tag-data-capture
+Architecture: all
+Description: Captures data from input sensors of the Whale Tag and saves it onto the filesystem
