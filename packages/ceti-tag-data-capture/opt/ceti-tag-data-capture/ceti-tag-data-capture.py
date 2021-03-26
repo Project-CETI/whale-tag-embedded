@@ -5,7 +5,8 @@
 
 # Script that is launched at startup of the tag to record audio and sensor data
 
-# An initialization time is given at the begining (1Hz blinking) to allow the user to stop the programm via the terminal
+# An initialization time is given at the begining (1Hz blinking) to allow 
+# the user to stop the programm via the terminal.
 # Once done, recording starts and the LED blinks 3x quickly.
 
 # Library imports
@@ -30,8 +31,8 @@ def blink_forever():
 
 
 def get_data_path():
-# directory where to save the data
-# assume the filesystem for data storage is mounted at /data
+    # directory where to save the data
+    # assume the filesystem for data storage is mounted at /data
     try:
         with open("/etc/hostname", "r") as f:
             hname = f.read().strip()
@@ -42,7 +43,7 @@ def get_data_path():
     if (not os.path.isdir(datapath)):
         try:
             os.mkdir(datapath)
-        except:
+        except BaseException:
             return("/home/pi/")
     return datapath
 
@@ -58,7 +59,7 @@ def capture_imu(path=""):
         sys.stderr.write("No datapath specified")
         return(1)
 
-    filename = os.path.join(path,"imu_%d.csv.gz" % time.time())
+    filename = os.path.join(path, "imu_%d.csv.gz" % time.time())
     with gzip.open(filename, "at") as f:
         f.write("timestamp, ax, ay, az\n")
         while imu.dataReady():
@@ -83,7 +84,7 @@ def capture_audio(path=""):
     while True:
         filename = os.path.join(path, "audio_%d.flac" % time.time())
         command_injector_zero = 'arecord --device=hw:0,0 -q -t wav -d 300 -f S16_LE -c 2 -r 96000 | flac - -f -s -o ' + filename
-        command_octo = 'arecord -q -t wav -d 300 -f S16_LE -c 6 -r 96000 | flac - -f -s -o ' + filename
+        # command_octo = 'arecord -q -t wav -d 300 -f S16_LE -c 6 -r 96000 | flac - -f -s -o ' + filename
         # Make sure to pass the correct command based on your current hardware
         subprocess.run(command_injector_zero, shell=True)
 
@@ -93,8 +94,14 @@ def main():
     try:
         datapath = get_data_path()
         sys.stdout.write("Starting data recording to " + datapath)
-        Processes.append(multiprocessing.Process(target=capture_imu, args=(datapath,)))
-        Processes.append(multiprocessing.Process(target=capture_audio, args=(datapath,)))
+        Processes.append(
+            multiprocessing.Process(
+                target=capture_imu, args=(
+                    datapath,)))
+        Processes.append(
+            multiprocessing.Process(
+                target=capture_audio, args=(
+                    datapath,)))
         for process in Processes:
             process.start()
         blink_forever()
