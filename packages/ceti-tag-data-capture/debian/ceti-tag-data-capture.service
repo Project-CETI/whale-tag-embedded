@@ -1,0 +1,14 @@
+[Unit]
+Description=Captures data from input sensors of the Whale Tag and saves it onto the filesystem
+After=ceti-tag-set-hostname.service
+StartLimitIntervalSec=500
+StartLimitBurst=5
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/python3 /opt/ceti-tag-data-capture/ceti-tag-data-capture.py
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
