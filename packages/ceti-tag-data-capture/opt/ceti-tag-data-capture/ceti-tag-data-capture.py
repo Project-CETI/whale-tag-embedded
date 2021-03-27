@@ -5,7 +5,7 @@
 
 # Script that is launched at startup of the tag to record audio and sensor data
 
-# An initialization time is given at the begining (1Hz blinking) to allow 
+# An initialization time is given at the begining (1Hz blinking) to allow
 # the user to stop the programm via the terminal.
 # Once done, recording starts and the LED blinks 3x quickly.
 
