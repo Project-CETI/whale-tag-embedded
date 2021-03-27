@@ -15,6 +15,7 @@ import gzip
 import multiprocessing
 import os
 import qwiic_icm20948
+import socket
 import subprocess
 import sys
 import time
@@ -34,8 +35,7 @@ def get_data_path():
     # directory where to save the data
     # assume the filesystem for data storage is mounted at /data
     try:
-        with open("/etc/hostname", "r") as f:
-            hname = f.read().strip()
+        hname = socket.gethostname().strip()
     except BaseException:
         return("/home/pi/")
 
