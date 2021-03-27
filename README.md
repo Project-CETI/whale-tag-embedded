@@ -5,7 +5,7 @@ that is used to build the image for the embedded computer
 inside the Whale Tags to be deployed onto the sperm whales
 in the ocean during data collection for [project CETI](https://www.projectceti.org/).
 
-# Building
+# building
 
 Linux system is assumed to build the software.
 
@@ -35,10 +35,21 @@ This build will start by downloading the lastest raspbian lite image,
 then mounting it and running inside QEMU, then natively running commands
 inside the setup_image.sh. It will also install all the packages that 
 are built with the make build-debs command.
-/out folder will contain all the debian packages built, as well as
-the sdcard.img.
+
+# installing 
+
+After you follow the steps to build, the /out folder will contain
+all the debian packages built, as well as the sdcard.img.
 
 Then you can use Etcher, or simply 
 ```
 dd if=out/sdcard.img of=/dev/sdX bs=4M
+```
+
+If you decide to only update the data collection software, 
+you can copy the .deb over and install. 
+```
+scp ceti-tag-data-capture_X.X-X_all.deb pi:raspberrypi:~
+ssh pi@raspberrypi
+dpkg -i ceti-tag-data-capture_X.X-X_all.deb
 ```
