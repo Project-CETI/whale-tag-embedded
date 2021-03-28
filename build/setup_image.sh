@@ -53,6 +53,7 @@ time apt install ${APT_NONINTERACTIVE} --fix-broken --no-upgrade \
   dkms \
   dnsmasq \
   flac \
+  libi2c-dev \
   i2c-tools \
   python3 \
   python3-gpiozero \
@@ -86,6 +87,20 @@ sed -i -e 's/"gb"/"us"/' /etc/default/keyboard
 # Change default password
 echo -e "ceticeti\nceticeti" | passwd pi
 
+# Create /data folder - that's where the captured data will go
+mkdir -p -m777 /data
+
+# Install PiSugar
+TEMP_DEB="$(mktemp)".deb
+wget -O "$TEMP_DEB" 'https://github.com/PiSugar/pisugar-power-manager-rs/releases/download/latest/pisugar-server_1.4.9_armhf.deb'
+dpkg -i "$TEMP_DEB"
+rm -f "$TEMP_DEB"
+
+TEMP_DEB="$(mktemp)".deb
+wget -O "$TEMP_DEB" 'https://github.com/PiSugar/pisugar-power-manager-rs/releases/download/latest/pisugar-poweroff_1.4.9_armhf.deb'
+dpkg -i "$TEMP_DEB"
+rm -f "$TEMP_DEB"
+
 # Install octoboard audio injector
 apt remove pulseaudio
 TEMP_DEB="$(mktemp)".deb
@@ -94,16 +109,9 @@ dpkg -i "$TEMP_DEB"
 rm -f "$TEMP_DEB"
 audioInjector-setup.sh
 
-# Install PiSugar
-TEMP_DEB="$(mktemp)".deb
-wget -O "$TEMP_DEB" 'http://cdn.pisugar.com/release/pisugar-server_1.4.9_armhf.deb'
-dpkg -i "$TEMP_DEB"
-rm -f "$TEMP_DEB"
-
-TEMP_DEB="$(mktemp)".deb
-wget -O "$TEMP_DEB" 'http://cdn.pisugar.com/release/pisugar-poweroff_1.4.9_armhf.deb'
-dpkg -i "$TEMP_DEB"
-rm -f "$TEMP_DEB"
+# Install whale tag packages.
+install_package $(ls ${OUT_DIR}/ceti-tag-set-hostname_*_all.deb)
+install_package $(ls ${OUT_DIR}/ceti-tag-data-capture_*_all.deb)
 
 # Minimize logging
 # See article: https://medium.com/swlh/make-your-raspberry-pi-file-system-read-only-raspbian-buster-c558694de79
@@ -117,13 +125,6 @@ ln -s /tmp /var/lib/dhcpcd5
 ln -s /tmp /var/spool
 touch /tmp/dhcpcd.resolv.conf
 ln -s /tmp/dhcpcd.resolv.conf /etc/resolv.conf
-
-# Create /data folder - that's where the captured data will go
-mkdir -p -m777 /data
-
-# Install whale tag packages.
-install_package $(ls ${OUT_DIR}/ceti-tag-set-hostname_*_all.deb)
-install_package $(ls ${OUT_DIR}/ceti-tag-data-capture_*_all.deb)
 
 ################################################################################
 #################################### pi user ###################################
