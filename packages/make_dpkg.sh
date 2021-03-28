@@ -11,6 +11,7 @@ readonly DEB_DIR="$(cd "$1" && pwd)"
 readonly PACKAGES=( \
     "${SCRIPT_DIR}/ceti-tag-set-hostname" \
     "${SCRIPT_DIR}/ceti-tag-data-capture" \
+    "${SCRIPT_DIR}/ceti-tag-battery-level" \
 )
 
 function build_package {

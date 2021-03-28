@@ -1,0 +1,10 @@
+Source: ceti-tag-battery-level
+Section: misc
+Priority: optional
+Maintainer: CETI Project <projectceti.org>
+Build-Depends: debhelper (>= 10)
+Standards-Version: 3.8.1
+
+Package: ceti-tag-battery-level
+Architecture: all
+Description: Watches the battery level and performs actions based on it

@@ -1,0 +1,14 @@
+[Unit]
+Description=Monitor battery level from SugarPi2 and perform actions if the level is low
+After=ceti-tag-set-hostname.service
+StartLimitIntervalSec=500
+StartLimitBurst=5
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/python3 /opt/ceti-tag-battery-level/ceti-tag-battery-level.sh
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
