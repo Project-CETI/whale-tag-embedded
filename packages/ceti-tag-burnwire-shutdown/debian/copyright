@@ -1,5 +1,5 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: ceti-tag-battery-level
+Upstream-Name: ceti-tag-burnwire-shutdown
 Source: https://projectceti.org
 
 Files: *

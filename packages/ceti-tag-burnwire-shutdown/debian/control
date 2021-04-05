@@ -1,0 +1,10 @@
+Source: ceti-tag-burnwire-shutdown
+Section: misc
+Priority: optional
+Maintainer: CETI Project <projectceti.org>
+Build-Depends: debhelper (>= 10)
+Standards-Version: 3.8.1
+
+Package: ceti-tag-burnwire-shutdown
+Architecture: all
+Description: Engages the burn wire and safe system shutdown based on battery levels and other conditions

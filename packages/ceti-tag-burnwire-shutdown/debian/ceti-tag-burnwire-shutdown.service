@@ -6,7 +6,7 @@ StartLimitBurst=5
 
 [Service]
 Type=exec
-ExecStart=/usr/bin/python3 /opt/ceti-tag-battery-level/ceti-tag-battery-level.sh
+ExecStart=/opt/ceti-tag-burnwire-shutdown/ceti-tag-burnwire-shutdown.sh
 Restart=on-failure
 RestartSec=5s
 
