@@ -111,9 +111,9 @@ rm -f "$TEMP_DEB"
 audioInjector-setup.sh
 
 # Install whale tag packages.
-install_package $(ls ${OUT_DIR}/ceti-tag-set-hostname_*_all.deb)
-install_package $(ls ${OUT_DIR}/ceti-tag-data-capture_*_all.deb)
-install_package $(ls ${OUT_DIR}/ceti-tag-burnwire-shutdown_*_all.deb)
+install_package "$(ls "${OUT_DIR}"/ceti-tag-set-hostname_*_all.deb)"
+install_package "$(ls "${OUT_DIR}"/ceti-tag-data-capture_*_all.deb)"
+install_package "$(ls "${OUT_DIR}"/ceti-tag-burnwire-shutdown_*_all.deb)"
 
 # Minimize logging
 # See article: https://medium.com/swlh/make-your-raspberry-pi-file-system-read-only-raspbian-buster-c558694de79
