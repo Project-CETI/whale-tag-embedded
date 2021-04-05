@@ -41,9 +41,8 @@ do
 
     # Check battery level
     # Engage burnwire and shutdown if battery level below ${SHUTDOWN_BATTERY_LEVEL}
-    LEVEL=`echo "get battery" | nc -q 0 127.0.0.1 8423 | sed s/"battery: "/""/`
-    if [ ! -z "$LEVEL" ]; then
-        echo "$LEVEL"
+    LEVEL="$(echo "get battery" | nc -q 0 127.0.0.1 8423 | sed s/"battery: "/""/)"
+    if [ -n "$LEVEL" ]; then
         if [ 1 -eq "$(echo "${SHUTDOWN_BATTERY_LEVEL}>${LEVEL}" | bc)" ]; then
             echo "Battery has less than 5% left. Engaging burnwire."
             engage_burnwire_and_shutdown
@@ -55,7 +54,7 @@ do
     if [ 1 -eq "$(echo "${MAXUPTIME_S}>0" | bc)" ]; then
         # If the uptime limit has been set and reached, 
         # engage burnwire and safely shutdown
-        UPTIME_S=`cat /proc/uptime | awk '{print $1;}'`
+        UPTIME_S="$(awk '{print $1;}' < /proc/uptime)"
         if [ 1 -eq "$(echo "${UPTIME_S}>${MAXUPTIME_S}" | bc)" ]; then
             echo "Maximum uptime of ${MAXUPTIME_S} seconds reached. Engaging burnwire."
             engage_burnwire_and_shutdown
@@ -63,8 +62,8 @@ do
 
     fi
 
-    #sleep a minute
-    sleep 1
+    # sleep a minute
+    sleep 60
 
 done
 

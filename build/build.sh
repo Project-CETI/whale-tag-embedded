@@ -12,7 +12,7 @@ echo "$(id -u -n) ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers;
 sudo -E -u $(id -u -n) /overlay/build/build_image.sh /out;
 EOF
 
-docker run --rm --privileged -i $(tty -s && echo --tty) \
+docker run --rm --privileged -i "$(tty -s && echo --tty)" \
   --volume "${SCRIPT_DIR}/..":/overlay \
   --volume "${OUT_DIR}":/out \
   sdcard-builder \

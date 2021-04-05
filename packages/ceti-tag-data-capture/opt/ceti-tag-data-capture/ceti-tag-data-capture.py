@@ -1,21 +1,23 @@
 #!/usr/bin/python3
 
 # Daniel Vogt (dvogt@seas.harvard.edu)
+# Peter Malkin (GitHub.com/PeterMalkin)
 # V0.2, 3/22/2021
 
 # Script that is launched at startup of the tag to record audio and sensor data
 
 # Library imports
-from gpiozero import LED
 import gzip
 import multiprocessing
 import os
-import qwiic_icm20948
 import socket
 import subprocess
 import sys
 import time
 import traceback
+
+import qwiic_icm20948
+from gpiozero import LED
 
 
 def blink_forever():
@@ -106,7 +108,7 @@ def main():
             process.start()
         blink_forever()
     except Exception:
-        os.stderr.write(traceback.format_exc())
+        sys.stderr.write(traceback.format_exc())
         for process in Processes:
             process.terminate()
         exit(1)
