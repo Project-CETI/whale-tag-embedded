@@ -5,16 +5,13 @@
 
 # Script that is launched at startup of the tag to record audio and sensor data
 
-# An initialization time is given at the begining (1Hz blinking) to allow 
-# the user to stop the programm via the terminal.
-# Once done, recording starts and the LED blinks 3x quickly.
-
 # Library imports
 from gpiozero import LED
 import gzip
 import multiprocessing
 import os
 import qwiic_icm20948
+import socket
 import subprocess
 import sys
 import time
@@ -34,8 +31,7 @@ def get_data_path():
     # directory where to save the data
     # assume the filesystem for data storage is mounted at /data
     try:
-        with open("/etc/hostname", "r") as f:
-            hname = f.read().strip()
+        hname = socket.gethostname().strip()
     except BaseException:
         return("/home/pi/")
 
@@ -83,10 +79,14 @@ def capture_audio(path=""):
         return(1)
     while True:
         filename = os.path.join(path, "audio_%d.flac" % time.time())
-        command_injector_zero = 'arecord --device=hw:0,0 -q -t wav -d 300 -f S16_LE -c 2 -r 96000 | flac - -f -s -o ' + filename
-        # command_octo = 'arecord -q -t wav -d 300 -f S16_LE -c 6 -r 96000 | flac - -f -s -o ' + filename
+        # command_injector_zero = """arecord --device=hw:0,0 -q -t wav -d 300
+        #     -f S16_LE -c 2 -r 96000 | flac - -f -s -o """ + filename
+
+        command_octo = """arecord -q -t wav -d 300 -f S16_LE -c 6 -r 96000
+            | flac - -f -s -o """ + filename
+
         # Make sure to pass the correct command based on your current hardware
-        subprocess.run(command_injector_zero, shell=True)
+        subprocess.run(command_octo, shell=True)
 
 
 def main():

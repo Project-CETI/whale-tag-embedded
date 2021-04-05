@@ -1,0 +1,14 @@
+[Unit]
+Description=Monitor battery level from SugarPi2 and perform actions if the level is low
+After=ceti-tag-set-hostname.service
+StartLimitIntervalSec=500
+StartLimitBurst=5
+
+[Service]
+Type=exec
+ExecStart=/opt/ceti-tag-burnwire-shutdown/ceti-tag-burnwire-shutdown.sh
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
