@@ -34,5 +34,9 @@ fi
 
 # Set device is as the hostname
 DEVICE_ID="wt-$DEVICE_ID"
-echo "Changing hostname to $DEVICE_ID"
-hostname "$DEVICE_ID"
+HOSTNAME="$(hostname)"
+
+if [ "$HOSTNAME" != "$DEVICE_ID" ]; then
+    echo "Changing hostname to $DEVICE_ID"
+    hostname "$DEVICE_ID"
+fi
