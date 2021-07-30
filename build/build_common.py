@@ -12,7 +12,7 @@ import sys
 from imgtools import (
     SECTOR_BYTES,
     BindMount,
-    LoopDev
+    LoopDev,
     Mount,
     MountAt,
     get_partition_info,
