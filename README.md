@@ -6,15 +6,15 @@ inside the Whale Tags to be deployed onto the sperm whales
 in the ocean during data collection for [project CETI](https://www.projectceti.org/).
 
 
-# building
+## building
 
 Linux system is assumed to build the software.
 
 The Whale Tag specific software is wrapped in Debian packages
-to simplify management and deployment. To build the current 
+to simplify management and deployment. To build the current
 debian packages run
 
-```
+```bash
   make build-debs
 ```
 
@@ -22,42 +22,42 @@ This will generate .deb files for all sources in packages.
 The .deb files will be located in out/ folder.
 
 If you want to create the full sdcard image you will need docker
-installed on your system. You will also need make. 
+installed on your system. You will also need make.
 
 
 Then just run make:
 
-```
+```bash
   make build-sdcard-img
 ```
 
-The build process will run within a docker container. 
-This build will start by downloading the lastest raspbian lite image, 
+The build process will run within a docker container.
+This build will start by downloading the lastest raspbian lite image,
 then mounting it and running inside QEMU, then natively running commands
-inside the setup_image.sh. It will also install all the packages that 
+inside the setup_image.sh. It will also install all the packages that
 are built with the make build-debs command.
 
 
-# installing 
+## installing
 
 After you follow the steps to build, the /out folder will contain
 all the debian packages built, as well as the sdcard.img.
 
-Then you can use Etcher, or simply 
-```
+Then you can use Etcher, or simply
+```bash
 dd if=out/sdcard.img of=/dev/sdX bs=4M
 ```
 
-If you decide to only update the data collection software, 
-you can copy the .deb over and install. 
-```
+If you decide to only update the data collection software,
+you can copy the .deb over and install.
+```bash
 scp ceti-tag-data-capture_X.X-X_all.deb pi:raspberrypi:~
 ssh pi@raspberrypi
 dpkg -i ceti-tag-data-capture_X.X-X_all.deb
 ```
 
 
-# packages
+## packages
 
 As you could see from above, the custom code for the whale tags is wrapped
 in a set of debian packages. Below is the list of all of them with the description of what they do.
@@ -68,7 +68,7 @@ in a set of debian packages. Below is the list of all of them with the descripti
 The source code is in packages/ceti-tag-set-hostname.
 The main script that is executed by the systemd is /opt/ceti-tag-set-hostname/ceti-tag-set-hostname.sh
 
-This script is run at device start, and changes the hostname to unique identifiable name. The name is derived from "wt-" and MAC address of the WiFi adapter, which should be unique. If no wifi adapter is found in the system, an ethernet MAC address is used, if Ethernet is absent as well, 
+This script is run at device start, and changes the hostname to unique identifiable name. The name is derived from "wt-" and MAC address of the WiFi adapter, which should be unique. If no wifi adapter is found in the system, an ethernet MAC address is used, if Ethernet is absent as well,
 /proc/cpuinfo serial number is used.
 
 The reason the system hostname is changed are two-fold:
@@ -87,7 +87,7 @@ The main script that is executed by the systemd is
 This is a systemd service that monitors a few conditions and triggers
 the burnwire to detach the whale tag from the back of the whale and proceed to safely shutdown the system preserving the data collected.
 
-By default the burnwire is assumed to be attached to GPIO15, and 
+By default the burnwire is assumed to be attached to GPIO15, and
 enabling it means driving the GPIO15 from LOW to HIGH for 20 seconds.
 
 The conditions that trigger burnwire and shutdown are:
@@ -111,7 +111,7 @@ This is the main data collection python script. It spins up several processes in
 Note this script is started on system startup and is being restarted if things go wrong in attempt to provide the most reliability.
 
 
-# updating debian package versions
+## updating debian package versions
 
 All debian packages have versions, the ones here are no exception.
 The idea is that each update of the software that requires to reinstall the packages, would have the version updated as well. To do so, one needs
