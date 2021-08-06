@@ -6,9 +6,9 @@ if [[ "$#" -ne 1 ]]; then
   exit 1
 fi
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly DEB_DIR="$(cd "$1" && pwd)"
-readonly PACKAGES=( \
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEB_DIR="$(cd "$1" && pwd)"
+PACKAGES=( \
     "${SCRIPT_DIR}/ceti-tag-set-hostname" \
     "${SCRIPT_DIR}/ceti-tag-data-capture" \
     "${SCRIPT_DIR}/ceti-tag-burnwire-shutdown" \
@@ -16,9 +16,9 @@ readonly PACKAGES=( \
 
 function build_package {
   pushd "$1"
-  local package=$(cat debian/control | grep Package | awk '{print $2}')
+  package="$(< debian/control grep Package | awk '{print $2}')"
   dpkg-buildpackage -b -rfakeroot -us -uc -tc
-  mv ../${package}*.deb ../${package}*.buildinfo ../${package}*.changes "${DEB_DIR}"
+  mv "../${package}*.deb ../${package}*.buildinfo ../${package}*.changes" "${DEB_DIR}"
   popd
 }
 

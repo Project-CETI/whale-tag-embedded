@@ -1,10 +1,12 @@
 #!/bin/bash
 set -ex
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly OUT_DIR="$1"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+OUT_DIR="$1"
+readonly OUT_DIR
 
-read -d '' SCRIPT << EOF || true
+read -r -d '' SCRIPT << EOF || true
 groupadd --gid $(id -g) $(id -g -n);
 useradd -m -e "" -s /bin/bash --gid $(id -g) --uid $(id -u) $(id -u -n);
 passwd -d $(id -u -n);

@@ -6,18 +6,18 @@ if [ "$#" -ne 2 ]; then
     exit 1
 fi
 
-readonly OUT_DIR="$1"
-readonly OVERLAY_DIR="$2"
+OUT_DIR="$1"
+OVERLAY_DIR="$2"
 
-readonly APT_NONINTERACTIVE="-y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
-export readonly DEBIAN_FRONTEND="noninteractive"
-export readonly APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=yes
+APT_NONINTERACTIVE="-y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
+export DEBIAN_FRONTEND="noninteractive"
+export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=yes
 
 function install_package {
-  local deb_file="$1"
-  local package=$(dpkg-deb -f "${deb_file}" Package)
-  local sha256=$(sha256sum "${deb_file}" | awk '{print $1}')
-  local sha256_file="/tmp/${package}.sha256"
+  deb_file="$1"
+  package=$(dpkg-deb -f "${deb_file}" Package)
+  sha256=$(sha256sum "${deb_file}" | awk '{print $1}')
+  sha256_file="/tmp/${package}.sha256"
 
   if ! dpkg -l "${package}" ; then
     echo "Package ${package} is not installed."
@@ -25,7 +25,7 @@ function install_package {
     echo "${sha256}" > "${sha256_file}"
   else
     echo "Package ${package} is already installed."
-    local installed_sha256="$(cat "${sha256_file}" 2>/dev/null || echo '')"
+    installed_sha256="$(cat "${sha256_file}" 2>/dev/null || echo '')"
     if [[ "${installed_sha256}" != "${sha256}" ]]; then
       echo "Checksums do not ${package} match."
       dpkg --purge --force-all "${package}"
@@ -46,7 +46,7 @@ fi
 
 apt update
 
-time apt install ${APT_NONINTERACTIVE} --fix-broken --no-upgrade \
+time apt install "${APT_NONINTERACTIVE}" --fix-broken --no-upgrade \
   alsa-utils \
   aiy-usb-gadget \
   avahi-utils \
@@ -65,7 +65,7 @@ time apt install ${APT_NONINTERACTIVE} --fix-broken --no-upgrade \
   netcat \
 
 
-apt ${APT_NONINTERACTIVE} autoremove
+apt "${APT_NONINTERACTIVE}" autoremove
 
 pip3 install --retries 10 --default-timeout=60 \
                   --no-deps --no-cache-dir --disable-pip-version-check \
@@ -89,7 +89,8 @@ sed -i -e 's/"gb"/"us"/' /etc/default/keyboard
 echo -e "ceticeti\nceticeti" | passwd pi
 
 # Create /data folder - that's where the captured data will go
-mkdir -p -m777 /data
+mkdir -p /data
+chmod 777 /data
 
 # Install PiSugar
 TEMP_DEB="$(mktemp)".deb
