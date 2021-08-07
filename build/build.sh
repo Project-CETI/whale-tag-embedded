@@ -2,9 +2,7 @@
 set -ex
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly SCRIPT_DIR
 OUT_DIR="$1"
-readonly OUT_DIR
 
 read -r -d '' SCRIPT << EOF || true
 groupadd --gid $(id -g) $(id -g -n);

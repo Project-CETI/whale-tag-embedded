@@ -18,16 +18,14 @@ function build_package {
   pushd "$1"
   package="$(< debian/control grep Package | awk '{print $2}')"
   dpkg-buildpackage -b -rfakeroot -us -uc -tc
-  mv "../${package}*.deb ../${package}*.buildinfo ../${package}*.changes" "${DEB_DIR}"
+  mv "../${package}*.deb" "${DEB_DIR}"
+  mv "../${package}*.buildinfo" "${DEB_DIR}"
+  mv "../${package}*.changes" "${DEB_DIR}"
   popd
 }
 
-for package in "${PACKAGES[@]}"; do
-  if [[ -n "${AIY_BUILD_PARALLEL}" ]]; then
-    build_package "${package}" &
-  else
-    build_package "${package}"
-  fi
+for deb in "${PACKAGES[@]}"; do
+  build_package "${deb}"
 done
 
 wait
