@@ -9,61 +9,68 @@ import shutil
 import subprocess
 import sys
 
-from imgtools import SECTOR_BYTES, Mount, MountAt, BindMount, LoopDev
-from imgtools import resize2fs, resize_part, get_partition_info
+from imgtools import (
+    SECTOR_BYTES,
+    BindMount,
+    LoopDev,
+    Mount,
+    MountAt,
+    get_partition_info,
+    resize2fs,
+    resize_part,
+)
 
 
 def do_expand(args, image_file, expand_bytes=(2 ** 30)):
-    '''Expand the root filesystem on the image.'''
+    """Expand the root filesystem on the image."""
 
     expand_sectors = expand_bytes // SECTOR_BYTES
 
-    print('Extending the image file by %d bytes' % expand_bytes)
-    with open(image_file, 'ab') as f:
+    print("Extending the image file by %d bytes" % expand_bytes)
+    with open(image_file, "ab") as f:
         f.truncate(f.tell() + expand_bytes)
 
     with LoopDev(args, image_file) as disk_dev:
         partition_info = get_partition_info(args, disk_dev)
         print(
-            'Increasing the size of the root partition by %d secrors' %
-            expand_sectors)
+            "Increasing the size of the root partition by %d secrors" % expand_sectors
+        )
         root_partition = partition_info[args.root_partition_number]
         start_sector = root_partition.start
         end_sector = root_partition.end + expand_sectors
         resize_part(
-            args,
-            disk_dev,
-            args.root_partition_number,
-            start_sector,
-            end_sector)
+            args, disk_dev, args.root_partition_number, start_sector, end_sector
+        )
 
-    print('Increasing the size of the root filesystem...')
+    print("Increasing the size of the root filesystem...")
     start_bytes = start_sector * SECTOR_BYTES
     with LoopDev(args, image_file, offset=start_bytes) as root_dev:
-        new_size_bytes = resize2fs(args, root_dev, 'maximum')
-        print('Resized to %.1f GB' % (new_size_bytes / (2 ** 30)))
-        subprocess.check_call(['sudo', 'zerofree', root_dev],
-                              stdout=args.stdout, stderr=args.stderr)
-        print('Zeroed free blocks')
+        new_size_bytes = resize2fs(args, root_dev, "maximum")
+        print("Resized to %.1f GB" % (new_size_bytes / (2 ** 30)))
+        subprocess.check_call(
+            ["sudo", "zerofree", root_dev], stdout=args.stdout, stderr=args.stderr
+        )
+        print("Zeroed free blocks")
 
 
 @contextlib.contextmanager
 def SetupEmulator(args, root_mnt):
-    '''Set up the QEMU emulator so it works from within the chroot.
+    """Set up the QEMU emulator so it works from within the chroot.
 
     As described here: https://wiki.debian.org/RaspberryPi/qemu-user-static
-    '''
+    """
 
-    ld_so_preload_path = os.path.join(root_mnt, 'etc', 'ld.so.preload')
-    ld_so_preload_backup = ld_so_preload_path + '.bak'
-    qemu_src_path = distutils.spawn.find_executable('qemu-arm-static')
-    qemu_dst_path = os.path.join(root_mnt, 'usr', 'bin', 'qemu-arm-static')
+    ld_so_preload_path = os.path.join(root_mnt, "etc", "ld.so.preload")
+    ld_so_preload_backup = ld_so_preload_path + ".bak"
+    qemu_src_path = distutils.spawn.find_executable("qemu-arm-static")
+    qemu_dst_path = os.path.join(root_mnt, "usr", "bin", "qemu-arm-static")
 
     if qemu_src_path is None:
-        print('Failed to find qemu-arm-static.', file=sys.stderr)
+        print("Failed to find qemu-arm-static.", file=sys.stderr)
         print(
-            '    sudo apt-get install qemu qemu-user-static binfmt-support',
-            file=sys.stderr)
+            "    sudo apt-get install qemu qemu-user-static binfmt-support",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     # The RPi preloads an optimized memcpy, which we need to disable to use the
@@ -107,10 +114,12 @@ def MountAndSetupEmulator(args, partition_info, image_file, mounts=None):
     boot_start_bytes = partition_info[args.boot_partition_number].start * SECTOR_BYTES
     root_start_bytes = partition_info[args.root_partition_number].start * SECTOR_BYTES
 
-    all_mounts = [('/dev', '/dev'),
-                  ('/sys', '/sys'),
-                  ('/proc', '/proc'),
-                  ('/dev/pts', '/dev/pts')] + (mounts or [])
+    all_mounts = [
+        ("/dev", "/dev"),
+        ("/sys", "/sys"),
+        ("/proc", "/proc"),
+        ("/dev/pts", "/dev/pts"),
+    ] + (mounts or [])
 
     with Mount(args, image_file, offset=root_start_bytes) as root_mnt:
         with contextlib.ExitStack() as stack:
@@ -118,15 +127,15 @@ def MountAndSetupEmulator(args, partition_info, image_file, mounts=None):
                 MountAt(
                     args,
                     image_file,
-                    os.path.join(
-                        root_mnt,
-                        'boot'),
-                    offset=boot_start_bytes))
+                    os.path.join(root_mnt, "boot"),
+                    offset=boot_start_bytes,
+                )
+            )
             for host_path, img_path in all_mounts:
                 assert os.path.exists(host_path)
                 assert os.path.isabs(img_path)
                 abs_img_path = os.path.join(root_mnt, img_path[1:])
-                print('Bind mount: %s => %s' % (host_path, abs_img_path))
+                print("Bind mount: %s => %s" % (host_path, abs_img_path))
                 stack.enter_context(MountPoint(abs_img_path))
                 stack.enter_context(BindMount(args, host_path, abs_img_path))
             stack.enter_context(SetupEmulator(args, root_mnt))
@@ -134,23 +143,20 @@ def MountAndSetupEmulator(args, partition_info, image_file, mounts=None):
 
 
 def run_in_chroot(args, root_mnt, cmd, env=None):
-    '''Run the given command chrooted into the image.'''
+    """Run the given command chrooted into the image."""
     if not cmd:
-        raise ValueError('cmd must not be empty')
-    elif cmd[0].startswith('/') or not os.path.isfile(os.path.join(root_mnt, cmd[0])):
-        raise ValueError(
-            'cmd[0] must be a relative path to a binary in the image')
+        raise ValueError("cmd must not be empty")
+    elif cmd[0].startswith("/") or not os.path.isfile(os.path.join(root_mnt, cmd[0])):
+        raise ValueError("cmd[0] must be a relative path to a binary in the image")
 
-    env_list = ['%s=%s' % item for item in (env or {}).items()] + [
-        'LANG=C.UTF-8',  # en_US isn't installed on the default RPi image, so use C
-        'LANGUAGE=C:',
-        'LC_CTYPE=C.UTF-8',
-        'QEMU_CPU=arm1176',  # Use armv6l for compatability with Pi Zero.
+    env_list = ["%s=%s" % item for item in (env or {}).items()] + [
+        "LANG=C.UTF-8",  # en_US isn't installed on the default RPi image, so use C
+        "LANGUAGE=C:",
+        "LC_CTYPE=C.UTF-8",
+        "QEMU_CPU=arm1176",  # Use armv6l for compatability with Pi Zero.
     ]
 
-    chroot_cmd = ['sudo'] + env_list + ['chroot', '.'] + cmd
+    chroot_cmd = ["sudo"] + env_list + ["chroot", "."] + cmd
     return subprocess.call(
-        chroot_cmd,
-        cwd=root_mnt,
-        stdout=args.stdout,
-        stderr=args.stderr)
+        chroot_cmd, cwd=root_mnt, stdout=args.stdout, stderr=args.stderr
+    )

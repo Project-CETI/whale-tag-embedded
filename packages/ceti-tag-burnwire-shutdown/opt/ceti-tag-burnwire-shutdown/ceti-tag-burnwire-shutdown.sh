@@ -41,7 +41,7 @@ do
 
     # Check battery level
     # Engage burnwire and shutdown if battery level below ${SHUTDOWN_BATTERY_LEVEL}
-    LEVEL="$(echo "get battery" | nc -q 0 127.0.0.1 8423 | sed s/"battery: "/""/)"
+    LEVEL="$(echo "get battery" | nc -q 0 127.0.0.1 8423 | sed 's/"battery: "/""/')"
     if [ -n "$LEVEL" ]; then
         if [ 1 -eq "$(echo "${SHUTDOWN_BATTERY_LEVEL}>${LEVEL}" | bc)" ]; then
             echo "Battery has less than 5% left. Engaging burnwire."

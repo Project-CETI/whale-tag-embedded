@@ -1,6 +1,6 @@
 FROM debian:buster
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install --no-install-recommends -y \
     git \
     mc \
     curl \
@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y \
     qemu-user-static \
     binfmt-support \
     debhelper \
+    fakeroot \
+    build-essential \
     parted \
     dkms \
     zerofree \

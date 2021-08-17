@@ -6,9 +6,9 @@ if [[ "$#" -ne 1 ]]; then
   exit 1
 fi
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly OUT_DIR="$1"
-readonly IMAGE="$OUT_DIR/sdcard.img"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OUT_DIR="$1"
+IMAGE="$OUT_DIR/sdcard.img"
 
 function shell_image {
   sudo PYTHONDONTWRITEBYTECODE=yes "${SCRIPT_DIR}/shell_image.py" "$@"
