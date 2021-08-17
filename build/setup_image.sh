@@ -9,7 +9,7 @@ fi
 OUT_DIR="$1"
 OVERLAY_DIR="$2"
 
-APT_NONINTERACTIVE="-y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
+APT_NONINTERACTIVE="-y"
 export DEBIAN_FRONTEND="noninteractive"
 export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=yes
 
@@ -94,12 +94,12 @@ chmod 777 /data
 
 # Install PiSugar
 TEMP_DEB="$(mktemp)".deb
-wget -O "$TEMP_DEB" 'https://github.com/PiSugar/pisugar-power-manager-rs/releases/download/latest/pisugar-server_1.4.9_armhf.deb'
+wget -O "$TEMP_DEB" 'https://github.com/PiSugar/pisugar-power-manager-rs/releases/download/v1.4.9/pisugar-server_1.4.9_armhf.deb'
 dpkg -i "$TEMP_DEB"
 rm -f "$TEMP_DEB"
 
 TEMP_DEB="$(mktemp)".deb
-wget -O "$TEMP_DEB" 'https://github.com/PiSugar/pisugar-power-manager-rs/releases/download/latest/pisugar-poweroff_1.4.9_armhf.deb'
+wget -O "$TEMP_DEB" 'https://github.com/PiSugar/pisugar-power-manager-rs/releases/download/v1.4.9/pisugar-poweroff_1.4.9_armhf.deb'
 dpkg -i "$TEMP_DEB"
 rm -f "$TEMP_DEB"
 

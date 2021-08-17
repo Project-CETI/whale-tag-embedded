@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     qemu-user-static \
     binfmt-support \
     debhelper \
+    fakeroot \
+    build-essential \
     parted \
     dkms \
     zerofree \
