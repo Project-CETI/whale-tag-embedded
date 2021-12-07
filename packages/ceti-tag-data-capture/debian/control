@@ -3,7 +3,6 @@ Section: misc
 Priority: optional
 Maintainer: CETI Project <projectceti.org>
 Build-Depends: debhelper (>= 10)
-Depends: flac (>= 1.3)
 Standards-Version: 3.8.1
 
 Package: ceti-tag-data-capture

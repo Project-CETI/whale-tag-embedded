@@ -1,5 +1,5 @@
-ceti-tag-data-capture (0.1-0) stable; urgency=medium
+ceti-tag-data-capture (2.0-0) stable; urgency=medium
 
-  * Initial release.
+  * Initial release targeting V2 MVP0 hardware
 
- --  CETI Project <cetiproject.org>  Mon, 22 Mar 2021 11:40:27 -0800
+ --  CETI Project <cetiproject.org>  Mon, 5 Dec 2021 00:00:01 -0800

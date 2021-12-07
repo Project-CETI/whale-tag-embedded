@@ -11,7 +11,6 @@ DEB_DIR="$(cd "$1" && pwd)"
 PACKAGES=( \
     "${SCRIPT_DIR}/ceti-tag-set-hostname" \
     "${SCRIPT_DIR}/ceti-tag-data-capture" \
-    "${SCRIPT_DIR}/ceti-tag-burnwire-shutdown" \
 )
 
 function build_package {
