@@ -7,5 +7,8 @@
 %:
 	dh $@
 
-override_dh_systemd_enable:
-	dh_systemd_enable --name ceti-tag-data-capture
+#override_dh_auto_install:
+#	$(MAKE) DESTDIR=$$(pwd)/out prefix=/opt/ceti-tag-data-capture install
+
+#override_dh_systemd_enable:
+#	dh_systemd_enable --name ceti-tag-data-capture

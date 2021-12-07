@@ -6,7 +6,7 @@ StartLimitBurst=5
 
 [Service]
 Type=exec
-ExecStart=/usr/bin/python3 /opt/ceti-tag-data-capture/ceti-tag-data-capture.py
+ExecStart=/opt/ceti-tag-data-capture/bin/cetiTagApp
 Restart=on-failure
 RestartSec=5s
 
