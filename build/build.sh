@@ -4,10 +4,6 @@ set -ex
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUT_DIR="$1"
 
-echo "====="
-echo "${SCRIPT_DIR}"
-echo "====="
-
 read -r -d '' SCRIPT << EOF || true
 groupadd --gid $(id -g) $(id -g -n);
 useradd -m -e "" -s /bin/bash --gid $(id -g) --uid $(id -u) $(id -u -n);

@@ -38,7 +38,6 @@ function install_package {
 }
 
 apt -y update --allow-releaseinfo-change
-apt -y upgrade
 
 time apt install "${APT_NONINTERACTIVE}" --fix-broken --no-upgrade \
   alsa-utils \
