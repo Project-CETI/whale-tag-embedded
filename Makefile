@@ -6,29 +6,21 @@ RASPBIAN_IMAGE="$(MAKEFILE_DIR)/raspbian/raspbian_lite_latest.img"
 
 .PHONY: \
 	clean \
-	build-debs \
-	build-sdcard-img \
+	build \
 
 .DEFAULT := build-sdcard-img
 
 help:
-	@echo "make build-debs"
-	@echo "make build-sdcard-img"
+	@echo "make build"
 	@echo "make clean"
 
-build-debs:
-	mkdir -p $(OUT_DIR)
-	packages/make_dpkg.sh $(OUT_DIR)
-
-build-sdcard-img:
+build: docker-image
 	mkdir -p $(OUT_DIR)
 	build/download_raspbian.sh $(OUT_DIR)
-	docker build -t $(DOCKER_IMAGE) build
 	build/build.sh $(OUT_DIR)
 
 clean:
 	rm -rf $(OUT_DIR)
-
 
 # Docker helpers
 docker-image:

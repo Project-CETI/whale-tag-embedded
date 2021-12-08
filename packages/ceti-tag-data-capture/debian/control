@@ -6,5 +6,6 @@ Build-Depends: debhelper (>= 10)
 Standards-Version: 3.8.1
 
 Package: ceti-tag-data-capture
-Architecture: all
+Depends: pigpio
+Architecture: armhf
 Description: Captures data from input sensors of the Whale Tag and saves it onto the filesystem
