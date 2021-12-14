@@ -38,7 +38,6 @@
 // At 96 kHz sampling rate; 16-bit; 3 channels 1 minute of data is 33750 KiB
 #define MAX_DATA_FILE_SIZE (15 * 33750 * 1024)  // 15 minute files at 96
 
-static char sampleBuffer[SPI_BLOCK_SIZE];
 static char ramBuffer[RAM_SIZE];
 static int ramBufferCounter = 0;
 
@@ -176,33 +175,33 @@ void *spiThread(void *paramPtr) {
         gpioWrite(TEST_POINT, 1);
         gpioWrite(TEST_POINT, 0);
 
-        // SPI block has become available, read it from the HW FIFO via SPI
-        spiRead(spi_fd, sampleBuffer, SPI_BLOCK_SIZE);
+		if (status != prev_status) {
+			prev_status = status;
+			while (status) {
+				gpioWrite(TEST_POINT,1);
+				gpioWrite(TEST_POINT,0);
 
-        // Then save contents of the SPI buffer to the interim RAM buffer
-        memcpy(ramBuffer + (ramBufferCounter * SPI_BLOCK_SIZE), sampleBuffer,
-               SPI_BLOCK_SIZE);
+				// SPI block has become available, read it from the HW FIFO via SPI
+				spiRead(spi_fd, ramBuffer + (ramBufferCounter*SPI_BLOCK_SIZE), SPI_BLOCK_SIZE);
 
-        // When there are NUM_SPI_BLOCKS in the ram buffer, set flag that
-        // triggers a transfer from RAM to mass storage. TODO - consider ,making
-        // dual buffering to eliminate possibility of new data over writing data
-        // before it is copied to mass storage
+				// When there are NUM_SPI_BLOCKS in the ram buffer, set flag that triggers
+				// a transfer from RAM to mass storage. TODO - consider ,making dual buffering to eliminate
+				// possibility of new data over writing data before it is copied to mass storage
 
-        if (ramBufferCounter == NUM_SPI_BLOCKS - 1) {
-          ramBlockReady = true;
-          ramBufferCounter = 0;  // reset for next chunk
-        }
-
-        else
-          ramBufferCounter++;
-        status = gpioRead(DATA_AVAIL);
-      }
-    } else {
-      usleep(1000);
-    }
-  }
-  spiClose(spi_fd);
-  return NULL;
+				if (ramBufferCounter == NUM_SPI_BLOCKS-1) {
+					ramBlockReady = true;
+					ramBufferCounter = 0;  //reset for next chunk
+				} else {
+					ramBufferCounter++;
+				}
+				status = gpioRead(DATA_AVAIL);
+			}
+		} else {
+			usleep(1000);
+		}
+	}
+	spiClose(spi_fd);
+	return NULL;
 }
 
 //-----------------------------------------------------------------------------
