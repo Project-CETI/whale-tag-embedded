@@ -38,15 +38,18 @@
 // At 96 kHz sampling rate; 16-bit; 3 channels 1 minute of data is 33750 KiB
 #define MAX_DATA_FILE_SIZE (15 * 33750 * 1024)  // 15 minute files at 96
 
-static char ramBuffer[RAM_SIZE];
-static int ramBufferCounter = 0;
+struct dataPage {
+	char buffer[RAM_SIZE];
+	int  counter;
+	bool readyToBeSavedToDisk;
+};
+
+static struct dataPage page[2];
 
 static FILE *acqData = NULL;  // data file for audio data
 static char acqDataFileName[DATA_FILENAME_LEN];
 static int fileNum = 0;
 static int acqDataFileLength;
-
-static bool ramBlockReady = false;
 
 static void createNewDataFile(void);
 void formatRaw(void);
@@ -55,6 +58,13 @@ void formatRawNoHeader3ch16bit(void);
 //-----------------------------------------------------------------------------
 //  Acquisition Hardware Setup and Control Utility Functions
 //-----------------------------------------------------------------------------
+
+void init_pages() {
+	page[0].counter = 0;
+	page[0].readyToBeSavedToDisk = false;
+	page[1].counter = 0;
+	page[1].readyToBeSavedToDisk = false;
+}
 
 int setup_default(void) {
   char cam_response[8];
@@ -110,18 +120,17 @@ int reset_fifo(void) {
 //  Acquisition Start and Stop Controls (TODO add file open/close checking)
 //-----------------------------------------------------------------------------
 
-int start_acq(void) {
-  char cam_response[8];
-  cam(5, 0, 0, 0, 0, cam_response);  // stops the input stream
-  cam(3, 0, 0, 0, 0, cam_response);  // flushes the FIFO
-  ramBufferCounter = 0;              // resets the block counter
-  fileNum = 0;
-  strcpy(acqDataFileName, ACQ_FILE);
-  acqData = fopen(
-      acqDataFileName,
-      "wb");  // opens the data file for writing (the writes happen in ISR)
-  cam(4, 0, 0, 0, 0, cam_response);  // starts the stream
-  return 0;
+int start_acq(void)
+{
+	char cam_response[8];
+	cam(5,0,0,0,0,cam_response);  	// stops the input stream
+	cam(3,0,0,0,0,cam_response);  	// flushes the FIFO
+	init_pages();
+	fileNum = 0;
+	strcpy(acqDataFileName,ACQ_FILE);
+	acqData = fopen(acqDataFileName,"wb"); //opens the data file for writing (the writes happen in ISR)
+	cam(4,0,0,0,0,cam_response);  	// starts the stream
+	return 0;
 }
 
 int stop_acq(void) {
@@ -140,8 +149,10 @@ int stop_acq(void) {
 //-----------------------------------------------------------------------------
 // SPI Thread Gets Data from HW FIFO on Interrupt
 //-----------------------------------------------------------------------------
-void *spiThread(void *paramPtr) {
-  int spi_fd = spiOpen(SPI_CE, SPI_CLK_RATE, 1);
+void * spiThread( void * paramPtr ) {
+	int pageIndex = 0;
+	init_pages();
+	int spi_fd = spiOpen(SPI_CE, SPI_CLK_RATE,1);
 
   if (spi_fd < 0) {
     fprintf(stderr, "pigpio SPI initialisation failed\n");
@@ -169,12 +180,6 @@ void *spiThread(void *paramPtr) {
   while (1) {
     status = gpioRead(DATA_AVAIL);
 
-    if (status != prev_status) {
-      prev_status = status;
-      while (status) {
-        gpioWrite(TEST_POINT, 1);
-        gpioWrite(TEST_POINT, 0);
-
 		if (status != prev_status) {
 			prev_status = status;
 			while (status) {
@@ -182,17 +187,17 @@ void *spiThread(void *paramPtr) {
 				gpioWrite(TEST_POINT,0);
 
 				// SPI block has become available, read it from the HW FIFO via SPI
-				spiRead(spi_fd, ramBuffer + (ramBufferCounter*SPI_BLOCK_SIZE), SPI_BLOCK_SIZE);
+				spiRead(spi_fd, page[pageIndex].buffer + (page[pageIndex].counter*SPI_BLOCK_SIZE), SPI_BLOCK_SIZE);
 
-				// When there are NUM_SPI_BLOCKS in the ram buffer, set flag that triggers
-				// a transfer from RAM to mass storage. TODO - consider ,making dual buffering to eliminate
-				// possibility of new data over writing data before it is copied to mass storage
-
-				if (ramBufferCounter == NUM_SPI_BLOCKS-1) {
-					ramBlockReady = true;
-					ramBufferCounter = 0;  //reset for next chunk
+				// When NUM_SPI_BLOCKS are in the ram buffer, set flag that triggers
+				// a transfer from RAM to mass storage, then flip the data page
+				// and continue get samples from SPI.
+				if (page[pageIndex].counter == NUM_SPI_BLOCKS-1) {
+					page[pageIndex].readyToBeSavedToDisk = true;
+					page[pageIndex].counter = 0;  //reset for next chunk
+					pageIndex = !pageIndex;
 				} else {
-					ramBufferCounter++;
+					page[pageIndex].counter++;
 				}
 				status = gpioRead(DATA_AVAIL);
 			}
@@ -207,25 +212,22 @@ void *spiThread(void *paramPtr) {
 //-----------------------------------------------------------------------------
 // Write Data Thread moves the RAM Buffer to mass storage
 //-----------------------------------------------------------------------------
-void *writeDataThread(void *paramPtr) {
-  while (1) {
-    if (ramBlockReady) {
-      printf("Writing %d SPI_BLOCKS from ram buff to SD Card  \n",
-             NUM_SPI_BLOCKS);
-
-      fwrite(ramBuffer, 1, RAM_SIZE, acqData);  //
-
-      ramBlockReady = false;
-
-      acqDataFileLength += RAM_SIZE;
-
-      if (acqDataFileLength > MAX_DATA_FILE_SIZE) createNewDataFile();
-
-    } else {
-      usleep(1000);
-    }
-  }
-  return NULL;
+void * writeDataThread( void * paramPtr ) {
+	int pageIndex = 0;
+	while (1) {
+		if (page[pageIndex].readyToBeSavedToDisk) {
+			printf("Writing %d SPI_BLOCKS from ram buff to SD Card  \n", NUM_SPI_BLOCKS);
+			fwrite(page[pageIndex].buffer,1,RAM_SIZE,acqData); //
+			page[pageIndex].readyToBeSavedToDisk = false;
+			acqDataFileLength += RAM_SIZE;
+			if (acqDataFileLength > MAX_DATA_FILE_SIZE)
+				createNewDataFile();
+		} else {
+			usleep(1000);
+		}
+		pageIndex = !pageIndex;
+	}
+	return NULL;
 }
 
 //-----------------------------------------------------------------------------
