@@ -39,7 +39,6 @@
 
 
 
-static char sampleBuffer[SPI_BLOCK_SIZE];
 static char ramBuffer[RAM_SIZE];
 static int  ramBufferCounter = 0;
 
@@ -182,15 +181,11 @@ void * spiThread( void * paramPtr )
 		if (status != prev_status) {
 			prev_status = status;
 			while (status) {
-
 				gpioWrite(TEST_POINT,1);
 				gpioWrite(TEST_POINT,0);
 
 				// SPI block has become available, read it from the HW FIFO via SPI
-				spiRead(spi_fd, sampleBuffer, SPI_BLOCK_SIZE);
-
-				// Then save contents of the SPI buffer to the interim RAM buffer
-				memcpy(ramBuffer + (ramBufferCounter*SPI_BLOCK_SIZE), sampleBuffer, SPI_BLOCK_SIZE);
+				spiRead(spi_fd, ramBuffer + (ramBufferCounter*SPI_BLOCK_SIZE), SPI_BLOCK_SIZE);
 
 				// When there are NUM_SPI_BLOCKS in the ram buffer, set flag that triggers
 				// a transfer from RAM to mass storage. TODO - consider ,making dual buffering to eliminate
@@ -199,10 +194,9 @@ void * spiThread( void * paramPtr )
 				if (ramBufferCounter == NUM_SPI_BLOCKS-1) {
 					ramBlockReady = true;
 					ramBufferCounter = 0;  //reset for next chunk
-				}
-
-				else
+				} else {
 					ramBufferCounter++;
+				}
 				status = gpioRead(DATA_AVAIL);
 			}
 		} else {
