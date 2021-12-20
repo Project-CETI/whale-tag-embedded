@@ -19,6 +19,15 @@ V2 hardware is a raspberry pi zero w with three custome bonnets. The hydrophones
 
 Linux system is assumed to build the software.
 
+Before you start building, make sure you install prerequisites
+
+```bash
+  sudo apt-get remove docker docker-engine docker.io containerd runc
+  curl -fsSL https://get.docker.com -o get-docker.sh
+  sudo sh get-docker.sh
+  sudo apt install dos2unix binfmt-support qemu-system-common qemu-user-static
+```
+
 The Whale Tag specific software is wrapped in Debian packages
 to simplify management and deployment. To build the current
 debian packages and the full filesystem run
