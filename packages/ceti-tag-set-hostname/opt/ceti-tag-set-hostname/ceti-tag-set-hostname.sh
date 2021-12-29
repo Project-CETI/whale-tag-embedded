@@ -40,4 +40,6 @@ HOSTNAME="$(hostname)"
 if [ "$HOSTNAME" != "$DEVICE_ID" ]; then
     echo "Changing hostname to $DEVICE_ID"
     hostname "$DEVICE_ID"
+    cat "127.0.0.1 $DEVICE_ID" >> /etc/hosts
+    sysctl kernel.hostname="$DEVICE_ID"
 fi
