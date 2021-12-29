@@ -73,6 +73,8 @@ echo -e "ceticeti\nceticeti" | passwd pi
 mkdir -p /data
 chmod 777 /data
 
+# Add entry in fstab to mount a data partition to /data by label if present
+echo "/dev/disk/by-label/cetiData /data ext4 defaults,nofail 0 0" >> /etc/fstab
 
 # Build and install whale tag software as debian packages
 /packages/make_dpkg.sh "${OUT_DIR}"
