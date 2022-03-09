@@ -5,14 +5,15 @@ that is used to build the image for the embedded computer
 inside the Whale Tags to be deployed onto the sperm whales
 in the ocean during data collection for [project CETI](https://www.projectceti.org/).
 
-## hardware, branches & git tags
+
+## hardware, branches && git tags
 
 main branch always points to the development targeting the latest hardware.
 If you are looking for artifacts for a specific version of the hardware, look under the releases tab.
 Each release for each hardware version is marked with a git tag.
 The branch name v0 targets the v0 hardware, which  is a rapsberry pi zero w with octoboard soundcard.
 The branch v2 targets the v2 MVP hardware designed by Matt Cummings, with the deploy target of Jan'22.
-V2 hardware is a raspberry pi zero w with three custom bonnets. The hydrophones are driven by an fpga.
+V2 hardware is a raspberry pi zero w with three custome bonnets. The hydrophones are driven by an fpga.
 
 
 ## building
