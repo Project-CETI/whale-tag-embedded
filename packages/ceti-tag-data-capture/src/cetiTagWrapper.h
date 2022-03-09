@@ -69,7 +69,7 @@ extern int reset_fifo(void);
 #define RESET   (5)	    	// GPIO 5
 #define DIN     (19)		// GPIO 19  FPGA -> HOST
 #define DOUT    (18) 		// GPIO 18  HOST-> FPGA
-#define SCK     (1) 		// GPIO 1
+#define SCK     (16) 		// Moved from GPIO 1 to GPIO 16 to free I2C0
 #define NUM_BYTES_MESSAGE 8
 
 //-----------------------------------------------------------------------------
@@ -81,7 +81,7 @@ extern int reset_fifo(void);
 // Data Acq SPI Settings and Audio Data Buffering
 
 #define SPI_CE (0)
-#define SPI_CLK_RATE (25000000) 	//Hz
+#define SPI_CLK_RATE (15000000) 	//Hz
 
 // SPI Block Size
 //  - The Pi default SPI buffer setting must be increased from 4096 to 32768 bytes before using this
@@ -91,7 +91,7 @@ extern int reset_fifo(void);
 //  - The optimum block size is a trade off between leaving enough room in case the interrupt execution is delayed
 //    and the frequency of the interrupts.
 
-#define HWM (512) //High Water Mark from Verilog code - these are 32 byte chunks (2 sample sets)
+#define HWM (256) //High Water Mark from Verilog code - these are 32 byte chunks (2 sample sets)
 #define SPI_BLOCK_SIZE (HWM * 32)  //make SPI block size <= HWM * 32 otherwise may underflow
 
 // 	NUM_SPI_BLOCKS is the number of blocks acquired before writing out to mass storage
@@ -103,7 +103,7 @@ extern int reset_fifo(void);
 // 		* 1 SPI Block is then 16384/16 = 1024 sample sets or 21.33 ms worth of data in time
 // 		* 10 seconds is 10/.02133  = 469 SPI Blocks
 
-#define NUM_SPI_BLOCKS (300) // for example, 500 is just over 10 seconds at 48 kSPS
+#define NUM_SPI_BLOCKS (256) // for example, 500 is just over 10 seconds at 48 kSPS
 #define RAM_SIZE (NUM_SPI_BLOCKS * SPI_BLOCK_SIZE) //bytes
 
 //-----------------------------------------------------------------------------

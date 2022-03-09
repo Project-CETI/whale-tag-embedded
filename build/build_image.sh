@@ -24,15 +24,16 @@ if ! shell_image "${IMAGE}" "ls /tmp/resized"; then
   shell_image "${IMAGE}" "touch /tmp/resized"
 fi
 
-# Build debian packages except
-"${SCRIPT_DIR}/../packages/make_dpkg.sh" "${OUT_DIR}"
-
 # Run image setup script.
 shell_image \
     --mount "${OUT_DIR}:/out" \
+    --mount "${SCRIPT_DIR}:/build" \
     --mount "${SCRIPT_DIR}/../overlay:/overlay" \
+    --mount "${SCRIPT_DIR}/../packages:/packages" \
     --arg /out \
+    --arg /build \
     --arg /overlay \
+    --arg /packages \
     "${IMAGE}" < "${SCRIPT_DIR}/setup_image.sh"
 
 # Clean /tmp.

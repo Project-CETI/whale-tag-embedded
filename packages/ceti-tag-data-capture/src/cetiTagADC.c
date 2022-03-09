@@ -9,7 +9,7 @@
 //-----------------------------------------------------------------------------
 // Project: CETI Tag Electronics
 // File: cetiTagADC.c
-// Description: Functions associated with the Analog Devices AD7768 ADC
+// Description: Data Acquisition 
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
@@ -31,14 +31,28 @@
 
 #include "cetiTagWrapper.h"
 
-static FILE *acqData=NULL;  //data file for audio data
+#define DATA_FILENAME_LEN (100)
+
+// At 96 kHz sampling rate; 16-bit; 3 channels 1 minute of data is 33750 KiB
+//#define MAX_DATA_FILE_SIZE (1 * 33750 * 128)  // small files
+#define MAX_DATA_FILE_SIZE (15 * 33750 * 1024)  // 15 minute files at 96
+
+
+
 static char sampleBuffer[SPI_BLOCK_SIZE];
 static char ramBuffer[RAM_SIZE];
 static int  ramBufferCounter = 0;
 
+static FILE *acqData=NULL;  //data file for audio data
+static char acqDataFileName[DATA_FILENAME_LEN];
+static int fileNum = 0;
+static unsigned long acqDataFileLength;
+
 static bool ramBlockReady = false;
 
+static void createNewDataFile(void); 
 void formatRaw(void);
+void formatRawNoHeader3ch16bit(void);
 
 //-----------------------------------------------------------------------------
 //  Acquisition Hardware Setup and Control Utility Functions
@@ -110,7 +124,9 @@ int start_acq(void)
 	cam(5,0,0,0,0,cam_response);  	// stops the input stream
 	cam(3,0,0,0,0,cam_response);  	// flushes the FIFO
 	ramBufferCounter = 0;           // resets the block counter
-	acqData = fopen(ACQ_FILE,"wb"); //opens the data file for writing (the writes happen in ISR)
+	fileNum = 0;
+	strcpy(acqDataFileName,ACQ_FILE);
+	acqData = fopen(acqDataFileName,"wb"); //opens the data file for writing (the writes happen in ISR)
 	cam(4,0,0,0,0,cam_response);  	// starts the stream
 	return 0;
 }
@@ -118,10 +134,11 @@ int start_acq(void)
 int stop_acq(void)
 {
 	char cam_response[8];
-	cam(5,0,0,0,0,cam_response);  // stops the input stream
-	fclose(acqData);              // close the data file
-	cam(3,0,0,0,0,cam_response);  // flushes the FIFO
-	formatRaw();                  // makes formatted output file to plot
+	cam(5,0,0,0,0,cam_response);     // stops the input stream
+	fclose(acqData);                 // close the data file
+	cam(3,0,0,0,0,cam_response);     // flushes the FIFO
+	//formatRaw();                   // makes formatted output file to plot
+	//formatRawNoHeader3ch16bit();   // reduced data size
 	return 0;
 }
 
@@ -133,7 +150,7 @@ int stop_acq(void)
 //-----------------------------------------------------------------------------
 void * spiThread( void * paramPtr )
 {
-	int spi_fd = spiOpen(SPI_CE, SPI_CLK_RATE, 0);
+	int spi_fd = spiOpen(SPI_CE, SPI_CLK_RATE,1);
 
 	if (spi_fd < 0) {
 		fprintf(stderr, "pigpio SPI initialisation failed\n");
@@ -175,9 +192,15 @@ void * spiThread( void * paramPtr )
 				// Then save contents of the SPI buffer to the interim RAM buffer
 				memcpy(ramBuffer + (ramBufferCounter*SPI_BLOCK_SIZE), sampleBuffer, SPI_BLOCK_SIZE);
 
-				//When there are NUM_SPI_BLOCKS in the ram buffer, set flag for thread
-				if (ramBufferCounter == NUM_SPI_BLOCKS-1)
+				// When there are NUM_SPI_BLOCKS in the ram buffer, set flag that triggers
+				// a transfer from RAM to mass storage. TODO - consider ,making dual buffering to eliminate
+				// possibility of new data over writing data before it is copied to mass storage
+
+				if (ramBufferCounter == NUM_SPI_BLOCKS-1) {
 					ramBlockReady = true;
+					ramBufferCounter = 0;  //reset for next chunk
+				}
+
 				else
 					ramBufferCounter++;
 				status = gpioRead(DATA_AVAIL);
@@ -197,10 +220,17 @@ void * writeDataThread( void * paramPtr )
 {
 	while (1) {
 		if (ramBlockReady) {
-			printf("Writing %d SPI_BLOCKS from ram buff to SD Card  \n", ramBufferCounter+1);
-			fwrite(ramBuffer,1,RAM_SIZE,acqData); //this file is opened and closed by the acq start/stop functions
-			ramBufferCounter=0;  //reset the block incrementer to prepare for the next chunk
+			
+			printf("Writing %d SPI_BLOCKS from ram buff to SD Card  \n", NUM_SPI_BLOCKS);
+			
+			fwrite(ramBuffer,1,RAM_SIZE,acqData); //
+
 			ramBlockReady = false;
+
+			acqDataFileLength += RAM_SIZE;
+
+			if (acqDataFileLength > MAX_DATA_FILE_SIZE) createNewDataFile();
+
 		} else {
 			usleep(1000);
 		}
@@ -209,9 +239,22 @@ void * writeDataThread( void * paramPtr )
 }
 
 //-----------------------------------------------------------------------------
+static void createNewDataFile() 
+{
+	char newFile[50];
+	static int fileNum = 0;
+	fclose(acqData);
+	++fileNum;
+	snprintf(newFile, (DATA_FILENAME_LEN + 8), "%s.%u",acqDataFileName,fileNum);
+	rename( acqDataFileName,newFile);
+	acqDataFileLength = 0; //reset
+	acqData = fopen(acqDataFileName,"wb");
+}
+
+//-----------------------------------------------------------------------------
 // Test/debug utility - Format acquired raw data file for export - e.g. to plot the data in Excel.
 //-----------------------------------------------------------------------------
-#define NUM_SMPL_SETS 1024  // adjust as needed for
+#define NUM_SMPL_SETS 1024  // adjust size as needed
 
 void formatRaw(void)  {
 	signed int chan_0[NUM_SMPL_SETS]; //raw samples are 24 bits 2s complement and have 8-bit header
@@ -278,4 +321,67 @@ void formatRaw(void)  {
    }
 
    fclose(outData);
+}
+
+//---------------------------------------------------------------------------------------
+void formatRawNoHeader3ch16bit(void)  {
+
+#define NUM_SMPL_SETS 1024  
+
+signed int chan_0[NUM_SMPL_SETS]; //each sample is 16-bit
+signed int chan_1[NUM_SMPL_SETS]; 
+signed int chan_2[NUM_SMPL_SETS]; 
+//signed int chan_3[NUM_SMPL_SETS]; 
+
+
+FILE *rawData=NULL;
+	FILE *outData=NULL;
+
+	int i = 0;
+
+	//char * pTemp;
+	char sample_buffer[6];  //No header, and 3 ch 16 bit so 6 bytes for each sample set
+	char temp[1];
+
+	rawData = fopen(ACQ_FILE,"rb");  //input file to parse and format
+	outData = fopen("../data/test_acq_out.dat", "w");  //output file
+
+	fread(temp,1,1,rawData);   //drop the first byte returned on SPI, not valid
+
+	while(i<NUM_SMPL_SETS) {
+
+		fread(sample_buffer,1,6,rawData); 
+
+		// The samples 
+		chan_0[i] = ((sample_buffer[0]   << 24 )  + 
+	   				 (sample_buffer[1]   << 16 ))/256;
+
+
+	    chan_1[i] = ((sample_buffer[2]   << 24 ) + 
+	   				 (sample_buffer[3]   << 16 ))/256;
+
+	   	chan_2[i] = ((sample_buffer[4]   << 24 ) + 
+	   				 (sample_buffer[5]   << 16 ))/256; 
+
+
+// Just three channels while we improve OS latencies  	
+
+/*	   	chan_3[i] = ((sample_buffer[9]  << 24 ) + 
+	   				 (sample_buffer[10]	 << 16 ) + 
+	   				 (sample_buffer[11]  <<  8 ))/256; */
+
+	   	i++;
+	}
+
+	fclose(rawData); 
+
+	outData = fopen("../data/test_acq_out.dat", "w");  //output file
+
+	for(i=0;i<NUM_SMPL_SETS;i++) {
+    	fprintf(outData,"%d %d %d\n", 
+    	chan_0[i],chan_1[i],chan_2[i]);     	  
+   }	
+
+   fclose(outData);
+
 }

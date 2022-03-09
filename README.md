@@ -5,6 +5,7 @@ that is used to build the image for the embedded computer
 inside the Whale Tags to be deployed onto the sperm whales
 in the ocean during data collection for [project CETI](https://www.projectceti.org/).
 
+
 ## hardware, branches && git tags
 
 main branch always points to the development targeting the latest hardware.
@@ -19,32 +20,31 @@ V2 hardware is a raspberry pi zero w with three custome bonnets. The hydrophones
 
 Linux system is assumed to build the software.
 
+Before you start building, make sure you install prerequisites
+
+```bash
+  sudo apt-get remove docker docker-engine docker.io containerd runc
+  curl -fsSL https://get.docker.com -o get-docker.sh
+  sudo sh get-docker.sh
+  sudo apt install dos2unix binfmt-support qemu-system-common qemu-user-static
+```
+
 The Whale Tag specific software is wrapped in Debian packages
 to simplify management and deployment. To build the current
-debian packages run
+debian packages and the full filesystem run
 
 ```bash
-  make build-debs
+  make build
 ```
 
-This will generate .deb files for all sources in packages.
-The .deb files will be located in out/ folder.
-
-If you want to create the full sdcard image you will need docker
-installed on your system. You will also need make.
-
-
-Then just run make:
-
-```bash
-  make build-sdcard-img
-```
+This will create out/ folder and place the generated .deb files
+for all the CETI software packages.
 
 The build process will run within a docker container.
 This build will start by downloading the lastest raspbian lite image,
 then mounting it and running inside QEMU, then natively running commands
-inside the setup_image.sh. It will also install all the packages that
-are built with the make build-debs command.
+inside the setup_image.sh, including the debian packages build.
+It will also install all the packages that are built into the resulting sdcard image.
 
 
 ## installing
@@ -86,27 +86,6 @@ The reason the system hostname is changed are two-fold:
 
 For more info on data ingestion see [this doc](https://docs.google.com/document/d/181EHvxuhCzK52iVt1-lNrv1JLxsavYCylSLfFJ6ssQ0/edit#).
 
-
-## ceti-tag-burnwire-shutdown
-
-The source code is in packages/ceti-tag-burnwire-shutdown.
-The main script that is executed by the systemd is
-/opt/ceti-tag-burnwire-shutdown/ceti-tag-burnwire-shutdown.sh
-
-This is a systemd service that monitors a few conditions and triggers
-the burnwire to detach the whale tag from the back of the whale and proceed to safely shutdown the system preserving the data collected.
-
-By default the burnwire is assumed to be attached to GPIO15, and
-enabling it means driving the GPIO15 from LOW to HIGH for 20 seconds.
-
-The conditions that trigger burnwire and shutdown are:
-
-1) Battery level, as read from SigarPi2 UPS.
-The level itself is set by the SHUTDOWN_BATTERY_LEVEL="5.0" variable in
-opt/ceti-tag-burnwire-shutdown/ceti-tag-burnwire-shutdown.sh
-
-2) Uptime. By default it is turned off. But in case one wants to introduce a limit on for how long the system should be running and collecting data, it is possible to change the variable MAXUPTIME_S="-1"
-in the opt/ceti-tag-burnwire-shutdown/ceti-tag-burnwire-shutdown.sh script. Please note, this is the value of the uptime in seconds. So to have the system shutdown after 10 minutes of operations, set this value to "600"
 
 
 ## ceti-tag-data-capture

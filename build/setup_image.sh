@@ -1,8 +1,8 @@
 #!/bin/bash
 set -ex
 
-if [ "$#" -ne 2 ]; then
-    echo "$0 <out_dir> <overlay-dir>" >&2
+if [ "$#" -ne 4 ]; then
+    echo "$0 <out_dir> <build-dir> <overlay-dir> <packages-dir>" >&2
     exit 1
 fi
 
@@ -37,44 +37,25 @@ function install_package {
   fi
 }
 
-
-# Setup aiyprojects apt repo.
-echo "deb https://packages.cloud.google.com/apt aiyprojects-stable main" > /etc/apt/sources.list.d/aiyprojects.list
-if ! apt-key list | grep "Google Cloud"; then
-  curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-fi
-
-apt update
+apt -y update --allow-releaseinfo-change
 
 time apt install "${APT_NONINTERACTIVE}" --fix-broken --no-upgrade \
   alsa-utils \
-  aiy-usb-gadget \
   avahi-utils \
   bc \
+  build-essential \
+  libpigpio-dev \
+  pigpio \
+  devscripts \
   dkms \
   dnsmasq \
   flac \
   libi2c-dev \
   i2c-tools \
-  python3 \
-  python3-gpiozero \
-  python3-smbus \
-  python3-pip \
-  python3-bluez \
-  python3-dbus \
   netcat \
 
 
 apt "${APT_NONINTERACTIVE}" autoremove
-
-pip3 install --retries 10 --default-timeout=60 \
-                  --no-deps --no-cache-dir --disable-pip-version-check \
-                  -r /dev/stdin <<EOF
-cachetools==4.1.1
-sparkfun-qwiic-icm20948
-adafruit-circuitpython-bno08x
-adafruit-circuitpython-ads1x15
-EOF
 
 # Enable I2C
 sudo raspi-config nonint do_i2c 0
@@ -92,29 +73,13 @@ echo -e "ceticeti\nceticeti" | passwd pi
 mkdir -p /data
 chmod 777 /data
 
-# Install PiSugar
-TEMP_DEB="$(mktemp)".deb
-wget -O "$TEMP_DEB" 'https://github.com/PiSugar/pisugar-power-manager-rs/releases/download/v1.4.9/pisugar-server_1.4.9_armhf.deb'
-dpkg -i "$TEMP_DEB"
-rm -f "$TEMP_DEB"
+# Add entry in fstab to mount a data partition to /data by label if present
+echo "/dev/disk/by-label/cetiData /data ext4 defaults,nofail 0 0" >> /etc/fstab
 
-TEMP_DEB="$(mktemp)".deb
-wget -O "$TEMP_DEB" 'https://github.com/PiSugar/pisugar-power-manager-rs/releases/download/v1.4.9/pisugar-poweroff_1.4.9_armhf.deb'
-dpkg -i "$TEMP_DEB"
-rm -f "$TEMP_DEB"
-
-# Install octoboard audio injector
-apt remove pulseaudio
-TEMP_DEB="$(mktemp)".deb
-wget -O "$TEMP_DEB" 'https://github.com/Audio-Injector/stereo-and-zero/raw/master/audio.injector.scripts_0.1-1_all.deb'
-dpkg -i "$TEMP_DEB"
-rm -f "$TEMP_DEB"
-audioInjector-setup.sh
-
-# Install whale tag packages.
-install_package "$(ls "${OUT_DIR}"/ceti-tag-set-hostname_*_all.deb)"
-install_package "$(ls "${OUT_DIR}"/ceti-tag-data-capture_*_all.deb)"
-install_package "$(ls "${OUT_DIR}"/ceti-tag-burnwire-shutdown_*_all.deb)"
+# Build and install whale tag software as debian packages
+/packages/make_dpkg.sh "${OUT_DIR}"
+install_package "$(ls "${OUT_DIR}"/ceti-tag-set-hostname_*.deb)"
+install_package "$(ls "${OUT_DIR}"/ceti-tag-data-capture_*.deb)"
 
 # Minimize logging
 # See article: https://medium.com/swlh/make-your-raspberry-pi-file-system-read-only-raspbian-buster-c558694de79
