@@ -12,15 +12,17 @@
 // Description: Logging system for the project
 //-----------------------------------------------------------------------------
 
+#include "cetiTagLogging.h"
+
 #include <pthread.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
-#include <syslog.h>
-#include <stdarg.h>
-#include <sys/timeb.h>
 #include <sys/time.h>
-#include "cetiTagLogging.h"
+#include <sys/timeb.h>
+#include <syslog.h>
+#include <time.h>
+
 #include "cetiTagWrapper.h"
 
 //***********************************************************************************
@@ -28,21 +30,19 @@
 //***********************************************************************************
 static void createNewLog();
 static void writeToFile(const char *msg);
-static void getTimestampString( char * timestampLogStr );
-
+static void getTimestampString(char *timestampLogStr);
 
 //***********************************************************************************
 //                               Global variables
 //***********************************************************************************
 #define LOG_FILENAME_LEN (100)
-static FILE *  logFilePtr;
-static char    logFileName[LOG_FILENAME_LEN];
-//enum logLevelEnum currentLogLevel = DEBUG_MEDIUM;
+static FILE *logFilePtr;
+static char logFileName[LOG_FILENAME_LEN];
+// enum logLevelEnum currentLogLevel = DEBUG_MEDIUM;
 static enum logLevelEnum currentLogLevel = ERROR;
 // length of the currently active log file
 static unsigned long logFileLength;
 static pthread_mutex_t logMutex;
-
 
 /***********************************************************************************
 
@@ -60,60 +60,60 @@ static pthread_mutex_t logMutex;
         PTM     05/07/12    Created
 
  ***********************************************************************************/
-void CETI_initializeLog (const char *_logFileName)
-{
+void CETI_initializeLog(const char *_logFileName) {
+  // printf("CETI_initializeLog: Starting the Log\n");
+  time_t timeStamp;  //  struct timeval timeStamp;
+  char bannerStr[1000];
 
-    //printf("CETI_initializeLog: Starting the Log\n");
-    time_t  timeStamp;      //  struct timeval timeStamp;
-    char bannerStr[1000];
+  //  Initialize mutex
+  pthread_mutex_init(&logMutex, NULL);
 
-    //  Initialize mutex
-    pthread_mutex_init( &logMutex, NULL );
+  // Save the Log file name
+  strcpy(logFileName, _logFileName);
 
-    // Save the Log file name
-    strcpy(logFileName, _logFileName);
+  // Open log file
+  // printf("Attempt to open the log\n");
+  logFilePtr = fopen(logFileName, "a");
 
-    // Open log file
-    //printf("Attempt to open the log\n");
-    logFilePtr = fopen(logFileName, "a");
+  if (logFilePtr == NULL) {
+    printf("CETI_initializeLog: Failed to start the Log\n");
+    //   syslog(LOG_CRIT, "Unable to open CETI log file: %s\n",
+    //          logFileName);
+  }
 
-    if ( logFilePtr == NULL )
-    {
-        printf("CETI_initializeLog: Failed to start the Log\n");
-     //   syslog(LOG_CRIT, "Unable to open CETI log file: %s\n",
-      //          logFileName);
-    }
+  // --------------------------------
+  // Get file length
+  // --------------------------------
 
-    // --------------------------------
-    // Get file length
-    // --------------------------------
+  // file pointer is positioned at the end of the file
+  // because we opened it in append mode
+  // printf("check length\n");
+  logFileLength = ftell(logFilePtr);
+  // printf("write banner\n");
+  //
+  //   Put Banner header at the beginning of the file
+  //
+  int len = sprintf(bannerStr,
+                    "\n*************************************************\n");
+  len += sprintf(bannerStr + len,
+                 "            CETI Tag Electronics                 \n");
+  len += sprintf(bannerStr + len,
+                 "                                                 \n");
+  len += sprintf(bannerStr + len,
+                 " -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- \n");
+  len += sprintf(bannerStr + len, "    Version %s\n", CETI_VERSION);
+  len +=
+      sprintf(bannerStr + len, "    Build date: %s, %s\n", __DATE__, __TIME__);
+  len += sprintf(bannerStr + len,
+                 "*************************************************\n");
 
-    // file pointer is positioned at the end of the file
-    // because we opened it in append mode
-     // printf("check length\n");
-    logFileLength = ftell(logFilePtr);
-    //printf("write banner\n");
-    //
-    //  Put Banner header at the beginning of the file
-    //
-    int len = sprintf( bannerStr , "\n*************************************************\n");
-    len += sprintf( bannerStr + len, "            CETI Tag Electronics                 \n");
-    len += sprintf( bannerStr + len, "                                                 \n");
-    len += sprintf( bannerStr + len, " -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- \n");
-    len += sprintf( bannerStr + len, "    Version %s\n", CETI_VERSION);
-    len += sprintf( bannerStr + len, "    Build date: %s, %s\n", __DATE__, __TIME__);
-    len += sprintf( bannerStr + len, "*************************************************\n");
+  time(&timeStamp);
+  len += sprintf(bannerStr + len, "%s", ctime(&timeStamp));
 
-    time(&timeStamp);
-    len += sprintf(bannerStr + len, "%s", ctime(&timeStamp));
+  writeToFile(bannerStr);
 
-    writeToFile(bannerStr);
-
-    fclose(logFilePtr);
-
+  fclose(logFilePtr);
 }
-
-
 
 /***********************************************************************************
 
@@ -143,68 +143,49 @@ void CETI_initializeLog (const char *_logFileName)
         PTM     05/07/12    Created
 
  ***********************************************************************************/
-void CETI_logMsg (const char *         	  file,
-				 const char * 			  function,
-                 enum logLevelEnum        logLevel,
-                 enum logTimestampEnum    timeOption,
-                 const char               *msg,
-                 ... )
-{
+void CETI_logMsg(const char *file, const char *function,
+                 enum logLevelEnum logLevel, enum logTimestampEnum timeOption,
+                 const char *msg, ...) {
+  char timeStampString[100] = "";
+  char formattedMessage[LOG_MSG_SIZE];
+  va_list args;
+  unsigned count = 0;
 
-    char        timeStampString[100] = "";
-    char        formattedMessage[LOG_MSG_SIZE];
-    va_list     args;
-    unsigned    count = 0;
+  // if the message should be logged because it's beneath the current
+  // threshold...
+  if (logLevel <= currentLogLevel) {
+    va_start(args, msg);
 
+    // if this message is supposed to have a timestamp...
+    if (timeOption == TIMESTAMP) {
+      // get the timestamp
+      getTimestampString(timeStampString);
+    }
 
-    // if the message should be logged because it's beneath the current threshold...
-    if (logLevel <= currentLogLevel)
-    {
-        va_start(args, msg);
+    // if the message is too big...
+    if (strlen(msg) > (LOG_MSG_SIZE - 100)) {
+      // Too big.  Don't print a message
+      sprintf(formattedMessage, "%s   %s:%s:%s, %d characters", timeStampString,
+              file, function, "Message too Large to Log", strlen(msg));
+    } else {
+      if (timeOption == TIMESTAMP) {
+        // print timestamp and thread name
+        count = sprintf(formattedMessage, "\n%s   %s : %s()\n", timeStampString,
+                        file, function);
+      }
 
-        // if this message is supposed to have a timestamp...
-        if (timeOption == TIMESTAMP)
-        {
-            // get the timestamp
-            getTimestampString(timeStampString);
-        }
-
-        // if the message is too big...
-        if (strlen(msg) > (LOG_MSG_SIZE - 100))
-        {
-            // Too big.  Don't print a message
-            sprintf (formattedMessage, "%s   %s:%s:%s, %d characters",
-                     timeStampString,
-                     file,
-                     function,
-                     "Message too Large to Log",
-                     strlen(msg));
-        } else
-        {
-            if (timeOption == TIMESTAMP)
-            {
-                 // print timestamp and thread name
-                 count = sprintf (formattedMessage, "\n%s   %s : %s()\n",
-                                  timeStampString,
-                                  file,
-                                  function);
-            }
-
-            // print the log string
-            vsprintf (&formattedMessage[count], msg, args);
-        }
+      // print the log string
+      vsprintf(&formattedMessage[count], msg, args);
+    }
 
     // Open log file
-        fopen(logFileName, "a");
-        writeToFile(formattedMessage);
-        fclose(logFilePtr);
+    fopen(logFileName, "a");
+    writeToFile(formattedMessage);
+    fclose(logFilePtr);
 
-        va_end(args);
-    }
+    va_end(args);
+  }
 }
-
-
-
 
 /***********************************************************************************
 
@@ -222,34 +203,31 @@ void CETI_logMsg (const char *         	  file,
         PTM     05/07/12    Created
 
  ***********************************************************************************/
-static void writeToFile(const char *msg)
-{
-    unsigned msgLen;
+static void writeToFile(const char *msg) {
+  unsigned msgLen;
 
-    pthread_mutex_lock( &logMutex );
+  pthread_mutex_lock(&logMutex);
 
-    // calculate new log file length and write message to log file
-    msgLen = strlen(msg);
-    logFileLength += msgLen;
-    fwrite(msg, 1, msgLen, logFilePtr);
-    fwrite("\n", 1, 1, logFilePtr);
+  // calculate new log file length and write message to log file
+  msgLen = strlen(msg);
+  logFileLength += msgLen;
+  fwrite(msg, 1, msgLen, logFilePtr);
+  fwrite("\n", 1, 1, logFilePtr);
 
-    // if file length is larger than the max...
-    if ( logFileLength > MAX_LOG_FILE_SIZE )
-    {
-        createNewLog();
-    }
+  // if file length is larger than the max...
+  if (logFileLength > MAX_LOG_FILE_SIZE) {
+    createNewLog();
+  }
 
-    pthread_mutex_unlock( &logMutex );
-
+  pthread_mutex_unlock(&logMutex);
 }
 
 /***********************************************************************************
 
   Name:     createNewLog
 
-  Notes:    This function will start a new log file and copy old files into backups
-            limiting the total number of old logs to a maximum
+  Notes:    This function will start a new log file and copy old files into
+ backups limiting the total number of old logs to a maximum
 
   Parameters: N/A
 
@@ -260,42 +238,38 @@ static void writeToFile(const char *msg)
         PTM     05/07/12    Created
 
  ***********************************************************************************/
-#define BUF_SIZE (LOG_FILENAME_LEN+8)
-static void createNewLog()
-{
-    char newFile[50];
-    char oldFile[50];
-    unsigned int fileNum;
+#define BUF_SIZE (LOG_FILENAME_LEN + 8)
+static void createNewLog() {
+  char newFile[50];
+  char oldFile[50];
+  unsigned int fileNum;
 
-    // close the current log file
-    fclose(logFilePtr);
+  // close the current log file
+  fclose(logFilePtr);
 
-    // remove the oldest log file
-    fileNum = MAX_LOG_FILES - 1;
-    snprintf( oldFile, BUF_SIZE, "%s.%u", logFileName, fileNum );
-    remove( oldFile );
+  // remove the oldest log file
+  fileNum = MAX_LOG_FILES - 1;
+  snprintf(oldFile, BUF_SIZE, "%s.%u", logFileName, fileNum);
+  remove(oldFile);
 
-    // advance the file numbers on all of the existing log files
+  // advance the file numbers on all of the existing log files
+  --fileNum;
+  while (fileNum > 0) {
+    snprintf(oldFile, BUF_SIZE, "%s.%u", logFileName, fileNum);
+    snprintf(newFile, BUF_SIZE, "%s.%u", logFileName, fileNum + 1);
+    rename(oldFile, newFile);
     --fileNum;
-    while ( fileNum > 0 )
-    {
-        snprintf(oldFile, BUF_SIZE, "%s.%u", logFileName, fileNum );
-        snprintf(newFile, BUF_SIZE, "%s.%u", logFileName, fileNum + 1 );
-        rename(oldFile, newFile);
-        --fileNum;
-    }
+  }
 
-    // rename the primary log file to .1
-    snprintf( newFile, BUF_SIZE, "%s.1", logFileName);
-    rename( logFileName, newFile );
+  // rename the primary log file to .1
+  snprintf(newFile, BUF_SIZE, "%s.1", logFileName);
+  rename(logFileName, newFile);
 
-    // open the new log file
-    logFilePtr = fopen(logFileName, "a");
+  // open the new log file
+  logFilePtr = fopen(logFileName, "a");
 
-    logFileLength = 0;
+  logFileLength = 0;
 }
-
-
 
 /***********************************************************************************
 
@@ -305,8 +279,8 @@ static void createNewLog()
             MM/DD/YYYY HH:MM:SS:UUU, to be used for logging.
 
   Parameters:
-      timestampLogStr (o): pointer to the string that will contain the timestamp on
-                           exit.
+      timestampLogStr (o): pointer to the string that will contain the timestamp
+ on exit.
 
   Returns:  N/A
 
@@ -315,24 +289,17 @@ static void createNewLog()
         PTM     05/07/12    Created
 
  ***********************************************************************************/
-static void getTimestampString( char * timestampLogStr )
-{
-    // Get time data
-    struct  tm *tp;
-    struct  timeb   tsb;
+static void getTimestampString(char *timestampLogStr) {
+  // Get time data
+  struct tm *tp;
+  struct timeb tsb;
 
-    ftime(&tsb);
-    tp = localtime(&tsb.time);
+  ftime(&tsb);
+  tp = localtime(&tsb.time);
 
-    // Create time log string:  MM/DD/YYYY HH:MM:SS:UUU
-    sprintf(timestampLogStr, "%02d/%02d/%d %02d:%02d:%02d:%03d",
-            (tp->tm_mon + 1),
-            tp->tm_mday,
-            (tp->tm_year + 1900),
-            tp->tm_hour,
-            tp->tm_min,
-            tp->tm_sec,
-            tsb.millitm);
+  // Create time log string:  MM/DD/YYYY HH:MM:SS:UUU
+  sprintf(timestampLogStr, "%02d/%02d/%d %02d:%02d:%02d:%03d", (tp->tm_mon + 1),
+          tp->tm_mday, (tp->tm_year + 1900), tp->tm_hour, tp->tm_min,
+          tp->tm_sec, tsb.millitm);
 
-} // end getTimestampString
-
+}  // end getTimestampString
