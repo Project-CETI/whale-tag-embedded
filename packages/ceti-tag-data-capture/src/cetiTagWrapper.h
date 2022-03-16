@@ -43,9 +43,7 @@ extern int reset_fifo(void);
 // Defines
 //-----------------------------------------------------------------------------
 
-#define CETI_VERSION "0.0 Alpha 211014"
-#define LOGFILE "../log/cetiLog"  // log file
-
+#define CETI_VERSION "2.1.0"
 #define CMD "../ipc/cetiCommand"  // fifo locations
 #define RSP "../ipc/cetiResponse"
 
@@ -103,16 +101,17 @@ extern int reset_fifo(void);
   (HWM * 32)  // make SPI block size <= HWM * 32 otherwise may underflow
 
 // 	NUM_SPI_BLOCKS is the number of blocks acquired before writing out to
-// mass storage 	A setting of 500 will give buffer about 10 seconds at a time if
+// mass storage 	A setting of 500 will give buffer about 10 seconds at a
+// time if
 // sample rate is 48 kHz 	Example sizing of buffer (DesignMaps.xlsx has a
 // calcuator for this)
-// 		* SPI block HWM * 32 bytes = 16384 bytes (half the hardware FIFO in
-// this example)
+// 		* SPI block HWM * 32 bytes = 16384 bytes (half the hardware FIFO
+// in this example)
 // 		* Sampling rate 48000 Hz
-// 		* 16 bytes per sample set (4 channels, 24 bits + 8 bit header per
-// channel)
-// 		* 1 SPI Block is then 16384/16 = 1024 sample sets or 21.33 ms worth
-// of data in time
+// 		* 16 bytes per sample set (4 channels, 24 bits + 8 bit header
+// per channel)
+// 		* 1 SPI Block is then 16384/16 = 1024 sample sets or 21.33 ms
+// worth of data in time
 // 		* 10 seconds is 10/.02133  = 469 SPI Blocks
 
 #define NUM_SPI_BLOCKS \

@@ -18,6 +18,7 @@
 
 #include <pigpio.h>
 #include <pthread.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -46,7 +47,7 @@ int main(void) {
   printf(CETI_VERSION);
   printf("\n");
   printf("main(): Begin Logging\n");
-  CETI_initializeLog(LOGFILE);
+  CETI_initializeLog();
   printf("main(): Starting Application\n");
 
   if (gpioInitialise() < 0) {

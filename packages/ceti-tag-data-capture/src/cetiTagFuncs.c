@@ -12,6 +12,7 @@
 // Description: Functions used by the top wrapper
 //-----------------------------------------------------------------------------
 #include <pigpio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -161,7 +162,7 @@ int hdlCmd(void) {
     for (i = 0; i < n; i++)
       cArg[i] = *(pTemp1 + i);  // this is the period in microseconds as a
                                 // string
-    cArg[n] = '\0';  // append null term
+    cArg[n] = '\0';             // append null term
     setup_sim_rate(atoi(cArg));
     g_rsp = fopen(RSP, "w");
     fprintf(g_rsp, "hdlCmd(): Setup the Simulated Sampling Rate\n");  // echo it
