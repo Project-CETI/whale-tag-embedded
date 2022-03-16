@@ -28,8 +28,8 @@ extern void isr_get_fifo_block(void);  // ISR for SPI
 
 extern int hdlCmd(void);
 extern int loadFpgaBitstream(void);
-extern void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
-                unsigned int pld0, unsigned int pld1, char *pResponse);
+extern void cam(char opcode, char arg0, char arg1,
+                char pld0, char pld1, char *pResponse);
 extern int start_acq(void);
 extern int stop_acq(void);
 extern int setup_192kHz(void);

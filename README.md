@@ -1,6 +1,6 @@
 # whale-tag-embedded
 
-This repo contains the source code for the software
+This repository contains the source code for the software
 that is used to build the image for the embedded computer
 inside the Whale Tags to be deployed onto the sperm whales
 in the ocean during data collection for [project CETI](https://www.projectceti.org/).
@@ -77,7 +77,7 @@ in a set of debian packages. Below is the list of all of them with the descripti
 The source code is in packages/ceti-tag-set-hostname.
 The main script that is executed by the systemd is /opt/ceti-tag-set-hostname/ceti-tag-set-hostname.sh
 
-This script is run at device start, and changes the hostname to unique identifiable name. The name is derived from "wt-" and MAC address of the WiFi adapter, which should be unique. If no wifi adapter is found in the system, an ethernet MAC address is used, if Ethernet is absent as well,
+This script is run at device start, and changes the hostname to unique identifiable name. The name is derived from "wt-" and MAC address of the Wi-Fi adapter, which should be unique. If no Wi-Fi adapter is found in the system, an ethernet MAC address is used, if Ethernet is absent as well,
 /proc/cpuinfo serial number is used.
 
 The reason the system hostname is changed are two-fold:

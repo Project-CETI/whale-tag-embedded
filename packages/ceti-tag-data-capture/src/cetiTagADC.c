@@ -36,7 +36,6 @@
 #define DATA_FILENAME_LEN (100)
 
 // At 96 kHz sampling rate; 16-bit; 3 channels 1 minute of data is 33750 KiB
-//#define MAX_DATA_FILE_SIZE (1 * 33750 * 128)  // small files
 #define MAX_DATA_FILE_SIZE (15 * 33750 * 1024)  // 15 minute files at 96
 
 static char sampleBuffer[SPI_BLOCK_SIZE];
@@ -46,7 +45,7 @@ static int ramBufferCounter = 0;
 static FILE *acqData = NULL;  // data file for audio data
 static char acqDataFileName[DATA_FILENAME_LEN];
 static int fileNum = 0;
-static unsigned long acqDataFileLength;
+static int acqDataFileLength;
 
 static bool ramBlockReady = false;
 

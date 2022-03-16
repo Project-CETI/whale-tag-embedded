@@ -177,9 +177,7 @@ int hdlCmd(void) {
     fprintf(g_rsp, "hdlCmd(): FIFO Reset\n");  // echo it
     fclose(g_rsp);
     return 0;
-  }
-
-  else {
+  } else {
     g_rsp = fopen(RSP, "w");
     fprintf(g_rsp, "\n");  // echo it
     fprintf(g_rsp, "CETI Tag Electronics Available Commands\n");
@@ -275,8 +273,8 @@ int loadFpgaBitstream(void) {
 //  - FPGA receives, executes the opcode and returns a pointer to the response
 //  string
 //-----------------------------------------------------------------------------
-void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
-         unsigned int pld0, unsigned int pld1, char *pResponse) {
+void cam(char opcode, char arg0, char arg1,
+         char pld0, char pld1, char *pResponse) {
   int i, j;
   char data_byte = 0x00;
   char send_packet[NUM_BYTES_MESSAGE];
