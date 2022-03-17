@@ -236,16 +236,26 @@ void *writeDataThread(void *paramPtr) {
   return NULL;
 }
 
+static void flacCompress() {
+  if (fork() == 0) {
+    int filename_len = DATA_FILENAME_LEN+strlen(".flac");
+    char flacFileName[filename_len];
+    snprintf(flacFileName, filename_len, "%s.flac", acqDataFileName);
+    execl("flac", "--channels=3", "--bps=16", "--sample-rate=96000", "--sign=signed", "--endian=little", "--force-raw-format", acqDataFileName, "--force", flacFileName);
+  }
+}
+
 static void createNewDataFile() {
   if (acqData!=NULL) {
     fclose(acqData);
+    flacCompress();
   }
 
   // filename is the time in ms at the start of audio recording
   struct timeval te;
   gettimeofday(&te, NULL);
   long long milliseconds = te.tv_sec*1000LL + te.tv_usec/1000;
-  snprintf(acqDataFileName, DATA_FILENAME_LEN, "../data/%lld.raw", milliseconds);
+  snprintf(acqDataFileName, DATA_FILENAME_LEN, "../data/%lld", milliseconds);
   acqData = fopen(acqDataFileName, "wb");
 }
 
