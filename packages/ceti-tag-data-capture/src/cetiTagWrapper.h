@@ -47,9 +47,6 @@ extern int reset_fifo(void);
 #define CMD "../ipc/cetiCommand"  // fifo locations
 #define RSP "../ipc/cetiResponse"
 
-#define ACQ_FILE \
-  "../data/test_acq_raw.dat"  // for saving short test acquisitions
-
 //-----------------------------------------------------------------------------
 // Wiring Pi For FPGA configuration
 

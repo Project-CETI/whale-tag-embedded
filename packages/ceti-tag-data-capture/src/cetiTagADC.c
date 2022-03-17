@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include "cetiTagWrapper.h"
@@ -48,7 +49,6 @@ static struct dataPage page[2];
 
 static FILE *acqData = NULL;  // data file for audio data
 static char acqDataFileName[DATA_FILENAME_LEN];
-static int fileNum = 0;
 static int acqDataFileLength;
 
 static void createNewDataFile(void);
@@ -125,11 +125,7 @@ int start_acq(void) {
   cam(5, 0, 0, 0, 0, cam_response);  // stops the input stream
   cam(3, 0, 0, 0, 0, cam_response);  // flushes the FIFO
   init_pages();
-  fileNum = 0;
-  strcpy(acqDataFileName, ACQ_FILE);
-  acqData = fopen(
-      acqDataFileName,
-      "wb");  // opens the data file for writing (the writes happen in ISR)
+  createNewDataFile();
   cam(4, 0, 0, 0, 0, cam_response);  // starts the stream
   return 0;
 }
@@ -219,30 +215,37 @@ void *spiThread(void *paramPtr) {
 void *writeDataThread(void *paramPtr) {
   int pageIndex = 0;
   while (1) {
-    if (page[pageIndex].readyToBeSavedToDisk) {
-      printf("Writing %d SPI_BLOCKS from ram buff to SD Card  \n",
-             NUM_SPI_BLOCKS);
-      fwrite(page[pageIndex].buffer, 1, RAM_SIZE, acqData);  //
-      page[pageIndex].readyToBeSavedToDisk = false;
-      acqDataFileLength += RAM_SIZE;
-      if (acqDataFileLength > MAX_DATA_FILE_SIZE) createNewDataFile();
-    } else {
+    if (!page[pageIndex].readyToBeSavedToDisk) {
       usleep(1000);
     }
+    if (acqDataFileLength > MAX_DATA_FILE_SIZE) {
+      createNewDataFile();
+      acqDataFileLength = 0;
+    }
+
+    printf("Writing %d SPI_BLOCKS from ram buff to SD Card  \n",
+           NUM_SPI_BLOCKS);
+    page[pageIndex].readyToBeSavedToDisk = false;
+    acqDataFileLength += RAM_SIZE;
+    fwrite(page[pageIndex].buffer, 1, RAM_SIZE, acqData);
+    fflush(acqData);
+    fsync(fileno(acqData));
+
     pageIndex = !pageIndex;
   }
   return NULL;
 }
 
-//-----------------------------------------------------------------------------
 static void createNewDataFile() {
-  char newFile[50];
-  static int fileNum = 0;
-  fclose(acqData);
-  ++fileNum;
-  snprintf(newFile, (DATA_FILENAME_LEN + 8), "%s.%u", acqDataFileName, fileNum);
-  rename(acqDataFileName, newFile);
-  acqDataFileLength = 0;  // reset
+  if (acqData!=NULL) {
+    fclose(acqData);
+  }
+
+  // filename is the time in ms at the start of audio recording
+  struct timeval te;
+  gettimeofday(&te, NULL);
+  long long milliseconds = te.tv_sec*1000LL + te.tv_usec/1000;
+  snprintf(acqDataFileName, DATA_FILENAME_LEN, "../data/%lld.raw", milliseconds);
   acqData = fopen(acqDataFileName, "wb");
 }
 
@@ -271,7 +274,7 @@ void formatRaw(void) {
   char sample_buffer[16];
   char temp[1];
 
-  rawData = fopen(ACQ_FILE, "rb");  // input file to parse and format
+  rawData = fopen("../data/test_acq_raw.dat", "rb");  // input file to parse and format
   outData = fopen("../data/test_acq_out.dat", "w");  // output file
 
   fread(temp, 1, 1, rawData);  // drop the first byte returned on SPI, not valid
@@ -337,7 +340,7 @@ void formatRawNoHeader3ch16bit(void) {
                           // sample set
   char temp[1];
 
-  rawData = fopen(ACQ_FILE, "rb");  // input file to parse and format
+  rawData = fopen("../data/test_acq_raw.dat", "rb");  // input file to parse and format
   outData = fopen("../data/test_acq_out.dat", "w");  // output file
 
   fread(temp, 1, 1, rawData);  // drop the first byte returned on SPI, not valid
