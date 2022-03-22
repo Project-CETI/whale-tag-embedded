@@ -35,6 +35,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "cetiTagLogging.h"
 #include "cetiTagWrapper.h"
 
 #define DATA_FILENAME_LEN (100)
@@ -307,16 +308,15 @@ void formatRaw(void) {
   FILE *rawData = NULL;
   FILE *outData = NULL;
 
-  int i = 0;
   char sample_buffer[16];
-  char temp[1];
 
   rawData = fopen("../data/test_acq_raw.dat", "rb");  // input file to parse and format
   outData = fopen("../data/test_acq_out.dat", "w");  // output file
 
-  fread(temp, 1, 1, rawData);  // drop the first byte returned on SPI, not valid
+  char temp;
+  fread(&temp, 1, 1, rawData);  // drop the first byte returned on SPI, not valid
 
-  while (i < NUM_SMPL_SETS) {
+  for (int i = 0; i < NUM_SMPL_SETS; i++) {
     fread(sample_buffer, 1, 16, rawData);
 
     // The headers
@@ -342,19 +342,12 @@ void formatRaw(void) {
                  (sample_buffer[15] << 8)) /
                 256;
 
-    i++;
-  }
-
-  fclose(rawData);
-
-  outData = fopen("../data/test_acq_out.dat", "w");  // output file
-
-  for (i = 0; i < NUM_SMPL_SETS; i++) {
     fprintf(outData, "%d %d %d %d %02X %02X %02X %02X\n", chan_0[i], chan_1[i],
             chan_2[i], chan_3[i], chan_0_header[i], chan_1_header[i],
             chan_2_header[i], chan_3_header[i]);
   }
 
+  fclose(rawData);
   fclose(outData);
 }
 
@@ -365,50 +358,27 @@ void formatRawNoHeader3ch16bit(void) {
   signed int chan_0[NUM_SMPL_SETS];  // each sample is 16-bit
   signed int chan_1[NUM_SMPL_SETS];
   signed int chan_2[NUM_SMPL_SETS];
-  // signed int chan_3[NUM_SMPL_SETS];
 
   FILE *rawData = NULL;
   FILE *outData = NULL;
 
-  int i = 0;
-
-  // char * pTemp;
   char sample_buffer[6];  // No header, and 3 ch 16 bit so 6 bytes for each
                           // sample set
-  char temp[1];
 
   rawData = fopen("../data/test_acq_raw.dat", "rb");  // input file to parse and format
   outData = fopen("../data/test_acq_out.dat", "w");  // output file
 
-  fread(temp, 1, 1, rawData);  // drop the first byte returned on SPI, not valid
+  char temp;
+  fread(&temp, 1, 1, rawData);  // drop the first byte returned on SPI, not valid
 
-  while (i < NUM_SMPL_SETS) {
+  for (int i = 0; i < NUM_SMPL_SETS; i++) {
     fread(sample_buffer, 1, 6, rawData);
-
-    // The samples
     chan_0[i] = ((sample_buffer[0] << 24) + (sample_buffer[1] << 16)) / 256;
-
     chan_1[i] = ((sample_buffer[2] << 24) + (sample_buffer[3] << 16)) / 256;
-
     chan_2[i] = ((sample_buffer[4] << 24) + (sample_buffer[5] << 16)) / 256;
-
-    // Just three channels while we improve OS latencies
-
-    /*	   	chan_3[i] = ((sample_buffer[9]  << 24 ) +
-                                             (sample_buffer[10]	 << 16 ) +
-                                             (sample_buffer[11]  <<  8 ))/256;
-     */
-
-    i++;
-  }
-
-  fclose(rawData);
-
-  outData = fopen("../data/test_acq_out.dat", "w");  // output file
-
-  for (i = 0; i < NUM_SMPL_SETS; i++) {
     fprintf(outData, "%d %d %d\n", chan_0[i], chan_1[i], chan_2[i]);
   }
 
+  fclose(rawData);
   fclose(outData);
 }
