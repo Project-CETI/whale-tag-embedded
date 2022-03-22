@@ -23,9 +23,12 @@
 // registers settings
 //
 //-----------------------------------------------------------------------------
+#define _GNU_SOURCE
+
 #include <pigpio.h>
 #include <sched.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -236,12 +239,35 @@ void *writeDataThread(void *paramPtr) {
   return NULL;
 }
 
+void *flacCompressThread(void *paramPtr) {
+
+  // Set the priority to the lowest possible for the compression thread
+  struct sched_param sp;
+  memset(&sp, 0, sizeof(sp));
+  sp.sched_priority = sched_get_priority_max(SCHED_IDLE);
+  sched_setscheduler(0, SCHED_IDLE, &sp);
+
+  int filename_len = DATA_FILENAME_LEN+strlen(".flac");
+  char flac_filename[filename_len];
+  memset(flac_filename, 0, filename_len);
+  snprintf(flac_filename, filename_len, "%s.flac", acqDataFileName);
+
+  int cmd_len = 3 * filename_len;
+  char cmd[cmd_len];
+  memset(cmd, 0, cmd_len);
+  snprintf(cmd, cmd_len, "flac --channels=3 --bps=16 --sample-rate=96000 --sign=signed --endian=little --force-raw-format %s --force %s", acqDataFileName, flac_filename);
+
+  int retCode = system(cmd);
+  if (!retCode) {
+    remove(acqDataFileName);
+  }
+  return NULL;
+}
+
 static void flacCompress() {
-  if (fork() == 0) {
-    int filename_len = DATA_FILENAME_LEN+strlen(".flac");
-    char flacFileName[filename_len];
-    snprintf(flacFileName, filename_len, "%s.flac", acqDataFileName);
-    execl("flac", "--channels=3", "--bps=16", "--sample-rate=96000", "--sign=signed", "--endian=little", "--force-raw-format", acqDataFileName, "--force", flacFileName);
+  pthread_t thread_id = 0;
+  if (!pthread_create(&thread_id, NULL, &flacCompressThread, NULL)) {
+    pthread_detach(thread_id);
   }
 }
 
