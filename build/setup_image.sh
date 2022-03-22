@@ -81,23 +81,6 @@ echo "/dev/disk/by-label/cetiData /data ext4 defaults,nofail 0 0" >> /etc/fstab
 install_package "$(ls "${OUT_DIR}"/ceti-tag-set-hostname_*.deb)"
 install_package "$(ls "${OUT_DIR}"/ceti-tag-data-capture_*.deb)"
 
-# Minimize logging
-# See article: https://medium.com/swlh/make-your-raspberry-pi-file-system-read-only-raspbian-buster-c558694de79
-apt remove --purge -y triggerhappy logrotate dphys-swapfile
-apt autoremove --purge -y
-apt install -y busybox-syslogd
-apt remove --purge -y rsyslog
-rm -rf /var/lib/dhcp /var/lib/dhcpcd5 /var/spool /etc/resolv.conf
-ln -s /tmp /var/lib/dhcp
-ln -s /tmp /var/lib/dhcpcd5
-ln -s /tmp /var/spool
-touch /tmp/dhcpcd.resolv.conf
-ln -s /tmp/dhcpcd.resolv.conf /etc/resolv.conf
-
-################################################################################
-#################################### pi user ###################################
-################################################################################
-
 # Copy filesystem overlay.
 tar -cf - -C "${OVERLAY_DIR}" --owner=pi --group=pi . | tar -xf - -C /
 
