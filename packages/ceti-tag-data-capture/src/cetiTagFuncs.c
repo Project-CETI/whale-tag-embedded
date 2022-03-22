@@ -221,19 +221,19 @@ int loadFpgaBitstream(void) {
   gpioWrite(PROG_B, 0);
 
   // allocate the buffer
-  pConfig = malloc(
-      BITSTREAM_SIZE_BYTES);  // allocate memory for the configuration bitstream
+  pConfig = malloc(BITSTREAM_SIZE_BYTES);
   if (pConfig == NULL) {
+    CETI_LOG("loadFpgaBitstream(): Failed to allocate memory for the configuration file");
     fprintf(stderr,
             "loadFpgaBitstream(): Failed to allocate memory for the "
             "configuration file\n");
     return 1;
   }
+  memset(pConfig, 0, BITSTREAM_SIZE_BYTES);
 
-  // read the FPGA configuration file
-  // ToDo: replace with mmap, do not hardcode bitstreamsize
   pConfigFile = fopen(FPGA_BITSTREAM, "rb");
   if (pConfigFile == NULL) {
+    CETI_LOG("loadFpgaBitstream():cannot open input file");
     fprintf(stderr, "loadFpgaBitstream():cannot open input file\n");
     return 1;
   }
@@ -245,7 +245,6 @@ int loadFpgaBitstream(void) {
   gpioWrite(PROG_B, 1);
 
   // Clock out the bitstream byte by byte MSB first
-
   for (j = 0; j < BITSTREAM_SIZE_BYTES; j++) {
     data_byte = pConfig[j];
 

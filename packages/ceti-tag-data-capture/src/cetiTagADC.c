@@ -259,6 +259,7 @@ void *flacCompressThread(void *paramPtr) {
 
   int retCode = system(cmd);
   if (!retCode) {
+    CETI_LOG("Failed to flac compress %s", acqDataFileName);
     remove(acqDataFileName);
   }
   return NULL;
