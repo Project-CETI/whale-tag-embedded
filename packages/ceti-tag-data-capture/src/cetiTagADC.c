@@ -25,19 +25,19 @@
 #include <pigpio.h>
 #include <sched.h>
 #include <stdbool.h>
+#include <inttypes.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
 #include "cetiTagWrapper.h"
+#include "cetiTagLogging.h"
 
 #define DATA_FILENAME_LEN (100)
 
 // At 96 kHz sampling rate; 16-bit; 3 channels 1 minute of data is 33750 KiB
-//#define MAX_DATA_FILE_SIZE (1 * 33750 * 128)  // small files
-#define MAX_DATA_FILE_SIZE (15 * 33750 * 1024)  // 15 minute files at 96
-
-
+//#define MAX_DATA_FILE_SIZE ( 5 * 33750 * 1024 ) 		
+//#define MAX_DATA_FILE_SIZE (15 * 33750 * 1024)  	// 15 minute files at 96
 
 static char sampleBuffer[SPI_BLOCK_SIZE];
 static char ramBuffer[RAM_SIZE];
@@ -45,12 +45,13 @@ static int  ramBufferCounter = 0;
 
 static FILE *acqData=NULL;  //data file for audio data
 static char acqDataFileName[DATA_FILENAME_LEN];
-static int fileNum = 0;
-static unsigned long acqDataFileLength;
+//static int fileNum = 0;
+static int fileTime = 0;  //new for v0.4 safer filenaming
+//static unsigned long acqDataFileLength=0;
+static int ramXferCount = 0;
 
 static bool ramBlockReady = false;
 
-static void createNewDataFile(void); 
 void formatRaw(void);
 void formatRawNoHeader3ch16bit(void);
 
@@ -85,8 +86,31 @@ int setup_96kHz(void)
 	cam(1,0x04,0x22,0,0,cam_response); 	//POWER_MODE = MID; MCLK_DIV = 8
 	cam(1,0x07,0x01,0,0,cam_response); 	//DCLK_DIV = 4
 	cam(2,0,0,0,0,cam_response); 		//Apply the settings
+
+	// readback check first attempt
+	cam(1,0x81,0,0,0,cam_response);    //must run x2 - first one loads the buffer in the ADC,
+	cam(1,0,0,0,0,cam_response);       //second time  dummy clocks to get result
+
+	if (cam_response[5] != 0x08) {		//try to set it again if it fails first time 
+
+		cam(1,0x01,0x08,0,0,cam_response); 	//DEC_RATE = 32
+		cam(1,0x04,0x22,0,0,cam_response); 	//POWER_MODE = MID; MCLK_DIV = 8
+		cam(1,0x07,0x01,0,0,cam_response); 	//DCLK_DIV = 4
+		cam(2,0,0,0,0,cam_response); 		//Apply the settings
+
+		// readback checks, 2nd attempt
+		cam(1,0x81,0,0,0,cam_response);    //must run x2 - first one loads the buffer in the ADC,
+		cam(1,0,0,0,0,cam_response);       //second time  dummy clocks to get result
+
+		if (cam_response[5] != 0x08) {
+			CETI_LOG("Failed to set ADC sampling to 96 kHz - Reg 0x01 reads back 0x%02X%02X should be 0x0008 ", cam_response[4],cam_response[5]);
+			return -1; //ADC failed to configure as expected
+		}
+	}
+	
 	return 0;
 }
+
 
 int setup_192kHz(void)
 {
@@ -123,11 +147,10 @@ int start_acq(void)
 	char cam_response[8];
 	cam(5,0,0,0,0,cam_response);  	// stops the input stream
 	cam(3,0,0,0,0,cam_response);  	// flushes the FIFO
-	ramBufferCounter = 0;           // resets the block counter
-	fileNum = 0;
-	strcpy(acqDataFileName,ACQ_FILE);
-	acqData = fopen(acqDataFileName,"wb"); //opens the data file for writing (the writes happen in ISR)
+   
 	cam(4,0,0,0,0,cam_response);  	// starts the stream
+	printf("start_acq(): Acqusition Started\n");
+	CETI_LOG("Acquisition Started");
 	return 0;
 }
 
@@ -135,14 +158,14 @@ int stop_acq(void)
 {
 	char cam_response[8];
 	cam(5,0,0,0,0,cam_response);     // stops the input stream
-	fclose(acqData);                 // close the data file
+	//fclose(acqData);                 // close the data file
 	cam(3,0,0,0,0,cam_response);     // flushes the FIFO
 	//formatRaw();                   // makes formatted output file to plot
 	//formatRawNoHeader3ch16bit();   // reduced data size
+	CETI_LOG("Acquisition Stopped");
 	return 0;
 }
 
-#define TEST_POINT (17)
 #define DATA_AVAIL (22)
 
 //-----------------------------------------------------------------------------
@@ -158,10 +181,8 @@ void * spiThread( void * paramPtr )
 	}
 
 	/* Set GPIO modes */
-	gpioSetMode(TEST_POINT, PI_OUTPUT);
 	gpioSetMode(DATA_AVAIL, PI_INPUT);
 
-	gpioWrite(TEST_POINT,0);
 
 	struct sched_param sp;
 	memset(&sp, 0, sizeof(sp));
@@ -183,8 +204,6 @@ void * spiThread( void * paramPtr )
 			prev_status = status;
 			while (status) {
 
-				gpioWrite(TEST_POINT,1);
-				gpioWrite(TEST_POINT,0);
 
 				// SPI block has become available, read it from the HW FIFO via SPI
 				spiRead(spi_fd, sampleBuffer, SPI_BLOCK_SIZE);
@@ -218,37 +237,38 @@ void * spiThread( void * paramPtr )
 //-----------------------------------------------------------------------------
 void * writeDataThread( void * paramPtr )
 {
+
+	char newFile[50];
+
+	strcpy(acqDataFileName,ACQ_FILE);
+
 	while (1) {
 		if (ramBlockReady) {
 			
-			printf("Writing %d SPI_BLOCKS from ram buff to SD Card  \n", NUM_SPI_BLOCKS);
-			
-			fwrite(ramBuffer,1,RAM_SIZE,acqData); //
-
+	//		printf("Writing %d SPI_BLOCKS from ram buff to SD Card  \n", NUM_SPI_BLOCKS);	
+			acqData = fopen(acqDataFileName,"ab"); 					
+			fwrite(ramBuffer,1,RAM_SIZE,acqData); //		
+			fclose(acqData);
 			ramBlockReady = false;
-
-			acqDataFileLength += RAM_SIZE;
-
-			if (acqDataFileLength > MAX_DATA_FILE_SIZE) createNewDataFile();
-
+			ramXferCount++;  //
+	//		acqDataFileLength = acqDataFileLength + RAM_SIZE;
+	
+	//		if (acqDataFileLength > MAX_DATA_FILE_SIZE) {
+		if (ramXferCount == RAM_XFERS_PER_FILE) {
+				getRtcCount(&fileTime);
+				//printf("File Record Time %u,", fileTime);
+				//snprintf(newFile, (DATA_FILENAME_LEN + 8), "%s.%u",acqDataFileName,fileNum);
+				//rename( acqDataFileName,newFile);				
+				snprintf(newFile, (DATA_FILENAME_LEN + 8), "%s.%u.raw",acqDataFileName,fileTime);				
+				rename( acqDataFileName,newFile);				
+				ramXferCount = 0; //reset					
+				//++fileNum;
+			}
 		} else {
 			usleep(1000);
 		}
 	}
 	return NULL;
-}
-
-//-----------------------------------------------------------------------------
-static void createNewDataFile() 
-{
-	char newFile[50];
-	static int fileNum = 0;
-	fclose(acqData);
-	++fileNum;
-	snprintf(newFile, (DATA_FILENAME_LEN + 8), "%s.%u",acqDataFileName,fileNum);
-	rename( acqDataFileName,newFile);
-	acqDataFileLength = 0; //reset
-	acqData = fopen(acqDataFileName,"wb");
 }
 
 //-----------------------------------------------------------------------------

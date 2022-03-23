@@ -3,10 +3,6 @@
 // Cummings Electronics Labs, October 2021
 // Developed under contract for Harvard University Wood Lab
 //-----------------------------------------------------------------------------
-// Version    Date    Description
-//  0.00    10/08/21   Begin work, establish framework
-//
-//-----------------------------------------------------------------------------
 // Project: CETI Tag Electronics
 // File: cetiTagFuncs.c
 // Description: Functions used by the top wrapper
@@ -18,6 +14,7 @@
 
 #include "cetiTagLogging.h"
 #include "cetiTagWrapper.h"
+#include "cetiTagSensors.h"
 
 //-----------------------------------------------------------------------------
 // Command interpreter and handler
@@ -50,12 +47,80 @@ int hdlCmd(void)
 		return 0;
 	}
 
+	if ( !strncmp(g_command,"rfOn",4) ) {	
+		printf("hdlCmd(): Turn on power for the GPS and Xbee\n");
+		rfOn();
+		g_rsp = fopen(RSP,"w");
+		fprintf(g_rsp,"hdlCmd(): Turned RF supply on\n"); 
+		fclose(g_rsp);
+		return 0;
+	}
+
+	if ( !strncmp(g_command,"rfOff",5) ) {	
+		printf("hdlCmd(): Turn on power for the GPS and Xbee\n");
+		rfOff();
+		g_rsp = fopen(RSP,"w");
+		fprintf(g_rsp,"hdlCmd(): Turned RF supply off\n"); 
+		fclose(g_rsp);
+		return 0;
+	}
+
+	if ( !strncmp(g_command,"getRotation",11) ) {	
+
+		rotation_t rotation;
+
+		printf("hdlCmd(): Retrieve an IMU Vector Rotation input report\n");
+		setupIMU();
+		getRotation(&rotation);
+		printf("Testing the function 0x%02X 0x%02X \n", rotation.reportID, rotation.sequenceNum );
+		g_rsp = fopen(RSP,"w");
+		fprintf(g_rsp,"hdlCmd(): Finished getting the Rotation report\n"); 
+		fclose(g_rsp);
+		return 0;
+	}
+
+	if ( !strncmp(g_command,"setupIMU",8) ) {		
+		printf("hdlCmd(): Turning on IMU features\n");
+		setupIMU();
+		g_rsp = fopen(RSP,"w");
+		fprintf(g_rsp,"hdlCmd(): Finished turning on IMU features\n"); 
+		fclose(g_rsp);
+		return 0;
+	}
+
+	if ( !strncmp(g_command,"learnIMU",8) ) {		
+		printf("hdlCmd(): Experimenting with IMU\n");
+		learnIMU();  // a sandbox function in sensors.c
+		g_rsp = fopen(RSP,"w");
+		fprintf(g_rsp,"hdlCmd(): Finished running IMU experiments\n"); 
+		fclose(g_rsp);
+		return 0;
+	}	
+
+	if ( !strncmp(g_command,"initTag",4) ) {
+		
+		printf("hdlCmd():Initializing the Tag\n");		
+		
+		if ( !initTag() ) {			
+			CETI_LOG("Tag initialization successful");
+			g_rsp = fopen(RSP,"w");		
+			fprintf(g_rsp,"hdlCmd(): Tag initialization successful\n"); 			
+		}
+		else {
+			CETI_LOG("Tag Initialization Failed");
+			g_rsp = fopen(RSP,"w");
+			fprintf(g_rsp,"hdlCmd(): Tag initialization Failed\n"); //echo it back
+		}		
+		fclose(g_rsp);
+		return 0;
+	}
+
 
 	if ( !strncmp(g_command,"configFPGA",10) ) {
 		printf("hdlCmd(): Configuring the FPGA\n");
 
 		if( !loadFpgaBitstream() ) {
-			CETI_LOG("hdlCmd(): FPGA Configuration Succeeded");
+			CETI_LOG("FPGA Configuration Succeeded");
 			g_rsp = fopen(RSP,"w");
 			fprintf(g_rsp,"hdlCmd(): Configuring FPGA Succeeded\n"); //echo it back
 		}
@@ -68,12 +133,34 @@ int hdlCmd(void)
 		return 0;
 	}
 
+	if ( !strncmp(g_command,"verFPGA",7) ) {
+		
+		printf("hdlCmd(): Querying FPGA Version\n");
+		
+		cam(0x10,0,0,0,0,cTemp);
+
+		CETI_LOG("FPGA Version: 0x%02X%02X\n",cTemp[4],cTemp[5]);
+		
+		g_rsp = fopen(RSP,"w");		
+		fprintf(g_rsp,"FPGA Version: 0x%02X%02X\n",cTemp[4],cTemp[5]); 
+		
+		printf("hdlCmd(): FPGA Version %02X%02X\n", cTemp[4],cTemp[5]);  //should be FE
+		fclose(g_rsp);
+		return 0;
+	}
+
 	if ( !strncmp(g_command,"checkCAM",8) ) {
 		printf("hdlCmd(): Testing CAM Link\n");
 		cam(0,0,0,0,0,cTemp);
+		
 		g_rsp = fopen(RSP,"w");
-		fprintf(g_rsp,"CAM Link Up\n"); //echo it
-		printf("hdlCmd(): camcheck FE: %02X \n", cTemp[4]);  //should be FE
+		
+
+		if(cTemp[4] == 0xAA) fprintf(g_rsp,"CAM Link OK\n");
+		else fprintf(g_rsp,"CAM Link Failure\n");
+
+		
+		printf("hdlCmd(): camcheck - expect 0xAA: %02X \n", cTemp[4]);  //should be FE
 		fclose(g_rsp);
 		return 0;
 	}
@@ -184,10 +271,15 @@ int hdlCmd(void)
 		fprintf(g_rsp,"\n"); //echo it
 		fprintf(g_rsp,"CETI Tag Electronics Available Commands\n");
 		fprintf(g_rsp,"---------------------------------------------------------\n");
+		fprintf(g_rsp,"initTag	   Initialize the Tag\n");
+
 		fprintf(g_rsp,"configFPGA  Load FPGA bitstream\n");
+		fprintf(g_rsp,"verFPGA  Get FPGA version\n");
+
 		fprintf(g_rsp,"resetFPGA   Reset FPGA state machines\n");
 		fprintf(g_rsp,"resetFIFO   Reset audio HW FIFO\n");
 		fprintf(g_rsp,"checkCAM    Verify hardware control link\n");
+
 		fprintf(g_rsp,"startAcq    Start acquiring samples from the FIFO\n");
 		fprintf(g_rsp,"stopAcq     Stop acquiring samples from  the FIFO\n");
 		fprintf(g_rsp,"sr_192      Set sampling rate to 192 kHz \n");
@@ -195,6 +287,14 @@ int hdlCmd(void)
 		fprintf(g_rsp,"sr_48       Set sampling rate to 48 kHz \n");
 		fprintf(g_rsp,"sr_dflt     Set sampling rate to 750 Hz (ADC default)\n");
 		fprintf(g_rsp,"sr_sim      Set simulated data sampling rate (only for use with simulator FPGA)\n");
+
+		fprintf(g_rsp,"learnIMU    Dev only - sandbox for exploring IMU BNO08x\n");
+	    fprintf(g_rsp,"setupIMU    Dev only - bringing up IMU BNO08x\n");
+	    fprintf(g_rsp,"getRotation Dev only - bringing up IMU BNO08x\n");	 
+ 
+	    fprintf(g_rsp,"rfon        Testing control of power to GPS and XB\n");
+	  	fprintf(g_rsp,"rfoff       Testing control of power to GPS and XB\n");
+
 		fprintf(g_rsp,"\n");
 		fclose(g_rsp);
 		return 0;
@@ -202,7 +302,7 @@ int hdlCmd(void)
 	return 1;
 }
 
-
+//-----------------------------------------------------------------------------
 int loadFpgaBitstream(void)
 {
 
@@ -342,3 +442,180 @@ void cam(unsigned int opcode,
 	}
 }
 
+//-----------------------------------------------------------------------------
+// Initialize and start up for various CETI sensors - sandbox
+//-----------------------------------------------------------------------------
+// In work, developing ideas
+// At boot, system should check to make sure all devices are responsive and
+// provide an indication (green LED) to the user that the Tag passed POST.  If a periph 
+// is missing, it should be logged as such, and if possible the Tag should
+// move on...a restart during autonomous operation should do as much as possible
+// to continue collecting data, even if something is broken. 
+
+
+int initI2cDevices()  //In work
+{
+
+	int fd;
+	int result;
+
+	// Open a connection to the io expander on the power board
+	if ( (fd = i2cOpen(1,ADDR_IO_EXPANDER_PWRBD,0)) < 0 ) {
+		printf("Failed to open I2C connection for IO Expander on the Power Board\n");
+		return -1;
+	}
+	i2cWriteByteData(fd,IOX_CONFIG,0x04); //make all pins outputs except for RF
+
+
+	result = i2cReadByteData(fd,IOX_CONFIG);
+	if ( result != 0x04) {
+		printf("iinitI2CDevices(): IO Expander on Power Board did not initialize as expected\n");
+		return -1;
+	}
+	//printf("Read configuration register on the PB IOX: 0x%02X\n",result);
+
+	burnwireOff(); 
+
+	// Make sure ready LED is initialized to OFF and that the RF power is OFF
+	result = i2cReadByteData(fd,IOX_OUTPUT);
+	result = result & ~RDY_LED;
+	i2cWriteByteData(fd,IOX_OUTPUT,result);
+
+	i2cClose(fd);
+
+	return 0;
+} 
+
+//-----------------------------------------------------------------------------
+// Initialization 
+//-----------------------------------------------------------------------------
+// 1) configure the FPGA and log the revision
+// 2) TODO check all I2C peripherals are present and accounted for (adding as each device is integrated during dev)
+// 3) setup default sampling rate (this also checks the CAM link is good)
+// 5) turn on indicator for user to ascertain if the tag is ready to go or not
+// 6) start acquiring data
+
+
+int initTag(void)
+{
+
+	char cTemp[16]; 	
+
+	CETI_LOG("Application Started");	
+	printf("main(): Initializing and Checking Hardware Peripherals\n");
+	
+	// Configure the FPGA and log version
+	if (!loadFpgaBitstream()) {
+		cam(0x10,0,0,0,0,cTemp);
+		CETI_LOG("FPGA initial configuration successful, Ver: 0x%02X%02X ",cTemp[4],cTemp[5]);	
+	}	
+	else {
+		CETI_LOG ("FPGA initial configuration failed");
+		return(-1);
+	}
+		
+	// Set the ADC Up with defaults (96 kHz)
+	if ( !setup_96kHz() ) CETI_LOG("Succesfully set sampling rate to 96 kHz");
+	else {
+		CETI_LOG("ADC initial configuration failed - ADC register did not read back as expected");
+		return(-1);
+	}
+
+	// Configure other peripherals
+
+	if ( !initI2cDevices() ) CETI_LOG ("Succesfully initialized I2c devices");
+		else {
+		CETI_LOG("I2C general failure");
+		return(-1);
+	}
+
+	return(0);  //Done, the tag is ready
+}
+
+//-----------------------------------------------------------------------------
+// RTC second counter
+//-----------------------------------------------------------------------------
+
+int getRtcCount (int * pRtcCount) {
+
+	int fd;
+	int rtcCount, rtcShift=0;
+	char rtcCountByte[4];
+
+			
+	if ( (fd=i2cOpen(1,ADDR_RTC,0) ) < 0 ) {
+		printf("getRtcCount(): Failed to connect to the RTC");
+		return (-1);
+	}
+
+	else { //read the time of day counter and assemble the bytes in 32 bit int
+
+			rtcCountByte[0] = i2cReadByteData(fd,0x00);
+			rtcCountByte[1] = i2cReadByteData(fd,0x01);
+			rtcCountByte[2] = i2cReadByteData(fd,0x02);
+			rtcCountByte[3] = i2cReadByteData(fd,0x03);
+
+			rtcCount = ( rtcCountByte[0] );
+			rtcShift = ( rtcCountByte[1] << 8);
+			rtcCount = rtcCount | rtcShift;
+			rtcShift = ( rtcCountByte[2] << 16);
+			rtcCount = rtcCount | rtcShift;
+			rtcShift = ( rtcCountByte[3] << 24);
+			rtcCount = rtcCount | rtcShift;
+
+			//printf("RTC Count is %d\n",rtcCount);
+
+			* pRtcCount = rtcCount;
+	}
+
+	i2cClose(fd);
+	return(0);
+}
+
+
+int resetRtcCount () {
+	int fd;
+
+	if ( (fd=i2cOpen(1,ADDR_RTC,0) ) < 0 ) {
+		printf("getRtcCount(): Failed to connect to the RTC\n");
+		return (-1);
+	}
+
+	else {
+		i2cWriteByteData(fd,0x00,0x00);
+		i2cWriteByteData(fd,0x01,0x00);
+		i2cWriteByteData(fd,0x02,0x00);
+		i2cWriteByteData(fd,0x03,0x00);
+	}
+	i2cClose(fd);
+	return(0);
+}
+
+
+int getTimeDeploy(void) {
+  //open sensors.csv and get the first timestamp
+
+  FILE * sensorsCsvFile=NULL;
+  char line[512];
+  char strTimeDeploy[16];
+  double timeDeploy;
+
+  sensorsCsvFile=fopen("../data/sensors/sensors.csv","r");
+    if (sensorsCsvFile == NULL) {
+    fprintf(stderr,"main():cannot open sensor csv output file\n");
+    return(-1);
+    }
+
+    fgets(line,512,sensorsCsvFile); //first line is the header
+    fgets(line,512,sensorsCsvFile); //first line of data
+    strncpy(strTimeDeploy,line,10); //time stamp
+    strTimeDeploy[10]='\n';
+    timeDeploy = atol(strTimeDeploy);
+
+   // printf("the line is %s \n",line);
+    //printf("the deploy time string is %s \n",strTimeDeploy);
+    //printf("the deploy time float is %f \n",timeDeploy);
+
+    fclose(sensorsCsvFile);
+    return (timeDeploy);
+}

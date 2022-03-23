@@ -40,6 +40,7 @@ int main (void)
 	pthread_t  cmdHdlThreadId = 0;
 	pthread_t  spiThreadId = 0;
 	pthread_t  writeDataThreadId = 0;
+	pthread_t  sensorThreadId = 0;
 
 	printf("CETI Tag Electronics Main Application ");
 	printf(CETI_VERSION);
@@ -54,17 +55,32 @@ int main (void)
 		return 1;
 	}
 
+	if (initTag() < 0)
+	{
+		fprintf(stderr, "main(): Tag initialisation failed\n");
+		return 1;
+	}
+
 	printf("main(): Creating Command/Response Thread\n");
 	pthread_create(&cmdHdlThreadId,NULL,&cmdHdlThread,NULL); //TODO add error check
 	printf("main(): Creating SPI Acquisition Thread\n");
 	pthread_create(&spiThreadId,NULL,&spiThread,NULL);
 	printf("main(): Creating Data Acquisition Thread\n");
 	pthread_create(&writeDataThreadId,NULL,&writeDataThread,NULL);
+	printf("main(): Creating Sensor And Control Thread\n");
+	pthread_create(&sensorThreadId,NULL,&sensorThread,NULL);
 
-	CETI_LOG("Application Started");
 
-	//Main Loop
-	while(!g_exit) {  //main loop runs the hearbeat and handles commands
+//-----------------------------------------------------------------------------
+// Development Calls
+//-----------------------------------------------------------------------------
+	//demoGPS();  //  
+	//start_acq();
+//-----------------------------------------------------------------------------
+
+// Interactive command monitor and handling
+
+	while(!g_exit) {  
 		usleep(100000);
 		if(g_cmdPend){
 			hdlCmd();
@@ -72,10 +88,11 @@ int main (void)
 		}
 	}
 
-	printf("Canceling cmdHdlThread\n");
+	printf("Canceling Threads\n");
 	pthread_cancel(cmdHdlThreadId);
 	pthread_cancel(spiThreadId);
 	pthread_cancel(writeDataThreadId);
+	pthread_cancel(sensorThreadId);
 	gpioTerminate();
 	printf("Program Exit\n");
 	return(0);
