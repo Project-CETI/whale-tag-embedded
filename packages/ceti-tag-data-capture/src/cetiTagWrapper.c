@@ -14,14 +14,12 @@
 //  - cmdHdlThread() monitors the command FIFO and signals main when a command
 //  is received
 //-----------------------------------------------------------------------------
-#include "cetiTagWrapper.h"
-
 #include <pigpio.h>
 #include <pthread.h>
-#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
+#include "cetiTagWrapper.h"
 #include "cetiTagLogging.h"
 
 //-----------------------------------------------------------------------------
@@ -42,6 +40,7 @@ int main(void) {
   pthread_t cmdHdlThreadId = 0;
   pthread_t spiThreadId = 0;
   pthread_t writeDataThreadId = 0;
+	pthread_t  sensorThreadId = 0;
 
   printf("CETI Tag Electronics Main Application ");
   printf(CETI_VERSION);
@@ -55,6 +54,11 @@ int main(void) {
     return 1;
   }
 
+	if (initTag() < 0)
+	{
+		fprintf(stderr, "main(): Tag initialisation failed\n");
+		return 1;
+	}
   printf("main(): Creating Command/Response Thread\n");
   pthread_create(&cmdHdlThreadId, NULL, &cmdHdlThread,
                  NULL);  // TODO add error check
@@ -74,10 +78,11 @@ int main(void) {
     }
   }
 
-  printf("Canceling cmdHdlThread\n");
+	printf("Canceling Threads\n");
   pthread_cancel(cmdHdlThreadId);
   pthread_cancel(spiThreadId);
   pthread_cancel(writeDataThreadId);
+	pthread_cancel(sensorThreadId);
   gpioTerminate();
   printf("Program Exit\n");
   return (0);
