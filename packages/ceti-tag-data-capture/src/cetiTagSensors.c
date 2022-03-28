@@ -9,6 +9,7 @@
 //-----------------------------------------------------------------------------
 
 #include <sys/time.h>
+#include <zlib.h>
 
 #include "cetiTagWrapper.h"
 #include "cetiTagSensors.h"
@@ -44,7 +45,7 @@ char state_str[][MAX_STATE_STRING_LEN] =
 //-----------------------------------------------------------------------------
 void * sensorThread( void * paramPtr )
 {
-	FILE *snsData=NULL;  //data file for non-audio sensor data
+	gzFile snsData;  //data file for non-audio sensor data
 	char header[] = "Timestampe(ms), RTC count, State, BoardTemp degC, WaterTemp degC, Pressure bar, Batt_V1 V, Batt_V2 V, Batt_I mA, Quat_i, Quat_j, Quat_k, Quat_Re, AmbientLight, GPS";
 	struct timeval te;
 	long long milliseconds;
@@ -61,29 +62,29 @@ void * sensorThread( void * paramPtr )
 		getAmbientLight(&ambientLight);
 		getGpsLocation(gpsLocation);   
 
-		snsData = fopen(SNS_FILE,"a");
+		snsData = gzopen(SNS_FILE, "wb"); fopen(SNS_FILE,"a");
 		if (snsData == NULL) {
 			fprintf(stderr,"sensorThread(): could not find sensor file, creating a new one: %s\n", SNS_FILE);
-			snsData = fopen(SNS_FILE,"wt");
-			fprintf(snsData,"%s",header);
+			snsData = gzopen(SNS_FILE,"wt");
+			gzprintf(snsData,"%s",header);
 		}
 
-		fprintf(snsData,"%lld,", milliseconds);
-		fprintf(snsData,"%d,", rtcCount);
-		fprintf(snsData,"%s,", state_str[presentState]);
-		fprintf(snsData,"%d,", boardTemp);
-		fprintf(snsData,"%.2f,", pressureSensorData[0]);
-		fprintf(snsData,"%.2f,", pressureSensorData[1]);
-		fprintf(snsData,"%.2f,", batteryData[0]);
-		fprintf(snsData,"%.2f,", batteryData[1]);
-		fprintf(snsData,"%.2f,", batteryData[2]);
-		fprintf(snsData,"%d,", quaternion[0]);
-		fprintf(snsData,"%d,", quaternion[1]);
-		fprintf(snsData,"%d,", quaternion[2]);
-		fprintf(snsData,"%d,", quaternion[3]);
-		fprintf(snsData,"%d,", ambientLight);
-		fprintf(snsData,"\"%s\"\n", gpsLocation);
-		fclose(snsData);			
+		gzprintf(snsData,"%lld,", milliseconds);
+		gzprintf(snsData,"%d,", rtcCount);
+		gzprintf(snsData,"%s,", state_str[presentState]);
+		gzprintf(snsData,"%d,", boardTemp);
+		gzprintf(snsData,"%.2f,", pressureSensorData[0]);
+		gzprintf(snsData,"%.2f,", pressureSensorData[1]);
+		gzprintf(snsData,"%.2f,", batteryData[0]);
+		gzprintf(snsData,"%.2f,", batteryData[1]);
+		gzprintf(snsData,"%.2f,", batteryData[2]);
+		gzprintf(snsData,"%d,", quaternion[0]);
+		gzprintf(snsData,"%d,", quaternion[1]);
+		gzprintf(snsData,"%d,", quaternion[2]);
+		gzprintf(snsData,"%d,", quaternion[3]);
+		gzprintf(snsData,"%d,", ambientLight);
+		gzprintf(snsData,"\"%s\"\n", gpsLocation);
+		gzclose(snsData);
 		presentState = updateState(presentState);
 		usleep(SNS_SMPL_PERIOD);
 	}	

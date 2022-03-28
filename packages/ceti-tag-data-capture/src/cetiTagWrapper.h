@@ -114,7 +114,7 @@ extern int xbTx(void);
 #define CMD "../ipc/cetiCommand"  // fifo locations
 #define RSP "../ipc/cetiResponse"
 
-#define SNS_FILE "../data/sensors/sensors.csv"
+#define SNS_FILE "../data/sensors/sensors.csv.gz"
 //-----------------------------------------------------------------------------
 // Wiring Pi For FPGA configuration
 

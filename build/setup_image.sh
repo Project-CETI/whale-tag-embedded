@@ -53,6 +53,7 @@ time apt install "${APT_NONINTERACTIVE}" --fix-broken --no-upgrade \
   libi2c-dev \
   i2c-tools \
   netcat \
+  zlib1g-dev \
 
 
 apt "${APT_NONINTERACTIVE}" autoremove
