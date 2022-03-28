@@ -8,11 +8,11 @@
 // Description: Sensor-related functions and file handling (IMU functions excluded, in a separate module)
 //-----------------------------------------------------------------------------
 
+#include <sys/time.h>
+
 #include "cetiTagWrapper.h"
 #include "cetiTagSensors.h"
 
-static FILE *snsData=NULL;  //data file for non-audio sensor data
-static char snsDataFileName[SNS_FILENAME_LEN];
 
 static int presentState = ST_CONFIG;  
 
@@ -23,6 +23,18 @@ int rtcCount, boardTemp,ambientLight;
 char gpsLocation[128];
 int gpsPowerState=0;
 
+#define MAX_STATE_STRING_LEN (32)
+char state_str[][MAX_STATE_STRING_LEN] =
+{
+    "CONFIG",
+    "START",
+    "DEPLOY",
+    "REC_SUB",
+    "REC_SURF",
+    "BRN_ON",
+    "RETRIEVE",
+    "SHUTDOWN",
+};
 
 //-----------------------------------------------------------------------------
 // Control and Monitor Thread
@@ -32,66 +44,47 @@ int gpsPowerState=0;
 //-----------------------------------------------------------------------------
 void * sensorThread( void * paramPtr )
 {
-
-	int recordId=0;
-	char header[512];
- 
-	strcpy(snsDataFileName,SNS_FILE);
-	strcpy(header,"Time,State,BoardTemp degC,WaterTemp degC,Pressure bar,\
-	Batt_V1 V,Batt_V2 V,Batt_I mA,Quat_i,Quat_j,Quat_k,Quat_Re,AmbientLight,GPS\n");
+	FILE *snsData=NULL;  //data file for non-audio sensor data
+	char header[] = "Timestampe(ms), RTC count, State, BoardTemp degC, WaterTemp degC, Pressure bar, Batt_V1 V, Batt_V2 V, Batt_I mA, Quat_i, Quat_j, Quat_k, Quat_Re, AmbientLight, GPS";
+	struct timeval te;
+	long long milliseconds;
 	
 	while (1) {
 
+		gettimeofday(&te, NULL);
+		milliseconds = te.tv_sec*1000LL + te.tv_usec/1000;
 		getRtcCount(&rtcCount); 
-		
 		getBoardTemp(&boardTemp);
-
 		getTempPsns(pressureSensorData); 
-
 		getBattStatus(batteryData);
-
 		getQuaternion(quaternion); 
-
 		getAmbientLight(&ambientLight);
-	
 		getGpsLocation(gpsLocation);   
 
-		snsData = fopen(snsDataFileName,"a");
+		snsData = fopen(SNS_FILE,"a");
 		if (snsData == NULL) {
-			fprintf(stderr,"sensorThread():cannot open sensor csv output file\n");
+			fprintf(stderr,"sensorThread(): could not find sensor file, creating a new one: %s\n", SNS_FILE);
+			snsData = fopen(SNS_FILE,"wt");
+			fprintf(snsData,"%s",header);
 		}
 
-		if(!recordId) fprintf(snsData,"%s",header);
-
-		else {
-			fprintf(snsData,"%d,", rtcCount);
-			fprintf(snsData,"%d,", presentState);
-			fprintf(snsData,"%d,", boardTemp);
-			fprintf(snsData,"%.2f,", pressureSensorData[0]);
-			fprintf(snsData,"%.2f,", pressureSensorData[1]);
-			fprintf(snsData,"%.2f,", batteryData[0]);
-			fprintf(snsData,"%.2f,", batteryData[1]);
-			fprintf(snsData,"%.2f,", batteryData[2]);
-			fprintf(snsData,"%d,", quaternion[0]);
-			fprintf(snsData,"%d,", quaternion[1]);
-			fprintf(snsData,"%d,", quaternion[2]);
-			fprintf(snsData,"%d,", quaternion[3]);
-			fprintf(snsData,"%d,", ambientLight);
-			fprintf(snsData,"\"%s\"\n", gpsLocation);
-		}
-		++recordId;
+		fprintf(snsData,"%lld,", milliseconds);
+		fprintf(snsData,"%d,", rtcCount);
+		fprintf(snsData,"%s,", state_str[presentState]);
+		fprintf(snsData,"%d,", boardTemp);
+		fprintf(snsData,"%.2f,", pressureSensorData[0]);
+		fprintf(snsData,"%.2f,", pressureSensorData[1]);
+		fprintf(snsData,"%.2f,", batteryData[0]);
+		fprintf(snsData,"%.2f,", batteryData[1]);
+		fprintf(snsData,"%.2f,", batteryData[2]);
+		fprintf(snsData,"%d,", quaternion[0]);
+		fprintf(snsData,"%d,", quaternion[1]);
+		fprintf(snsData,"%d,", quaternion[2]);
+		fprintf(snsData,"%d,", quaternion[3]);
+		fprintf(snsData,"%d,", ambientLight);
+		fprintf(snsData,"\"%s\"\n", gpsLocation);
 		fclose(snsData);			
-/*
-		printf("Time %d,", rtcCount);
-		printf("State %d,", presentState);
-		printf("BoardTemp %d,", boardTemp);
-		printf("WaterTemp %.2f,", pressureSensorData[0]);
-		printf("Pressure %.2f,", pressureSensorData[1]);
-		printf("V1 %.2f,", batteryData[0]);
-		printf("V2 %.2f\n", batteryData[1]);	 */
-
 		presentState = updateState(presentState);
-
 		usleep(SNS_SMPL_PERIOD);
 	}	
 	return NULL;

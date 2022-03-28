@@ -30,8 +30,6 @@
 #define XBEE_BAUD 9600
 #define SNS_SMPL_PERIOD 1000000 //microseconds
 
-#define SNS_FILENAME_LEN  (100*1024) //bytes
-
 // DS2778 Gas Gauge Registers  
 #define CELL_1_V_MS 0x0C
 #define CELL_1_V_LS 0x0D

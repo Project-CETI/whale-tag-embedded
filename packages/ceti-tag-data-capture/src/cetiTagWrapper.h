@@ -20,16 +20,14 @@
 #include <stdio.h>
 
 typedef enum {            //Tag operational states for deployment sequencing
-
     ST_CONFIG=0,          //get the deployment parameters from config file
-    ST_START=1,  		  //turn on the audio recorder, illuminate ready LED
-    ST_DEPLOY=2,		  //wait for whale to dive
-    ST_REC_SUB=3,		  //recording while underwater
-    ST_REC_SURF=4,		  //recording while surfaced - trying for a GPS fix
+    ST_START=1, 	  //turn on the audio recorder, illuminate ready LED
+    ST_DEPLOY=2,	  //wait for whale to dive
+    ST_REC_SUB=3,	  //recording while underwater
+    ST_REC_SURF=4,	  //recording while surfaced - trying for a GPS fix
     ST_BRN_ON=5,          //burnwire is on, may or may not be at the surface when in this state
     ST_RETRIEVE=7,        //burnwire timed out, likely at surface, monitor GPS and transmit coord if enough battery
     ST_SHUTDOWN=8,        //battery critical, put system in minimum power mode
-
 } wt_state_t;
 
 typedef struct {  //To hold rotation vector input report information
