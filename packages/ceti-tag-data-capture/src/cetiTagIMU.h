@@ -23,12 +23,12 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "cetiTagWrapper.h"
 #include "cetiTagLogging.h"
+#include "cetiTagWrapper.h"
 
 #define ADDR_IMU 0x4A
 
-//Registers
+// Registers
 const char CHANNEL_COMMAND = 0;
 const char CHANNEL_EXECUTABLE = 1;
 const char CHANNEL_CONTROL = 2;
@@ -36,8 +36,9 @@ const char CHANNEL_REPORTS = 3;
 const char CHANNEL_WAKE_REPORTS = 4;
 const char CHANNEL_GYRO = 5;
 
-//All the ways we can configure or talk to the BNO080, figure 34, page 36 reference manual
-//These are used for low level communication with the sensor, on channel 2
+// All the ways we can configure or talk to the BNO080, figure 34, page 36
+// reference manual These are used for low level communication with the sensor,
+// on channel 2
 #define SHTP_REPORT_COMMAND_RESPONSE 0xF1
 #define SHTP_REPORT_COMMAND_REQUEST 0xF2
 #define SHTP_REPORT_FRS_READ_RESPONSE 0xF3
@@ -47,8 +48,8 @@ const char CHANNEL_GYRO = 5;
 #define SHTP_REPORT_BASE_TIMESTAMP 0xFB
 #define SHTP_REPORT_SET_FEATURE_COMMAND 0xFD
 
-//All the different sensors and features we can get reports from
-//These are used when enabling a given sensor
+// All the different sensors and features we can get reports from
+// These are used when enabling a given sensor
 #define SENSOR_REPORTID_ACCELEROMETER 0x01
 #define SENSOR_REPORTID_GYROSCOPE 0x02
 #define SENSOR_REPORTID_MAGNETIC_FIELD 0x03
@@ -68,8 +69,8 @@ const char CHANNEL_GYRO = 5;
 #define SENSOR_REPORTID_AR_VR_STABILIZED_ROTATION_VECTOR 0x28
 #define SENSOR_REPORTID_AR_VR_STABILIZED_GAME_ROTATION_VECTOR 0x29
 
-//Record IDs from figure 29, page 29 reference manual
-//These are used to read the metadata for each sensor type
+// Record IDs from figure 29, page 29 reference manual
+// These are used to read the metadata for each sensor type
 #define FRS_RECORDID_ACCELEROMETER 0xE302
 #define FRS_RECORDID_GYROSCOPE_CALIBRATED 0xE306
 #define FRS_RECORDID_MAGNETIC_FIELD_CALIBRATED 0xE309
@@ -78,8 +79,8 @@ const char CHANNEL_GYRO = 5;
 // Reset complete packet (BNO08X Datasheet p.24 Figure 1-27)
 #define EXECUTABLE_RESET_COMPLETE 0x1
 
-//Command IDs from section 6.4, page 42
-//These are used to calibrate, initialize, set orientation, tare etc the sensor
+// Command IDs from section 6.4, page 42
+// These are used to calibrate, initialize, set orientation, tare etc the sensor
 #define COMMAND_ERRORS 1
 #define COMMAND_COUNTER 2
 #define COMMAND_TARE 3
@@ -97,7 +98,10 @@ const char CHANNEL_GYRO = 5;
 #define CALIBRATE_ACCEL_GYRO_MAG 4
 #define CALIBRATE_STOP 5
 
-#define MAX_PACKET_SIZE 128 //Packets can be up to 32k but we don't have that much RAM.
-#define MAX_METADATA_SIZE 9 //This is in words. There can be many but we mostly only care about the first 9 (Qs, range, etc)
+#define MAX_PACKET_SIZE                                                        \
+    128 // Packets can be up to 32k but we don't have that much RAM.
+#define MAX_METADATA_SIZE                                                      \
+    9 // This is in words. There can be many but we mostly only care about the
+      // first 9 (Qs, range, etc)
 
 #endif

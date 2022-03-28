@@ -15,19 +15,15 @@
 #ifndef CETI_GPSXB_H
 #define CETI_GPSXB_H
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <inttypes.h>
 #include <string.h>
 #include <unistd.h>
 
 #include <pigpio.h>
 
-#include "cetiTagWrapper.h"
 #include "cetiTagLogging.h"
-
-
-
-
+#include "cetiTagWrapper.h"
 
 #endif

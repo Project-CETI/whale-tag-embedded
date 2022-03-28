@@ -14,40 +14,36 @@
 
 #include "cetiTagGpsXbee.h"
 
-// demo  
-int demoGPS(void)
-{
+// demo
+int demoGPS(void) {
 
-	//char buf[4096]; 
-	char testbuf[16]= "Test Tx\n";
+    // char buf[4096];
+    char testbuf[16] = "Test Tx\n";
 
-	int fd;
-	//int bytes_avail;
-	//int i;
+    int fd;
+    // int bytes_avail;
+    // int i;
 
-	fd = serOpen("/dev/serial0",9600,0);
+    fd = serOpen("/dev/serial0", 9600, 0);
 
-	if(fd < 0) {
-		printf ("demoGPS(): Failed to open the serial port\n");
-		return (-1);
-	}
-	else {
-		printf("demoGPS(): Successfully opened the serial port\n");
-	}
+    if (fd < 0) {
+        printf("demoGPS(): Failed to open the serial port\n");
+        return (-1);
+    } else {
+        printf("demoGPS(): Successfully opened the serial port\n");
+    }
 
-	while(1) {
-		usleep (1000000);
-		
-		//bytes_avail = (serDataAvailable(fd));		
-		//printf("%d bytes are available from the serial port\n",bytes_avail);		
-		//serRead(fd,buf,bytes_avail);
-		//printf("%s",buf);
+    while (1) {
+        usleep(1000000);
 
-		printf("Trying to write to the serial port with pigpio\n");
-		serWrite(fd,testbuf,8); //test transmission
+        // bytes_avail = (serDataAvailable(fd));
+        // printf("%d bytes are available from the serial port\n",bytes_avail);
+        // serRead(fd,buf,bytes_avail);
+        // printf("%s",buf);
 
-	}
+        printf("Trying to write to the serial port with pigpio\n");
+        serWrite(fd, testbuf, 8); // test transmission
+    }
 
-
-	return (0);
+    return (0);
 }

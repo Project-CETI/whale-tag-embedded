@@ -18,11 +18,11 @@
 #include "cetiTagWrapper.h"
 
 void CETI_initializeLog() {
-  openlog("CETI data capture", LOG_PERROR | LOG_CONS, LOG_USER);
-  syslog(LOG_DEBUG, "************************************************");
-  syslog(LOG_DEBUG, "            CETI Tag Electronics                ");
-  syslog(LOG_DEBUG, " -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-");
-  syslog(LOG_DEBUG, "    Version %s\n", CETI_VERSION);
-  syslog(LOG_DEBUG, "    Build date: %s, %s\n", __DATE__, __TIME__);
-  syslog(LOG_DEBUG, "*************************************************");
+    openlog("CETI data capture", LOG_PERROR | LOG_CONS, LOG_USER);
+    syslog(LOG_DEBUG, "************************************************");
+    syslog(LOG_DEBUG, "            CETI Tag Electronics                ");
+    syslog(LOG_DEBUG, " -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-");
+    syslog(LOG_DEBUG, "    Version %s\n", CETI_VERSION);
+    syslog(LOG_DEBUG, "    Build date: %s, %s\n", __DATE__, __TIME__);
+    syslog(LOG_DEBUG, "*************************************************");
 }
