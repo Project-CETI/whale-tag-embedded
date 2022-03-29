@@ -36,25 +36,24 @@
 //      Some of this is also available in the BNO08x data sheet as well.
 //
 
+#include <sys/param.h>
 #include "cetiTagIMU.h"
-
-// Global Variables
-char shtpHeader[4];
-char shtpData[256];
-
-u_int16_t numBytesAvail;
 
 //-----------------------------------------------------------------------------
 // This is a sandbox function to learn how to get data from the device
 // Very preliminary - not using HINT or RESET features at all. No error checking
 
 int learnIMU() {
+    char shtpHeader[4] = {0};
+    char shtpData[256] = {0};
     int fd;
+    u_int16_t numBytesAvail;
     if ((fd = i2cOpen(1, ADDR_IMU, 0)) < 0) {
         printf("learnIMU(): Failed to connect to the IMU\n");
         return -1;
-    } else
-        printf("OK, have the IMU connected!\n");
+    }
+
+    printf("OK, have the IMU connected!\n");
 
     // Get the shtp header
     i2cReadDevice(fd, shtpHeader, 4); // pigpio i2c read raw
@@ -94,20 +93,17 @@ int learnIMU() {
 
 int setupIMU() // This enables just the rotation vector feature
 {
+    char setFeatureCommand[21] = {0};
+    char shtpHeader[4] = {0};
+    int fd = i2cOpen(1, ADDR_IMU, 0);
 
-    char setFeatureCommand[21];
-    int i;
-    int fd;
-
-    if ((fd = i2cOpen(1, ADDR_IMU, 0)) < 0) {
+    if (fd < 0) {
         printf("setupIMU(): Failed to connect to the IMU\n");
         return -1;
-    } else
-        printf("setupIMU(): IMU connection opened\n");
+    }
 
-    // Build the control packet
-    for (i = 0; i < 21; i++)
-        setFeatureCommand[i] = 0;
+    printf("setupIMU(): IMU connection opened\n");
+
     setFeatureCommand[0] = 0x15; // Packet length LSB (21 bytes)
     setFeatureCommand[2] = CHANNEL_CONTROL;
     setFeatureCommand[4] = SHTP_REPORT_SET_FEATURE_COMMAND;
@@ -127,48 +123,35 @@ int setupIMU() // This enables just the rotation vector feature
     return 0;
 }
 
-int getRotation(rotation_t *pRotation) {
-
-    // int i=0;
-    // int fifo_wr_count=0;
-    // int fifo_rd_count;
-    int fd;
-    int numBytesAvail;
-    char pktBuff[256];
-    // char buff[256];
-    char shtpHeader[4];
-
+int getRotation(rotation_t *pRotation)
+{
     // parse the IMU rotation vector input report
+    int numBytesAvail = 0;
+    char pktBuff[256] = {0};
+    char shtpHeader[4] = {0};
+    int fd = i2cOpen(1, ADDR_IMU, 0);
 
-    if ((fd = i2cOpen(1, ADDR_IMU, 0)) < 0) {
+    if (fd < 0) {
         printf("getRotation(): Failed to connect to the IMU\n");
         return -1;
-    } else
-        printf("getRotation(): IMU connection opened\n");
+    }
+
+    printf("getRotation(): IMU connection opened\n");
 
     // Byte   0    1    2    3    4   5   6    7    8      9     10     11
     //       |     HEADER      |            TIME       |  ID    SEQ   STATUS....
-
     while (1) {
-
         i2cReadDevice(fd, shtpHeader, 4);
 
-        // printf("getRotation(): Header is 0x%02X  0x%02X  0x%02X  0x%02X \n",
-        // shtpHeader[0],shtpHeader[1],shtpHeader[2],shtpHeader[3]);
-
-        numBytesAvail = ((shtpHeader[1] << 8) | shtpHeader[0]) &
-                        0x7FFF; // msb is "continuation bit, not part of count"
-        if (numBytesAvail > 256)
-            numBytesAvail = 256;
-
-        if (numBytesAvail == 0)
-            setupIMU(); // restart the sensor, reports somehow stopped coming
+        // msb is "continuation bit, not part of count"
+        numBytesAvail = MIN(256, ((shtpHeader[1] << 8) | shtpHeader[0]) & 0x7FFF);
 
         if (numBytesAvail) {
             i2cReadDevice(fd, pktBuff, numBytesAvail);
-            if (pktBuff[2] == 0x03) { // make sure we have the right channel
-                pRotation->reportID =
-                    pktBuff[9]; // testing, should come back 0x05
+            // make sure we have the right channel
+            if (pktBuff[2] == 0x03) {
+                // testing, should come back 0x05
+                pRotation->reportID = pktBuff[9];
                 pRotation->sequenceNum = pktBuff[10];
                 printf("getRotation(): report ID 0x%02X  sequ 0x%02X i "
                        "%02X%02X j %02X%02X k %02X%02X r %02X%02X\n",
@@ -176,11 +159,11 @@ int getRotation(rotation_t *pRotation) {
                        pktBuff[16], pktBuff[15], pktBuff[18], pktBuff[17],
                        pktBuff[20], pktBuff[19]);
             }
+        } else {
+            setupIMU(); // restart the sensor, reports somehow stopped coming
         }
         usleep(800000);
     }
-
     i2cClose(fd);
-
     return 0;
 }

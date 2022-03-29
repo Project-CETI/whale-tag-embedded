@@ -10,6 +10,7 @@
 //-----------------------------------------------------------------------------
 
 #include <sys/time.h>
+#include <sys/param.h>
 #include <zlib.h>
 
 #include "cetiTagSensors.h"
@@ -100,58 +101,54 @@ int getGpsLocation(char *gpsLocation) {
     // Return "GPS Module Not Active" message if the tag is in any state where
     // RF is not turned on
 
-    char buf[4096];
-    char buf2[256];
-    int fd;
+    char buf[4096] = {0};
+    char buf2[256] = {0};
     int bytes_avail = 0;
     char *pTemp = NULL, *gnrmc = NULL;
-    int i;
     char match = 0;
+    int fd = serOpen("/dev/serial0", GPS_BAUD, 0);
 
     if (!gpsPowerState) {
         strcpy(gpsLocation, "GPS module not active");
-        return (0);
+        return (-1);
     }
-
-    fd = serOpen("/dev/serial0", GPS_BAUD, 0);
 
     if (fd < 0) {
         printf("getGpsLocation(): Failed to open the serial port\n");
         return (-1);
-    } else {
-        // printf("getGpsLocation(): Successfully opened the serial port\n");
-        while (bytes_avail < 1024) { // wait for some data from the module
-            bytes_avail = (serDataAvailable(fd));
-            usleep(1000);
-        }
-        // printf("%d bytes are available from the serial port\n",bytes_avail);
-        serRead(fd, buf, bytes_avail); //
-
-        buf[bytes_avail + 1] = '\0';
-        // printf("%s",buf);
-        //   Search for GNRMC sentence
-        pTemp = buf;
-        for (i = 0; (i <= bytes_avail && !match);
-             i++) { // scan the message stream for GNRMC sentence
-            if (!strncmp(pTemp + i, "$GNRMC", 6)) {
-                gnrmc = pTemp + i; // mark the start of the sentence
-                match = 1;
-                continue;
-            }
-        }
-        if (match) {
-            pTemp = strchr(gnrmc, '*');
-            if (!pTemp) {
-                // TODO
-            }
-            i = pTemp - gnrmc; // length of the sentence-4 chars
-            snprintf(buf2, i + 4, "%s \n", gnrmc);
-            strcpy(gpsLocation, buf2);
-        }
-
-        serClose(fd);
-        return (0);
     }
+
+    // printf("getGpsLocation(): Successfully opened the serial port\n");
+    while (bytes_avail < 1024) { // wait for some data from the module
+        bytes_avail = serDataAvailable(fd);
+        usleep(1000);
+    }
+
+    // printf("%d bytes are available from the serial port\n",bytes_avail);
+    memset(buf, 0, 4096);
+    serRead(fd, buf, bytes_avail); //
+
+    //   Search for GNRMC sentence
+    pTemp = buf;
+    // scan the message stream for GNRMC sentence
+    for (int i = 0; (i <= bytes_avail && !match); i++) {
+        if (!strncmp(pTemp + i, "$GNRMC", 6)) {
+            gnrmc = pTemp + i; // mark the start of the sentence
+            match = 1;
+            continue;
+        }
+    }
+    if (match) {
+        pTemp = strchr(gnrmc, '*');
+        if (!pTemp) {
+            // TODO
+        }
+        // length of the sentence-4 chars
+        snprintf(buf2, pTemp - gnrmc + 4, "%s \n", gnrmc);
+        strcpy(gpsLocation, buf2);
+    }
+    serClose(fd);
+    return (0);
 }
 
 //-----------------------------------------------------------------------------
@@ -162,64 +159,39 @@ int getQuaternion(short *quaternion) {
 
     int fd;
     int numBytesAvail;
-    char pktBuff[256];
-    char shtpHeader[4];
+    char pktBuff[256] = {0};
+    char shtpHeader[4] = {0};
 
-    rotation_t rotation;
-    rotation_t *pRotation = &rotation;
-
-    // parse the IMU rotation vector input report
+    // parse the IMU quaternion vector input report
 
     if ((fd = i2cOpen(1, ADDR_IMU, 0)) < 0) {
         printf("getRotation(): Failed to connect to the IMU\n");
         return -1;
     }
 
-    else {
+    // Byte   0    1    2    3    4   5   6    7    8      9     10     11
+    //       |     HEADER      |            TIME       |  ID    SEQ
+    //       STATUS....
 
-        // printf("getRotation(): IMU connection opened\n");
+    i2cReadDevice(fd, shtpHeader, 4);
 
-        // Byte   0    1    2    3    4   5   6    7    8      9     10     11
-        //       |     HEADER      |            TIME       |  ID    SEQ
-        //       STATUS....
+    // msb is "continuation bit, not part of count"
+    numBytesAvail = MIN(256, ((shtpHeader[1] << 8) | shtpHeader[0]) & 0x7FFF);
 
-        i2cReadDevice(fd, shtpHeader, 4);
-
-        // printf("getRotation(): Header is 0x%02X  0x%02X  0x%02X  0x%02X \n",
-        // shtpHeader[0],shtpHeader[1],shtpHeader[2],shtpHeader[3]);
-
-        numBytesAvail = ((shtpHeader[1] << 8) | shtpHeader[0]) &
-                        0x7FFF; // msb is "continuation bit, not part of count"
-        if (numBytesAvail > 256)
-            numBytesAvail = 256;
-
-        if (numBytesAvail == 0)
-            setupIMU(); // restart the sensor, reports somehow stopped coming
-
-        if (numBytesAvail) {
-            i2cReadDevice(fd, pktBuff, numBytesAvail);
-            if (pktBuff[2] == 0x03) { // make sure we have the right channel
-
-                pRotation->reportID =
-                    pktBuff[9]; // testing, should come back 0x05
-                pRotation->sequenceNum = pktBuff[10];
-
-                // printf("getRotation(): report ID 0x%02X  sequ 0x%02X i
-                // %02X%02X j %02X%02X k %02X%02X r %02X%02X\n",
-                //	pktBuff[9],pktBuff[10],
-                //	pktBuff[14],pktBuff[13],pktBuff[16],pktBuff[15],pktBuff[18],pktBuff[17],pktBuff[20],pktBuff[19]
-                //);
-
-                quaternion[0] = (pktBuff[14] << 8) + pktBuff[13];
-                quaternion[1] = (pktBuff[16] << 8) + pktBuff[15];
-                quaternion[2] = (pktBuff[18] << 8) + pktBuff[17];
-                quaternion[3] = (pktBuff[20] << 8) + pktBuff[19];
-            }
+    if (numBytesAvail) {
+        i2cReadDevice(fd, pktBuff, numBytesAvail);
+        if (pktBuff[2] == 0x03) { // make sure we have the right channel
+            quaternion[0] = (pktBuff[14] << 8) + pktBuff[13];
+            quaternion[1] = (pktBuff[16] << 8) + pktBuff[15];
+            quaternion[2] = (pktBuff[18] << 8) + pktBuff[17];
+            quaternion[3] = (pktBuff[20] << 8) + pktBuff[19];
         }
-
-        i2cClose(fd);
-        return (0);
+    } else {
+        setupIMU();
     }
+
+    i2cClose(fd);
+    return (0);
 }
 
 //-----------------------------------------------------------------------------
@@ -236,31 +208,28 @@ int getBattStatus(double *batteryData) {
         return (-1);
     }
 
-    else {
+    result = i2cReadByteData(fd, CELL_1_V_MS);
+    voltage = result << 3;
+    result = i2cReadByteData(fd, CELL_1_V_LS);
+    voltage = (voltage | (result >> 5));
+    voltage = (voltage | (result >> 5));
+    batteryData[0] = 4.883e-3 * voltage;
 
-        result = i2cReadByteData(fd, CELL_1_V_MS);
-        voltage = result << 3;
-        result = i2cReadByteData(fd, CELL_1_V_LS);
-        voltage = (voltage | (result >> 5));
-        voltage = (voltage | (result >> 5));
-        batteryData[0] = 4.883e-3 * voltage;
+    result = i2cReadByteData(fd, CELL_2_V_MS);
+    voltage = result << 3;
+    result = i2cReadByteData(fd, CELL_2_V_LS);
+    voltage = (voltage | (result >> 5));
+    voltage = (voltage | (result >> 5));
+    batteryData[1] = 4.883e-3 * voltage;
 
-        result = i2cReadByteData(fd, CELL_2_V_MS);
-        voltage = result << 3;
-        result = i2cReadByteData(fd, CELL_2_V_LS);
-        voltage = (voltage | (result >> 5));
-        voltage = (voltage | (result >> 5));
-        batteryData[1] = 4.883e-3 * voltage;
+    result = i2cReadByteData(fd, BATT_I_MS);
+    current = result << 8;
+    result = i2cReadByteData(fd, BATT_I_LS);
+    current = current | result;
+    batteryData[2] = 1000 * current * (1.5625e-6 / R_SENSE);
 
-        result = i2cReadByteData(fd, BATT_I_MS);
-        current = result << 8;
-        result = i2cReadByteData(fd, BATT_I_LS);
-        current = current | result;
-        batteryData[2] = 1000 * current * (1.5625e-6 / R_SENSE);
-
-        i2cClose(fd);
-        return (0);
-    }
+    i2cClose(fd);
+    return (0);
 }
 
 //-----------------------------------------------------------------------------
@@ -278,27 +247,24 @@ int getTempPsns(double *presSensorData) {
         return (-1);
     }
 
-    else {
+    i2cWriteByte(fd, 0xAC); // measurement request from the device
+    usleep(10000);          // wait 10 ms for the measurement to finish
 
-        i2cWriteByte(fd, 0xAC); // measurement request from the device
-        usleep(10000);          // wait 10 ms for the measurement to finish
+    i2cReadDevice(fd, presSensData_byte, 5); // read the measurement
 
-        i2cReadDevice(fd, presSensData_byte, 5); // read the measurement
+    temperature = presSensData_byte[3] << 8;
+    temperature = temperature + presSensData_byte[4];
 
-        temperature = presSensData_byte[3] << 8;
-        temperature = temperature + presSensData_byte[4];
-        presSensorData[0] =
-            ((temperature >> 4) - 24) * .05 - 50; // convert to deg C
-        // convert to bar - see Keller data sheet for the particular sensor in
-        // use
-        pressure = presSensData_byte[1] << 8;
-        pressure = pressure + presSensData_byte[2];
-        presSensorData[1] =
-            ((PMAX - PMIN) / 32768.0) * (pressure - 16384.0); // convert to bar
+    // convert to deg C
+    // convert to bar - see Keller data sheet for the particular sensor in use
+    presSensorData[0] = ((temperature >> 4) - 24) * .05 - 50; 
+    pressure = presSensData_byte[1] << 8;
+    pressure = pressure + presSensData_byte[2];
+    // convert to bar
+    presSensorData[1] = ((PMAX - PMIN) / 32768.0) * (pressure - 16384.0);
 
-        i2cClose(fd);
-        return (0);
-    }
+    i2cClose(fd);
+    return (0);
 }
 
 //-----------------------------------------------------------------------------
@@ -306,26 +272,15 @@ int getTempPsns(double *presSensorData) {
 //-----------------------------------------------------------------------------
 
 int getAmbientLight(int *pAmbientLight) {
-
     int fd;
-    int ambientLight;
-
     if ((fd = i2cOpen(1, ADDR_IO_EXPANDER_SNSBD, 0)) < 0) {
         printf("getAmbientLight(): Failed to connect to the IO Expander\n");
         return (-1);
     }
 
-    else {
-
-        ambientLight = i2cReadByteData(fd, 0x00);
-        if (ambientLight & BIT_4)
-            *pAmbientLight = 1;
-        else
-            *pAmbientLight = 0;
-
-        i2cClose(fd);
-        return (0);
-    }
+    *pAmbientLight = (!!(i2cReadByteData(fd, 0x00) & BIT_4));
+    i2cClose(fd);
+    return (0);
 }
 
 //-----------------------------------------------------------------------------
@@ -333,21 +288,16 @@ int getAmbientLight(int *pAmbientLight) {
 //-----------------------------------------------------------------------------
 
 int getBoardTemp(int *pBoardTemp) {
-
     int fd;
-    int boardTemp;
-
     if ((fd = i2cOpen(1, ADDR_TEMP, 0)) < 0) {
         printf("getBoardTemp(): Failed to connect to the temperature sensor\n");
         return (-1);
     }
 
-    else {
-        boardTemp = i2cReadByteData(fd, 0x00);
-        i2cClose(fd);
-        *pBoardTemp = boardTemp;
-        return (0);
-    }
+    int boardTemp = i2cReadByteData(fd, 0x00);
+    i2cClose(fd);
+    *pBoardTemp = boardTemp;
+    return (0);
 }
 
 //-----------------------------------------------------------------------------
@@ -726,25 +676,18 @@ int xbTx(void) {
         return (0);
     }
 
-    else {
+    fd = serOpen("/dev/serial0", 9600, 0);
 
-        fd = serOpen("/dev/serial0", 9600, 0);
-
-        if (fd < 0) {
-            printf("xbTx(): Failed to open the serial port\n");
-            return (-1);
-        } else {
-            // printf("xbTx(): Successfully opened the serial port\n");
-        }
-
-        // printf("xbTx(): Writing GPS sentence to XBee\n");
-        serWrite(fd, gpsLocation, strlen(gpsLocation));
-        serWrite(fd, "\n", 1);
-
-        i = 0;
-
-        serClose(fd);
+    if (fd < 0) {
+        printf("xbTx(): Failed to open the serial port\n");
+        return (-1);
     }
 
+    // printf("xbTx(): Writing GPS sentence to XBee\n");
+    serWrite(fd, gpsLocation, strlen(gpsLocation));
+    serWrite(fd, "\n", 1);
+
+    i = 0;
+    serClose(fd);
     return (0);
 }
