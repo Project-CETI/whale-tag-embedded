@@ -19,14 +19,16 @@ int demoGPS(void) {
 
     int fd = serOpen("/dev/serial0", 9600, 0);
     if (fd < 0) {
-        printf("demoGPS(): Failed to open the serial port\n");
+        CETI_LOG("demoGPS(): Failed to open the serial port");
         return (-1);
     }
 
     printf("demoGPS(): Successfully opened the serial port\n");
+    CETI_LOG("demoGPS(): Successfully opened the serial port");
     while (1) {
         usleep(1000000);
         printf("Trying to write to the serial port with pigpio\n");
+        CETI_LOG("Trying to write to the serial port with pigpio");
         serWrite(fd, "Test Tx\n", 8);
     }
 

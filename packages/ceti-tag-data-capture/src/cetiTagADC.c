@@ -156,7 +156,7 @@ void *spiThread(void *paramPtr) {
     int spi_fd = spiOpen(SPI_CE, SPI_CLK_RATE, 1);
 
     if (spi_fd < 0) {
-        fprintf(stderr, "pigpio SPI initialisation failed\n");
+        CETI_LOG("pigpio SPI initialisation failed");
         return NULL;
     }
 
@@ -228,8 +228,7 @@ void *writeDataThread(void *paramPtr) {
             acqDataFileLength = 0;
         }
 
-        printf("Writing %d SPI_BLOCKS from ram buff to SD Card  \n",
-               NUM_SPI_BLOCKS);
+        CETI_LOG("Writing %d SPI_BLOCKS from ram buff to SD Card", NUM_SPI_BLOCKS);
         page[pageIndex].readyToBeSavedToDisk = false;
         acqDataFileLength += RAM_SIZE;
         fwrite(page[pageIndex].buffer, 1, RAM_SIZE, acqData);

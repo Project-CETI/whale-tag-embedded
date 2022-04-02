@@ -61,10 +61,7 @@ void *sensorThread(void *paramPtr) {
         snsData = gzopen(SNS_FILE, "wb");
         fopen(SNS_FILE, "a");
         if (snsData == NULL) {
-            fprintf(stderr,
-                    "sensorThread(): could not find sensor file, creating a "
-                    "new one: %s\n",
-                    SNS_FILE);
+            CETI_LOG("sensorThread(): could not find sensor file, creating a new one: %s", SNS_FILE);
             snsData = gzopen(SNS_FILE, "wt");
             gzprintf(snsData, "%s", header);
         }
@@ -114,7 +111,7 @@ int getGpsLocation(char *gpsLocation) {
     }
 
     if (fd < 0) {
-        printf("getGpsLocation(): Failed to open the serial port\n");
+        CETI_LOG("getGpsLocation(): Failed to open the serial port");
         return (-1);
     }
 
@@ -165,7 +162,7 @@ int getQuaternion(short *quaternion) {
     // parse the IMU quaternion vector input report
 
     if ((fd = i2cOpen(1, ADDR_IMU, 0)) < 0) {
-        printf("getRotation(): Failed to connect to the IMU\n");
+        CETI_LOG("getRotation(): Failed to connect to the IMU");
         return -1;
     }
 
@@ -204,7 +201,7 @@ int getBattStatus(double *batteryData) {
     signed short voltage, current;
 
     if ((fd = i2cOpen(1, ADDR_GAS_GAUGE, 0)) < 0) {
-        printf("getBattStatus(): Failed to connect to the gas gauge\n");
+        CETI_LOG("getBattStatus(): Failed to connect to the gas gauge");
         return (-1);
     }
 
@@ -243,7 +240,7 @@ int getTempPsns(double *presSensorData) {
     char presSensData_byte[5];
 
     if ((fd = i2cOpen(1, ADDR_DEPTH, 0)) < 0) {
-        printf("getTempPsns(): Failed to connect to the depth sensor\n");
+        CETI_LOG("getTempPsns(): Failed to connect to the depth sensor");
         return (-1);
     }
 
@@ -274,7 +271,7 @@ int getTempPsns(double *presSensorData) {
 int getAmbientLight(int *pAmbientLight) {
     int fd;
     if ((fd = i2cOpen(1, ADDR_IO_EXPANDER_SNSBD, 0)) < 0) {
-        printf("getAmbientLight(): Failed to connect to the IO Expander\n");
+        CETI_LOG("getAmbientLight(): Failed to connect to the IO Expander");
         return (-1);
     }
 
@@ -290,7 +287,7 @@ int getAmbientLight(int *pAmbientLight) {
 int getBoardTemp(int *pBoardTemp) {
     int fd;
     if ((fd = i2cOpen(1, ADDR_TEMP, 0)) < 0) {
-        printf("getBoardTemp(): Failed to connect to the temperature sensor\n");
+        CETI_LOG("getBoardTemp(): Failed to connect to the temperature sensor");
         return (-1);
     }
 
@@ -339,8 +336,7 @@ int updateState(int presentState) {
 
         cetiConfig = fopen(CETI_CONFIG_FILE, "r");
         if (cetiConfig == NULL) {
-            fprintf(stderr,
-                    "updateState():cannot open sensor csv output file\n");
+            CETI_LOG("updateState():cannot open sensor csv output file");
             return (-1);
         }
 
@@ -402,8 +398,7 @@ int updateState(int presentState) {
         // Start recording and turn on green LED - ready to attach
 
         if ((fd = i2cOpen(1, ADDR_IO_EXPANDER_PWRBD, 0)) < 0) {
-            printf("Failed to open I2C connection for IO Expander on the Power "
-                   "Board\n");
+            CETI_LOG("Failed to open I2C connection for IO Expander on the Power Board");
             return (-1);
         }
 
@@ -414,10 +409,7 @@ int updateState(int presentState) {
         start_acq(); // kick off the audio recording
 
         startTime = getTimeDeploy(); // new v0.5 gets start time from the csv
-        printf("Deploy Start: %d\n", startTime);
-
-        /// startTime = getrtcCount;      //mark time zero for this run
-
+        CETI_LOG("Deploy Start: %d", startTime);
         nextState = ST_DEPLOY; // underway!
         rfOn();                // turn on the GPS and XBee power supply
 
@@ -581,32 +573,29 @@ int burnwireOn(void) {
     int result;
     // Open a connection to the io expander on the power board
     if ((fd = i2cOpen(1, ADDR_IO_EXPANDER_PWRBD, 0)) < 0) {
-        printf("Failed to open I2C connection for IO Expander on the Power "
-               "Board\n");
+        CETI_LOG("Failed to open I2C connection for IO Expander on the Power Board");
         return -1;
     }
     // to turn it on, set bit 0 and bit 1 both low
     result = i2cReadByteData(fd, IOX_OUTPUT);
     result = result & ~(BW_RST | nBW_ON);
-    printf("Turn BW ON writing %02X to the IOX\n", result);
+    CETI_LOG("Turn BW ON writing %02X to the IOX", result);
     i2cWriteByteData(fd, IOX_OUTPUT, result);
     i2cClose(fd);
     return 0;
 }
 
 int burnwireOff(void) {
-    int fd;
-    int result;
+    int fd, result;
     // Open a connection to the io expander on the power board
     if ((fd = i2cOpen(1, ADDR_IO_EXPANDER_PWRBD, 0)) < 0) {
-        printf("Failed to open I2C connection for IO Expander on the Power "
-               "Board\n");
+        CETI_LOG("Failed to open I2C connection for IO Expander on the Power Board");
         return -1;
     }
     // to turn it off, set bit1 high
     result = i2cReadByteData(fd, IOX_OUTPUT);
     result = result | BW_RST;
-    printf("Turn BW OFF writing %02X to the IOX\n", result);
+    CETI_LOG("Turn BW OFF writing %02X to the IOX", result);
     i2cWriteByteData(fd, IOX_OUTPUT, result);
     i2cClose(fd);
     return 0;
@@ -617,11 +606,10 @@ int rfOn(void) {
     int fd;
     int result;
 
-    printf("rfOn() - Turn on power for GPS and XBee modules\n");
+    CETI_LOG("rfOn() - Turn on power for GPS and XBee modules");
     // Open a connection to the io expander on the power board
     if ((fd = i2cOpen(1, ADDR_IO_EXPANDER_SNSBD, 0)) < 0) {
-        printf("Failed to open I2C connection for IO Expander on the Sensor "
-               "Board\n");
+        CETI_LOG("Failed to open I2C connection for IO Expander on the Sensor Board");
         return -1;
     }
     // Start with the output low before enabling, otherwise surge is excessive.
@@ -652,8 +640,7 @@ int rfOff(void) {
 
     // Open a connection to the io expander on the power board
     if ((fd = i2cOpen(1, ADDR_IO_EXPANDER_SNSBD, 0)) < 0) {
-        printf("Failed to open I2C connection for IO Expander on the Power "
-               "Board\n");
+        CETI_LOG("Failed to open I2C connection for IO Expander on the Power Board");
         return -1;
     }
     result = i2cReadByteData(fd, IOX_OUTPUT);
@@ -679,7 +666,7 @@ int xbTx(void) {
     fd = serOpen("/dev/serial0", 9600, 0);
 
     if (fd < 0) {
-        printf("xbTx(): Failed to open the serial port\n");
+        CETI_LOG("xbTx(): Failed to open the serial port");
         return (-1);
     }
 

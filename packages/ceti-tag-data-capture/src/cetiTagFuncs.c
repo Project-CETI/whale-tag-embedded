@@ -335,8 +335,7 @@ int loadFpgaBitstream(void) {
     pConfig = malloc(BITSTREAM_SIZE_BYTES); // allocate memory for the
                                             // configuration bitstream
     if (pConfig == NULL) {
-        fprintf(stderr, "loadFpgaBitstream(): Failed to allocate memory for "
-                        "the configuration file\n");
+        CETI_LOG("loadFpgaBitstream(): Failed to allocate memory for the configuration file");
         return 1;
     }
 
@@ -344,7 +343,7 @@ int loadFpgaBitstream(void) {
     // ToDo: replace with mmap, do not hardcode bitstreamsize
     pConfigFile = fopen(FPGA_BITSTREAM, "rb");
     if (pConfigFile == NULL) {
-        fprintf(stderr, "loadFpgaBitstream():cannot open input file\n");
+        CETI_LOG("loadFpgaBitstream():cannot open input file");
         return 1;
     }
     fread(pConfig, 1, BITSTREAM_SIZE_BYTES, pConfigFile);
@@ -445,8 +444,7 @@ void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
         recv_packet[j] = data_byte;
     }
     for (j = 0; j < NUM_BYTES_MESSAGE; j++) {
-        // printf("received %d: %02X \n",j,recv_packet[j]);
-        *(pResponse + j) = recv_packet[j]; // fill in the response
+        *(pResponse + j) = recv_packet[j];
     }
 }
 
@@ -468,20 +466,18 @@ int initI2cDevices() // In work
 
     // Open a connection to the io expander on the power board
     if ((fd = i2cOpen(1, ADDR_IO_EXPANDER_PWRBD, 0)) < 0) {
-        printf("Failed to open I2C connection for IO Expander on the Power "
-               "Board\n");
+        CETI_LOG("Failed to open I2C connection for IO Expander on the Power Board");
         return -1;
     }
-    i2cWriteByteData(fd, IOX_CONFIG,
-                     0x04); // make all pins outputs except for RF
+
+    // make all pins outputs except for RF
+    i2cWriteByteData(fd, IOX_CONFIG, 0x04);
 
     result = i2cReadByteData(fd, IOX_CONFIG);
     if (result != 0x04) {
-        printf("iinitI2CDevices(): IO Expander on Power Board did not "
-               "initialize as expected\n");
+        CETI_LOG("iinitI2CDevices(): IO Expander on Power Board did not initialize as expected");
         return -1;
     }
-    // printf("Read configuration register on the PB IOX: 0x%02X\n",result);
 
     burnwireOff();
 
@@ -509,7 +505,7 @@ int initTag(void) {
     char cTemp[16];
 
     CETI_LOG("Application Started");
-    printf("main(): Initializing and Checking Hardware Peripherals\n");
+    CETI_LOG("main(): Initializing and Checking Hardware Peripherals");
 
     // Configure the FPGA and log version
     if (!loadFpgaBitstream()) {
@@ -553,7 +549,7 @@ int getRtcCount(int *pRtcCount) {
     char rtcCountByte[4];
 
     if ((fd = i2cOpen(1, ADDR_RTC, 0)) < 0) {
-        printf("getRtcCount(): Failed to connect to the RTC");
+        CETI_LOG("getRtcCount(): Failed to connect to the RTC");
         return (-1);
     }
 
@@ -572,8 +568,6 @@ int getRtcCount(int *pRtcCount) {
         rtcShift = (rtcCountByte[3] << 24);
         rtcCount = rtcCount | rtcShift;
 
-        // printf("RTC Count is %d\n",rtcCount);
-
         *pRtcCount = rtcCount;
     }
 
@@ -585,7 +579,7 @@ int resetRtcCount() {
     int fd;
 
     if ((fd = i2cOpen(1, ADDR_RTC, 0)) < 0) {
-        printf("getRtcCount(): Failed to connect to the RTC\n");
+        CETI_LOG("getRtcCount(): Failed to connect to the RTC");
         return (-1);
     }
 
@@ -609,7 +603,7 @@ int getTimeDeploy(void) {
 
     sensorsCsvFile = fopen("../data/sensors/sensors.csv", "r");
     if (sensorsCsvFile == NULL) {
-        fprintf(stderr, "main():cannot open sensor csv output file\n");
+        CETI_LOG("main():cannot open sensor csv output file");
         return (-1);
     }
 
@@ -618,10 +612,6 @@ int getTimeDeploy(void) {
     strncpy(strTimeDeploy, line, 10); // time stamp
     strTimeDeploy[10] = '\n';
     timeDeploy = atol(strTimeDeploy);
-
-    // printf("the line is %s \n",line);
-    // printf("the deploy time string is %s \n",strTimeDeploy);
-    // printf("the deploy time float is %f \n",timeDeploy);
 
     fclose(sensorsCsvFile);
     return (timeDeploy);

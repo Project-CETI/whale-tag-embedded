@@ -50,23 +50,23 @@ int main(void) {
     printf("main(): Starting Application\n");
 
     if (gpioInitialise() < 0) {
-        fprintf(stderr, "main(): pigpio initialisation failed\n");
+        CETI_LOG("main(): pigpio initialisation failed");
         return 1;
     }
 
     if (initTag() < 0) {
-        fprintf(stderr, "main(): Tag initialisation failed\n");
+        CETI_LOG("main(): Tag initialisation failed");
         return 1;
     }
-    printf("main(): Creating Command/Response Thread\n");
-    pthread_create(&cmdHdlThreadId, NULL, &cmdHdlThread,
-                   NULL); // TODO add error check
-    printf("main(): Creating SPI Acquisition Thread\n");
+    CETI_LOG("main(): Creating Command/Response Thread");
+    pthread_create(&cmdHdlThreadId, NULL, &cmdHdlThread, NULL);
+    CETI_LOG("main(): Creating SPI Acquisition Thread");
     pthread_create(&spiThreadId, NULL, &spiThread, NULL);
-    printf("main(): Creating Data Acquisition Thread\n");
+    CETI_LOG("main(): Creating Data Acquisition Thread");
     pthread_create(&writeDataThreadId, NULL, &writeDataThread, NULL);
 
     CETI_LOG("Application Started");
+    fprintf(stdout,"Application Started");
 
     // Main Loop
     while (!g_exit) { // main loop runs the hearbeat and handles commands
@@ -78,12 +78,14 @@ int main(void) {
     }
 
     printf("Canceling Threads\n");
+    CETI_LOG("Canceling Threads");
     pthread_cancel(cmdHdlThreadId);
     pthread_cancel(spiThreadId);
     pthread_cancel(writeDataThreadId);
     pthread_cancel(sensorThreadId);
     gpioTerminate();
     printf("Program Exit\n");
+    CETI_LOG("Program Exit");
     return (0);
 }
 

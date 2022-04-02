@@ -49,7 +49,8 @@ int learnIMU() {
     int fd;
     u_int16_t numBytesAvail;
     if ((fd = i2cOpen(1, ADDR_IMU, 0)) < 0) {
-        printf("learnIMU(): Failed to connect to the IMU\n");
+        CETI_LOG("learnIMU(): Failed to connect to the IMU");
+        fprintf(stderr, "learnIMU(): Failed to connect to the IMU\n");
         return -1;
     }
 
@@ -91,18 +92,19 @@ int learnIMU() {
     return 0;
 }
 
-int setupIMU() // This enables just the rotation vector feature
+// This enables just the rotation vector feature
+int setupIMU()
 {
     char setFeatureCommand[21] = {0};
     char shtpHeader[4] = {0};
     int fd = i2cOpen(1, ADDR_IMU, 0);
 
     if (fd < 0) {
-        printf("setupIMU(): Failed to connect to the IMU\n");
+        CETI_LOG("setupIMU(): Failed to connect to the IMU\n");
         return -1;
     }
 
-    printf("setupIMU(): IMU connection opened\n");
+    CETI_LOG("setupIMU(): IMU connection opened\n");
 
     setFeatureCommand[0] = 0x15; // Packet length LSB (21 bytes)
     setFeatureCommand[2] = CHANNEL_CONTROL;
@@ -116,7 +118,7 @@ int setupIMU() // This enables just the rotation vector feature
 
     i2cWriteDevice(fd, setFeatureCommand, 21);
     i2cReadDevice(fd, shtpHeader, 4);
-    printf("setupIMU(): Header is 0x%02X  0x%02X  0x%02X  0x%02X \n",
+    CETI_LOG("setupIMU(): Header is 0x%02X  0x%02X  0x%02X  0x%02X",
            shtpHeader[0], shtpHeader[1], shtpHeader[2], shtpHeader[3]);
     i2cClose(fd);
 
@@ -132,11 +134,11 @@ int getRotation(rotation_t *pRotation)
     int fd = i2cOpen(1, ADDR_IMU, 0);
 
     if (fd < 0) {
-        printf("getRotation(): Failed to connect to the IMU\n");
+        CETI_LOG("getRotation(): Failed to connect to the IMU\n");
         return -1;
     }
 
-    printf("getRotation(): IMU connection opened\n");
+    CETI_LOG("getRotation(): IMU connection opened\n");
 
     // Byte   0    1    2    3    4   5   6    7    8      9     10     11
     //       |     HEADER      |            TIME       |  ID    SEQ   STATUS....
@@ -153,7 +155,7 @@ int getRotation(rotation_t *pRotation)
                 // testing, should come back 0x05
                 pRotation->reportID = pktBuff[9];
                 pRotation->sequenceNum = pktBuff[10];
-                printf("getRotation(): report ID 0x%02X  sequ 0x%02X i "
+                CETI_LOG("getRotation(): report ID 0x%02X  sequ 0x%02X i "
                        "%02X%02X j %02X%02X k %02X%02X r %02X%02X\n",
                        pktBuff[9], pktBuff[10], pktBuff[14], pktBuff[13],
                        pktBuff[16], pktBuff[15], pktBuff[18], pktBuff[17],
