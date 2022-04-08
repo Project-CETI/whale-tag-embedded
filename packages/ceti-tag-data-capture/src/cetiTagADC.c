@@ -219,6 +219,8 @@ void *spiThread(void *paramPtr) {
 //-----------------------------------------------------------------------------
 void *writeDataThread(void *paramPtr) {
     int pageIndex = 0;
+    createNewDataFile();
+    acqDataFileLength = 0;
     while (1) {
         if (!page[pageIndex].readyToBeSavedToDisk) {
             usleep(1000);
