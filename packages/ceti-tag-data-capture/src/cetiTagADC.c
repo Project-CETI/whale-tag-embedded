@@ -230,7 +230,6 @@ void *writeDataThread(void *paramPtr) {
         if (acqDataFileLength > MAX_DATA_FILE_SIZE) {
             createNewDataFile();
             acqDataFileLength = 0;
-            debugPrintList();
         }
 
         page[pageIndex].readyToBeSavedToDisk = false;
@@ -245,8 +244,6 @@ void *writeDataThread(void *paramPtr) {
 }
 
 void *flacCompressThread(void *paramPtr) {
-
-    debugPrintList();
 
     char * rawAudioFileName = listPopFront();
     if (!rawAudioFileName) {
@@ -298,6 +295,10 @@ static void createNewDataFile() {
     }
 
     acqDataFileName = (char*)malloc(DATA_FILENAME_LEN * sizeof(char));
+    if (!acqDataFileName) {
+        CETI_LOG("Failed to allocate memory for a string to hold a filename\n");
+        return;
+    }
 
     // filename is the time in ms at the start of audio recording
     struct timeval te;
@@ -305,14 +306,12 @@ static void createNewDataFile() {
     long long milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
     snprintf(acqDataFileName, DATA_FILENAME_LEN, "../data/%lld", milliseconds);
     acqData = fopen(acqDataFileName, "wb");
-    listPushBack(acqDataFileName);
     if (!acqData) {
         CETI_LOG("Failed to open %s", acqDataFileName);
         return;
     }
+    listPushBack(acqDataFileName);
     CETI_LOG("Saving hydrophone data to %s", acqDataFileName);
-    
-    debugPrintList();
 }
 
 //-----------------------------------------------------------------------------
