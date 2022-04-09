@@ -35,13 +35,18 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "cetiList.h"
 #include "cetiTagLogging.h"
 #include "cetiTagWrapper.h"
 
-#define DATA_FILENAME_LEN (100)
 
 // At 96 kHz sampling rate; 16-bit; 3 channels 1 minute of data is 33750 KiB
 #define MAX_DATA_FILE_SIZE (15 * 33750 * 1024) // 15 minute files at 96
+#define DATA_FILENAME_LEN (100)
+
+static FILE *acqData = NULL; // data file for audio data
+static char *acqDataFileName;
+static int acqDataFileLength;
 
 struct dataPage {
     char buffer[RAM_SIZE];
@@ -50,10 +55,6 @@ struct dataPage {
 };
 
 static struct dataPage page[2];
-
-static FILE *acqData = NULL; // data file for audio data
-static char acqDataFileName[DATA_FILENAME_LEN];
-static int acqDataFileLength;
 
 static void createNewDataFile(void);
 void formatRaw(void);
@@ -221,6 +222,7 @@ void *writeDataThread(void *paramPtr) {
     int pageIndex = 0;
     createNewDataFile();
     acqDataFileLength = 0;
+
     while (1) {
         if (!page[pageIndex].readyToBeSavedToDisk) {
             usleep(1000);
@@ -228,9 +230,9 @@ void *writeDataThread(void *paramPtr) {
         if (acqDataFileLength > MAX_DATA_FILE_SIZE) {
             createNewDataFile();
             acqDataFileLength = 0;
+            debugPrintList();
         }
 
-        CETI_LOG("Writing %d SPI_BLOCKS from ram buff to SD Card", NUM_SPI_BLOCKS);
         page[pageIndex].readyToBeSavedToDisk = false;
         acqDataFileLength += RAM_SIZE;
         fwrite(page[pageIndex].buffer, 1, RAM_SIZE, acqData);
@@ -244,6 +246,14 @@ void *writeDataThread(void *paramPtr) {
 
 void *flacCompressThread(void *paramPtr) {
 
+    debugPrintList();
+
+    char * rawAudioFileName = listPopFront();
+    if (!rawAudioFileName) {
+        CETI_LOG("The list of files to compress is empty!");
+        return NULL;
+    }
+
     // Set the priority to the lowest possible for the compression thread
     struct sched_param sp;
     memset(&sp, 0, sizeof(sp));
@@ -253,7 +263,7 @@ void *flacCompressThread(void *paramPtr) {
     int filename_len = DATA_FILENAME_LEN + strlen(".flac");
     char flac_filename[filename_len];
     memset(flac_filename, 0, filename_len);
-    snprintf(flac_filename, filename_len, "%s.flac", acqDataFileName);
+    snprintf(flac_filename, filename_len, "%s.flac", rawAudioFileName);
 
     int cmd_len = 3 * filename_len;
     char cmd[cmd_len];
@@ -261,13 +271,16 @@ void *flacCompressThread(void *paramPtr) {
     snprintf(cmd, cmd_len,
              "flac --channels=3 --bps=16 --sample-rate=96000 --sign=signed "
              "--endian=little --force-raw-format %s --force %s",
-             acqDataFileName, flac_filename);
+             rawAudioFileName, flac_filename);
 
     int retCode = system(cmd);
     if (!retCode) {
-        CETI_LOG("Failed to flac compress %s", acqDataFileName);
-        remove(acqDataFileName);
+        CETI_LOG("Successfully compressed %s", rawAudioFileName);
+        remove(rawAudioFileName);
+    } else {
+        CETI_LOG("Failed to compress %s, retCode=%d", rawAudioFileName, retCode);
     }
+    free(rawAudioFileName);
     return NULL;
 }
 
@@ -284,12 +297,22 @@ static void createNewDataFile() {
         flacCompress();
     }
 
+    acqDataFileName = (char*)malloc(DATA_FILENAME_LEN * sizeof(char));
+
     // filename is the time in ms at the start of audio recording
     struct timeval te;
     gettimeofday(&te, NULL);
     long long milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
     snprintf(acqDataFileName, DATA_FILENAME_LEN, "../data/%lld", milliseconds);
     acqData = fopen(acqDataFileName, "wb");
+    listPushBack(acqDataFileName);
+    if (!acqData) {
+        CETI_LOG("Failed to open %s", acqDataFileName);
+        return;
+    }
+    CETI_LOG("Saving hydrophone data to %s", acqDataFileName);
+    
+    debugPrintList();
 }
 
 //-----------------------------------------------------------------------------
