@@ -60,10 +60,12 @@ int main(void) {
     }
     CETI_LOG("main(): Creating Command/Response Thread");
     pthread_create(&cmdHdlThreadId, NULL, &cmdHdlThread, NULL);
-    CETI_LOG("main(): Creating SPI Acquisition Thread");
+    CETI_LOG("main(): Creating SPI Audio Acquisition Thread");
     pthread_create(&spiThreadId, NULL, &spiThread, NULL);
-    CETI_LOG("main(): Creating Data Acquisition Thread");
+    CETI_LOG("main(): Creating Audio writing to disk Thread");
     pthread_create(&writeDataThreadId, NULL, &writeDataThread, NULL);
+    CETI_LOG("main(): Creating Sensor Thread");
+    pthread_create(&sensorThreadId,NULL,&sensorThread,NULL);
 
     CETI_LOG("Application Started");
     fprintf(stdout,"Application Started");
