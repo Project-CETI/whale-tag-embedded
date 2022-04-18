@@ -58,9 +58,8 @@ void *sensorThread(void *paramPtr) {
         getAmbientLight(&ambientLight);
         getGpsLocation(gpsLocation);
 
-        snsData = gzopen(SNS_FILE, "wb");
-        fopen(SNS_FILE, "a");
-        if (snsData == NULL) {
+        snsData = gzopen(SNS_FILE, "at");
+        if (snsData == Z_NULL) {
             CETI_LOG("sensorThread(): could not find sensor file, creating a new one: %s", SNS_FILE);
             snsData = gzopen(SNS_FILE, "wt");
             gzprintf(snsData, "%s", header);
@@ -81,6 +80,7 @@ void *sensorThread(void *paramPtr) {
         gzprintf(snsData, "%d,", quaternion[3]);
         gzprintf(snsData, "%d,", ambientLight);
         gzprintf(snsData, "\"%s\"\n", gpsLocation);
+        gzflush(snsData, Z_FULL_FLUSH);
         gzclose(snsData);
         presentState = updateState(presentState);
         usleep(SNS_SMPL_PERIOD);
