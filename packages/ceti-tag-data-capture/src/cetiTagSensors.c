@@ -11,7 +11,6 @@
 
 #include <sys/time.h>
 #include <sys/param.h>
-#include <zlib.h>
 
 #include "cetiTagSensors.h"
 #include "cetiTagWrapper.h"
@@ -38,7 +37,7 @@ char state_str[][MAX_STATE_STRING_LEN] = {
 //  - Keep track of the operational state of the tag
 //-----------------------------------------------------------------------------
 void *sensorThread(void *paramPtr) {
-    gzFile snsData; // data file for non-audio sensor data
+    FILE *snsData = NULL; // data file for non-audio sensor data
     char header[] =
         "Timestampe(ms), RTC count, State, BoardTemp degC, WaterTemp degC, "
         "Pressure bar, Batt_V1 V, Batt_V2 V, Batt_I mA, Quat_i, Quat_j, "
@@ -58,30 +57,29 @@ void *sensorThread(void *paramPtr) {
         getAmbientLight(&ambientLight);
         getGpsLocation(gpsLocation);
 
-        snsData = gzopen(SNS_FILE, "at");
-        if (snsData == Z_NULL) {
+        snsData = fopen(SNS_FILE, "at");
+        if (snsData == NULL) {
             CETI_LOG("sensorThread(): could not find sensor file, creating a new one: %s", SNS_FILE);
-            snsData = gzopen(SNS_FILE, "wt");
-            gzprintf(snsData, "%s", header);
+            snsData = fopen(SNS_FILE, "wt");
+            fprintf(snsData, "%s", header);
         }
 
-        gzprintf(snsData, "%lld,", milliseconds);
-        gzprintf(snsData, "%d,", rtcCount);
-        gzprintf(snsData, "%s,", state_str[presentState]);
-        gzprintf(snsData, "%d,", boardTemp);
-        gzprintf(snsData, "%.2f,", pressureSensorData[0]);
-        gzprintf(snsData, "%.2f,", pressureSensorData[1]);
-        gzprintf(snsData, "%.2f,", batteryData[0]);
-        gzprintf(snsData, "%.2f,", batteryData[1]);
-        gzprintf(snsData, "%.2f,", batteryData[2]);
-        gzprintf(snsData, "%d,", quaternion[0]);
-        gzprintf(snsData, "%d,", quaternion[1]);
-        gzprintf(snsData, "%d,", quaternion[2]);
-        gzprintf(snsData, "%d,", quaternion[3]);
-        gzprintf(snsData, "%d,", ambientLight);
-        gzprintf(snsData, "\"%s\"\n", gpsLocation);
-        gzflush(snsData, Z_FULL_FLUSH);
-        gzclose(snsData);
+        fprintf(snsData, "%lld,", milliseconds);
+        fprintf(snsData, "%d,", rtcCount);
+        fprintf(snsData, "%s,", state_str[presentState]);
+        fprintf(snsData, "%d,", boardTemp);
+        fprintf(snsData, "%.2f,", pressureSensorData[0]);
+        fprintf(snsData, "%.2f,", pressureSensorData[1]);
+        fprintf(snsData, "%.2f,", batteryData[0]);
+        fprintf(snsData, "%.2f,", batteryData[1]);
+        fprintf(snsData, "%.2f,", batteryData[2]);
+        fprintf(snsData, "%d,", quaternion[0]);
+        fprintf(snsData, "%d,", quaternion[1]);
+        fprintf(snsData, "%d,", quaternion[2]);
+        fprintf(snsData, "%d,", quaternion[3]);
+        fprintf(snsData, "%d,", ambientLight);
+        fprintf(snsData, "\"%s\"\n", gpsLocation);
+        fclose(snsData);
         presentState = updateState(presentState);
         usleep(SNS_SMPL_PERIOD);
     }
@@ -396,8 +394,8 @@ int updateState(int presentState) {
     case (ST_START):
 
         // Start recording and turn on green LED - ready to attach
-
-        if ((fd = i2cOpen(1, ADDR_IO_EXPANDER_PWRBD, 0)) < 0) {
+        fd = i2cOpen(1, ADDR_IO_EXPANDER_PWRBD, 0);
+        if (fd < 0) {
             CETI_LOG("Failed to open I2C connection for IO Expander on the Power Board");
             return (-1);
         }
@@ -569,10 +567,10 @@ int updateState(int presentState) {
 //-----------------------------------------------------------------------------
 
 int burnwireOn(void) {
-    int fd;
-    int result;
+    int result = 0;
+    int fd = i2cOpen(1, ADDR_IO_EXPANDER_PWRBD, 0);
     // Open a connection to the io expander on the power board
-    if ((fd = i2cOpen(1, ADDR_IO_EXPANDER_PWRBD, 0)) < 0) {
+    if (fd < 0) {
         CETI_LOG("Failed to open I2C connection for IO Expander on the Power Board");
         return -1;
     }
@@ -586,9 +584,10 @@ int burnwireOn(void) {
 }
 
 int burnwireOff(void) {
-    int fd, result;
+    int result = 0;
+    int fd = i2cOpen(1, ADDR_IO_EXPANDER_PWRBD, 0);
     // Open a connection to the io expander on the power board
-    if ((fd = i2cOpen(1, ADDR_IO_EXPANDER_PWRBD, 0)) < 0) {
+    if (fd < 0) {
         CETI_LOG("Failed to open I2C connection for IO Expander on the Power Board");
         return -1;
     }
@@ -603,12 +602,12 @@ int burnwireOff(void) {
 
 int rfOn(void) {
 
-    int fd;
-    int result;
+    int result = 0;
+    int fd = i2cOpen(1, ADDR_IO_EXPANDER_SNSBD, 0);
 
     CETI_LOG("rfOn() - Turn on power for GPS and XBee modules");
     // Open a connection to the io expander on the power board
-    if ((fd = i2cOpen(1, ADDR_IO_EXPANDER_SNSBD, 0)) < 0) {
+    if (fd  < 0) {
         CETI_LOG("Failed to open I2C connection for IO Expander on the Sensor Board");
         return -1;
     }
@@ -635,11 +634,11 @@ int rfOn(void) {
 
 int rfOff(void) {
 
-    int fd;
-    int result;
+    int result = 0;
+    int fd = i2cOpen(1, ADDR_IO_EXPANDER_SNSBD, 0);
 
     // Open a connection to the io expander on the power board
-    if ((fd = i2cOpen(1, ADDR_IO_EXPANDER_SNSBD, 0)) < 0) {
+    if (fd < 0) {
         CETI_LOG("Failed to open I2C connection for IO Expander on the Power Board");
         return -1;
     }
@@ -655,19 +654,17 @@ int rfOff(void) {
 
 int xbTx(void) {
 
-    int fd;
-    static int i;
-
-    if (i < 2) {
-        i++;
-        return (0);
-    }
-
-    fd = serOpen("/dev/serial0", 9600, 0);
+    static int i = 0;
+    int fd = serOpen("/dev/serial0", 9600, 0);
 
     if (fd < 0) {
         CETI_LOG("xbTx(): Failed to open the serial port");
         return (-1);
+    }
+
+    if (i < 2) {
+        i++;
+        return (0);
     }
 
     // printf("xbTx(): Writing GPS sentence to XBee\n");

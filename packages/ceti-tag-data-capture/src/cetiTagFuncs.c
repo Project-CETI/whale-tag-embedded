@@ -601,7 +601,7 @@ int getTimeDeploy(void) {
     char strTimeDeploy[16];
     double timeDeploy;
 
-    sensorsCsvFile = fopen("../data/sensors/sensors.csv", "r");
+    sensorsCsvFile = fopen(SNS_FILE, "r");
     if (sensorsCsvFile == NULL) {
         CETI_LOG("main():cannot open sensor csv output file");
         return (-1);
