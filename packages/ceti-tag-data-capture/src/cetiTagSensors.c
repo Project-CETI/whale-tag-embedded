@@ -617,15 +617,24 @@ int rfOn(void) {
     result = result & ~RF_ON;
     i2cWriteByteData(fd, IOX_OUTPUT, result);
 
+    // This is a hack, remove after the schematic changes
+    usleep(1000);
+
     // Now, configure the pin as an output
     result = i2cReadByteData(fd, IOX_CONFIG);
     result = result & ~RF_ON;
     i2cWriteByteData(fd, IOX_CONFIG, result);
 
+    // This is a hack, remove after the schematic changes
+    usleep(1000);
+
     // Now, turn it on
     result = i2cReadByteData(fd, IOX_OUTPUT);
     result = result | RF_ON;
     i2cWriteByteData(fd, IOX_OUTPUT, result);
+
+    // This is a hack, remove after the schematic changes
+    usleep(1000);
 
     i2cClose(fd);
     gpsPowerState = 1;
