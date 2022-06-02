@@ -82,6 +82,12 @@ echo "/dev/disk/by-label/cetiData /data ext4 defaults,nofail 0 0" >> /etc/fstab
 install_package "$(ls "${OUT_DIR}"/ceti-tag-set-hostname_*.deb)"
 install_package "$(ls "${OUT_DIR}"/ceti-tag-data-capture_*.deb)"
 
+# Enable ethernet over USB
+echo "deb https://packages.cloud.google.com/apt aiyprojects-stable main" > /etc/apt/sources.list.d/aiyprojects.list
+curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+apt update
+apt install -y aiy-usb-gadget
+
 # Copy filesystem overlay.
 tar -cf - -C "${OVERLAY_DIR}" --owner=pi --group=pi . | tar -xf - -C /
 
