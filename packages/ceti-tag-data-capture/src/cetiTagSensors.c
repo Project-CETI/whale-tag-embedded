@@ -115,14 +115,15 @@ int getGpsLocation(char *gpsLocation) {
 
 int getQuaternion(short *quaternion) {
 
-    int fd;
     int numBytesAvail;
     char pktBuff[256] = {0};
     char shtpHeader[4] = {0};
+    char commandBuffer[10] = {0};
+    int retval;
 
     // parse the IMU quaternion vector input report
 
-    if ((fd = i2cOpen(BUS_IMU, ADDR_IMU, 0)) < 0) {
+    if ((bbI2COpen(BB_I2C_SDA, BB_I2C_SCL, 200000)) < 0) {
         CETI_LOG("getQuaternion(): Failed to connect to the IMU");
         return -1;
     }
@@ -131,24 +132,36 @@ int getQuaternion(short *quaternion) {
     //       |     HEADER      |            TIME       |  ID    SEQ
     //       STATUS....
 
-    i2cReadDevice(fd, shtpHeader, 4);
+    commandBuffer[0] = 0x04; // set address
+    commandBuffer[1] = ADDR_IMU;
+    commandBuffer[2] = 0x02; // start
+    commandBuffer[3] = 0x01; // escape
+    commandBuffer[4] = 0x06; // read
+    commandBuffer[5] = 0x04; // #bytes lsb
+    commandBuffer[6] = 0x00; // #bytes msb
+    commandBuffer[7] = 0x03; // stop
+    commandBuffer[8] = 0x00; // end
 
+    retval = bbI2CZip(BB_I2C_SDA, commandBuffer, 9, shtpHeader, 4);
     // msb is "continuation bit, not part of count"
     numBytesAvail = MIN(256, ((shtpHeader[1] << 8) | shtpHeader[0]) & 0x7FFF);
 
-    if (numBytesAvail) {
-        i2cReadDevice(fd, pktBuff, numBytesAvail);
-        if (pktBuff[2] == 0x03) { // make sure we have the right channel
+    if (retval > 0 && numBytesAvail) {
+        commandBuffer[5] = numBytesAvail & 0xff;
+        commandBuffer[6] = (numBytesAvail >> 8) & 0xff;
+        bbI2CZip(BB_I2C_SDA, commandBuffer, 9, pktBuff, numBytesAvail);
+        if (retval > 0 && pktBuff[2] == 0x03) { // make sure we have the right channel
             quaternion[0] = (pktBuff[14] << 8) + pktBuff[13];
             quaternion[1] = (pktBuff[16] << 8) + pktBuff[15];
             quaternion[2] = (pktBuff[18] << 8) + pktBuff[17];
             quaternion[3] = (pktBuff[20] << 8) + pktBuff[19];
         }
+        bbI2CClose(BB_I2C_SDA);
     } else {
+        bbI2CClose(BB_I2C_SDA);
         setupIMU();
     }
 
-    i2cClose(fd);
     return (0);
 }
 

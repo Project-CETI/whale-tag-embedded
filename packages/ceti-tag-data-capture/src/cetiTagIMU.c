@@ -62,9 +62,11 @@ int setupIMU()
 {
     char setFeatureCommand[21] = {0};
     char shtpHeader[4] = {0};
-    int fd = i2cOpen(BUS_IMU, ADDR_IMU, 0);
+    char writeCmdBuf[28] = {0};
+    char readCmdBuf[10] = {0};
+    int retval = bbI2COpen(BB_I2C_SDA, BB_I2C_SCL, 200000);
 
-    if (fd < 0) {
+    if (retval < 0) {
         CETI_LOG("setupIMU(): Failed to connect to the IMU\n");
         return -1;
     }
@@ -81,11 +83,36 @@ int setupIMU()
     setFeatureCommand[11] = 0x07;
     setFeatureCommand[12] = 0x00; // Report interval MS
 
-    i2cWriteDevice(fd, setFeatureCommand, 21);
-    i2cReadDevice(fd, shtpHeader, 4);
+    writeCmdBuf[0] = 0x04; // set address
+    writeCmdBuf[1] = ADDR_IMU;
+    writeCmdBuf[2] = 0x02; // start
+    writeCmdBuf[3] = 0x07; // write
+    writeCmdBuf[4] = 0x15; // length
+    memcpy(&writeCmdBuf[5], setFeatureCommand, 21);
+    writeCmdBuf[26] = 0x03; // stop
+    writeCmdBuf[27] = 0x00; // end
+
+    readCmdBuf[0] = 0x04; // set address
+    readCmdBuf[1] = ADDR_IMU;
+    readCmdBuf[2] = 0x02; // start
+    readCmdBuf[3] = 0x01; // escape
+    readCmdBuf[4] = 0x06; // read
+    readCmdBuf[5] = 0x04; // length lsb
+    readCmdBuf[6] = 0x00; // length msb
+    readCmdBuf[7] = 0x03; // stop
+    readCmdBuf[8] = 0x00; // end
+
+    retval = bbI2CZip(BB_I2C_SDA, writeCmdBuf, 28, NULL, 0);
+    if (retval < 0) {
+        CETI_LOG("I2C write failed: %d", retval);
+    }
+    retval = bbI2CZip(BB_I2C_SDA, readCmdBuf, 9, shtpHeader, 4);
+    if (retval < 0) {
+        CETI_LOG("I2C read failed: %d", retval);
+    }
     CETI_LOG("setupIMU(): Header is 0x%02X  0x%02X  0x%02X  0x%02X",
            shtpHeader[0], shtpHeader[1], shtpHeader[2], shtpHeader[3]);
-    i2cClose(fd);
+    bbI2CClose(BB_I2C_SDA);
 
     return 0;
 }
