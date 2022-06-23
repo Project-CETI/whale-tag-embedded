@@ -7,7 +7,7 @@ if [ "$#" -ne 4 ]; then
 fi
 
 OUT_DIR="$1"
-OVERLAY_DIR="$2"
+OVERLAY_DIR="$3"
 
 APT_NONINTERACTIVE="-y"
 export DEBIAN_FRONTEND="noninteractive"
@@ -55,7 +55,6 @@ time apt install "${APT_NONINTERACTIVE}" --fix-broken --no-upgrade \
   netcat \
   zlib1g-dev \
 
-
 apt "${APT_NONINTERACTIVE}" autoremove
 
 # Enable I2C
@@ -88,8 +87,11 @@ curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
 apt update
 apt install -y aiy-usb-gadget
 
+
 # Copy filesystem overlay.
+
 tar -cf - -C "${OVERLAY_DIR}" --owner=pi --group=pi . | tar -xf - -C /
+
 
 # All done
 echo "( ・◡・)つ━☆   Build complete"
