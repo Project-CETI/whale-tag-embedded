@@ -57,8 +57,9 @@ time apt install "${APT_NONINTERACTIVE}" --fix-broken --no-upgrade \
 
 apt "${APT_NONINTERACTIVE}" autoremove
 
-# Enable I2C
-sudo raspi-config nonint do_i2c 0
+# Enable I2C0
+raspi-config nonint do_i2c 0
+echo "dtparam=i2c_vc=on" >> /boot/config.txt
 
 # Enable SSH.
 touch /boot/ssh
