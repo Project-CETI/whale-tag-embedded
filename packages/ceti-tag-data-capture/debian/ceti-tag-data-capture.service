@@ -1,14 +1,12 @@
 [Unit]
 Description=Captures data from input sensors of the Whale Tag and saves it onto the filesystem
-After=ceti-tag-set-hostname.service
-StartLimitIntervalSec=500
-StartLimitBurst=5
 
 [Service]
-Type=exec
+Type=simple
+WorkingDirectory=/opt/ceti-tag-data-capture/bin
 ExecStart=/opt/ceti-tag-data-capture/bin/cetiTagApp
-Restart=on-failure
-RestartSec=5s
+Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
