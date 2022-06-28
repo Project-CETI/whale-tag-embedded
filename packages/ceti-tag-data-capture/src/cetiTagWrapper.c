@@ -3,8 +3,7 @@
 // Cummings Electronics Labs, October 2021
 // Developed under contract for Harvard University Wood Lab
 //-----------------------------------------------------------------------------
-// Version    Date    Description
-//  0.00    10/08/21   Begin work, establish framework
+// Version:  Refer to cetiTagWrapper.h
 //
 //-----------------------------------------------------------------------------
 // Project: CETI Tag Electronics
@@ -42,12 +41,7 @@ int main(void) {
     pthread_t writeDataThreadId = 0;
     pthread_t sensorThreadId = 0;
 
-    printf("CETI Tag Electronics Main Application ");
-    printf(CETI_VERSION);
-    printf("\n");
-    printf("main(): Begin Logging\n");
     CETI_initializeLog();
-    printf("main(): Starting Application\n");
 
     if (gpioInitialise() < 0) {
         CETI_LOG("main(): pigpio initialisation failed");
@@ -58,17 +52,16 @@ int main(void) {
         CETI_LOG("main(): Tag initialisation failed");
         return 1;
     }
-    CETI_LOG("main(): Creating Command/Response Thread");
+    CETI_LOG("main(): Creating command/response thread");
     pthread_create(&cmdHdlThreadId, NULL, &cmdHdlThread, NULL);
-    CETI_LOG("main(): Creating SPI Audio Acquisition Thread");
+    CETI_LOG("main(): Creating SPI audio acquisition thread");
     pthread_create(&spiThreadId, NULL, &spiThread, NULL);
-    CETI_LOG("main(): Creating Audio writing to disk Thread");
+    CETI_LOG("main(): Creating audio save to disk thread");
     pthread_create(&writeDataThreadId, NULL, &writeDataThread, NULL);
-    CETI_LOG("main(): Creating Sensor Thread");
+    CETI_LOG("main(): Creating sensor thread");
     pthread_create(&sensorThreadId,NULL,&sensorThread,NULL);
 
-    CETI_LOG("Application Started");
-    fprintf(stdout,"Application Started");
+    CETI_LOG("main(): Application Started");
 
     // Main Loop
     while (!g_exit) { // main loop runs the hearbeat and handles commands

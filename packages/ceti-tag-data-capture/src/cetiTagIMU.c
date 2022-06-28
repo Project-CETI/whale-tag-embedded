@@ -38,6 +38,7 @@
 
 #include <sys/param.h>
 #include "cetiTagIMU.h"
+#include "cetiTagSensors.h"  //for I2C Address
 
 //-----------------------------------------------------------------------------
 // This is a sandbox function to learn how to get data from the device

@@ -5,17 +5,18 @@
 //-----------------------------------------------------------------------------
 // Version    Date    Description
 //  0.00    10/08/21   Begin work, establish framework
+//  2.1.1   06/27/21   Update v2.0 to work with v2.1 hardware
 //
 //-----------------------------------------------------------------------------
 // Project: CETI Tag Electronics
 // File: cetiTagWrapper.h
-// Description: The Ceti Tag Application Top Level Header
+// Description: The Ceti Tag application top level header file
 //-----------------------------------------------------------------------------
 
 #ifndef CETI_WRAP_H
 #define CETI_WRAP_H
 
-#define CETI_VERSION "2.1.0"
+#define CETI_VERSION "2.1.1"
 
 #include <stdio.h>
 
@@ -104,7 +105,7 @@ extern int burnwireOn(void);
 extern int burnwireOff(void);
 extern int rfOn(void);
 extern int rfOff(void);
-extern int xbTx(void);
+
 
 //-----------------------------------------------------------------------------
 // Defines
@@ -117,7 +118,7 @@ extern int xbTx(void);
 
 #define SNS_FILE "../data/sensors.csv"
 //-----------------------------------------------------------------------------
-// Wiring Pi For FPGA configuration
+// GPIO For FPGA configuration
 
 #define DONE (27)                          // GPIO 27
 #define INIT_B (25)                        // GPIO 25
@@ -129,7 +130,7 @@ extern int xbTx(void);
     (243048 * 2) // See Xilinx Configuration User Guide UG332
 
 //-----------------------------------------------------------------------------
-// Wiring Pi For CAM
+// GPIO For CAM
 
 #define RESET (5) // GPIO 5
 #define DIN (19)  // GPIO 19  FPGA -> HOST
@@ -137,20 +138,6 @@ extern int xbTx(void);
 #define SCK (16)  // Moved from GPIO 1 to GPIO 16 to free I2C0
 #define NUM_BYTES_MESSAGE 8
 
-//-----------------------------------------------------------------------------
-// GPS and XBEE Reserved pins (N.B. These are not used by the Pi SW. Rather,
-// the 3 serial ports (GPS, RTK and XBEE) are muxed and driven by the FPGA).
-// However, the HAT pins are used for interconnect between the boards,
-// which means these pins can only be used as inputs to the Pi.
-
-#define GPS_RX (17)
-#define GPS_TX (4)
-#define RTK_RX (23)
-#define RTK_TX (24)
-#define XBEE_RX (6)
-#define XBEE_TX (12)
-
-//-----------------------------------------------------------------------------
 // Data Acq SPI Settings and Audio Data Buffering
 
 #define SPI_CE (0)
@@ -179,7 +166,7 @@ extern int xbTx(void);
 //      * N.B. Make NUM_SPI_BLOCKS an integer multiple of 3 for alignment
 //      reasons
 
-#define NUM_SPI_BLOCKS (256)
+#define NUM_SPI_BLOCKS (300)
 #define RAM_SIZE (NUM_SPI_BLOCKS * SPI_BLOCK_SIZE) // bytes
 
 //-----------------------------------------------------------------------------

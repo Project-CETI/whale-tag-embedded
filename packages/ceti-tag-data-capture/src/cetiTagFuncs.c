@@ -20,9 +20,9 @@
 // Command interpreter and handler
 //-----------------------------------------------------------------------------
 int hdlCmd(void) {
-    int i, n;
-    char cArg[256], cTemp[256]; // strings and some
-    char *pTemp1, *pTemp2;      // working pointers
+
+    char cTemp[256]; // strings and some
+
     //-----------------------------------------------------------------------------
     // Part 1 - quit or any other special commands here
     if (!strncmp(g_command, "quit", 4)) {
@@ -235,34 +235,6 @@ int hdlCmd(void) {
         return 0;
     }
 
-    if (!strncmp(g_command, "sr_sim", 6)) {
-
-        printf("hdlCmd(): Set simulation sampling rate\n");
-
-        // the user will enter an integer as part of the command
-        // Must be between 5 and 256 (units of microseconds)
-        // the units are microseconds.
-        // e.g.  "sr_sim 100"  which yields 10 kHz sampling rate sim
-
-        pTemp1 =
-            strchr(g_command,
-                   ' '); // find space char - separates the params in the script
-        pTemp1++;        // this is pointing to the period argument now
-        pTemp2 = strchr(g_command, 0x0A); // and this is the end of the command
-        n = pTemp2 - pTemp1;              // will be 1,2 or 3 chars long
-
-        for (i = 0; i < n; i++)
-            cArg[i] =
-                *(pTemp1 + i); // this is the period in microseconds as a string
-        cArg[n] = '\0';        // append null term
-        setup_sim_rate(atoi(cArg));
-        g_rsp = fopen(RSP, "w");
-        fprintf(g_rsp,
-                "hdlCmd(): Setup the Simulated Sampling Rate\n"); // echo it
-        fclose(g_rsp);
-        return 0;
-    }
-
     if (!strncmp(g_command, "resetFIFO", 9)) {
         printf("hdlCmd(): Resetting the FIFO\n");
         reset_fifo();
@@ -278,10 +250,10 @@ int hdlCmd(void) {
         fprintf(g_rsp, "CETI Tag Electronics Available Commands\n");
         fprintf(g_rsp,
                 "---------------------------------------------------------\n");
-        fprintf(g_rsp, "initTag	   Initialize the Tag\n");
+        fprintf(g_rsp, "initTag	    Initialize the Tag\n");
 
         fprintf(g_rsp, "configFPGA  Load FPGA bitstream\n");
-        fprintf(g_rsp, "verFPGA  Get FPGA version\n");
+        fprintf(g_rsp, "verFPGA     Get FPGA version\n");
 
         fprintf(g_rsp, "resetFPGA   Reset FPGA state machines\n");
         fprintf(g_rsp, "resetFIFO   Reset audio HW FIFO\n");
@@ -292,18 +264,16 @@ int hdlCmd(void) {
         fprintf(g_rsp, "sr_192      Set sampling rate to 192 kHz \n");
         fprintf(g_rsp, "sr_96       Set sampling rate to 96 kHz\n");
         fprintf(g_rsp, "sr_48       Set sampling rate to 48 kHz \n");
-        fprintf(g_rsp,
-                "sr_dflt     Set sampling rate to 750 Hz (ADC default)\n");
-        fprintf(g_rsp, "sr_sim      Set simulated data sampling rate (only for "
-                       "use with simulator FPGA)\n");
 
         fprintf(g_rsp,
                 "learnIMU    Dev only - sandbox for exploring IMU BNO08x\n");
         fprintf(g_rsp, "setupIMU    Dev only - bringing up IMU BNO08x\n");
         fprintf(g_rsp, "getRotation Dev only - bringing up IMU BNO08x\n");
 
-        fprintf(g_rsp, "rfon        Testing control of power to GPS and XB\n");
-        fprintf(g_rsp, "rfoff       Testing control of power to GPS and XB\n");
+        fprintf(g_rsp, 
+                "rfon        Testing control of power to Recovery Board\n");
+        fprintf(g_rsp, 
+                "rfoff       Testing control of power to Recovery Board\n");
 
         fprintf(g_rsp, "\n");
         fclose(g_rsp);
@@ -460,33 +430,18 @@ void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
 
 int initI2cDevices() // In work
 {
-
     int fd;
-    int result;
 
-    // Open a connection to the io expander on the power board
-    if ((fd = i2cOpen(1, ADDR_IO_EXPANDER_PWRBD, 0)) < 0) {
-        CETI_LOG("Failed to open I2C connection for IO Expander on the Power Board");
-        return -1;
+    if ( (fd=i2cOpen(1,ADDR_LIGHT,0) ) < 0 ) {
+        printf("initI2cDevices(): Failed to connect to the light sensor\n");
+        return (-1);
     }
 
-    // make all pins outputs except for RF
-    i2cWriteByteData(fd, IOX_CONFIG, 0x04);
-
-    result = i2cReadByteData(fd, IOX_CONFIG);
-    if (result != 0x04) {
-        CETI_LOG("iinitI2CDevices(): IO Expander on Power Board did not initialize as expected");
-        return -1;
+    else {
+        i2cWriteByteData(fd,0x80,0x1); //wake the light sensor up
     }
-
+    
     burnwireOff();
-
-    // Make sure ready LED is initialized to OFF and that the RF power is OFF
-    result = i2cReadByteData(fd, IOX_OUTPUT);
-    result = result & ~RDY_LED;
-    i2cWriteByteData(fd, IOX_OUTPUT, result);
-
-    i2cClose(fd);
 
     return 0;
 }
@@ -504,32 +459,32 @@ int initTag(void) {
 
     char cTemp[16];
 
-    CETI_LOG("Application Started");
-    CETI_LOG("main(): Initializing and Checking Hardware Peripherals");
+
+    CETI_LOG("initTag(): Initializing and checking hardware peripherals");
 
     // Configure the FPGA and log version
     if (!loadFpgaBitstream()) {
         cam(0x10, 0, 0, 0, 0, cTemp);
-        CETI_LOG("FPGA initial configuration successful, Ver: 0x%02X%02X ",
+        CETI_LOG("initTag(): FPGA initial configuration successful, Ver: 0x%02X%02X ",
                  cTemp[4], cTemp[5]);
     } else {
-        CETI_LOG("FPGA initial configuration failed");
+        CETI_LOG("initTag(): FPGA initial configuration failed");
         return (-1);
     }
 
     // Set the ADC Up with defaults (96 kHz)
     if (!setup_96kHz())
-        CETI_LOG("Succesfully set sampling rate to 96 kHz");
+        CETI_LOG("initTag(): Succesfully set sampling rate to 96 kHz");
     else {
-        CETI_LOG("ADC initial configuration failed - ADC register did not read "
+        CETI_LOG("initTag(): ADC initial configuration failed - ADC register did not read "
                  "back as expected");
         return (-1);
     }
 
-    // Configure other peripherals
+    // Configure other peripherals here as needed
 
     if (!initI2cDevices())
-        CETI_LOG("Succesfully initialized I2c devices");
+        CETI_LOG("initTag(): Succesfully initialized I2c devices");
     else {
         CETI_LOG("I2C general failure");
         return (-1);
@@ -577,6 +532,8 @@ int getRtcCount(int *pRtcCount) {
 
 int resetRtcCount() {
     int fd;
+
+    CETI_LOG("resetRtcCount(): Exectuting");
 
     if ((fd = i2cOpen(1, ADDR_RTC, 0)) < 0) {
         CETI_LOG("getRtcCount(): Failed to connect to the RTC");

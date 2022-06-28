@@ -3,13 +3,14 @@
 // Cummings Electronics Labs, October 2021
 // Developed under contract for Harvard University Wood Lab
 //-----------------------------------------------------------------------------
-// Version    Date    Description
-//  0.00    10/10/21   Begin work, establish framework
+// Version    Date          Description
+//  0.0.0   10/10/21   Begin work, establish framework
+//  2.1.1   06/27/22   Fix first byte bug with SPI, verify 96 KSPS setting
 //
 //-----------------------------------------------------------------------------
 // Project: CETI Tag Electronics
 // File: cetiTagADC.c
-// Description: Data Acquisition
+// Description: AD7768-4 ADC setup and associated data acquisition functions
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
@@ -18,9 +19,9 @@
 // MCLK is SYSCLK/4
 // Output data rate is MCLK / ( DEC_RATE * MCLK_DIV)
 // DCLK must be set fast enough to keep up with ADC output
-// Use opcode 1 to write registers 1,4 and 7 in the ADC to adjust rates
-// See ADC data sheet and sampling.xlsx in the project file for more details on
-// registers settings
+// Use CAM opcode 1 to write registers 1,4 and 7 in the ADC to adjust rates
+// See ADC data sheet (Analog Devices AD7768-4) and sampling.xlsx in the 
+// project file for more details on registers settings
 //
 //-----------------------------------------------------------------------------
 #define _GNU_SOURCE
@@ -38,12 +39,14 @@
 #include "cetiTagLogging.h"
 #include "cetiTagWrapper.h"
 
+#define DATA_AVAIL (22)
 
 // At 96 kHz sampling rate; 16-bit; 3 channels 1 minute of data is 33750 KiB
-#define MAX_DATA_FILE_SIZE (15 * 33750 * 1024) // 15 minute files at 96
+//#define MAX_DATA_FILE_SIZE (15 * 33750 * 1024) // 15 minute files at 96 KSPS
+#define MAX_DATA_FILE_SIZE (5625) // 10 second files for testing
 #define DATA_FILENAME_LEN (100)
 
-static FILE *acqData = NULL; // data file for audio data
+static FILE *acqData = NULL; // file for audio recording 
 static char acqDataFileName[DATA_FILENAME_LEN] = {};
 static int acqDataFileLength = 0;
 
@@ -87,13 +90,40 @@ int setup_48kHz(void) {
     cam(2, 0, 0, 0, 0, cam_response);       // Apply the settings
     return 0;
 }
+ 
+// Initial deployments will use 96 KSPS only. The setting is checked to ensure
+// it  has been applied internal to the ADC.  
 
-int setup_96kHz(void) {
+int setup_96kHz(void)   //Initial deployments will use 96 KSPS only. The setting is checked
+{
     char cam_response[8];
-    cam(1, 0x01, 0x08, 0, 0, cam_response); // DEC_RATE = 32
-    cam(1, 0x04, 0x22, 0, 0, cam_response); // POWER_MODE = MID; MCLK_DIV = 8
-    cam(1, 0x07, 0x01, 0, 0, cam_response); // DCLK_DIV = 4
-    cam(2, 0, 0, 0, 0, cam_response);       // Apply the settings
+    cam(1,0x01,0x08,0,0,cam_response);  //DEC_RATE = 32
+    cam(1,0x04,0x22,0,0,cam_response);  //POWER_MODE = MID; MCLK_DIV = 8
+    cam(1,0x07,0x01,0,0,cam_response);  //DCLK_DIV = 4
+    cam(2,0,0,0,0,cam_response);        //Apply the settings
+
+    // readback check first attempt
+    cam(1,0x81,0,0,0,cam_response);    //must run x2 - first one loads the buffer in the ADC,
+    cam(1,0,0,0,0,cam_response);       //second time  dummy clocks to get result
+
+    if (cam_response[5] != 0x08) {      //try to set it again if it fails first time 
+
+        cam(1,0x01,0x08,0,0,cam_response);  //DEC_RATE = 32
+        cam(1,0x04,0x22,0,0,cam_response);  //POWER_MODE = MID; MCLK_DIV = 8
+        cam(1,0x07,0x01,0,0,cam_response);  //DCLK_DIV = 4
+        cam(2,0,0,0,0,cam_response);        //Apply the settings
+
+        // readback checks, 2nd attempt
+        cam(1,0x81,0,0,0,cam_response);    //must run x2 - first one loads the buffer in the ADC,
+        cam(1,0,0,0,0,cam_response);       //second time  dummy clocks to get result
+
+        if (cam_response[5] != 0x08) {
+            CETI_LOG("Failed to set ADC sampling to 96 kHz - Reg 0x01 reads back 0x%02X%02X should be 0x0008 ", cam_response[4],cam_response[5]);
+            return -1; //ADC failed to configure as expected
+        }
+    }
+    
+    CETI_LOG("Successfully set ADC sampling to 96 kHz - Reg 0x01 reads back 0x%02X%02X should be 0x0008 ", cam_response[4],cam_response[5]);
     return 0;
 }
 
@@ -103,13 +133,6 @@ int setup_192kHz(void) {
     cam(1, 0x04, 0x33, 0, 0, cam_response); // POWER_MODE = FAST; MCLK_DIV = 4
     cam(1, 0x07, 0x01, 0, 0, cam_response); // DCLK_DIV = 4
     cam(2, 0, 0, 0, 0, cam_response);       // Apply the settings
-    return 0;
-}
-
-int setup_sim_rate(char rate) {
-    char cam_response[8];
-    cam(6, 0x00, rate, 0, 0, cam_response); // arg 0 is period in microseconds
-    printf("setup_sim_rate(): arg0 rate is %d\n", rate);
     return 0;
 }
 
@@ -145,8 +168,6 @@ int stop_acq(void) {
     return 0;
 }
 
-#define TEST_POINT (17)
-#define DATA_AVAIL (22)
 
 //-----------------------------------------------------------------------------
 // SPI Thread Gets Data from HW FIFO on Interrupt
@@ -162,10 +183,7 @@ void *spiThread(void *paramPtr) {
     }
 
     /* Set GPIO modes */
-    gpioSetMode(TEST_POINT, PI_OUTPUT);
     gpioSetMode(DATA_AVAIL, PI_INPUT);
-
-    gpioWrite(TEST_POINT, 0);
 
     struct sched_param sp;
     memset(&sp, 0, sizeof(sp));
@@ -176,20 +194,29 @@ void *spiThread(void *paramPtr) {
     volatile int status;
     volatile int prev_status;
 
+    static int first_byte=1;  //first byte in stream must be discarded
+    char firstByte[1]; 
+
     prev_status = gpioRead(DATA_AVAIL);
     status = prev_status;
 
     while (1) {
+
         status = gpioRead(DATA_AVAIL);
 
-        if (status != prev_status) {
+        if (status != prev_status) {            
             prev_status = status;
+            
             while (status) {
-                gpioWrite(TEST_POINT, 1);
-                gpioWrite(TEST_POINT, 0);
 
                 // SPI block has become available, read it from the HW FIFO via
-                // SPI
+                // SPI. Discard the first byte.
+
+                if (first_byte) {
+                    spiRead(spi_fd,firstByte,1);
+                    first_byte = 0;
+                }
+
                 spiRead(spi_fd,
                         page[pageIndex].buffer +
                             (page[pageIndex].counter * SPI_BLOCK_SIZE),
@@ -216,7 +243,7 @@ void *spiThread(void *paramPtr) {
 }
 
 //-----------------------------------------------------------------------------
-// Write Data Thread moves the RAM Buffer to mass storage
+// Write Data Thread moves the RAM buffer to mass storage
 //-----------------------------------------------------------------------------
 void * writeDataThread( void * paramPtr ) {
    int pageIndex = 0;
@@ -254,105 +281,7 @@ static void createNewDataFile() {
         CETI_LOG("Failed to open %s", acqDataFileName);
         return;
     }
-    CETI_LOG("Saving hydrophone data to %s", acqDataFileName);
+    CETI_LOG("createNewDataFile(): Saving hydrophone data to %s", acqDataFileName);
 }
 
-//-----------------------------------------------------------------------------
-// Test/debug utility - Format acquired raw data file for export - e.g. to plot
-// the data in Excel.
-//-----------------------------------------------------------------------------
-#define NUM_SMPL_SETS 1024 // adjust size as needed
 
-void formatRaw(void) {
-    signed int chan_0[NUM_SMPL_SETS]; // raw samples are 24 bits 2s complement
-                                      // and have 8-bit header
-    signed int chan_1[NUM_SMPL_SETS];
-    signed int chan_2[NUM_SMPL_SETS];
-    signed int chan_3[NUM_SMPL_SETS];
-
-    char chan_0_header[NUM_SMPL_SETS];
-    char chan_1_header[NUM_SMPL_SETS];
-    char chan_2_header[NUM_SMPL_SETS];
-    char chan_3_header[NUM_SMPL_SETS];
-
-    FILE *rawData = NULL;
-    FILE *outData = NULL;
-
-    char sample_buffer[16];
-
-    rawData = fopen("../data/test_acq_raw.dat",
-                    "rb"); // input file to parse and format
-    outData = fopen("../data/test_acq_out.dat", "w"); // output file
-
-    char temp;
-    fread(&temp, 1, 1,
-          rawData); // drop the first byte returned on SPI, not valid
-
-    for (int i = 0; i < NUM_SMPL_SETS; i++) {
-        fread(sample_buffer, 1, 16, rawData);
-
-        // The headers
-        chan_0_header[i] = sample_buffer[0];
-        chan_1_header[i] = sample_buffer[4];
-        chan_2_header[i] = sample_buffer[8];
-        chan_3_header[i] = sample_buffer[12];
-
-        // The samples
-        chan_0[i] = ((sample_buffer[1] << 24) + (sample_buffer[2] << 16) +
-                     (sample_buffer[3] << 8)) /
-                    256;
-
-        chan_1[i] = ((sample_buffer[5] << 24) + (sample_buffer[6] << 16) +
-                     (sample_buffer[7] << 8)) /
-                    256;
-
-        chan_2[i] = ((sample_buffer[9] << 24) + (sample_buffer[10] << 16) +
-                     (sample_buffer[11] << 8)) /
-                    256;
-
-        chan_3[i] = ((sample_buffer[13] << 24) + (sample_buffer[14] << 16) +
-                     (sample_buffer[15] << 8)) /
-                    256;
-
-        fprintf(outData, "%d %d %d %d %02X %02X %02X %02X\n", chan_0[i],
-                chan_1[i], chan_2[i], chan_3[i], chan_0_header[i],
-                chan_1_header[i], chan_2_header[i], chan_3_header[i]);
-    }
-
-    fclose(rawData);
-    fclose(outData);
-}
-
-//---------------------------------------------------------------------------------------
-void formatRawNoHeader3ch16bit(void) {
-#define NUM_SMPL_SETS 1024
-
-    signed int chan_0[NUM_SMPL_SETS]; // each sample is 16-bit
-    signed int chan_1[NUM_SMPL_SETS];
-    signed int chan_2[NUM_SMPL_SETS];
-
-    FILE *rawData = NULL;
-    FILE *outData = NULL;
-
-    char sample_buffer[6]; // No header, and 3 ch 16 bit so 6 bytes for each
-                           // sample set
-
-    rawData = fopen("../data/test_acq_raw.dat",
-                    "rb"); // input file to parse and format
-    outData = fopen("../data/test_acq_out.dat", "w"); // output file
-
-    char temp;
-    fread(&temp, 1, 1,
-          rawData); // drop the first byte returned on SPI, not valid
-
-    for (int i = 0; i < NUM_SMPL_SETS; i++) {
-        fread(sample_buffer, 1, 6, rawData);
-        chan_0[i] = ((sample_buffer[0] << 24) + (sample_buffer[1] << 16)) / 256;
-        chan_1[i] = ((sample_buffer[2] << 24) + (sample_buffer[3] << 16)) / 256;
-        chan_2[i] = ((sample_buffer[4] << 24) + (sample_buffer[5] << 16)) / 256;
-        fprintf(outData, "%d %d %d\n", chan_0[i], chan_1[i], chan_2[i]);
-    }
-
-    fclose(rawData);
-    fclose(outData);
-}

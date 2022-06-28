@@ -41,12 +41,12 @@
 // Peripheral 7-bit Slave Addresses
 #define ADDR_GAS_GAUGE 0x59
 #define ADDR_RTC 0x68
-#define ADDR_IO_EXPANDER_PWRBD 0x27
-#define ADDR_IO_EXPANDER_SNSBD 0X26
-#define ADDR_IO_EXPANDER_SNSBD_REV0 0x27
+#define ADDR_LIGHT 0x29
 #define ADDR_DEPTH 0x40
-#define ADDR_TEMP 0x48
+#define ADDR_TEMP 0x4C
+
 #define ADDR_IMU 0x4A
+#define BUS_IMU 0x00
 
 // IO Expander
 #define IOX_INPUT 0x00

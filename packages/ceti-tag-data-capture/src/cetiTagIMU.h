@@ -26,8 +26,6 @@
 #include "cetiTagLogging.h"
 #include "cetiTagWrapper.h"
 
-#define ADDR_IMU 0x4A
-
 // Registers
 const char CHANNEL_COMMAND = 0;
 const char CHANNEL_EXECUTABLE = 1;

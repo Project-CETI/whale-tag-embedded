@@ -53,9 +53,9 @@ void *sensorThread(void *paramPtr) {
         getBoardTemp(&boardTemp);
         getTempPsns(pressureSensorData);
         getBattStatus(batteryData);
-        getQuaternion(quaternion);
+    //    getQuaternion(quaternion);
         getAmbientLight(&ambientLight);
-        getGpsLocation(gpsLocation);
+    //    getGpsLocation(gpsLocation);
 
         snsData = fopen(SNS_FILE, "at");
         if (snsData == NULL) {
@@ -87,62 +87,12 @@ void *sensorThread(void *paramPtr) {
 }
 
 //-----------------------------------------------------------------------------
-// U-blox ZED F9P
+// Recovery Board
 //-----------------------------------------------------------------------------
 
 int getGpsLocation(char *gpsLocation) {
 
-    // Extract GNRMC only from the serial port stream
-    // Return "GPS Module Not Active" message if the tag is in any state where
-    // RF is not turned on
-
-    char buf[4096] = {0};
-    char buf2[256] = {0};
-    int bytes_avail = 0;
-    char *pTemp = NULL, *gnrmc = NULL;
-    char match = 0;
-    int fd = serOpen("/dev/serial0", GPS_BAUD, 0);
-
-    if (!gpsPowerState) {
-        strcpy(gpsLocation, "GPS module not active");
-        return (-1);
-    }
-
-    if (fd < 0) {
-        CETI_LOG("getGpsLocation(): Failed to open the serial port");
-        return (-1);
-    }
-
-    // printf("getGpsLocation(): Successfully opened the serial port\n");
-    while (bytes_avail < 1024) { // wait for some data from the module
-        bytes_avail = serDataAvailable(fd);
-        usleep(1000);
-    }
-
-    // printf("%d bytes are available from the serial port\n",bytes_avail);
-    memset(buf, 0, 4096);
-    serRead(fd, buf, bytes_avail); //
-
-    //   Search for GNRMC sentence
-    pTemp = buf;
-    // scan the message stream for GNRMC sentence
-    for (int i = 0; (i <= bytes_avail && !match); i++) {
-        if (!strncmp(pTemp + i, "$GNRMC", 6)) {
-            gnrmc = pTemp + i; // mark the start of the sentence
-            match = 1;
-            continue;
-        }
-    }
-    if (match) {
-        pTemp = strchr(gnrmc, '*');
-        if (!pTemp) {
-            // TODO
-        }
-        // length of the sentence-4 chars
-        snprintf(buf2, pTemp - gnrmc + 4, "%s \n", gnrmc);
-        strcpy(gpsLocation, buf2);
-    }
-    serClose(fd);
+  
     return (0);
 }
 
@@ -159,7 +109,7 @@ int getQuaternion(short *quaternion) {
 
     // parse the IMU quaternion vector input report
 
-    if ((fd = i2cOpen(1, ADDR_IMU, 0)) < 0) {
+    if ((fd = i2cOpen(BUS_IMU, ADDR_IMU, 0)) < 0) {
         CETI_LOG("getRotation(): Failed to connect to the IMU");
         return -1;
     }
@@ -263,18 +213,39 @@ int getTempPsns(double *presSensorData) {
 }
 
 //-----------------------------------------------------------------------------
-// Ambient light sensor
+// Ambient light sensor LiteON LTR-329ALS-01
 //-----------------------------------------------------------------------------
 
 int getAmbientLight(int *pAmbientLight) {
+
     int fd;
-    if ((fd = i2cOpen(1, ADDR_IO_EXPANDER_SNSBD, 0)) < 0) {
-        CETI_LOG("getAmbientLight(): Failed to connect to the IO Expander");
+    unsigned short  visible;
+
+
+    if ( (fd=i2cOpen(1,ADDR_LIGHT,0) ) < 0 ) {
+        printf("getAmbientLight(): Failed to connect to the light sensor\n");
         return (-1);
     }
 
-    *pAmbientLight = (!!(i2cReadByteData(fd, 0x00) & BIT_4));
-    i2cClose(fd);
+    else {
+
+
+
+        // need to read both wavelengths
+
+        visible = i2cReadWordData(fd,0x88);  //visible
+
+        i2cReadWordData(fd,0x8A);  //infrared, not used
+
+        ambientLight = visible; //just reporting visible in the CSV
+
+        i2cClose(fd);
+
+        return (0);
+
+
+    }
+
     return (0);
 }
 
@@ -283,15 +254,22 @@ int getAmbientLight(int *pAmbientLight) {
 //-----------------------------------------------------------------------------
 
 int getBoardTemp(int *pBoardTemp) {
+
     int fd;
-    if ((fd = i2cOpen(1, ADDR_TEMP, 0)) < 0) {
-        CETI_LOG("getBoardTemp(): Failed to connect to the temperature sensor");
+    int boardTemp;
+            
+    if ( (fd=i2cOpen(1,ADDR_TEMP,0) ) < 0 ) {
+        printf("getBoardTemp(): Failed to connect to the temperature sensor\n");
         return (-1);
     }
 
-    int boardTemp = i2cReadByteData(fd, 0x00);
-    i2cClose(fd);
-    *pBoardTemp = boardTemp;
+    else {      
+        boardTemp = i2cReadByteData(fd,0x00);
+        i2cClose(fd);
+        * pBoardTemp = boardTemp;
+        return(0);
+    }
+
     return (0);
 }
 
@@ -312,10 +290,6 @@ int updateState(int presentState) {
     char line[256];
     char *pTemp;
 
-    // i2c helper variables
-    int fd;
-    int result;
-
     // timing
     static int startTime = 0;
     // static int burnTimeStart;
@@ -325,6 +299,8 @@ int updateState(int presentState) {
     switch (presentState) {
 
     case (ST_CONFIG):
+
+        CETI_LOG("updateState(): Configuring the deployment parameters");
 
         // Load the deployment configuration
 
@@ -393,21 +369,12 @@ int updateState(int presentState) {
 
     case (ST_START):
 
-        // Start recording and turn on green LED - ready to attach
-        fd = i2cOpen(1, ADDR_IO_EXPANDER_PWRBD, 0);
-        if (fd < 0) {
-            CETI_LOG("Failed to open I2C connection for IO Expander on the Power Board");
-            return (-1);
-        }
+        // Start recording 
 
-        result = i2cReadByteData(fd, IOX_OUTPUT);
-        result = result | RDY_LED;
-        i2cWriteByteData(fd, IOX_OUTPUT, result);
-        i2cClose(fd);
         start_acq(); // kick off the audio recording
 
         startTime = getTimeDeploy(); // new v0.5 gets start time from the csv
-        CETI_LOG("Deploy Start: %d", startTime);
+        CETI_LOG("updateState(): Deploy Start: %d", startTime);
         nextState = ST_DEPLOY; // underway!
         rfOn();                // turn on the GPS and XBee power supply
 
@@ -433,7 +400,6 @@ int updateState(int presentState) {
 
         else {
 
-            xbTx();
             nextState = ST_DEPLOY;
         }
 
@@ -482,7 +448,6 @@ int updateState(int presentState) {
 
         else if (pressureSensorData[1] < d_press_1) {
             rfOn();
-            xbTx();
             nextState = ST_REC_SURF;
         }
 
@@ -517,7 +482,6 @@ int updateState(int presentState) {
         if (pressureSensorData[1] <
             d_press_1) { // at surface, try to get a fix and transmit it
             rfOn();
-            xbTx(); // do this once per minute only to conserve energy
         } else if (pressureSensorData[1] >
                    d_press_2) { // still under or resubmerged
             rfOff();
@@ -539,7 +503,6 @@ int updateState(int presentState) {
         else if (batteryData[0] + batteryData[1] < d_volt_1) { // low battery
             burnwireOn(); // redundant, is already on
             rfOn();
-            xbTx();
             nextState = ST_RETRIEVE; // dwell in this state with burnwire left
                                      // on
         }
@@ -567,120 +530,26 @@ int updateState(int presentState) {
 //-----------------------------------------------------------------------------
 
 int burnwireOn(void) {
-    int result = 0;
-    int fd = i2cOpen(1, ADDR_IO_EXPANDER_PWRBD, 0);
-    // Open a connection to the io expander on the power board
-    if (fd < 0) {
-        CETI_LOG("Failed to open I2C connection for IO Expander on the Power Board");
-        return -1;
-    }
-    // to turn it on, set bit 0 and bit 1 both low
-    result = i2cReadByteData(fd, IOX_OUTPUT);
-    result = result & ~(BW_RST | nBW_ON);
-    CETI_LOG("Turn BW ON writing %02X to the IOX", result);
-    i2cWriteByteData(fd, IOX_OUTPUT, result);
-    i2cClose(fd);
+;
     return 0;
 }
 
 int burnwireOff(void) {
-    int result = 0;
-    int fd = i2cOpen(1, ADDR_IO_EXPANDER_PWRBD, 0);
-    // Open a connection to the io expander on the power board
-    if (fd < 0) {
-        CETI_LOG("Failed to open I2C connection for IO Expander on the Power Board");
-        return -1;
-    }
-    // to turn it off, set bit1 high
-    result = i2cReadByteData(fd, IOX_OUTPUT);
-    result = result | BW_RST;
-    CETI_LOG("Turn BW OFF writing %02X to the IOX", result);
-    i2cWriteByteData(fd, IOX_OUTPUT, result);
-    i2cClose(fd);
+
     return 0;
 }
 
 int rfOn(void) {
 
-    int result = 0;
-    int fd = i2cOpen(1, ADDR_IO_EXPANDER_SNSBD, 0);
-
-    CETI_LOG("rfOn() - Turn on power for GPS and XBee modules");
-    // Open a connection to the io expander on the power board
-    if (fd  < 0) {
-        CETI_LOG("Failed to open I2C connection for IO Expander on the Sensor Board");
-        return -1;
-    }
-    // Start with the output low before enabling, otherwise surge is excessive.
-    // This is a workaround
-    result = i2cReadByteData(fd, IOX_OUTPUT);
-    result = result & ~RF_ON;
-    i2cWriteByteData(fd, IOX_OUTPUT, result);
-
-    // This is a hack, remove after the schematic changes
-    usleep(1000);
-
-    // Now, configure the pin as an output
-    result = i2cReadByteData(fd, IOX_CONFIG);
-    result = result & ~RF_ON;
-    i2cWriteByteData(fd, IOX_CONFIG, result);
-
-    // This is a hack, remove after the schematic changes
-    usleep(1000);
-
-    // Now, turn it on
-    result = i2cReadByteData(fd, IOX_OUTPUT);
-    result = result | RF_ON;
-    i2cWriteByteData(fd, IOX_OUTPUT, result);
-
-    // This is a hack, remove after the schematic changes
-    usleep(1000);
-
-    i2cClose(fd);
-    gpsPowerState = 1;
+   
     return 0;
 }
 
 int rfOff(void) {
 
-    int result = 0;
-    int fd = i2cOpen(1, ADDR_IO_EXPANDER_SNSBD, 0);
-
-    // Open a connection to the io expander on the power board
-    if (fd < 0) {
-        CETI_LOG("Failed to open I2C connection for IO Expander on the Power Board");
-        return -1;
-    }
-    result = i2cReadByteData(fd, IOX_OUTPUT);
-    result = result & ~RF_ON;
-    i2cWriteByteData(fd, IOX_OUTPUT, result);
-
-    i2cClose(fd);
-    gpsPowerState = 0;
+  
 
     return 0;
 }
 
-int xbTx(void) {
 
-    static int i = 0;
-    int fd = serOpen("/dev/serial0", 9600, 0);
-
-    if (fd < 0) {
-        CETI_LOG("xbTx(): Failed to open the serial port");
-        return (-1);
-    }
-
-    if (i < 2) {
-        i++;
-        return (0);
-    }
-
-    // printf("xbTx(): Writing GPS sentence to XBee\n");
-    serWrite(fd, gpsLocation, strlen(gpsLocation));
-    serWrite(fd, "\n", 1);
-
-    i = 0;
-    serClose(fd);
-    return (0);
-}
