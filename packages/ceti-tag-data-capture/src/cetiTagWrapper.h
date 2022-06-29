@@ -166,7 +166,7 @@ extern int rfOff(void);
 //      * N.B. Make NUM_SPI_BLOCKS an integer multiple of 3 for alignment
 //      reasons
 
-#define NUM_SPI_BLOCKS (300)
+#define NUM_SPI_BLOCKS (2100*10)   // 5 minute files are created
 #define RAM_SIZE (NUM_SPI_BLOCKS * SPI_BLOCK_SIZE) // bytes
 
 //-----------------------------------------------------------------------------
