@@ -11,6 +11,7 @@
 
 #include <sys/time.h>
 #include <sys/param.h>
+#include <unistd.h>
 
 #include "cetiTagSensors.h"
 #include "cetiTagWrapper.h"
@@ -45,6 +46,13 @@ void *sensorThread(void *paramPtr) {
     struct timeval te;
     long long milliseconds;
 
+    if (!access(SNS_FILE, F_OK)) {
+        CETI_LOG("sensorThread(): could not find sensor file, creating a new one: %s", SNS_FILE);
+        snsData = fopen(SNS_FILE, "wt");
+        fprintf(snsData, "%s", header);
+        fclose(snsData);
+    }
+
     while (1) {
 
         gettimeofday(&te, NULL);
@@ -59,9 +67,8 @@ void *sensorThread(void *paramPtr) {
 
         snsData = fopen(SNS_FILE, "at");
         if (snsData == NULL) {
-            CETI_LOG("sensorThread(): could not find sensor file, creating a new one: %s", SNS_FILE);
-            snsData = fopen(SNS_FILE, "wt");
-            fprintf(snsData, "%s", header);
+            CETI_LOG("sensorThread(): failed to write to file: %s", SNS_FILE);
+            return NULL;
         }
 
         fprintf(snsData, "%lld,", milliseconds);
