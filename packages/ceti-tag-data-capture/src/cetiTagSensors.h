@@ -25,11 +25,12 @@
 #include "cetiTagLogging.h"
 #include "cetiTagWrapper.h"
 
-#define GPS_BAUD 38400
-#define XBEE_BAUD 9600
 #define SNS_SMPL_PERIOD 1000000 // microseconds
 
-// DS2778 Gas Gauge Registers
+// DS2778 Gas Gauge Registers and Settings
+#define PROTECT 0x00
+#define BATT_CTL 0x60  
+#define OVER_VOLTAGE 0x7F
 #define CELL_1_V_MS 0x0C
 #define CELL_1_V_LS 0x0D
 #define CELL_2_V_MS 0x1C
@@ -37,6 +38,9 @@
 #define BATT_I_MS 0x0E
 #define BATT_I_LS 0x0F
 #define R_SENSE 0.025
+
+#define BATT_CTL_VAL 0X8E  //SETS UV CUTOFF TO 2.6V
+#define OV_VAL 0x5A //SETS OV CUTOFF TO 4.2V
 
 // Peripheral 7-bit Slave Addresses
 #define ADDR_GAS_GAUGE 0x59

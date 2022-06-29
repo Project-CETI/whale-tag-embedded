@@ -149,7 +149,7 @@ int getBattStatus(double *batteryData) {
     signed short voltage, current;
 
     if ((fd = i2cOpen(1, ADDR_GAS_GAUGE, 0)) < 0) {
-        CETI_LOG("getBattStatus(): Failed to connect to the gas gauge");
+        CETI_LOG("getBattStatus(): Failed to connect to the fuel gauge");
         return (-1);
     }
 

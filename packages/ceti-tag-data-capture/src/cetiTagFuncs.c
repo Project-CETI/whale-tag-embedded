@@ -419,9 +419,9 @@ void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
 }
 
 //-----------------------------------------------------------------------------
-// Initialize and start up for various CETI sensors - sandbox
+// Initialize and start up for various i2c peripherals
 //-----------------------------------------------------------------------------
-// In work, developing ideas
+// 
 // At boot, system should check to make sure all devices are responsive and
 // provide an indication (green LED) to the user that the Tag passed POST.  If a
 // periph is missing, it should be logged as such, and if possible the Tag
@@ -432,6 +432,8 @@ int initI2cDevices() // In work
 {
     int fd;
 
+    
+    // light sensor
     if ( (fd=i2cOpen(1,ADDR_LIGHT,0) ) < 0 ) {
         printf("initI2cDevices(): Failed to connect to the light sensor\n");
         return (-1);
@@ -439,6 +441,18 @@ int initI2cDevices() // In work
 
     else {
         i2cWriteByteData(fd,0x80,0x1); //wake the light sensor up
+    }
+
+
+    // Battery protector UV and OV cutoffs
+    if ( (fd=i2cOpen(1,ADDR_GAS_GAUGE,0) ) < 0 ) {
+        printf("initI2cDevices(): Failed to connect to the light sensor\n");
+        return (-1);
+    }
+
+    else {
+        i2cWriteByteData(fd,BATT_CTL,BATT_CTL_VAL); //establish undervoltage cutoff
+        i2cWriteByteData(fd,OVER_VOLTAGE,OV_VAL); //establish undervoltage cutoff
     }
     
     burnwireOff();
@@ -458,7 +472,6 @@ int initI2cDevices() // In work
 int initTag(void) {
 
     char cTemp[16];
-
 
     CETI_LOG("initTag(): Initializing and checking hardware peripherals");
 
