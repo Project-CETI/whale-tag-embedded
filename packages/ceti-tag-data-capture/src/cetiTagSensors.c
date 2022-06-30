@@ -61,7 +61,7 @@ void *sensorThread(void *paramPtr) {
         getBoardTemp(&boardTemp);
         getTempPsns(pressureSensorData);
         getBattStatus(batteryData);
-    //    getQuaternion(quaternion);
+        getQuaternion(quaternion);
         getAmbientLight(&ambientLight);
     //    getGpsLocation(gpsLocation);
 
@@ -117,7 +117,7 @@ int getQuaternion(short *quaternion) {
     // parse the IMU quaternion vector input report
 
     if ((fd = i2cOpen(BUS_IMU, ADDR_IMU, 0)) < 0) {
-        CETI_LOG("getRotation(): Failed to connect to the IMU");
+        CETI_LOG("getQuaternion(): Failed to connect to the IMU");
         return -1;
     }
 

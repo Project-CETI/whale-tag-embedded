@@ -50,7 +50,7 @@
 #define ADDR_TEMP 0x4C
 
 #define ADDR_IMU 0x4A
-#define BUS_IMU 0x00
+#define BUS_IMU 0x00   //IMU is only device on i2c0
 
 // IO Expander
 #define IOX_INPUT 0x00

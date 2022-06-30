@@ -80,13 +80,14 @@ extern int setup_sim_rate(char rate);
 extern int reset_fifo(void);
 
 extern int initI2cDevices(void);
-extern int learnIMU(void);
-extern int setupIMU(void);
-extern int getRotation(rotation_t *rotation);
-extern int demoGPS(void);
 
-extern int rfOn(void);
-extern int rfOff(void);
+extern int resetIMU(void);
+extern int setupIMU(void);
+extern int learnIMU(void);
+extern int getRotation(rotation_t *rotation);
+
+extern int rcvryOn(void);
+extern int rcvryOff(void);
 extern int burnwireOn(void);
 extern int burnwireOff(void);
 
@@ -138,6 +139,13 @@ extern int rfOff(void);
 #define SCK (16)  // Moved from GPIO 1 to GPIO 16 to free I2C0
 #define NUM_BYTES_MESSAGE 8
 
+//-----------------------------------------------------------------------------
+// Other GPIO Assignments
+
+
+#define IMU_N_RESET 4
+
+//-----------------------------------------------------------------------------
 // Data Acq SPI Settings and Audio Data Buffering
 
 #define SPI_CE (0)

@@ -44,12 +44,104 @@
 // This is a sandbox function to learn how to get data from the device
 // Very preliminary - not using HINT or RESET features at all. No error checking
 
+int resetIMU()
+{
+
+    gpioWrite(IMU_N_RESET, 1);  //reset the device
+    usleep(1000);
+    gpioWrite(IMU_N_RESET, 0);
+    usleep(1000);    
+    gpioWrite(IMU_N_RESET, 1);
+
+    return 0;
+
+}
+
+// This enables just the rotation vector feature
+int setupIMU()
+{
+    char setFeatureCommand[21] = {0};
+    char shtpHeader[4] = {0};
+    int fd = i2cOpen(BUS_IMU, ADDR_IMU, 0);
+
+    if (fd < 0) {
+        CETI_LOG("setupIMU(): Failed to connect to the IMU\n");
+        return -1;
+    }
+
+    CETI_LOG("setupIMU(): IMU connection opened\n");
+
+    setFeatureCommand[0] = 0x15; // Packet length LSB (21 bytes)
+    setFeatureCommand[2] = CHANNEL_CONTROL;
+    setFeatureCommand[4] = SHTP_REPORT_SET_FEATURE_COMMAND;
+    setFeatureCommand[5] = SENSOR_REPORTID_ROTATION_VECTOR;
+
+    setFeatureCommand[9] = 0x20;  // Report interval LS (microseconds)
+    setFeatureCommand[10] = 0xA1; // 0x0007A120 is 0.5 seconds
+    setFeatureCommand[11] = 0x07;
+    setFeatureCommand[12] = 0x00; // Report interval MS
+
+    i2cWriteDevice(fd, setFeatureCommand, 21);
+    i2cReadDevice(fd, shtpHeader, 4);
+    CETI_LOG("setupIMU(): Header is 0x%02X  0x%02X  0x%02X  0x%02X",
+           shtpHeader[0], shtpHeader[1], shtpHeader[2], shtpHeader[3]);
+    i2cClose(fd);
+
+    return 0;
+}
+
+
+int getRotation(rotation_t *pRotation)
+{
+    // parse the IMU rotation vector input report
+    int numBytesAvail = 0;
+    char pktBuff[256] = {0};
+    char shtpHeader[4] = {0};
+    int fd = i2cOpen(BUS_IMU, ADDR_IMU, 0);
+
+    if (fd < 0) {
+        CETI_LOG("getRotation(): Failed to connect to the IMU\n");
+        return -1;
+    }
+
+    CETI_LOG("getRotation(): IMU connection opened\n");
+
+    // Byte   0    1    2    3    4   5   6    7    8      9     10     11
+    //       |     HEADER      |            TIME       |  ID    SEQ   STATUS....
+    while (1) {
+        i2cReadDevice(fd, shtpHeader, 4);
+
+        // msb is "continuation bit, not part of count"
+        numBytesAvail = MIN(256, ((shtpHeader[1] << 8) | shtpHeader[0]) & 0x7FFF);
+
+        if (numBytesAvail) {
+            i2cReadDevice(fd, pktBuff, numBytesAvail);
+            // make sure we have the right channel
+            if (pktBuff[2] == 0x03) {
+                // testing, should come back 0x05
+                pRotation->reportID = pktBuff[9];
+                pRotation->sequenceNum = pktBuff[10];
+                CETI_LOG("getRotation(): report ID 0x%02X  sequ 0x%02X i "
+                       "%02X%02X j %02X%02X k %02X%02X r %02X%02X\n",
+                       pktBuff[9], pktBuff[10], pktBuff[14], pktBuff[13],
+                       pktBuff[16], pktBuff[15], pktBuff[18], pktBuff[17],
+                       pktBuff[20], pktBuff[19]);
+            }
+        } else {
+            setupIMU(); // restart the sensor, reports somehow stopped coming
+        }
+        usleep(800000);
+    }
+    i2cClose(fd);
+    return 0;
+}
+
 int learnIMU() {
     char shtpHeader[4] = {0};
     char shtpData[256] = {0};
     int fd;
     u_int16_t numBytesAvail;
-    if ((fd = i2cOpen(1, ADDR_IMU, 0)) < 0) {
+    if ((fd = i2cOpen(BUS_IMU, ADDR_IMU, 0)) < 0) {
         CETI_LOG("learnIMU(): Failed to connect to the IMU");
         fprintf(stderr, "learnIMU(): Failed to connect to the IMU\n");
         return -1;
@@ -90,83 +182,5 @@ int learnIMU() {
 
     i2cClose(fd);
 
-    return 0;
-}
-
-// This enables just the rotation vector feature
-int setupIMU()
-{
-    char setFeatureCommand[21] = {0};
-    char shtpHeader[4] = {0};
-    int fd = i2cOpen(1, ADDR_IMU, 0);
-
-    if (fd < 0) {
-        CETI_LOG("setupIMU(): Failed to connect to the IMU\n");
-        return -1;
-    }
-
-    CETI_LOG("setupIMU(): IMU connection opened\n");
-
-    setFeatureCommand[0] = 0x15; // Packet length LSB (21 bytes)
-    setFeatureCommand[2] = CHANNEL_CONTROL;
-    setFeatureCommand[4] = SHTP_REPORT_SET_FEATURE_COMMAND;
-    setFeatureCommand[5] = SENSOR_REPORTID_ROTATION_VECTOR;
-
-    setFeatureCommand[9] = 0x20;  // Report interval LS (microseconds)
-    setFeatureCommand[10] = 0xA1; // 0x0007A120 is 0.5 seconds
-    setFeatureCommand[11] = 0x07;
-    setFeatureCommand[12] = 0x00; // Report interval MS
-
-    i2cWriteDevice(fd, setFeatureCommand, 21);
-    i2cReadDevice(fd, shtpHeader, 4);
-    CETI_LOG("setupIMU(): Header is 0x%02X  0x%02X  0x%02X  0x%02X",
-           shtpHeader[0], shtpHeader[1], shtpHeader[2], shtpHeader[3]);
-    i2cClose(fd);
-
-    return 0;
-}
-
-int getRotation(rotation_t *pRotation)
-{
-    // parse the IMU rotation vector input report
-    int numBytesAvail = 0;
-    char pktBuff[256] = {0};
-    char shtpHeader[4] = {0};
-    int fd = i2cOpen(1, ADDR_IMU, 0);
-
-    if (fd < 0) {
-        CETI_LOG("getRotation(): Failed to connect to the IMU\n");
-        return -1;
-    }
-
-    CETI_LOG("getRotation(): IMU connection opened\n");
-
-    // Byte   0    1    2    3    4   5   6    7    8      9     10     11
-    //       |     HEADER      |            TIME       |  ID    SEQ   STATUS....
-    while (1) {
-        i2cReadDevice(fd, shtpHeader, 4);
-
-        // msb is "continuation bit, not part of count"
-        numBytesAvail = MIN(256, ((shtpHeader[1] << 8) | shtpHeader[0]) & 0x7FFF);
-
-        if (numBytesAvail) {
-            i2cReadDevice(fd, pktBuff, numBytesAvail);
-            // make sure we have the right channel
-            if (pktBuff[2] == 0x03) {
-                // testing, should come back 0x05
-                pRotation->reportID = pktBuff[9];
-                pRotation->sequenceNum = pktBuff[10];
-                CETI_LOG("getRotation(): report ID 0x%02X  sequ 0x%02X i "
-                       "%02X%02X j %02X%02X k %02X%02X r %02X%02X\n",
-                       pktBuff[9], pktBuff[10], pktBuff[14], pktBuff[13],
-                       pktBuff[16], pktBuff[15], pktBuff[18], pktBuff[17],
-                       pktBuff[20], pktBuff[19]);
-            }
-        } else {
-            setupIMU(); // restart the sensor, reports somehow stopped coming
-        }
-        usleep(800000);
-    }
-    i2cClose(fd);
     return 0;
 }

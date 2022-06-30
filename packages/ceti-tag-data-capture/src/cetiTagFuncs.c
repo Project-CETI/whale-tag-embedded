@@ -46,7 +46,7 @@ int hdlCmd(void) {
         return 0;
     }
 
-    if (!strncmp(g_command, "rfOn", 4)) {
+    if (!strncmp(g_command, "rcvryOn", 4)) {
         printf("hdlCmd(): Turn on power for the GPS and Xbee\n");
         rfOn();
         g_rsp = fopen(RSP, "w");
@@ -55,11 +55,20 @@ int hdlCmd(void) {
         return 0;
     }
 
-    if (!strncmp(g_command, "rfOff", 5)) {
+    if (!strncmp(g_command, "rcvryOff", 5)) {
         printf("hdlCmd(): Turn on power for the GPS and Xbee\n");
         rfOff();
         g_rsp = fopen(RSP, "w");
         fprintf(g_rsp, "hdlCmd(): Turned RF supply off\n");
+        fclose(g_rsp);
+        return 0;
+    }
+
+    if ( !strncmp(g_command,"resetIMU",8) ) {
+        printf("hdlCmd(): Resetting the IMU\n");
+        resetIMU();
+        g_rsp = fopen(RSP,"w");
+        fprintf(g_rsp,"hdlCmd(): Reset the IMU \n"); //echo it
         fclose(g_rsp);
         return 0;
     }
@@ -265,15 +274,17 @@ int hdlCmd(void) {
         fprintf(g_rsp, "sr_96       Set sampling rate to 96 kHz\n");
         fprintf(g_rsp, "sr_48       Set sampling rate to 48 kHz \n");
 
+        
+        fprintf(g_rsp,"resetIMU    Pulse the IMU reset line");
         fprintf(g_rsp,
                 "learnIMU    Dev only - sandbox for exploring IMU BNO08x\n");
         fprintf(g_rsp, "setupIMU    Dev only - bringing up IMU BNO08x\n");
         fprintf(g_rsp, "getRotation Dev only - bringing up IMU BNO08x\n");
 
         fprintf(g_rsp, 
-                "rfon        Testing control of power to Recovery Board\n");
+                "rcvryOn        Testing control of power to Recovery Board\n");
         fprintf(g_rsp, 
-                "rfoff       Testing control of power to Recovery Board\n");
+                "rcvryOff       Testing control of power to Recovery Board\n");
 
         fprintf(g_rsp, "\n");
         fclose(g_rsp);
@@ -454,7 +465,11 @@ int initI2cDevices() // In work
         i2cWriteByteData(fd,BATT_CTL,BATT_CTL_VAL); //establish undervoltage cutoff
         i2cWriteByteData(fd,OVER_VOLTAGE,OV_VAL); //establish undervoltage cutoff
     }
+
+
+    // Other devices
     
+    resetIMU();
     burnwireOff();
 
     return 0;
