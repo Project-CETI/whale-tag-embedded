@@ -101,6 +101,8 @@ void *sensorThread(void *paramPtr) {
 int getGpsLocation(char *gpsLocation) {
 
     strcpy(gpsLocation,"** DUMMY DATA**: $GPRMC,042201.00,A,4159.60619,N,07043.48689,W,0.108,,270621,,,A*64 \n");
+    gpsLocation[strcspn(gpsLocation, "\r\n")] = 0;
+
     return (0);
 }
 
