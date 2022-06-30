@@ -86,7 +86,7 @@ void *sensorThread(void *paramPtr) {
         fprintf(snsData, "%d,", quaternion[2]);
         fprintf(snsData, "%d,", quaternion[3]);
         fprintf(snsData, "%d,", ambientLight);
-        fprintf(snsData, "%s", gpsLocation);
+        fprintf(snsData, "\"%s\"\n", gpsLocation);
         fclose(snsData);
         presentState = updateState(presentState);
         usleep(SNS_SMPL_PERIOD);
@@ -599,7 +599,7 @@ int rcvryOff(void) {
 
     int fd;
     int result;
-
+    
     if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
         printf("burnwireOn(): Failed to open I2C connection for IO Expander \n");
         return -1;
