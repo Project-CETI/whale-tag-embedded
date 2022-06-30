@@ -76,7 +76,6 @@ extern int setup_192kHz(void);
 extern int setup_96kHz(void);
 extern int setup_48kHz(void);
 extern int setup_default(void);
-extern int setup_sim_rate(char rate);
 extern int reset_fifo(void);
 
 extern int initI2cDevices(void);
@@ -104,8 +103,6 @@ extern int getGpsLocation(char *gpsLocation);
 extern int updateState(int presentState);
 extern int burnwireOn(void);
 extern int burnwireOff(void);
-extern int rfOn(void);
-extern int rfOff(void);
 
 
 //-----------------------------------------------------------------------------

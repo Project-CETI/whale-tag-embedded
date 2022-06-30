@@ -47,8 +47,8 @@ int hdlCmd(void) {
     }
 
     if (!strncmp(g_command, "rcvryOn", 4)) {
-        printf("hdlCmd(): Turn on power for the GPS and Xbee\n");
-        rfOn();
+        printf("hdlCmd(): Turn on power to the Recovery Board\n");
+        rcvryOn();
         g_rsp = fopen(RSP, "w");
         fprintf(g_rsp, "hdlCmd(): Turned RF supply on\n");
         fclose(g_rsp);
@@ -56,8 +56,8 @@ int hdlCmd(void) {
     }
 
     if (!strncmp(g_command, "rcvryOff", 5)) {
-        printf("hdlCmd(): Turn on power for the GPS and Xbee\n");
-        rfOff();
+        printf("hdlCmd(): Turn off power to the Recovery Board\n");
+        rcvryOff();
         g_rsp = fopen(RSP, "w");
         fprintf(g_rsp, "hdlCmd(): Turned RF supply off\n");
         fclose(g_rsp);
@@ -273,18 +273,17 @@ int hdlCmd(void) {
         fprintf(g_rsp, "sr_192      Set sampling rate to 192 kHz \n");
         fprintf(g_rsp, "sr_96       Set sampling rate to 96 kHz\n");
         fprintf(g_rsp, "sr_48       Set sampling rate to 48 kHz \n");
-
         
-        fprintf(g_rsp,"resetIMU    Pulse the IMU reset line");
+        fprintf(g_rsp,"resetIMU    Pulse the IMU reset line \n");
         fprintf(g_rsp,
                 "learnIMU    Dev only - sandbox for exploring IMU BNO08x\n");
         fprintf(g_rsp, "setupIMU    Dev only - bringing up IMU BNO08x\n");
         fprintf(g_rsp, "getRotation Dev only - bringing up IMU BNO08x\n");
 
         fprintf(g_rsp, 
-                "rcvryOn        Testing control of power to Recovery Board\n");
+                "rcvryOn     Testing control of power to Recovery Board\n");
         fprintf(g_rsp, 
-                "rcvryOff       Testing control of power to Recovery Board\n");
+                "rcvryOff    Testing control of power to Recovery Board\n");
 
         fprintf(g_rsp, "\n");
         fclose(g_rsp);

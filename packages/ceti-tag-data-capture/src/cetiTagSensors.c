@@ -22,7 +22,7 @@ int16_t quaternion[4];
 double pressureSensorData[2];
 double batteryData[3];
 int rtcCount, boardTemp, ambientLight;
-char gpsLocation[128];
+char gpsLocation[512];
 int gpsPowerState = 0;
 
 #define MAX_STATE_STRING_LEN (32)
@@ -40,9 +40,9 @@ char state_str[][MAX_STATE_STRING_LEN] = {
 void *sensorThread(void *paramPtr) {
     FILE *snsData = NULL; // data file for non-audio sensor data
     char header[] =
-        "Timestampe(ms), RTC count, State, BoardTemp degC, WaterTemp degC, "
+        "Timestamp(ms), RTC count, State, BoardTemp degC, WaterTemp degC, "
         "Pressure bar, Batt_V1 V, Batt_V2 V, Batt_I mA, Quat_i, Quat_j, "
-        "Quat_k, Quat_Re, AmbientLight, GPS";
+        "Quat_k, Quat_Re, AmbientLight, GPS \n";
     struct timeval te;
     long long milliseconds;
 
@@ -63,7 +63,7 @@ void *sensorThread(void *paramPtr) {
         getBattStatus(batteryData);
         getQuaternion(quaternion);
         getAmbientLight(&ambientLight);
-    //    getGpsLocation(gpsLocation);
+        getGpsLocation(gpsLocation);
 
         snsData = fopen(SNS_FILE, "at");
         if (snsData == NULL) {
@@ -99,7 +99,7 @@ void *sensorThread(void *paramPtr) {
 
 int getGpsLocation(char *gpsLocation) {
 
-  
+    strcpy(gpsLocation,"** DUMMY DATA**: $GPRMC,042201.00,A,4159.60619,N,07043.48689,W,0.108,,270621,,,A*64 \n");
     return (0);
 }
 
@@ -382,8 +382,8 @@ int updateState(int presentState) {
 
         startTime = getTimeDeploy(); // new v0.5 gets start time from the csv
         CETI_LOG("updateState(): Deploy Start: %d", startTime);
-        nextState = ST_DEPLOY; // underway!
-        rfOn();                // turn on the GPS and XBee power supply
+        rcvryOn();                // turn on Recovery Board
+        nextState = ST_DEPLOY;    // underway!
 
         break;
 
@@ -430,7 +430,7 @@ int updateState(int presentState) {
 
         else {
             nextState = ST_REC_SUB;
-            rfOff();
+            rcvryOff();
         }
 
         break;
@@ -449,12 +449,12 @@ int updateState(int presentState) {
         }
 
         else if (pressureSensorData[1] > d_press_2) {
-            rfOff();
+            rcvryOff();
             nextState = ST_REC_SUB; // back under....
         }
 
         else if (pressureSensorData[1] < d_press_1) {
-            rfOn();
+            rcvryOn();
             nextState = ST_REC_SURF;
         }
 
@@ -488,10 +488,10 @@ int updateState(int presentState) {
 
         if (pressureSensorData[1] <
             d_press_1) { // at surface, try to get a fix and transmit it
-            rfOn();
+            rcvryOn();
         } else if (pressureSensorData[1] >
                    d_press_2) { // still under or resubmerged
-            rfOff();
+            rcvryOff();
         }
 
         break;
@@ -509,7 +509,7 @@ int updateState(int presentState) {
 
         else if (batteryData[0] + batteryData[1] < d_volt_1) { // low battery
             burnwireOn(); // redundant, is already on
-            rfOn();
+            rcvryOn();
             nextState = ST_RETRIEVE; // dwell in this state with burnwire left
                                      // on
         }
@@ -546,16 +546,15 @@ int burnwireOff(void) {
     return 0;
 }
 
-int rfOn(void) {
+int rcvryOn(void) {
 
    
     return 0;
 }
 
-int rfOff(void) {
+int rcvryOff(void) {
 
   
-
     return 0;
 }
 
