@@ -104,6 +104,8 @@ extern int updateState(int presentState);
 extern int burnwireOn(void);
 extern int burnwireOff(void);
 
+extern int testRecoverySerial(void);
+
 
 //-----------------------------------------------------------------------------
 // Defines

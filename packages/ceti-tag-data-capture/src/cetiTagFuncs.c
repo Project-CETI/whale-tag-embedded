@@ -46,6 +46,14 @@ int hdlCmd(void) {
         return 0;
     }
 
+    if (!strncmp(g_command, "testSerial", 10)) {
+        printf("hdlCmd(): Testing Recovery Serial Link\n");
+        testRecoverySerial();
+        g_rsp = fopen(RSP, "w");
+        fprintf(g_rsp, "hdlCmd(): Testing Recovery Serial Link\n");
+        fclose(g_rsp);
+        return 0;
+    }
 
     if (!strncmp(g_command, "bwOn", 4)) {
         printf("hdlCmd(): Turn on burnwire\n");
@@ -301,12 +309,15 @@ int hdlCmd(void) {
         fprintf(g_rsp, "getRotation Dev only - bringing up IMU BNO08x\n");
 
         fprintf(g_rsp, "bwOn        Turn on the burnwire current\n");
-        fprintf(g_rsp, "bwOff       Turn off the burnwire current");
+        fprintf(g_rsp, "bwOff       Turn off the burnwire current\n");
 
         fprintf(g_rsp, 
                 "rcvryOn     Testing control of power to Recovery Board\n");
         fprintf(g_rsp, 
                 "rcvryOff    Testing control of power to Recovery Board\n");
+
+        fprintf(g_rsp, 
+                "testSerial  Testing control of power to Recovery Board\n");
 
         fprintf(g_rsp, "\n");
         fclose(g_rsp);
@@ -622,4 +633,48 @@ int getTimeDeploy(void) {
 
     fclose(sensorsCsvFile);
     return (timeDeploy);
+}
+
+
+int testRecoverySerial(void) {   
+
+//Tx a test message on UART, loopback to confirm FPGA and IO connectivity
+
+    int i;
+
+    char buf[4096]; 
+    char testbuf[16]= "Hello Whales!\n";
+
+    int fd;
+    int bytes_avail;
+
+    fd = serOpen("/dev/serial0",9600,0);
+
+    if(fd < 0) {
+        printf ("testRecoverySerial(): Failed to open the serial port\n");
+        return (-1);
+    }
+    else {
+        printf("testRecoverySerial(): Successfully opened the serial port\n");
+    }
+
+    for(i=0;i<128;i++) {
+        usleep (1000000);
+        
+        bytes_avail = (serDataAvailable(fd));     
+        printf("%d bytes are available from the serial port\n",bytes_avail);      
+        serRead(fd,buf,bytes_avail);
+        printf("%s",buf);
+
+        printf("Trying to write to the serial port with pigpio\n");
+        serWrite(fd,testbuf,14); //test transmission
+
+    }
+
+
+    return (0);
+
+
+
+
 }
