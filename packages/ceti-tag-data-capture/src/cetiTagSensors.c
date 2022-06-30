@@ -45,13 +45,7 @@ void *sensorThread(void *paramPtr) {
         "Quat_k, Quat_Re, AmbientLight, GPS \n";
     struct timeval te;
     long long milliseconds;
-
-    if (!access(SNS_FILE, F_OK)) {
-        CETI_LOG("sensorThread(): could not find sensor file, creating a new one: %s", SNS_FILE);
-        snsData = fopen(SNS_FILE, "wt");
-        fprintf(snsData, "%s", header);
-        fclose(snsData);
-    }
+    int fd_access = 0;
 
     while (1) {
 
@@ -65,10 +59,17 @@ void *sensorThread(void *paramPtr) {
         getAmbientLight(&ambientLight);
         getGpsLocation(gpsLocation);
 
+        fd_access = access(SNS_FILE, F_OK);
+
         snsData = fopen(SNS_FILE, "at");
         if (snsData == NULL) {
             CETI_LOG("sensorThread(): failed to write to file: %s", SNS_FILE);
             return NULL;
+        }
+
+        if (fd_access == -1) {
+            CETI_LOG("sensorThread(): could not find sensor file, creating a new one: %s", SNS_FILE);
+            fprintf(snsData, "%s", header);
         }
 
         fprintf(snsData, "%lld,", milliseconds);
