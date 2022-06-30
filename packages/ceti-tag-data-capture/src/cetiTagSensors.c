@@ -537,24 +537,79 @@ int updateState(int presentState) {
 //-----------------------------------------------------------------------------
 
 int burnwireOn(void) {
-;
+
+    int fd;
+    int result;
+
+    // Open a connection to the io expander
+    if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
+        printf("burnwireOn(): Failed to open I2C connection for IO Expander \n");
+        return -1;
+    }
+    result = i2cReadByte(fd);
+    result = result & (~BW_nON & ~BW_RST); 
+
+    i2cWriteByte(fd,result);
+
+    i2cClose(fd);
+
     return 0;
 }
 
 int burnwireOff(void) {
 
+    int fd;
+    int result;
+
+    // Open a connection to the io expander
+    if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
+        printf("burnwireOff(): Failed to open I2C connection for IO Expander \n");
+        return -1;
+    }
+    result = i2cReadByte(fd);
+    result = result | (BW_nON | BW_RST); 
+
+    i2cWriteByte(fd,result);
+
+    i2cClose(fd);
     return 0;
 }
 
 int rcvryOn(void) {
 
-   
+    int fd;
+    int result;
+
+    if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
+        printf("burnwireOn(): Failed to open I2C connection for IO Expander \n");
+        return -1;
+    }
+    result = i2cReadByte(fd);
+    result = result & (~RCVRY_RP_nEN & ~nRCVRY_SWARM_nEN & ~nRCVRY_VHF_nEN); 
+
+    i2cWriteByte(fd,result);
+
+    i2cClose(fd);
+
     return 0;
 }
 
 int rcvryOff(void) {
 
-  
+    int fd;
+    int result;
+    
+    if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
+        printf("burnwireOn(): Failed to open I2C connection for IO Expander \n");
+        return -1;
+    }
+    result = i2cReadByte(fd);
+    result = result | (RCVRY_RP_nEN | nRCVRY_SWARM_nEN | nRCVRY_VHF_nEN);  
+
+    i2cWriteByte(fd,result);
+
+    i2cClose(fd);
+
     return 0;
 }
 

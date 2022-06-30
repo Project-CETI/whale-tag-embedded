@@ -48,20 +48,18 @@
 #define ADDR_LIGHT 0x29
 #define ADDR_DEPTH 0x40
 #define ADDR_TEMP 0x4C
+#define ADDR_IOX 0x38
 
 #define ADDR_IMU 0x4A
 #define BUS_IMU 0x00   //IMU is only device on i2c0
 
 // IO Expander
-#define IOX_INPUT 0x00
-#define IOX_OUTPUT 0x01
-#define IOX_POLARITY 0x02
-#define IOX_CONFIG 0x03
-#define RDY_LED 0x80
-#define nBW_ON 0x01
-#define BW_RST 0x02
-#define RF_ON_BB 0x04 // breadboard version
-#define RF_ON 0x40    // alpha version
+#define BW_nON 0x10			//Burnwire controls
+#define BW_RST 0x20
+
+#define RCVRY_RP_nEN 0x01       //Recovery board controls
+#define nRCVRY_SWARM_nEN 0x02
+#define nRCVRY_VHF_nEN 0x04
 
 // Keller 4LD Pressure Sensor 200 bar
 // Reference pressure is a 1 bar abs

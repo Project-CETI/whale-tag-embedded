@@ -46,20 +46,40 @@ int hdlCmd(void) {
         return 0;
     }
 
-    if (!strncmp(g_command, "rcvryOn", 4)) {
-        printf("hdlCmd(): Turn on power to the Recovery Board\n");
-        rcvryOn();
+
+    if (!strncmp(g_command, "bwOn", 4)) {
+        printf("hdlCmd(): Turn on burnwire\n");
+        burnwireOn();
         g_rsp = fopen(RSP, "w");
-        fprintf(g_rsp, "hdlCmd(): Turned RF supply on\n");
+        fprintf(g_rsp, "hdlCmd(): Turned burnwire on\n");
         fclose(g_rsp);
         return 0;
     }
 
-    if (!strncmp(g_command, "rcvryOff", 5)) {
+    if (!strncmp(g_command, "bwOff", 5)) {
+        printf("hdlCmd(): Turn off burnwire\n");
+        burnwireOff();
+        g_rsp = fopen(RSP, "w");
+        fprintf(g_rsp, "hdlCmd(): Turned burnwire off\n");
+        fclose(g_rsp);
+        return 0;
+    }    
+
+
+    if (!strncmp(g_command, "rcvryOn", 7)) {
+        printf("hdlCmd(): Turn on power to the Recovery Board\n");
+        rcvryOn();
+        g_rsp = fopen(RSP, "w");
+        fprintf(g_rsp, "hdlCmd(): Turned Recovery Board on\n");
+        fclose(g_rsp);
+        return 0;
+    }
+
+    if (!strncmp(g_command, "rcvryOff", 8)) {
         printf("hdlCmd(): Turn off power to the Recovery Board\n");
         rcvryOff();
         g_rsp = fopen(RSP, "w");
-        fprintf(g_rsp, "hdlCmd(): Turned RF supply off\n");
+        fprintf(g_rsp, "hdlCmd(): Turned Recovery Board off\n");
         fclose(g_rsp);
         return 0;
     }
@@ -279,6 +299,9 @@ int hdlCmd(void) {
                 "learnIMU    Dev only - sandbox for exploring IMU BNO08x\n");
         fprintf(g_rsp, "setupIMU    Dev only - bringing up IMU BNO08x\n");
         fprintf(g_rsp, "getRotation Dev only - bringing up IMU BNO08x\n");
+
+        fprintf(g_rsp, "bwOn        Turn on the burnwire current\n");
+        fprintf(g_rsp, "bwOff       Turn off the burnwire current");
 
         fprintf(g_rsp, 
                 "rcvryOn     Testing control of power to Recovery Board\n");
