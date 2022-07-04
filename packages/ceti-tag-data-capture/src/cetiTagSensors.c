@@ -21,7 +21,8 @@ static int presentState = ST_CONFIG;
 int16_t quaternion[4];
 double pressureSensorData[2];
 double batteryData[3];
-int rtcCount, boardTemp, ambientLight;
+unsigned int rtcCount; 
+int boardTemp, ambientLight;
 char gpsLocation[512];
 int gpsPowerState = 0;
 
@@ -301,7 +302,7 @@ int updateState(int presentState) {
     char *pTemp;
 
     // timing
-    static int startTime = 0;
+    static unsigned int startTime = 0;
     // static int burnTimeStart;
 
     // Deployment sequencer FSM
@@ -384,7 +385,7 @@ int updateState(int presentState) {
         start_acq(); // kick off the audio recording
 
         startTime = getTimeDeploy(); // new v0.5 gets start time from the csv
-        CETI_LOG("updateState(): Deploy Start: %d", startTime);
+        CETI_LOG("updateState(): Deploy Start: %u", startTime);
         rcvryOn();                // turn on Recovery Board
         nextState = ST_DEPLOY;    // underway!
 
@@ -526,6 +527,8 @@ int updateState(int presentState) {
         //  Shut everything off in an orderly way if battery is critical to
         //  reduce file system corruption risk
         burnwireOff();
+        rcvryOff();
+        CETI_LOG("updateState(): Battery critical, halting");
         system("sudo halt"); //
         break;
 

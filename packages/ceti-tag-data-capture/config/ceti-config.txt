@@ -5,8 +5,8 @@
 # If pressure < P1, device is considered at the surface
 # If pressure > P2, device is considered submerged
 # Between P1 and P2 is a hysteresis band
-# The state machine uses this information to turn the GPS and/or
-# the XBEE radio on and off depending on the phase of the deployment
+# The state machine uses this information to turn the Recovery
+# board on and off depending on the phase of the deployment
 # Units are bar absolute with reference value of 1 bar (absolute) abs
 # See Keller 4LD...9LD data sheet
 #
@@ -16,7 +16,7 @@ P2=0.10
 #------------------------------------------------------------------------------
 # Battery Thresholds V1 and V2
 # This is used as a barebones method to determine state of charge
-# Gas gauge has more sophisticated feature available
+# The Tag's gas gauge has more sophisticated features available
 # This is just to get started with
 # V1 - battery is low, time to release from the whale!
 # V2 - battery is critical, time to put the system to sleep

@@ -5,7 +5,8 @@
 //-----------------------------------------------------------------------------
 // Version    Date    Description
 //  0.00    10/08/21   Begin work, establish framework
-//  2.1.1   06/27/21   Update v2.0 to work with v2.1 hardware
+//  2.1.1   06/27/22   Update v2.0 to work with v2.1 hardware
+//  2.1.2   07/03/22   Fix deploy timeout bug
 //
 //-----------------------------------------------------------------------------
 // Project: CETI Tag Electronics
@@ -16,7 +17,7 @@
 #ifndef CETI_WRAP_H
 #define CETI_WRAP_H
 
-#define CETI_VERSION "2.1.1"
+#define CETI_VERSION "2.1.2"
 
 #include <stdio.h>
 
@@ -90,9 +91,9 @@ extern int rcvryOff(void);
 extern int burnwireOn(void);
 extern int burnwireOff(void);
 
-extern int getRtcCount(int *pRtcCount);
+extern int getRtcCount(unsigned int *pRtcCount);
 extern int resetRtcCount(void);
-extern int getTimeDeploy(void);
+extern unsigned int getTimeDeploy(void);
 
 extern int getBoardTemp(int *boardTemp);
 extern int getTempPsns(double *pressureSensorData);

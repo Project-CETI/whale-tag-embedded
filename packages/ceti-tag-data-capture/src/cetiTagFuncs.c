@@ -312,12 +312,12 @@ int hdlCmd(void) {
         fprintf(g_rsp, "bwOff       Turn off the burnwire current\n");
 
         fprintf(g_rsp, 
-                "rcvryOn     Testing control of power to Recovery Board\n");
+                "rcvryOn     Turn on the Recovery Board\n");
         fprintf(g_rsp, 
-                "rcvryOff    Testing control of power to Recovery Board\n");
+                "rcvryOff    Turn off the Recovery Board\n");
 
         fprintf(g_rsp, 
-                "testSerial  Testing control of power to Recovery Board\n");
+                "testSerial  Test Recovery Board serial link\n");
 
         fprintf(g_rsp, "\n");
         fclose(g_rsp);
@@ -558,7 +558,7 @@ int initTag(void) {
 // RTC second counter
 //-----------------------------------------------------------------------------
 
-int getRtcCount(int *pRtcCount) {
+int getRtcCount(unsigned int *pRtcCount) {
 
     int fd;
     int rtcCount, rtcShift = 0;
@@ -611,25 +611,33 @@ int resetRtcCount() {
     return (0);
 }
 
-int getTimeDeploy(void) {
-    // open sensors.csv and get the first timestamp
+unsigned int getTimeDeploy(void) {
+    // open sensors.csv and get the first RTC timestamp for use
+    // by state machine deployment timings.  
 
     FILE *sensorsCsvFile = NULL;
+    char *pTemp;
+
     char line[512];
+    
     char strTimeDeploy[16];
-    double timeDeploy;
+    
+    unsigned int timeDeploy;
 
     sensorsCsvFile = fopen(SNS_FILE, "r");
     if (sensorsCsvFile == NULL) {
-        CETI_LOG("main():cannot open sensor csv output file");
+        CETI_LOG("getTimeDeploy():cannot open sensor csv output file");
         return (-1);
     }
 
-    fgets(line, 512, sensorsCsvFile); // first line is the header
-    fgets(line, 512, sensorsCsvFile); // first line of data
-    strncpy(strTimeDeploy, line, 10); // time stamp
-    strTimeDeploy[10] = '\n';
-    timeDeploy = atol(strTimeDeploy);
+    fgets(line, 512, sensorsCsvFile); // first line is always the header    
+    fgets(line, 512, sensorsCsvFile); // first line of the actual data
+
+    // parse out the RTC count, which is in the 2nd column of the CSV
+    for(pTemp = line; *pTemp != ',' ; pTemp++);  //find first comma
+    strncpy(strTimeDeploy, pTemp+1, 10);         //copy the string    
+    strTimeDeploy[10] = '\0';                    //append terminator
+    timeDeploy = strtoul(strTimeDeploy,NULL,0);  //convert to uint
 
     fclose(sensorsCsvFile);
     return (timeDeploy);
