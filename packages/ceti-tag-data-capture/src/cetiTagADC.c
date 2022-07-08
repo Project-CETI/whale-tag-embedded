@@ -200,7 +200,7 @@ void *spiThread(void *paramPtr) {
     prev_status = gpioRead(DATA_AVAIL);
     status = prev_status;
 
-    while (1) {
+    while (!g_exit) {
 
         status = gpioRead(DATA_AVAIL);
 
@@ -247,7 +247,7 @@ void *spiThread(void *paramPtr) {
 //-----------------------------------------------------------------------------
 void * writeDataThread( void * paramPtr ) {
    int pageIndex = 0;
-   while (1) {
+   while (!g_exit) {
        if (page[pageIndex].readyToBeSavedToDisk) {
            if ( (acqDataFileLength > MAX_DATA_FILE_SIZE) || (acqData == NULL) ) {
                createNewDataFile();

@@ -48,7 +48,7 @@ void *sensorThread(void *paramPtr) {
     long long milliseconds;
     int fd_access = 0;
 
-    while (1) {
+    while (!g_exit) {
 
         gettimeofday(&te, NULL);
         milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;

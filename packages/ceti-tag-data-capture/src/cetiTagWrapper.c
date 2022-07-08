@@ -16,6 +16,7 @@
 #include <pigpio.h>
 #include <pthread.h>
 #include <string.h>
+#include <signal.h>
 #include <unistd.h>
 
 #include "cetiTagLogging.h"
@@ -35,11 +36,18 @@ int g_cmdPend = 0;
 //-----------------------------------------------------------------------------
 //
 
+void sig_handler(int signum) {
+   g_exit = 1;
+}
+
 int main(void) {
     pthread_t cmdHdlThreadId = 0;
     pthread_t spiThreadId = 0;
     pthread_t writeDataThreadId = 0;
     pthread_t sensorThreadId = 0;
+
+    signal(SIGINT, sig_handler);
+    signal(SIGTERM, sig_handler);
 
     CETI_initializeLog();
 
