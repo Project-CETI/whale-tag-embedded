@@ -37,7 +37,7 @@ def do_resize(args):
         with LoopDev(args, args.image, offset=start_bytes) as root_dev:
             print("Resizing ext filesystem...")
             new_size_bytes = resize2fs(args, root_dev)
-            print("Resized to %.1f GB" % (new_size_bytes / (2 ** 30)))
+            print("Resized to %.1f GB" % (new_size_bytes / (2**30)))
 
             print("Zeroing free blocks...")
             try:

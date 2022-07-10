@@ -7,7 +7,7 @@ if [ "$#" -ne 4 ]; then
 fi
 
 OUT_DIR="$1"
-OVERLAY_DIR="$2"
+OVERLAY_DIR="$3"
 
 APT_NONINTERACTIVE="-y"
 export DEBIAN_FRONTEND="noninteractive"
@@ -53,12 +53,16 @@ time apt install "${APT_NONINTERACTIVE}" --fix-broken --no-upgrade \
   libi2c-dev \
   i2c-tools \
   netcat \
-
+  zlib1g-dev \
 
 apt "${APT_NONINTERACTIVE}" autoremove
 
-# Enable I2C
-sudo raspi-config nonint do_i2c 0
+# Enable I2C0
+raspi-config nonint do_i2c 0
+echo "dtparam=i2c_vc=on" >> /boot/config.txt
+
+# Enable UART port, but disable serial console and ability to log into pi using it
+raspi-config nonint do_serial 2
 
 # Enable SSH.
 touch /boot/ssh
@@ -81,25 +85,17 @@ echo "/dev/disk/by-label/cetiData /data ext4 defaults,nofail 0 0" >> /etc/fstab
 install_package "$(ls "${OUT_DIR}"/ceti-tag-set-hostname_*.deb)"
 install_package "$(ls "${OUT_DIR}"/ceti-tag-data-capture_*.deb)"
 
-# Minimize logging
-# See article: https://medium.com/swlh/make-your-raspberry-pi-file-system-read-only-raspbian-buster-c558694de79
-apt remove --purge -y triggerhappy logrotate dphys-swapfile
-apt autoremove --purge -y
-apt install -y busybox-syslogd
-apt remove --purge -y rsyslog
-rm -rf /var/lib/dhcp /var/lib/dhcpcd5 /var/spool /etc/resolv.conf
-ln -s /tmp /var/lib/dhcp
-ln -s /tmp /var/lib/dhcpcd5
-ln -s /tmp /var/spool
-touch /tmp/dhcpcd.resolv.conf
-ln -s /tmp/dhcpcd.resolv.conf /etc/resolv.conf
+# Enable ethernet over USB
+echo "deb https://packages.cloud.google.com/apt aiyprojects-stable main" > /etc/apt/sources.list.d/aiyprojects.list
+curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+apt update
+apt install -y aiy-usb-gadget
 
-################################################################################
-#################################### pi user ###################################
-################################################################################
 
 # Copy filesystem overlay.
+
 tar -cf - -C "${OVERLAY_DIR}" --owner=pi --group=pi . | tar -xf - -C /
+
 
 # All done
 echo "( ・◡・)つ━☆   Build complete"

@@ -21,7 +21,7 @@ from imgtools import (
 )
 
 
-def do_expand(args, image_file, expand_bytes=(2 ** 30)):
+def do_expand(args, image_file, expand_bytes=(2**30)):
     """Expand the root filesystem on the image."""
 
     expand_sectors = expand_bytes // SECTOR_BYTES

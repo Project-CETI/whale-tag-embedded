@@ -29,7 +29,7 @@ def main():
     parser.add_argument(
         "--expand-bytes",
         type=int,
-        default=(2 ** 30),
+        default=(2**30),
         help="expand image file by this amount of bytes",
     )
     parser.add_argument("image", help="path to image file")
