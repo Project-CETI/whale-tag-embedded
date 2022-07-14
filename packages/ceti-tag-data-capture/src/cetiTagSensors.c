@@ -30,7 +30,15 @@ int gpsPowerState = 0;
 char state_str[][MAX_STATE_STRING_LEN] = {
     "CONFIG",   "START",  "DEPLOY",   "REC_SUB",
     "REC_SURF", "BRN_ON", "RETRIEVE", "SHUTDOWN",
+    "ST_UNKNOWN"
 };
+
+const char * get_state_str(wt_state_t state) {
+    if (state < 0) || (state > ST_UNKNOWN)
+        state = ST_UNKNOWN;
+
+    return state_str[state];
+}
 
 //-----------------------------------------------------------------------------
 // Control and Monitor Thread
@@ -75,7 +83,7 @@ void *sensorThread(void *paramPtr) {
 
         fprintf(snsData, "%lld,", milliseconds);
         fprintf(snsData, "%d,", rtcCount);
-        fprintf(snsData, "%s,", state_str[presentState]);
+        fprintf(snsData, "%s,", get_state_str([presentState]));
         fprintf(snsData, "%d,", boardTemp);
         fprintf(snsData, "%.2f,", pressureSensorData[0]);
         fprintf(snsData, "%.2f,", pressureSensorData[1]);

@@ -32,6 +32,7 @@ typedef enum {       // Tag operational states for deployment sequencing
     ST_RETRIEVE = 7, // burnwire timed out, likely at surface, monitor GPS and
                      // transmit coord if enough battery
     ST_SHUTDOWN = 8, // battery critical, put system in minimum power mode
+    ST_UNKNOWN
 } wt_state_t;
 
 typedef struct { // To hold rotation vector input report information
