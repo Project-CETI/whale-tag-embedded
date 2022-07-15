@@ -26,15 +26,8 @@ int boardTemp, ambientLight;
 char gpsLocation[512];
 int gpsPowerState = 0;
 
-#define MAX_STATE_STRING_LEN (32)
-char state_str[][MAX_STATE_STRING_LEN] = {
-    "CONFIG",   "START",  "DEPLOY",   "REC_SUB",
-    "REC_SURF", "BRN_ON", "RETRIEVE", "SHUTDOWN",
-    "ST_UNKNOWN"
-};
-
 const char * get_state_str(wt_state_t state) {
-    if ( (state < 0) || (state > ST_UNKNOWN) )
+    if ( (state < ST_CONFIG) || (state > ST_UNKNOWN) )
         state = ST_UNKNOWN;
 
     return state_str[state];
@@ -299,7 +292,7 @@ int getBoardTemp(int *pBoardTemp) {
 
 int updateState(int presentState) {
 
-    int nextState;
+    int nextState = presentState;
 
     // Config file and associated parameters
     static FILE *cetiConfig = NULL;
