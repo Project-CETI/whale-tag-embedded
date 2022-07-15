@@ -34,7 +34,7 @@ char state_str[][MAX_STATE_STRING_LEN] = {
 };
 
 const char * get_state_str(wt_state_t state) {
-    if (state < 0) || (state > ST_UNKNOWN)
+    if ( (state < 0) || (state > ST_UNKNOWN) )
         state = ST_UNKNOWN;
 
     return state_str[state];
@@ -83,7 +83,7 @@ void *sensorThread(void *paramPtr) {
 
         fprintf(snsData, "%lld,", milliseconds);
         fprintf(snsData, "%d,", rtcCount);
-        fprintf(snsData, "%s,", get_state_str([presentState]));
+        fprintf(snsData, "%s,", get_state_str(presentState));
         fprintf(snsData, "%d,", boardTemp);
         fprintf(snsData, "%.2f,", pressureSensorData[0]);
         fprintf(snsData, "%.2f,", pressureSensorData[1]);
