@@ -90,7 +90,7 @@ void *sensorThread(void *paramPtr) {
         fprintf(snsData, "%d,", ambientLight);
         fprintf(snsData, "\"%s\"\n", gpsLocation);
         fclose(snsData);
-        presentState = updateState(presentState);
+        updateState();
         usleep(SNS_SMPL_PERIOD);
     }
     return NULL;
@@ -266,9 +266,7 @@ int getBoardTemp(int *pBoardTemp) {
 // * Details of state machine are documented in the high-level design
 //-----------------------------------------------------------------------------
 
-int updateState(int presentState) {
-
-    int nextState = presentState;
+int updateState() {
 
     // Config file and associated parameters
     static FILE *cetiConfig = NULL;
@@ -287,15 +285,8 @@ int updateState(int presentState) {
     switch (presentState) {
 
     case (ST_CONFIG):
-
-        CETI_LOG("updateState(): Configuring the deployment parameters");
-
         // Load the deployment configuration
-
-        // First, get deployment config values provided by the configuration
-        // file
-        // printf(" updateState(): debug - read config\n" );
-
+        CETI_LOG("updateState(): Configuring the deployment parameters");
         cetiConfig = fopen(CETI_CONFIG_FILE, "r");
         if (cetiConfig == NULL) {
             CETI_LOG("updateState():cannot open sensor csv output file");
@@ -351,21 +342,16 @@ int updateState(int presentState) {
         // printf("V2 is %.2f\n",d_volt_2);
         // printf("Timeout is %d\n",timeOut);
 
-        nextState = ST_START;
-
+        presentState = ST_START;
         break;
 
     case (ST_START):
-
         // Start recording 
-
-        start_acq(); // kick off the audio recording
-
+        start_acq();
         startTime = getTimeDeploy(); // new v0.5 gets start time from the csv
         CETI_LOG("updateState(): Deploy Start: %u", startTime);
         rcvryOn();                // turn on Recovery Board
-        nextState = ST_DEPLOY;    // underway!
-
+        presentState = ST_DEPLOY;    // underway!
         break;
 
     case (ST_DEPLOY):
@@ -377,19 +363,13 @@ int updateState(int presentState) {
 
         if ((batteryData[0] + batteryData[1] < d_volt_1) ||
             (rtcCount - startTime > timeout_seconds)) {
-
-            // burnTimeStart = rtcCount ;
             burnwireOn();
-            nextState = ST_BRN_ON;
+            presentState = ST_BRN_ON;
+            break;
         }
 
-        else if (pressureSensorData[1] > d_press_2)
-            nextState = ST_REC_SUB; // 1st dive after deploy
-
-        else {
-
-            nextState = ST_DEPLOY;
-        }
+        if (pressureSensorData[1] > d_press_2)
+            presentState = ST_REC_SUB; // 1st dive after deploy
 
         break;
 
@@ -403,17 +383,16 @@ int updateState(int presentState) {
             (rtcCount - startTime > timeout_seconds)) {
             // burnTimeStart = rtcCount ;
             burnwireOn();
-            nextState = ST_BRN_ON;
+            presentState = ST_BRN_ON;
+            break;
         }
 
-        else if (pressureSensorData[1] < d_press_1)
-            nextState = ST_REC_SURF; // came to surface
-
-        else {
-            nextState = ST_REC_SUB;
-            rcvryOff();
+        if (pressureSensorData[1] < d_press_1) {
+            presentState = ST_REC_SURF; // came to surface
+            break;
         }
 
+        rcvryOff();
         break;
 
     case (ST_REC_SURF):
@@ -426,22 +405,19 @@ int updateState(int presentState) {
             (rtcCount - startTime > timeout_seconds)) {
             //	burnTimeStart = rtcCount ;
             burnwireOn();
-            nextState = ST_BRN_ON;
+            presentState = ST_BRN_ON;
+            break;
         }
 
-        else if (pressureSensorData[1] > d_press_2) {
+        if (pressureSensorData[1] > d_press_2) {
             rcvryOff();
-            nextState = ST_REC_SUB; // back under....
+            presentState = ST_REC_SUB; // back under....
+            break;
         }
 
-        else if (pressureSensorData[1] < d_press_1) {
+        if (pressureSensorData[1] < d_press_1) {
             rcvryOn();
-            nextState = ST_REC_SURF;
         }
-
-        else
-            nextState = ST_REC_SURF; // hysteresis zone
-
         break;
 
     case (ST_BRN_ON):
@@ -450,11 +426,15 @@ int updateState(int presentState) {
         //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
         //batteryData[1]));
 
-        if (batteryData[0] + batteryData[1] < d_volt_2)
-            nextState = ST_SHUTDOWN; // critical battery
+        if (batteryData[0] + batteryData[1] < d_volt_2) {
+            presentState = ST_SHUTDOWN; // critical battery
+            break;
+        }
 
-        else if (batteryData[0] + batteryData[1] < d_volt_1)
-            nextState = ST_RETRIEVE; // low batter
+        if (batteryData[0] + batteryData[1] < d_volt_1) {
+            presentState = ST_RETRIEVE; // low batter
+            break;
+        }
 
         // update 220109 to leave burnwire on without time limit
         // Leave burn wire on for 45 minutes or until the battery is depleted
@@ -463,18 +443,15 @@ int updateState(int presentState) {
         //	nextState = ST_RETRIEVE;
         //}
 
-        else
-            nextState = ST_BRN_ON; // dwell with burnwire left on until battery
-                                   // reaches low threshold
-
-        if (pressureSensorData[1] <
-            d_press_1) { // at surface, try to get a fix and transmit it
+        // at surface, try to get a fix and transmit it
+        if (pressureSensorData[1] < d_press_1) {
             rcvryOn();
-        } else if (pressureSensorData[1] >
-                   d_press_2) { // still under or resubmerged
-            rcvryOff();
         }
 
+        // still under or resubmerged
+        if (pressureSensorData[1] > d_press_2) {
+            rcvryOff();
+        }
         break;
 
     case (ST_RETRIEVE):
@@ -484,20 +461,17 @@ int updateState(int presentState) {
         //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
         //batteryData[1]));
 
-        if (batteryData[0] + batteryData[1] < d_volt_2) { // critical battery
-            nextState = ST_SHUTDOWN;
+        // critical battery
+        if (batteryData[0] + batteryData[1] < d_volt_2) {
+            presentState = ST_SHUTDOWN;
+            break;
         }
 
-        else if (batteryData[0] + batteryData[1] < d_volt_1) { // low battery
+        // low battery
+        if (batteryData[0] + batteryData[1] < d_volt_1) {
             burnwireOn(); // redundant, is already on
             rcvryOn();
-            nextState = ST_RETRIEVE; // dwell in this state with burnwire left
-                                     // on
         }
-
-        else
-            nextState = ST_RETRIEVE; // default guard
-
         break;
 
     case (ST_SHUTDOWN):
@@ -508,11 +482,8 @@ int updateState(int presentState) {
         CETI_LOG("updateState(): Battery critical, halting");
         system("sudo halt"); //
         break;
-
-    default:
-        nextState = presentState; // something is wrong if the program gets here
     }
-    return (nextState);
+    return(0);
 }
 
 //-----------------------------------------------------------------------------
