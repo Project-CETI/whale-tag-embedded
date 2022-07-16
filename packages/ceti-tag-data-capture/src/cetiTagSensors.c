@@ -41,7 +41,7 @@ const char * get_state_str(wt_state_t state) {
 //-----------------------------------------------------------------------------
 void *sensorThread(void *paramPtr) {
     FILE *snsData = NULL; // data file for non-audio sensor data
-    char header[] =
+    const char header[] =
         "Timestamp(ms), RTC count, State, BoardTemp degC, WaterTemp degC, "
         "Pressure bar, Batt_V1 V, Batt_V2 V, Batt_I mA, Quat_i, Quat_j, "
         "Quat_k, Quat_Re, AmbientLight, GPS \n";

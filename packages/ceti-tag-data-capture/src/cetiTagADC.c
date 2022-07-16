@@ -172,6 +172,8 @@ int stop_acq(void) {
 //-----------------------------------------------------------------------------
 // SPI Thread Gets Data from HW FIFO on Interrupt
 //-----------------------------------------------------------------------------
+static volatile int first_byte=1;  //first byte in stream must be discarded
+
 void *spiThread(void *paramPtr) {
     int pageIndex = 0;
     init_pages();
@@ -194,9 +196,6 @@ void *spiThread(void *paramPtr) {
     volatile int status;
     volatile int prev_status;
 
-    static int first_byte=1;  //first byte in stream must be discarded
-    char firstByte[1]; 
-
     prev_status = gpioRead(DATA_AVAIL);
     status = prev_status;
 
@@ -213,7 +212,7 @@ void *spiThread(void *paramPtr) {
                 // SPI. Discard the first byte.
 
                 if (first_byte) {
-                    spiRead(spi_fd,firstByte,1);
+                    spiRead(spi_fd,&first_byte,1);
                     first_byte = 0;
                 }
 
