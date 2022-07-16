@@ -233,7 +233,7 @@ int getAmbientLight(int *pAmbientLight) {
     int fd;
 
     if ( (fd=i2cOpen(1,ADDR_LIGHT,0) ) < 0 ) {
-        printf("getAmbientLight(): Failed to connect to the light sensor\n");
+        CETI_LOG("getAmbientLight(): Failed to connect to the light sensor\n");
         return (-1);
     }
 
@@ -252,7 +252,7 @@ int getBoardTemp(int *pBoardTemp) {
 
     int fd;
     if ( (fd=i2cOpen(1,ADDR_TEMP,0) ) < 0 ) {
-        printf("getBoardTemp(): Failed to connect to the temperature sensor\n");
+        CETI_LOG("getBoardTemp(): Failed to connect to the temperature sensor\n");
         return(-1);
     }
 
@@ -525,7 +525,7 @@ int burnwireOn(void) {
 
     // Open a connection to the io expander
     if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
-        printf("burnwireOn(): Failed to open I2C connection for IO Expander \n");
+        CETI_LOG("burnwireOn(): Failed to open I2C connection for IO Expander \n");
         return -1;
     }
     result = i2cReadByte(fd);
@@ -541,7 +541,7 @@ int burnwireOff(void) {
 
     // Open a connection to the io expander
     if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
-        printf("burnwireOff(): Failed to open I2C connection for IO Expander \n");
+        CETI_LOG("burnwireOff(): Failed to open I2C connection for IO Expander \n");
         return -1;
     }
     result = i2cReadByte(fd);
@@ -556,7 +556,7 @@ int rcvryOn(void) {
     int fd, result;
 
     if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
-        printf("burnwireOn(): Failed to open I2C connection for IO Expander \n");
+        CETI_LOG("burnwireOn(): Failed to open I2C connection for IO Expander \n");
         return -1;
     }
     result = i2cReadByte(fd);
@@ -571,7 +571,7 @@ int rcvryOff(void) {
     int fd, result;
     
     if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
-        printf("burnwireOn(): Failed to open I2C connection for IO Expander \n");
+        CETI_LOG("burnwireOn(): Failed to open I2C connection for IO Expander \n");
         return -1;
     }
     result = i2cReadByte(fd);
