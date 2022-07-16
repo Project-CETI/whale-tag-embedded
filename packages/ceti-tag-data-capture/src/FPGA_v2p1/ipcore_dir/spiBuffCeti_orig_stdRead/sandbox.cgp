@@ -1,0 +1,22 @@
+# Date: Sun Sep 12 18:38:50 2021
+
+SET addpads = false
+SET asysymbol = true
+SET busformat = BusFormatAngleBracketNotRipped
+SET createndf = false
+SET designentry = VHDL
+SET device = xc3s200a
+SET devicefamily = spartan3a
+SET flowvendor = Other
+SET formalverification = false
+SET foundationsym = false
+SET implementationfiletype = Ngc
+SET package = vq100
+SET removerpms = false
+SET simulationfiles = Behavioral
+SET speedgrade = -5
+SET verilogsim = false
+SET vhdlsim = true
+SET workingdirectory = .\tmp\
+
+# CRC: a38a9dba

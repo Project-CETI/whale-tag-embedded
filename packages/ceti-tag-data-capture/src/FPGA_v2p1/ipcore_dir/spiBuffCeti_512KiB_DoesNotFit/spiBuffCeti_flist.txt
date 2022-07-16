@@ -1,0 +1,14 @@
+# Output products list for <spiBuffCeti>
+spiBuffCeti/doc/fifo_generator_v9_3_readme.txt
+spiBuffCeti/doc/fifo_generator_v9_3_vinfo.html
+spiBuffCeti/doc/pg057-fifo-generator.pdf
+spiBuffCeti/fifo_generator_v9_3_readme.txt
+spiBuffCeti.asy
+spiBuffCeti.gise
+spiBuffCeti.ngc
+spiBuffCeti.v
+spiBuffCeti.veo
+spiBuffCeti.xco
+spiBuffCeti.xise
+spiBuffCeti_flist.txt
+spiBuffCeti_xmdf.tcl

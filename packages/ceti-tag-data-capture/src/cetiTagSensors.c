@@ -26,11 +26,12 @@ int boardTemp, ambientLight;
 char gpsLocation[512];
 int gpsPowerState = 0;
 
-#define MAX_STATE_STRING_LEN (32)
-char state_str[][MAX_STATE_STRING_LEN] = {
-    "CONFIG",   "START",  "DEPLOY",   "REC_SUB",
-    "REC_SURF", "BRN_ON", "RETRIEVE", "SHUTDOWN",
-};
+const char * get_state_str(wt_state_t state) {
+    if ( (state < ST_CONFIG) || (state > ST_UNKNOWN) )
+        state = ST_UNKNOWN;
+
+    return state_str[state];
+}
 
 //-----------------------------------------------------------------------------
 // Control and Monitor Thread
@@ -75,7 +76,7 @@ void *sensorThread(void *paramPtr) {
 
         fprintf(snsData, "%lld,", milliseconds);
         fprintf(snsData, "%d,", rtcCount);
-        fprintf(snsData, "%s,", state_str[presentState]);
+        fprintf(snsData, "%s,", get_state_str(presentState));
         fprintf(snsData, "%d,", boardTemp);
         fprintf(snsData, "%.2f,", pressureSensorData[0]);
         fprintf(snsData, "%.2f,", pressureSensorData[1]);
@@ -291,7 +292,7 @@ int getBoardTemp(int *pBoardTemp) {
 
 int updateState(int presentState) {
 
-    int nextState;
+    int nextState = presentState;
 
     // Config file and associated parameters
     static FILE *cetiConfig = NULL;
