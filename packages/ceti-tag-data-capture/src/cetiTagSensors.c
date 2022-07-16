@@ -231,33 +231,16 @@ int getTempPsns(double *presSensorData) {
 int getAmbientLight(int *pAmbientLight) {
 
     int fd;
-    unsigned short  visible;
-
 
     if ( (fd=i2cOpen(1,ADDR_LIGHT,0) ) < 0 ) {
         printf("getAmbientLight(): Failed to connect to the light sensor\n");
         return (-1);
     }
 
-    else {
-
-
-
-        // need to read both wavelengths
-
-        visible = i2cReadWordData(fd,0x88);  //visible
-
-        i2cReadWordData(fd,0x8A);  //infrared, not used
-
-        ambientLight = visible; //just reporting visible in the CSV
-
-        i2cClose(fd);
-
-        return (0);
-
-
-    }
-
+    // need to read both wavelengths
+    *pAmbientLight = i2cReadWordData(fd,0x88);  //visible
+    i2cReadWordData(fd,0x8A);  //infrared, not used
+    i2cClose(fd);
     return (0);
 }
 
@@ -268,21 +251,14 @@ int getAmbientLight(int *pAmbientLight) {
 int getBoardTemp(int *pBoardTemp) {
 
     int fd;
-    int boardTemp;
-            
     if ( (fd=i2cOpen(1,ADDR_TEMP,0) ) < 0 ) {
         printf("getBoardTemp(): Failed to connect to the temperature sensor\n");
-        return (-1);
+        return(-1);
     }
 
-    else {      
-        boardTemp = i2cReadByteData(fd,0x00);
-        i2cClose(fd);
-        * pBoardTemp = boardTemp;
-        return(0);
-    }
-
-    return (0);
+    *pBoardTemp = i2cReadByteData(fd,0x00);
+    i2cClose(fd);
+    return(0);
 }
 
 //-----------------------------------------------------------------------------
@@ -545,8 +521,7 @@ int updateState(int presentState) {
 
 int burnwireOn(void) {
 
-    int fd;
-    int result;
+    int fd, result;
 
     // Open a connection to the io expander
     if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
@@ -555,18 +530,14 @@ int burnwireOn(void) {
     }
     result = i2cReadByte(fd);
     result = result & (~BW_nON & ~BW_RST); 
-
     i2cWriteByte(fd,result);
-
     i2cClose(fd);
-
     return 0;
 }
 
 int burnwireOff(void) {
 
-    int fd;
-    int result;
+    int fd, result;
 
     // Open a connection to the io expander
     if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
@@ -575,17 +546,14 @@ int burnwireOff(void) {
     }
     result = i2cReadByte(fd);
     result = result | (BW_nON | BW_RST); 
-
     i2cWriteByte(fd,result);
-
     i2cClose(fd);
     return 0;
 }
 
 int rcvryOn(void) {
 
-    int fd;
-    int result;
+    int fd, result;
 
     if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
         printf("burnwireOn(): Failed to open I2C connection for IO Expander \n");
@@ -593,18 +561,14 @@ int rcvryOn(void) {
     }
     result = i2cReadByte(fd);
     result = result & (~RCVRY_RP_nEN & ~nRCVRY_SWARM_nEN & ~nRCVRY_VHF_nEN); 
-
     i2cWriteByte(fd,result);
-
     i2cClose(fd);
-
     return 0;
 }
 
 int rcvryOff(void) {
 
-    int fd;
-    int result;
+    int fd, result;
     
     if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
         printf("burnwireOn(): Failed to open I2C connection for IO Expander \n");
@@ -612,11 +576,8 @@ int rcvryOff(void) {
     }
     result = i2cReadByte(fd);
     result = result | (RCVRY_RP_nEN | nRCVRY_SWARM_nEN | nRCVRY_VHF_nEN);  
-
     i2cWriteByte(fd,result);
-
     i2cClose(fd);
-
     return 0;
 }
 

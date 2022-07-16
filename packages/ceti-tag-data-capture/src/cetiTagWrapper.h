@@ -36,7 +36,7 @@ typedef enum {       // Tag operational states for deployment sequencing
 } wt_state_t;
 
 #define MAX_STATE_STRING_LEN (32)
-static char state_str[][MAX_STATE_STRING_LEN] = {
+static const char state_str[][MAX_STATE_STRING_LEN] = {
     "CONFIG",
     "START",
     "DEPLOY",
