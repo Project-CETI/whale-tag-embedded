@@ -480,7 +480,7 @@ int updateState() {
         burnwireOff();
         rcvryOff();
         CETI_LOG("updateState(): Battery critical, halting");
-        system("sudo halt"); //
+        system("halt");
         break;
     }
     return(0);
