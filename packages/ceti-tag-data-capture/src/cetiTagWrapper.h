@@ -115,7 +115,7 @@ extern int getBattStatus(double *batteryData);
 extern int getQuaternion(short *quaternion);
 extern int getAmbientLight(int *ambientLight);
 extern int getGpsLocation(char *gpsLocation);
-extern int updateState(int presentState);
+extern int updateState();
 extern int burnwireOn(void);
 extern int burnwireOff(void);
 
