@@ -27,9 +27,10 @@ char gpsLocation[512];
 int gpsPowerState = 0;
 
 const char * get_state_str(wt_state_t state) {
-    if ( (state < ST_CONFIG) || (state > ST_UNKNOWN) )
+    if ( (state < ST_CONFIG) || (state > ST_UNKNOWN) ) {
+        CETI_LOG("get_state_str(): presentState is out of bounds. Setting to ST_UNKNOWN. Current value: %d", presentState);
         state = ST_UNKNOWN;
-
+    }
     return state_str[state];
 }
 
