@@ -23,15 +23,15 @@
 
 typedef enum {       // Tag operational states for deployment sequencing
     ST_CONFIG = 0,   // get the deployment parameters from config file
-    ST_START = 1,    // turn on the audio recorder, illuminate ready LED
-    ST_DEPLOY = 2,   // wait for whale to dive
-    ST_REC_SUB = 3,  // recording while underwater
-    ST_REC_SURF = 4, // recording while surfaced - trying for a GPS fix
-    ST_BRN_ON = 5,   // burnwire is on, may or may not be at the surface when in
-                   // this state
-    ST_RETRIEVE = 6, // burnwire timed out, likely at surface, monitor GPS and
+    ST_START,        // turn on the audio recorder, illuminate ready LED
+    ST_DEPLOY,       // wait for whale to dive
+    ST_REC_SUB,      // recording while underwater
+    ST_REC_SURF,     // recording while surfaced - trying for a GPS fix
+    ST_BRN_ON,       // burnwire is on, may or may not be at the surface when in
+                     // this state
+    ST_RETRIEVE,     // burnwire timed out, likely at surface, monitor GPS and
                      // transmit coord if enough battery
-    ST_SHUTDOWN = 7, // battery critical, put system in minimum power mode
+    ST_SHUTDOWN,     // battery critical, put system in minimum power mode
     ST_UNKNOWN
 } wt_state_t;
 
