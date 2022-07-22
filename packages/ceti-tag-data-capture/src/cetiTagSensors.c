@@ -101,11 +101,102 @@ void *sensorThread(void *paramPtr) {
 // Recovery Board
 //-----------------------------------------------------------------------------
 
+#define SRL_BUF_SIZE 4096
+
 int getGpsLocation(char *gpsLocation) {
 
-    strcpy(gpsLocation,"** DUMMY DATA**: $GPRMC,042201.00,A,4159.60619,N,07043.48689,W,0.108,,270621,,,A*64 \n");
-    gpsLocation[strcspn(gpsLocation, "\r\n")] = 0;
+//    The Recovery Board sends the GPS location sentence as an ASCII string 
+//    about once per second automatically via the serial
+//    port. This function monitors the serial port and extracts the sentence for 
+//    reporting in the .csv record. 
+//
+//    The Recovery Board may not be on at all times. Depending on the state
+//    of the tag, it may be turned off to save power. See the state machine
+//    function for current design. If the recovery board is off, the gps field
+//    in the .csv file will indicate "No GPS update available" 
+//    
+//    The messages coming in from the Recovery Board are asynchronous relative to 
+//    the timing of execution of this function. So, partial messages will occur
+//    if they are provided at a rate less than 2x the frequency of this
+//    routine  - see SNS_SMPL_PERIOD which is nominally 1 second per cycle.  
 
+    static int fd=0;  //handle for serial port. The port is left open for the life of the app
+
+    static char buf[SRL_BUF_SIZE];   //working buffer for serial data
+
+    int bytes_avail;  
+    
+    static char *pTempWr=buf;     //these need to be static in case of a partial message   
+    static int bytes_total=0;     
+
+    char *msg_start=NULL, *msg_end=NULL;  
+    int i=0,complete=0,pending=0;
+
+    // Open the serial port using the pigpio lib
+
+    if(!fd) {  
+
+        fd = serOpen("/dev/serial0",115200,0);
+
+        if(fd < 0) {
+            CETI_LOG("getGpsLocation(): Failed to open the serial port");
+            return (-1);
+        }
+
+        else {
+            CETI_LOG("getGpsLocation(): Successfuly opened the serial port");
+        }
+    }
+
+    // Check if any bytes are waiting in the UART buffer and store them temporarily. 
+    // It is possible to receive a partial message - no synch or handshaking in protocol
+
+    bytes_avail = ( serDataAvailable(fd) );   
+    bytes_total = bytes_avail + bytes_total; //keep a running count
+
+    if(bytes_avail && (bytes_total < SRL_BUF_SIZE) ){              
+
+        serRead(fd,pTempWr,bytes_avail);   //add the new bytes to the buffer
+        pTempWr = pTempWr + bytes_avail;   //advance the write pointer
+
+    }
+
+    else { //defensive - something went wrong, reset the buffer
+        for(i=0;i< SRL_BUF_SIZE;i++) buf[i] = 0;  // reset entire buffer conents
+        bytes_total = 0;                          // reset the static byte counter                   
+        pTempWr = buf;                            // reset the static write pointer
+    }
+
+    // Scan the whole buffer for a GPS message - delimited by 'g' and '\n'    
+    
+    for (i=0; ( i<=bytes_total && !complete   ); i++) { 
+
+
+        if( buf[i] == 'g' && !pending) {
+                msg_start =  buf + i;
+                pending = 1;
+        }
+
+        if ( buf[i] == '\n' && pending) {
+                msg_end = buf + i - 1; //don't include the '/n'
+                complete = 1;
+        }  
+    }
+
+    if (complete) { //copy the message from the buffer
+
+        buf[ (msg_end - buf + 1 ) ] = '\0';     // append null term to use strcpy
+        strcpy(gpsLocation,msg_start+1);        // copy the message without delim
+        for(i=0;i<bytes_total;i++) buf[i] = 0;  // reset buffer conents
+        bytes_total = 0;                        // reset the static byte counter                   
+        pTempWr = buf;                          // reset the static write pointer
+    }
+
+    else {  //No complete sentence was available on this cycle, try again next time through
+        strcpy(gpsLocation,"No GPS update available\n");
+        gpsLocation[strcspn(gpsLocation, "\r\n")] = 0;
+    }
+    
     return (0);
 }
 
@@ -437,8 +528,8 @@ int updateState() {
     case (ST_BRN_ON):
         // Releasing
         //	printf("State BRN_ON - Deployment elapsed time is %d seconds;
-        //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
-        //batteryData[1]));
+        //  Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
+        //  [1]));
 
         if (batteryData[0] + batteryData[1] < d_volt_2) {
             presentState = ST_SHUTDOWN; // critical battery
@@ -446,7 +537,7 @@ int updateState() {
         }
 
         if (batteryData[0] + batteryData[1] < d_volt_1) {
-            presentState = ST_RETRIEVE; // low batter
+            presentState = ST_RETRIEVE; // low battery
             break;
         }
 
@@ -457,7 +548,7 @@ int updateState() {
         //	nextState = ST_RETRIEVE;
         //}
 
-        // at surface, try to get a fix and transmit it
+        // at surface, turn on the Recovery Board
         if (pressureSensorData[1] < d_press_1) {
             rcvryOn();
         }
@@ -469,11 +560,11 @@ int updateState() {
         break;
 
     case (ST_RETRIEVE):
-        //  Waiting to be retrieved. Transmit GPS coordinates periodically
+        //  Waiting to be retrieved. 
 
         //	printf("State RETRIEVE - Deployment elapsed time is %d seconds;
-        //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
-        //batteryData[1]));
+        //  Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
+        //  batteryData[1]));
 
         // critical battery
         if (batteryData[0] + batteryData[1] < d_volt_2) {
