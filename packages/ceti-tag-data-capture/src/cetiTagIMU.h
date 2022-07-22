@@ -26,6 +26,10 @@
 #include "cetiTagLogging.h"
 #include "cetiTagWrapper.h"
 
+#define ADDR_IMU 0x4A
+#define BB_I2C_SDA 23
+#define BB_I2C_SCL 24
+
 // Registers
 const char CHANNEL_COMMAND = 0;
 const char CHANNEL_EXECUTABLE = 1;
