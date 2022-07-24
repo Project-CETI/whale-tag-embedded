@@ -23,8 +23,11 @@ double pressureSensorData[2];
 double batteryData[3];
 unsigned int rtcCount; 
 int boardTemp, ambientLight;
-char gpsLocation[512];
 int gpsPowerState = 0;
+
+
+#define GPS_LOCATION_LENGTH (1024)
+char gpsLocation[GPS_LOCATION_LENGTH];
 
 const char * get_state_str(wt_state_t state) {
     if ( (state < ST_CONFIG) || (state > ST_UNKNOWN) ) {
@@ -101,7 +104,6 @@ void *sensorThread(void *paramPtr) {
 // Recovery Board
 //-----------------------------------------------------------------------------
 
-#define SRL_BUF_SIZE 4096
 
 int getGpsLocation(char *gpsLocation) {
 
@@ -120,58 +122,42 @@ int getGpsLocation(char *gpsLocation) {
 //    if they are provided at a rate less than 2x the frequency of this
 //    routine  - see SNS_SMPL_PERIOD which is nominally 1 second per cycle.  
 
-    static int fd=0;  //handle for serial port. The port is left open for the life of the app
-
-    static char buf[SRL_BUF_SIZE];   //working buffer for serial data
-
-    int bytes_avail;  
-    
+    static int fd=PI_INIT_FAILED;  //handle for serial port. The port is left open for the life of the app
+    static char buf[GPS_LOCATION_LENGTH];   //working buffer for serial data
     static char *pTempWr=buf;     //these need to be static in case of a partial message   
     static int bytes_total=0;     
 
     char *msg_start=NULL, *msg_end=NULL;  
-    int i=0,complete=0,pending=0;
+    int bytes_avail,i,complete=0,pending=0;
 
     // Open the serial port using the pigpio lib
 
-    if(!fd) {  
-
+    if(fd <= PI_INIT_FAILED) {
         fd = serOpen("/dev/serial0",115200,0);
-
-        if(fd < 0) {
+        if (fd < 0) {
             CETI_LOG("getGpsLocation(): Failed to open the serial port");
             return (-1);
         }
-
-        else {
-            CETI_LOG("getGpsLocation(): Successfuly opened the serial port");
-        }
+        CETI_LOG("getGpsLocation(): Successfuly opened the serial port");
     }
 
     // Check if any bytes are waiting in the UART buffer and store them temporarily. 
     // It is possible to receive a partial message - no synch or handshaking in protocol
 
-    bytes_avail = ( serDataAvailable(fd) );   
-    bytes_total = bytes_avail + bytes_total; //keep a running count
+    bytes_avail = serDataAvailable(fd);
+    bytes_total += bytes_avail; //keep a running count
 
-    if(bytes_avail && (bytes_total < SRL_BUF_SIZE) ){              
-
+    if (bytes_avail && (bytes_total < GPS_LOCATION_LENGTH) ) {
         serRead(fd,pTempWr,bytes_avail);   //add the new bytes to the buffer
         pTempWr = pTempWr + bytes_avail;   //advance the write pointer
-
-    }
-
-    else { //defensive - something went wrong, reset the buffer
-        for(i=0;i< SRL_BUF_SIZE;i++) buf[i] = 0;  // reset entire buffer conents
-        bytes_total = 0;                          // reset the static byte counter                   
-        pTempWr = buf;                            // reset the static write pointer
+    } else { //defensive - something went wrong, reset the buffer
+        memset(buf,0,GPS_LOCATION_LENGTH);         // reset entire buffer conents
+        bytes_total = 0;                   // reset the static byte counter
+        pTempWr = buf;                     // reset the static write pointer
     }
 
     // Scan the whole buffer for a GPS message - delimited by 'g' and '\n'    
-    
-    for (i=0; ( i<=bytes_total && !complete   ); i++) { 
-
-
+    for (i=0; (i<=bytes_total && !complete); i++) {
         if( buf[i] == 'g' && !pending) {
                 msg_start =  buf + i;
                 pending = 1;
@@ -184,17 +170,14 @@ int getGpsLocation(char *gpsLocation) {
     }
 
     if (complete) { //copy the message from the buffer
-
-        buf[ (msg_end - buf + 1 ) ] = '\0';     // append null term to use strcpy
-        strcpy(gpsLocation,msg_start+1);        // copy the message without delim
-        for(i=0;i<bytes_total;i++) buf[i] = 0;  // reset buffer conents
+        memset(gpsLocation,0,GPS_LOCATION_LENGTH);
+        strncpy(gpsLocation,msg_start+1,(msg_end-buf));
+        memset(buf,0,GPS_LOCATION_LENGTH);             // reset buffer conents
         bytes_total = 0;                        // reset the static byte counter                   
         pTempWr = buf;                          // reset the static write pointer
-    }
-
-    else {  //No complete sentence was available on this cycle, try again next time through
-        strcpy(gpsLocation,"No GPS update available\n");
         gpsLocation[strcspn(gpsLocation, "\r\n")] = 0;
+    } else {  //No complete sentence was available on this cycle, try again next time through
+        strcpy(gpsLocation,"No GPS update available");
     }
     
     return (0);

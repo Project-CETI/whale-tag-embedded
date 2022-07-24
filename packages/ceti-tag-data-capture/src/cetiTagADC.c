@@ -172,7 +172,7 @@ int stop_acq(void) {
 //-----------------------------------------------------------------------------
 // SPI Thread Gets Data from HW FIFO on Interrupt
 //-----------------------------------------------------------------------------
-static volatile int first_byte=1;  //first byte in stream must be discarded
+static volatile char first_byte=1;  //first byte in stream must be discarded
 
 void *spiThread(void *paramPtr) {
     int pageIndex = 0;
