@@ -23,13 +23,17 @@ double pressureSensorData[2];
 double batteryData[3];
 unsigned int rtcCount; 
 int boardTemp, ambientLight;
-char gpsLocation[512];
 int gpsPowerState = 0;
 
-const char * get_state_str(wt_state_t state) {
-    if ( (state < ST_CONFIG) || (state > ST_UNKNOWN) )
-        state = ST_UNKNOWN;
 
+#define GPS_LOCATION_LENGTH (1024)
+char gpsLocation[GPS_LOCATION_LENGTH];
+
+const char * get_state_str(wt_state_t state) {
+    if ( (state < ST_CONFIG) || (state > ST_UNKNOWN) ) {
+        CETI_LOG("get_state_str(): presentState is out of bounds. Setting to ST_UNKNOWN. Current value: %d", presentState);
+        state = ST_UNKNOWN;
+    }
     return state_str[state];
 }
 
@@ -141,10 +145,84 @@ void *sensorThread(void *paramPtr) {
 // Recovery Board
 //-----------------------------------------------------------------------------
 
+
 int getGpsLocation(char *gpsLocation) {
 
-    strcpy(gpsLocation,"** DUMMY DATA**: $GPRMC,042201.00,A,4159.60619,N,07043.48689,W,0.108,,270621,,,A*64 \n");
-    gpsLocation[strcspn(gpsLocation, "\r\n")] = 0;
+//    The Recovery Board sends the GPS location sentence as an ASCII string
+//    about once per second automatically via the serial
+//    port. This function monitors the serial port and extracts the sentence for
+//    reporting in the .csv record.
+//
+//    The Recovery Board may not be on at all times. Depending on the state
+//    of the tag, it may be turned off to save power. See the state machine
+//    function for current design. If the recovery board is off, the gps field
+//    in the .csv file will indicate "No GPS update available"
+//
+//    The messages coming in from the Recovery Board are asynchronous relative to
+//    the timing of execution of this function. So, partial messages will occur
+//    if they are provided at a rate less than 2x the frequency of this
+//    routine  - see SNS_SMPL_PERIOD which is nominally 1 second per cycle.
+
+    static int fd=PI_INIT_FAILED;  //handle for serial port. The port is left open for the life of the app
+    static char buf[GPS_LOCATION_LENGTH];   //working buffer for serial data
+    static char *pTempWr=buf;     //these need to be static in case of a partial message
+    static int bytes_total=0;
+
+    char *msg_start=NULL, *msg_end=NULL;
+    int bytes_avail,i,complete=0,pending=0;
+
+    // Open the serial port using the pigpio lib
+
+    if(fd <= PI_INIT_FAILED) {
+        fd = serOpen("/dev/serial0",115200,0);
+
+        if (fd < 0) {
+            CETI_LOG("getGpsLocation(): Failed to open the serial port");
+            return (-1);
+        }
+        CETI_LOG("getGpsLocation(): Successfuly opened the serial port");
+    }
+
+    // Check if any bytes are waiting in the UART buffer and store them temporarily.
+    // It is possible to receive a partial message - no synch or handshaking in protocol
+
+    bytes_avail = serDataAvailable(fd);
+    bytes_total += bytes_avail; //keep a running count
+
+    if (bytes_avail && (bytes_total < GPS_LOCATION_LENGTH) ) {
+
+        serRead(fd,pTempWr,bytes_avail);   //add the new bytes to the buffer
+        pTempWr = pTempWr + bytes_avail;   //advance the write pointer
+
+    } else { //defensive - something went wrong, reset the buffer
+        memset(buf,0,GPS_LOCATION_LENGTH);         // reset entire buffer conents
+        bytes_total = 0;                   // reset the static byte counter
+        pTempWr = buf;                     // reset the static write pointer
+    }
+
+    // Scan the whole buffer for a GPS message - delimited by 'g' and '\n'
+    for (i=0; (i<=bytes_total && !complete); i++) {
+        if( buf[i] == 'g' && !pending) {
+                msg_start =  buf + i;
+                pending = 1;
+        }
+
+        if ( buf[i] == '\n' && pending) {
+                msg_end = buf + i - 1; //don't include the '/n'
+                complete = 1;
+        }
+    }
+
+    if (complete) { //copy the message from the buffer
+        memset(gpsLocation,0,GPS_LOCATION_LENGTH);
+        strncpy(gpsLocation,msg_start+1,(msg_end-buf));
+        memset(buf,0,GPS_LOCATION_LENGTH);             // reset buffer conents
+        bytes_total = 0;                        // reset the static byte counter
+        pTempWr = buf;                          // reset the static write pointer
+        gpsLocation[strcspn(gpsLocation, "\r\n")] = 0;
+    } else {  //No complete sentence was available on this cycle, try again next time through
+        strcpy(gpsLocation,"No GPS update available");
+    }
 
     return (0);
 }
@@ -155,14 +233,15 @@ int getGpsLocation(char *gpsLocation) {
 
 int getQuaternion(short *quaternion) {
 
-    int fd;
     int numBytesAvail;
     char pktBuff[256] = {0};
     char shtpHeader[4] = {0};
+    char commandBuffer[10] = {0};
+    int retval;
 
     // parse the IMU quaternion vector input report
 
-    if ((fd = i2cOpen(BUS_IMU, ADDR_IMU, 0)) < 0) {
+    if ((bbI2COpen(BB_I2C_SDA, BB_I2C_SCL, 200000)) < 0) {
         CETI_LOG("getQuaternion(): Failed to connect to the IMU");
         return -1;
     }
@@ -171,24 +250,36 @@ int getQuaternion(short *quaternion) {
     //       |     HEADER      |            TIME       |  ID    SEQ
     //       STATUS....
 
-    i2cReadDevice(fd, shtpHeader, 4);
+    commandBuffer[0] = 0x04; // set address
+    commandBuffer[1] = ADDR_IMU;
+    commandBuffer[2] = 0x02; // start
+    commandBuffer[3] = 0x01; // escape
+    commandBuffer[4] = 0x06; // read
+    commandBuffer[5] = 0x04; // #bytes lsb
+    commandBuffer[6] = 0x00; // #bytes msb
+    commandBuffer[7] = 0x03; // stop
+    commandBuffer[8] = 0x00; // end
 
+    retval = bbI2CZip(BB_I2C_SDA, commandBuffer, 9, shtpHeader, 4);
     // msb is "continuation bit, not part of count"
     numBytesAvail = MIN(256, ((shtpHeader[1] << 8) | shtpHeader[0]) & 0x7FFF);
 
-    if (numBytesAvail) {
-        i2cReadDevice(fd, pktBuff, numBytesAvail);
-        if (pktBuff[2] == 0x03) { // make sure we have the right channel
+    if (retval > 0 && numBytesAvail) {
+        commandBuffer[5] = numBytesAvail & 0xff;
+        commandBuffer[6] = (numBytesAvail >> 8) & 0xff;
+        bbI2CZip(BB_I2C_SDA, commandBuffer, 9, pktBuff, numBytesAvail);
+        if (retval > 0 && pktBuff[2] == 0x03) { // make sure we have the right channel
             quaternion[0] = (pktBuff[14] << 8) + pktBuff[13];
             quaternion[1] = (pktBuff[16] << 8) + pktBuff[15];
             quaternion[2] = (pktBuff[18] << 8) + pktBuff[17];
             quaternion[3] = (pktBuff[20] << 8) + pktBuff[19];
         }
+        bbI2CClose(BB_I2C_SDA);
     } else {
+        bbI2CClose(BB_I2C_SDA);
         setupIMU();
     }
 
-    i2cClose(fd);
     return (0);
 }
 
@@ -272,32 +363,16 @@ int getTempPsns(double *presSensorData) {
 int getAmbientLight(int *pAmbientLight) {
 
     int fd;
-    unsigned short  visible;
-
 
     if ( (fd=i2cOpen(1,ADDR_LIGHT,0) ) < 0 ) {
-        printf("getAmbientLight(): Failed to connect to the light sensor\n");
+        CETI_LOG("getAmbientLight(): Failed to connect to the light sensor\n");
         return (-1);
     }
 
-    else {
-
-
-
-        // need to read both wavelengths
-
-        visible = i2cReadWordData(fd,0x88);  //visible
-
-        i2cReadWordData(fd,0x8A);  //infrared, not used
-
-        ambientLight = visible; //just reporting visible in the CSV
-
-        i2cClose(fd);
-
-        return (0);
-
-
-    }
+    // need to read both wavelengths
+    *pAmbientLight = i2cReadWordData(fd,0x88);  //visible
+    i2cReadWordData(fd,0x8A);  //infrared, not used
+    i2cClose(fd);
 
     return (0);
 }
@@ -309,21 +384,14 @@ int getAmbientLight(int *pAmbientLight) {
 int getBoardTemp(int *pBoardTemp) {
 
     int fd;
-    int boardTemp;
-            
     if ( (fd=i2cOpen(1,ADDR_TEMP,0) ) < 0 ) {
-        printf("getBoardTemp(): Failed to connect to the temperature sensor\n");
-        return (-1);
+        CETI_LOG("getBoardTemp(): Failed to connect to the temperature sensor\n");
+        return(-1);
     }
 
-    else {      
-        boardTemp = i2cReadByteData(fd,0x00);
-        i2cClose(fd);
-        * pBoardTemp = boardTemp;
-        return(0);
-    }
-
-    return (0);
+    *pBoardTemp = i2cReadByteData(fd,0x00);
+    i2cClose(fd);
+    return(0);
 }
 
 //-----------------------------------------------------------------------------
@@ -331,9 +399,7 @@ int getBoardTemp(int *pBoardTemp) {
 // * Details of state machine are documented in the high-level design
 //-----------------------------------------------------------------------------
 
-int updateState(int presentState) {
-
-    int nextState = presentState;
+int updateState() {
 
     // Config file and associated parameters
     static FILE *cetiConfig = NULL;
@@ -352,15 +418,8 @@ int updateState(int presentState) {
     switch (presentState) {
 
     case (ST_CONFIG):
-
-        CETI_LOG("updateState(): Configuring the deployment parameters");
-
         // Load the deployment configuration
-
-        // First, get deployment config values provided by the configuration
-        // file
-        // printf(" updateState(): debug - read config\n" );
-
+        CETI_LOG("updateState(): Configuring the deployment parameters");
         cetiConfig = fopen(CETI_CONFIG_FILE, "r");
         if (cetiConfig == NULL) {
             CETI_LOG("updateState():cannot open sensor csv output file");
@@ -416,21 +475,16 @@ int updateState(int presentState) {
         // printf("V2 is %.2f\n",d_volt_2);
         // printf("Timeout is %d\n",timeOut);
 
-        nextState = ST_START;
-
+        presentState = ST_START;
         break;
 
     case (ST_START):
-
-        // Start recording 
-
-        start_acq(); // kick off the audio recording
-
+        // Start recording
+        start_acq();
         startTime = getTimeDeploy(); // new v0.5 gets start time from the csv
         CETI_LOG("updateState(): Deploy Start: %u", startTime);
         rcvryOn();                // turn on Recovery Board
-        nextState = ST_DEPLOY;    // underway!
-
+        presentState = ST_DEPLOY;    // underway!
         break;
 
     case (ST_DEPLOY):
@@ -440,20 +494,17 @@ int updateState(int presentState) {
         //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
         //batteryData[1]));
 
-        nextState = ST_DEPLOY;
-
         #if USE_BATTERY_GAUGE
         if ((batteryData[0] + batteryData[1] < d_volt_1) ||
             (rtcCount - startTime > timeout_seconds)) {
-
-            // burnTimeStart = rtcCount ;
             burnwireOn();
-            nextState = ST_BRN_ON;
+            presentState = ST_BRN_ON;
+            break;
         }
         #endif
         #if USE_PRESSURE_SENSOR
-        if ((nextState = ST_DEPLOY) && pressureSensorData[1] > d_press_2)
-            nextState = ST_REC_SUB; // 1st dive after deploy
+        if (pressureSensorData[1] > d_press_2)
+            presentState = ST_REC_SUB; // 1st dive after deploy
         #endif
 
         break;
@@ -464,24 +515,23 @@ int updateState(int presentState) {
         //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
         //batteryData[1]));
 
-        nextState = ST_REC_SUB;
-
         #if USE_BATTERY_GAUGE
         if ((batteryData[0] + batteryData[1] < d_volt_1) ||
             (rtcCount - startTime > timeout_seconds)) {
             // burnTimeStart = rtcCount ;
             burnwireOn();
-            nextState = ST_BRN_ON;
+            presentState = ST_BRN_ON;
+            break;
         }
         #endif
         #if USE_PRESSURE_SENSOR
-        if ((nextState == ST_REC_SUB) && pressureSensorData[1] < d_press_1)
-            nextState = ST_REC_SURF; // came to surface
+        if (pressureSensorData[1] < d_press_1) {
+            presentState = ST_REC_SURF; // came to surface
+            break;
+        }
         #endif
 
-        if(nextState == ST_REC_SUB)
-            rcvryOff();
-
+        rcvryOff();
         break;
 
     case (ST_REC_SURF):
@@ -490,24 +540,23 @@ int updateState(int presentState) {
         //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
         //batteryData[1]));
 
-        nextState = ST_REC_SURF; // default (hysteresis zone)
-
         #if USE_BATTERY_GAUGE
         if ((batteryData[0] + batteryData[1] < d_volt_1) ||
             (rtcCount - startTime > timeout_seconds)) {
             //	burnTimeStart = rtcCount ;
             burnwireOn();
-            nextState = ST_BRN_ON;
+            presentState = ST_BRN_ON;
+            break;
         }
         #endif
         #if USE_PRESSURE_SENSOR
-        if ((nextState == ST_REC_SURF) && pressureSensorData[1] > d_press_2) {
+        if (pressureSensorData[1] > d_press_2) {
             rcvryOff();
-            nextState = ST_REC_SUB; // back under....
+            presentState = ST_REC_SUB; // back under....
+            break;
         }
-        else if (pressureSensorData[1] < d_press_1) {
+        if (pressureSensorData[1] < d_press_1) {
             rcvryOn();
-            nextState = ST_REC_SURF;
         }
         #endif
 
@@ -516,17 +565,19 @@ int updateState(int presentState) {
     case (ST_BRN_ON):
         // Releasing
         //	printf("State BRN_ON - Deployment elapsed time is %d seconds;
-        //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
-        //batteryData[1]));
-
-        nextState = ST_BRN_ON;
+        //  Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
+        //  [1]));
 
         #if USE_BATTERY_GAUGE
-        if (batteryData[0] + batteryData[1] < d_volt_2)
-            nextState = ST_SHUTDOWN; // critical battery
+        if (batteryData[0] + batteryData[1] < d_volt_2) {
+            presentState = ST_SHUTDOWN; // critical battery
+            break;
+        }
 
-        else if (batteryData[0] + batteryData[1] < d_volt_1)
-            nextState = ST_RETRIEVE; // low batter
+        if (batteryData[0] + batteryData[1] < d_volt_1) {
+            presentState = ST_RETRIEVE; // low battery
+            break;
+        }
 
         // update 220109 to leave burnwire on without time limit
         // Leave burn wire on for 45 minutes or until the battery is depleted
@@ -535,17 +586,16 @@ int updateState(int presentState) {
         //	nextState = ST_RETRIEVE;
         //}
 
-        else
-            nextState = ST_BRN_ON; // dwell with burnwire left on until battery
-                                   // reaches low threshold
         #endif
 
         #if USE_PRESSURE_SENSOR
-        if (pressureSensorData[1] <
-            d_press_1) { // at surface, try to get a fix and transmit it
+        // at surface, turn on the Recovery Board
+        if (pressureSensorData[1] < d_press_1) {
             rcvryOn();
-        } else if (pressureSensorData[1] >
-                   d_press_2) { // still under or resubmerged
+        }
+
+        // still under or resubmerged
+        if (pressureSensorData[1] > d_press_2) {
             rcvryOff();
         }
         #endif
@@ -553,24 +603,23 @@ int updateState(int presentState) {
         break;
 
     case (ST_RETRIEVE):
-        //  Waiting to be retrieved. Transmit GPS coordinates periodically
+        //  Waiting to be retrieved.
 
         //	printf("State RETRIEVE - Deployment elapsed time is %d seconds;
-        //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
-        //batteryData[1]));
-
-        nextState = ST_RETRIEVE;
+        //  Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
+        //  batteryData[1]));
 
         #if USE_BATTERY_GAUGE
-        if (batteryData[0] + batteryData[1] < d_volt_2) { // critical battery
-            nextState = ST_SHUTDOWN;
+        // critical battery
+        if (batteryData[0] + batteryData[1] < d_volt_2) {
+            presentState = ST_SHUTDOWN;
+            break;
         }
 
-        else if (batteryData[0] + batteryData[1] < d_volt_1) { // low battery
+        // low battery
+        if (batteryData[0] + batteryData[1] < d_volt_1) {
             burnwireOn(); // redundant, is already on
             rcvryOn();
-            nextState = ST_RETRIEVE; // dwell in this state with burnwire left
-                                     // on
         }
         #endif
 
@@ -582,13 +631,10 @@ int updateState(int presentState) {
         burnwireOff();
         rcvryOff();
         CETI_LOG("updateState(): Battery critical, halting");
-        system("sudo halt"); //
+        system("halt"); //
         break;
-
-    default:
-        nextState = presentState; // something is wrong if the program gets here
     }
-    return (nextState);
+    return (0);
 }
 
 //-----------------------------------------------------------------------------
@@ -597,78 +643,63 @@ int updateState(int presentState) {
 
 int burnwireOn(void) {
 
-    int fd;
-    int result;
+    int fd, result;
 
     // Open a connection to the io expander
     if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
-        printf("burnwireOn(): Failed to open I2C connection for IO Expander \n");
+        CETI_LOG("burnwireOn(): Failed to open I2C connection for IO Expander \n");
         return -1;
     }
     result = i2cReadByte(fd);
     result = result & (~BW_nON & ~BW_RST); 
-
     i2cWriteByte(fd,result);
-
     i2cClose(fd);
-
     return 0;
 }
 
 int burnwireOff(void) {
 
-    int fd;
-    int result;
+    int fd, result;
 
     // Open a connection to the io expander
     if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
-        printf("burnwireOff(): Failed to open I2C connection for IO Expander \n");
+        CETI_LOG("burnwireOff(): Failed to open I2C connection for IO Expander \n");
         return -1;
     }
     result = i2cReadByte(fd);
     result = result | (BW_nON | BW_RST); 
-
     i2cWriteByte(fd,result);
-
     i2cClose(fd);
     return 0;
 }
 
 int rcvryOn(void) {
 
-    int fd;
-    int result;
+    int fd, result;
 
     if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
-        printf("burnwireOn(): Failed to open I2C connection for IO Expander \n");
+        CETI_LOG("burnwireOn(): Failed to open I2C connection for IO Expander \n");
         return -1;
     }
     result = i2cReadByte(fd);
     result = result & (~RCVRY_RP_nEN & ~nRCVRY_SWARM_nEN & ~nRCVRY_VHF_nEN); 
-
     i2cWriteByte(fd,result);
-
     i2cClose(fd);
-
     return 0;
 }
 
 int rcvryOff(void) {
 
-    int fd;
-    int result;
+    int fd, result;
     
     if ( (fd = i2cOpen(1,ADDR_IOX,0)) < 0 ) {
-        printf("burnwireOn(): Failed to open I2C connection for IO Expander \n");
+        CETI_LOG("burnwireOn(): Failed to open I2C connection for IO Expander \n");
         return -1;
     }
     result = i2cReadByte(fd);
     result = result | (RCVRY_RP_nEN | nRCVRY_SWARM_nEN | nRCVRY_VHF_nEN);  
-
     i2cWriteByte(fd,result);
-
     i2cClose(fd);
-
     return 0;
 }
 
