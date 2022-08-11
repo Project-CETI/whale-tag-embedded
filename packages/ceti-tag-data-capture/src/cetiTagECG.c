@@ -77,6 +77,8 @@ void *ecgThread(void *paramPtr)
   ecg_log_cleanup();
   ecg_adc_cleanup();
   ecg_gpio_expander_cleanup();
+
+  return NULL;
 }
 
 
