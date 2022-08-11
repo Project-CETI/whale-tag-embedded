@@ -476,34 +476,44 @@ int initI2cDevices() // In work
 {
     int fd;
 
-    
+
     // light sensor
+    #if USE_LIGHT_SENSOR
     if ( (fd=i2cOpen(1,ADDR_LIGHT,0) ) < 0 ) {
         printf("initI2cDevices(): Failed to connect to the light sensor\n");
         return (-1);
     }
-
     else {
         i2cWriteByteData(fd,0x80,0x1); //wake the light sensor up
     }
+    #endif
 
 
     // Battery protector UV and OV cutoffs
+    #if USE_BATTERY_GAUGE
     if ( (fd=i2cOpen(1,ADDR_GAS_GAUGE,0) ) < 0 ) {
         printf("initI2cDevices(): Failed to connect to the light sensor\n");
         return (-1);
     }
-
     else {
         i2cWriteByteData(fd,BATT_CTL,BATT_CTL_VAL); //establish undervoltage cutoff
         i2cWriteByteData(fd,OVER_VOLTAGE,OV_VAL); //establish undervoltage cutoff
     }
+    #endif
+
+
+    // IMU
+    #if USE_IMU
+    resetIMU();
+    #endif
+
+    // Burn wire
+    #if USE_BURNWIRE
+    burnwireOff();
+    #endif
 
 
     // Other devices
-    
-    resetIMU();
-    burnwireOff();
 
     return 0;
 }
@@ -524,6 +534,7 @@ int initTag(void) {
     CETI_LOG("initTag(): Initializing and checking hardware peripherals");
 
     // Configure the FPGA and log version
+    #if USE_FPGA
     if (!loadFpgaBitstream()) {
         cam(0x10, 0, 0, 0, 0, cTemp);
         CETI_LOG("initTag(): FPGA initial configuration successful, Ver: 0x%02X%02X ",
@@ -532,8 +543,10 @@ int initTag(void) {
         CETI_LOG("initTag(): FPGA initial configuration failed");
         return (-1);
     }
+    #endif
 
     // Set the ADC Up with defaults (96 kHz)
+    #if USE_MICROPHONES
     if (!setup_96kHz())
         CETI_LOG("initTag(): Succesfully set sampling rate to 96 kHz");
     else {
@@ -541,6 +554,7 @@ int initTag(void) {
                  "back as expected");
         return (-1);
     }
+    #endif
 
     // Configure other peripherals here as needed
 

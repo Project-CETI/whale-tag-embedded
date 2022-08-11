@@ -41,25 +41,44 @@ const char * get_state_str(wt_state_t state) {
 //-----------------------------------------------------------------------------
 void *sensorThread(void *paramPtr) {
     FILE *snsData = NULL; // data file for non-audio sensor data
-    char header[] =
-        "Timestamp(ms), RTC count, State, BoardTemp degC, WaterTemp degC, "
-        "Pressure bar, Batt_V1 V, Batt_V2 V, Batt_I mA, Quat_i, Quat_j, "
-        "Quat_k, Quat_Re, AmbientLight, GPS \n";
+    char header[250] = "Timestamp(ms)";
+    #if USE_RTC
+    strcat(header, ", RTC count");
+    #endif
+    strcat(header, ", State");
+    #if USE_BOARD_TEMPERATURE_SENSOR
+    strcat(header, ", BoardTemp degC");
+    #endif
+    #if USE_PRESSURE_SENSOR
+    strcat(header, ", WaterTemp degC");
+    strcat(header, ", Pressure bar");
+    #endif
+    #if USE_BATTERY_GAUGE
+    strcat(header, ", Batt_V1 V");
+    strcat(header, ", Batt_V2 V");
+    strcat(header, ", Batt_I mA");
+    #endif
+    #if USE_IMU
+    strcat(header, ", Quat_i");
+    strcat(header, ", Quat_j");
+    strcat(header, ", Quat_k");
+    strcat(header, ", Quat_Re");
+    #endif
+    #if USE_LIGHT_SENSOR
+    strcat(header, ", AmbientLight");
+    #endif
+    #if USE_GPS
+    strcat(header, ", GPS");
+    #endif
+    strcat(header, "\n");
+
     struct timeval te;
     long long milliseconds;
     int fd_access = 0;
 
     while (!g_exit) {
-
         gettimeofday(&te, NULL);
         milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
-        getRtcCount(&rtcCount);
-        getBoardTemp(&boardTemp);
-        getTempPsns(pressureSensorData);
-        getBattStatus(batteryData);
-        getQuaternion(quaternion);
-        getAmbientLight(&ambientLight);
-        getGpsLocation(gpsLocation);
 
         fd_access = access(SNS_FILE, F_OK);
 
@@ -75,20 +94,42 @@ void *sensorThread(void *paramPtr) {
         }
 
         fprintf(snsData, "%lld,", milliseconds);
+        #if USE_RTC
+        getRtcCount(&rtcCount);
         fprintf(snsData, "%d,", rtcCount);
+        #endif
         fprintf(snsData, "%s,", get_state_str(presentState));
+        #if USE_BOARD_TEMPERATURE_SENSOR
+        getBoardTemp(&boardTemp);
         fprintf(snsData, "%d,", boardTemp);
+        #endif
+        #if USE_PRESSURE_SENSOR
+        getTempPsns(pressureSensorData);
         fprintf(snsData, "%.2f,", pressureSensorData[0]);
         fprintf(snsData, "%.2f,", pressureSensorData[1]);
+        #endif
+        #if USE_BATTERY_GAUGE
+        getBattStatus(batteryData);
         fprintf(snsData, "%.2f,", batteryData[0]);
         fprintf(snsData, "%.2f,", batteryData[1]);
         fprintf(snsData, "%.2f,", batteryData[2]);
+        #endif
+        #if USE_IMU
+        getQuaternion(quaternion);
         fprintf(snsData, "%d,", quaternion[0]);
         fprintf(snsData, "%d,", quaternion[1]);
         fprintf(snsData, "%d,", quaternion[2]);
         fprintf(snsData, "%d,", quaternion[3]);
+        #endif
+        #if USE_LIGHT_SENSOR
+        getAmbientLight(&ambientLight);
         fprintf(snsData, "%d,", ambientLight);
+        #endif
+        #if USE_GPS
+        getGpsLocation(gpsLocation);
         fprintf(snsData, "\"%s\"\n", gpsLocation);
+        #endif
+
         fclose(snsData);
         presentState = updateState(presentState);
         usleep(SNS_SMPL_PERIOD);
@@ -399,6 +440,9 @@ int updateState(int presentState) {
         //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
         //batteryData[1]));
 
+        nextState = ST_DEPLOY;
+
+        #if USE_BATTERY_GAUGE
         if ((batteryData[0] + batteryData[1] < d_volt_1) ||
             (rtcCount - startTime > timeout_seconds)) {
 
@@ -406,14 +450,11 @@ int updateState(int presentState) {
             burnwireOn();
             nextState = ST_BRN_ON;
         }
-
-        else if (pressureSensorData[1] > d_press_2)
+        #endif
+        #if USE_PRESSURE_SENSOR
+        if ((nextState = ST_DEPLOY) && pressureSensorData[1] > d_press_2)
             nextState = ST_REC_SUB; // 1st dive after deploy
-
-        else {
-
-            nextState = ST_DEPLOY;
-        }
+        #endif
 
         break;
 
@@ -423,20 +464,23 @@ int updateState(int presentState) {
         //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
         //batteryData[1]));
 
+        nextState = ST_REC_SUB;
+
+        #if USE_BATTERY_GAUGE
         if ((batteryData[0] + batteryData[1] < d_volt_1) ||
             (rtcCount - startTime > timeout_seconds)) {
             // burnTimeStart = rtcCount ;
             burnwireOn();
             nextState = ST_BRN_ON;
         }
-
-        else if (pressureSensorData[1] < d_press_1)
+        #endif
+        #if USE_PRESSURE_SENSOR
+        if ((nextState == ST_REC_SUB) && pressureSensorData[1] < d_press_1)
             nextState = ST_REC_SURF; // came to surface
+        #endif
 
-        else {
-            nextState = ST_REC_SUB;
+        if(nextState == ST_REC_SUB)
             rcvryOff();
-        }
 
         break;
 
@@ -446,25 +490,26 @@ int updateState(int presentState) {
         //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
         //batteryData[1]));
 
+        nextState = ST_REC_SURF; // default (hysteresis zone)
+
+        #if USE_BATTERY_GAUGE
         if ((batteryData[0] + batteryData[1] < d_volt_1) ||
             (rtcCount - startTime > timeout_seconds)) {
             //	burnTimeStart = rtcCount ;
             burnwireOn();
             nextState = ST_BRN_ON;
         }
-
-        else if (pressureSensorData[1] > d_press_2) {
+        #endif
+        #if USE_PRESSURE_SENSOR
+        if ((nextState == ST_REC_SURF) && pressureSensorData[1] > d_press_2) {
             rcvryOff();
             nextState = ST_REC_SUB; // back under....
         }
-
         else if (pressureSensorData[1] < d_press_1) {
             rcvryOn();
             nextState = ST_REC_SURF;
         }
-
-        else
-            nextState = ST_REC_SURF; // hysteresis zone
+        #endif
 
         break;
 
@@ -474,6 +519,9 @@ int updateState(int presentState) {
         //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
         //batteryData[1]));
 
+        nextState = ST_BRN_ON;
+
+        #if USE_BATTERY_GAUGE
         if (batteryData[0] + batteryData[1] < d_volt_2)
             nextState = ST_SHUTDOWN; // critical battery
 
@@ -490,7 +538,9 @@ int updateState(int presentState) {
         else
             nextState = ST_BRN_ON; // dwell with burnwire left on until battery
                                    // reaches low threshold
+        #endif
 
+        #if USE_PRESSURE_SENSOR
         if (pressureSensorData[1] <
             d_press_1) { // at surface, try to get a fix and transmit it
             rcvryOn();
@@ -498,6 +548,7 @@ int updateState(int presentState) {
                    d_press_2) { // still under or resubmerged
             rcvryOff();
         }
+        #endif
 
         break;
 
@@ -508,6 +559,9 @@ int updateState(int presentState) {
         //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
         //batteryData[1]));
 
+        nextState = ST_RETRIEVE;
+
+        #if USE_BATTERY_GAUGE
         if (batteryData[0] + batteryData[1] < d_volt_2) { // critical battery
             nextState = ST_SHUTDOWN;
         }
@@ -518,9 +572,7 @@ int updateState(int presentState) {
             nextState = ST_RETRIEVE; // dwell in this state with burnwire left
                                      // on
         }
-
-        else
-            nextState = ST_RETRIEVE; // default guard
+        #endif
 
         break;
 

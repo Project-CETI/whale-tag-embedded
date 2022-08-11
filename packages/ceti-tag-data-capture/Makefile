@@ -13,7 +13,7 @@
 # This is the CETI makefile for the top level
 #-----------------------------------------------------------------------------
 
-SRC        = $(wildcard src/*.c)
+SRC        = $(wildcard src/*.c) $(wildcard src/*/*.c)
 OBJ        = $(SRC:.c=.o)
 CC         = gcc
 CFLAGS     = -Wall -g

@@ -45,6 +45,7 @@ int main(void) {
     pthread_t spiThreadId = 0;
     pthread_t writeDataThreadId = 0;
     pthread_t sensorThreadId = 0;
+    pthread_t ecgThreadId = 0;
 
     signal(SIGINT, sig_handler);
     signal(SIGTERM, sig_handler);
@@ -62,12 +63,23 @@ int main(void) {
     }
     CETI_LOG("main(): Creating command/response thread");
     pthread_create(&cmdHdlThreadId, NULL, &cmdHdlThread, NULL);
+
+    #if USE_MICROPHONES
     CETI_LOG("main(): Creating SPI audio acquisition thread");
     pthread_create(&spiThreadId, NULL, &spiThread, NULL);
     CETI_LOG("main(): Creating audio save to disk thread");
     pthread_create(&writeDataThreadId, NULL, &writeDataThread, NULL);
+    #endif
+
+    #if USE_SENSORS
     CETI_LOG("main(): Creating sensor thread");
     pthread_create(&sensorThreadId,NULL,&sensorThread,NULL);
+    #endif
+
+    #if USE_ECG
+    CETI_LOG("main(): Creating ECG thread");
+    pthread_create(&ecgThreadId, NULL, &ecgThread, NULL);
+    #endif
 
     CETI_LOG("main(): Application Started");
 
@@ -80,12 +92,23 @@ int main(void) {
         }
     }
 
+    // Give threads time to notice the g_exit flag and shut themselves down.
+    usleep(1000000);
+
+    // Forcefully cancel the threads.
     printf("Canceling Threads\n");
     CETI_LOG("Canceling Threads");
     pthread_cancel(cmdHdlThreadId);
+    #if USE_MICROPHONES
     pthread_cancel(spiThreadId);
     pthread_cancel(writeDataThreadId);
+    #endif
+    #if USE_SENSORS
     pthread_cancel(sensorThreadId);
+    #endif
+    #if USE_ECG
+    pthread_cancel(ecgThreadId);
+    #endif
     gpioTerminate();
     printf("Program Exit\n");
     CETI_LOG("Program Exit");
@@ -103,12 +126,21 @@ void *cmdHdlThread(void *paramPtr) {
     while (!g_exit) {
         if (!g_cmdPend) { // open the comand pipe for reading and wait for a
                           // command
-            g_cmd = fopen(CMD, "r");      // blocked here waiting
+            g_cmd = fopen(CMD, "r");
             fgets(g_command, 256, g_cmd); // get the command
             fclose(g_cmd);                // close the pipe
-            g_cmdPend = 1;
+            if(strlen(g_command) > 0)
+            {
+              // Signal that a new command is pending.
+              g_cmdPend = 1;
+              // Clear the command file so it is only executed once.
+              // This also signals to the user that the command was ingested.
+              g_cmd = fopen(CMD, "w");
+              fclose(g_cmd);
+            }
+            usleep(1000);
         } else {
-            usleep(100);
+            usleep(1000);
         }
     }
     return NULL;
