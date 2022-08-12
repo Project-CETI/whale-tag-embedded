@@ -76,4 +76,8 @@
 #define BIT_6 0x40
 #define BIT_7 0x80
 
+// Bitbang IMU I2C
+#define BB_I2C_SDA 23
+#define BB_I2C_SCL 24
+
 #endif
