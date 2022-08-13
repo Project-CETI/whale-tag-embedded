@@ -45,25 +45,45 @@ const char * get_state_str(wt_state_t state) {
 //-----------------------------------------------------------------------------
 void *sensorThread(void *paramPtr) {
     FILE *snsData = NULL; // data file for non-audio sensor data
-    const char header[] =
-        "Timestamp(ms), RTC count, State, BoardTemp degC, WaterTemp degC, "
-        "Pressure bar, Batt_V1 V, Batt_V2 V, Batt_I mA, Quat_i, Quat_j, "
-        "Quat_k, Quat_Re, AmbientLight, GPS \n";
+
+    char header[250] = "Timestamp(ms)";
+    #if USE_RTC
+    strcat(header, ", RTC count");
+    #endif
+    strcat(header, ", State");
+    #if USE_BOARD_TEMPERATURE_SENSOR
+    strcat(header, ", BoardTemp degC");
+    #endif
+    #if USE_PRESSURE_SENSOR
+    strcat(header, ", WaterTemp degC");
+    strcat(header, ", Pressure bar");
+    #endif
+    #if USE_BATTERY_GAUGE
+    strcat(header, ", Batt_V1 V");
+    strcat(header, ", Batt_V2 V");
+    strcat(header, ", Batt_I mA");
+    #endif
+    #if USE_IMU
+    strcat(header, ", Quat_i");
+    strcat(header, ", Quat_j");
+    strcat(header, ", Quat_k");
+    strcat(header, ", Quat_Re");
+    #endif
+    #if USE_LIGHT_SENSOR
+    strcat(header, ", AmbientLight");
+    #endif
+    #if USE_GPS
+    strcat(header, ", GPS");
+    #endif
+    strcat(header, "\n");
+
     struct timeval te;
     long long milliseconds;
     int fd_access = 0;
 
     while (!g_exit) {
-
         gettimeofday(&te, NULL);
         milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
-        getRtcCount(&rtcCount);
-        getBoardTemp(&boardTemp);
-        getTempPsns(pressureSensorData);
-        getBattStatus(batteryData);
-        getQuaternion(quaternion);
-        getAmbientLight(&ambientLight);
-        getGpsLocation(gpsLocation);
 
         fd_access = access(SNS_FILE, F_OK);
 
@@ -79,20 +99,42 @@ void *sensorThread(void *paramPtr) {
         }
 
         fprintf(snsData, "%lld,", milliseconds);
+        #if USE_RTC
+        getRtcCount(&rtcCount);
         fprintf(snsData, "%d,", rtcCount);
+        #endif
         fprintf(snsData, "%s,", get_state_str(presentState));
+        #if USE_BOARD_TEMPERATURE_SENSOR
+        getBoardTemp(&boardTemp);
         fprintf(snsData, "%d,", boardTemp);
+        #endif
+        #if USE_PRESSURE_SENSOR
+        getTempPsns(pressureSensorData);
         fprintf(snsData, "%.2f,", pressureSensorData[0]);
         fprintf(snsData, "%.2f,", pressureSensorData[1]);
+        #endif
+        #if USE_BATTERY_GAUGE
+        getBattStatus(batteryData);
         fprintf(snsData, "%.2f,", batteryData[0]);
         fprintf(snsData, "%.2f,", batteryData[1]);
         fprintf(snsData, "%.2f,", batteryData[2]);
+        #endif
+        #if USE_IMU
+        getQuaternion(quaternion);
         fprintf(snsData, "%d,", quaternion[0]);
         fprintf(snsData, "%d,", quaternion[1]);
         fprintf(snsData, "%d,", quaternion[2]);
         fprintf(snsData, "%d,", quaternion[3]);
+        #endif
+        #if USE_LIGHT_SENSOR
+        getAmbientLight(&ambientLight);
         fprintf(snsData, "%d,", ambientLight);
+        #endif
+        #if USE_GPS
+        getGpsLocation(gpsLocation);
         fprintf(snsData, "\"%s\"\n", gpsLocation);
+        #endif
+
         fclose(snsData);
         updateState();
         usleep(SNS_SMPL_PERIOD);
@@ -107,7 +149,7 @@ void *sensorThread(void *paramPtr) {
 
 int getGpsLocation(char *gpsLocation) {
 
-//    The Recovery Board sends the GPS location sentence as an ASCII string 
+//    The Recovery Board sends the GPS location sentence as an ASCII string
 //    about once per second automatically via the serial
 //    port. This function monitors the serial port and extracts the sentence for 
 //    reporting in the .csv record. 
@@ -115,7 +157,7 @@ int getGpsLocation(char *gpsLocation) {
 //    The Recovery Board may not be on at all times. Depending on the state
 //    of the tag, it may be turned off to save power. See the state machine
 //    function for current design. If the recovery board is off, the gps field
-//    in the .csv file will indicate "No GPS update available" 
+//    in the .csv file will indicate "No GPS update available"
 //    
 //    The messages coming in from the Recovery Board are asynchronous relative to 
 //    the timing of execution of this function. So, partial messages will occur
@@ -141,7 +183,7 @@ int getGpsLocation(char *gpsLocation) {
         CETI_LOG("getGpsLocation(): Successfuly opened the serial port");
     }
 
-    // Check if any bytes are waiting in the UART buffer and store them temporarily. 
+    // Check if any bytes are waiting in the UART buffer and store them temporarily.
     // It is possible to receive a partial message - no synch or handshaking in protocol
 
     bytes_avail = serDataAvailable(fd);
@@ -156,7 +198,7 @@ int getGpsLocation(char *gpsLocation) {
         pTempWr = buf;                     // reset the static write pointer
     }
 
-    // Scan the whole buffer for a GPS message - delimited by 'g' and '\n'    
+    // Scan the whole buffer for a GPS message - delimited by 'g' and '\n'
     for (i=0; (i<=bytes_total && !complete); i++) {
         if( buf[i] == 'g' && !pending) {
                 msg_start =  buf + i;
@@ -434,7 +476,7 @@ int updateState() {
         break;
 
     case (ST_START):
-        // Start recording 
+        // Start recording
         start_acq();
         startTime = getTimeDeploy(); // new v0.5 gets start time from the csv
         CETI_LOG("updateState(): Deploy Start: %u", startTime);
@@ -449,15 +491,19 @@ int updateState() {
         //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
         //batteryData[1]));
 
+        #if USE_BATTERY_GAUGE
         if ((batteryData[0] + batteryData[1] < d_volt_1) ||
             (rtcCount - startTime > timeout_seconds)) {
             burnwireOn();
             presentState = ST_BRN_ON;
             break;
         }
+        #endif
 
+        #if USE_PRESSURE_SENSOR
         if (pressureSensorData[1] > d_press_2)
             presentState = ST_REC_SUB; // 1st dive after deploy
+        #endif
 
         break;
 
@@ -467,6 +513,7 @@ int updateState() {
         //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
         //batteryData[1]));
 
+        #if USE_BATTERY_GAUGE
         if ((batteryData[0] + batteryData[1] < d_volt_1) ||
             (rtcCount - startTime > timeout_seconds)) {
             // burnTimeStart = rtcCount ;
@@ -474,11 +521,14 @@ int updateState() {
             presentState = ST_BRN_ON;
             break;
         }
+        #endif
 
+        #if USE_PRESSURE_SENSOR
         if (pressureSensorData[1] < d_press_1) {
             presentState = ST_REC_SURF; // came to surface
             break;
         }
+        #endif
 
         rcvryOff();
         break;
@@ -489,6 +539,7 @@ int updateState() {
         //Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
         //batteryData[1]));
 
+        #if USE_BATTERY_GAUGE
         if ((batteryData[0] + batteryData[1] < d_volt_1) ||
             (rtcCount - startTime > timeout_seconds)) {
             //	burnTimeStart = rtcCount ;
@@ -496,7 +547,9 @@ int updateState() {
             presentState = ST_BRN_ON;
             break;
         }
+        #endif
 
+        #if USE_PRESSURE_SENSOR
         if (pressureSensorData[1] > d_press_2) {
             rcvryOff();
             presentState = ST_REC_SUB; // back under....
@@ -506,6 +559,8 @@ int updateState() {
         if (pressureSensorData[1] < d_press_1) {
             rcvryOn();
         }
+        #endif
+
         break;
 
     case (ST_BRN_ON):
@@ -514,6 +569,7 @@ int updateState() {
         //  Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
         //  [1]));
 
+        #if USE_BATTERY_GAUGE
         if (batteryData[0] + batteryData[1] < d_volt_2) {
             presentState = ST_SHUTDOWN; // critical battery
             break;
@@ -530,7 +586,9 @@ int updateState() {
         //	//burnwireOff();  //leaving it on no time limit -change 220109
         //	nextState = ST_RETRIEVE;
         //}
+        #endif
 
+        #if USE_PRESSURE_SENSOR
         // at surface, turn on the Recovery Board
         if (pressureSensorData[1] < d_press_1) {
             rcvryOn();
@@ -540,15 +598,19 @@ int updateState() {
         if (pressureSensorData[1] > d_press_2) {
             rcvryOff();
         }
+
+        #endif
+
         break;
 
     case (ST_RETRIEVE):
-        //  Waiting to be retrieved. 
+        //  Waiting to be retrieved.
 
         //	printf("State RETRIEVE - Deployment elapsed time is %d seconds;
         //  Battery at %.2f \n", (rtcCount - startTime), (batteryData[0] +
         //  batteryData[1]));
 
+        #if USE_BATTERY_GAUGE
         // critical battery
         if (batteryData[0] + batteryData[1] < d_volt_2) {
             presentState = ST_SHUTDOWN;
@@ -560,6 +622,8 @@ int updateState() {
             burnwireOn(); // redundant, is already on
             rcvryOn();
         }
+        #endif
+
         break;
 
     case (ST_SHUTDOWN):
@@ -571,7 +635,7 @@ int updateState() {
         system("halt");
         break;
     }
-    return(0);
+    return (0);
 }
 
 //-----------------------------------------------------------------------------
