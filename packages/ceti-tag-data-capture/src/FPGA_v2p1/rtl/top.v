@@ -6,6 +6,7 @@
 // 
 //	220523 Starting point is v2 Alpha (which is frozen).  Debugging hardware, rapid proto
 // 220524 Adjusted the UCF for new SCLK and MISO pinning for better clock location of the chip per new HW 
+// 220816 Swap TXD and RXD in the UCF to match Recovery Board HW
 //
 //-----------------------------------------------------------------------------
 // Additional Information
