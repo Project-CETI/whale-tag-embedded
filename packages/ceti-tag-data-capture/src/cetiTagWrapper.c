@@ -42,10 +42,16 @@ void sig_handler(int signum) {
 
 int main(void) {
     pthread_t cmdHdlThreadId = 0;
-    pthread_t spiThreadId = 0;
-    pthread_t writeDataThreadId = 0;
+    #if USE_MICROPHONES
+    pthread_t microphoneSpiThreadId = 0;
+    pthread_t microphoneWriteDataThreadId = 0;
+    #endif
+    #if USE_SENSORS
     pthread_t sensorThreadId = 0;
+    #endif
+    #if USE_ECG
     pthread_t ecgThreadId = 0;
+    #endif
 
     signal(SIGINT, sig_handler);
     signal(SIGTERM, sig_handler);
@@ -66,9 +72,9 @@ int main(void) {
 
     #if USE_MICROPHONES
     CETI_LOG("main(): Creating SPI audio acquisition thread");
-    pthread_create(&spiThreadId, NULL, &spiThread, NULL);
+    pthread_create(&microphoneSpiThreadId, NULL, &microphoneSpiThread, NULL);
     CETI_LOG("main(): Creating audio save to disk thread");
-    pthread_create(&writeDataThreadId, NULL, &writeDataThread, NULL);
+    pthread_create(&microphoneWriteDataThreadId, NULL, &microphoneWriteDataThread, NULL);
     #endif
 
     #if USE_SENSORS
@@ -100,8 +106,8 @@ int main(void) {
     CETI_LOG("Canceling Threads");
     pthread_cancel(cmdHdlThreadId);
     #if USE_MICROPHONES
-    pthread_cancel(spiThreadId);
-    pthread_cancel(writeDataThreadId);
+    pthread_cancel(microphoneSpiThreadId);
+    pthread_cancel(microphoneWriteDataThreadId);
     #endif
     #if USE_SENSORS
     pthread_cancel(sensorThreadId);

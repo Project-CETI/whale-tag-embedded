@@ -147,7 +147,7 @@ int reset_fifo(void) {
 //  Acquisition Start and Stop Controls (TODO add file open/close checking)
 //-----------------------------------------------------------------------------
 
-int start_acq(void) {
+int start_microphone_acq(void) {
     char cam_response[8];
     cam(5, 0, 0, 0, 0, cam_response); // stops the input stream
     cam(3, 0, 0, 0, 0, cam_response); // flushes the FIFO
@@ -174,7 +174,7 @@ int stop_acq(void) {
 //-----------------------------------------------------------------------------
 static volatile char first_byte=1;  //first byte in stream must be discarded
 
-void *spiThread(void *paramPtr) {
+void *microphoneSpiThread(void *paramPtr) {
     int pageIndex = 0;
     init_pages();
     int spi_fd = spiOpen(SPI_CE, SPI_CLK_RATE, 1);
@@ -244,7 +244,7 @@ void *spiThread(void *paramPtr) {
 //-----------------------------------------------------------------------------
 // Write Data Thread moves the RAM buffer to mass storage
 //-----------------------------------------------------------------------------
-void * writeDataThread( void * paramPtr ) {
+void * microphoneWriteDataThread( void * paramPtr ) {
    int pageIndex = 0;
    while (!g_exit) {
        if (page[pageIndex].readyToBeSavedToDisk) {

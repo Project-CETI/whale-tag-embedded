@@ -89,8 +89,8 @@ typedef struct { // To hold Keller 4LD pressure sensor data
 //-----------------------------------------------------------------------------
 
 extern void *cmdHdlThread(void *paramPtr);
-extern void *spiThread(void *paramPtr);
-extern void *writeDataThread(void *paramPtr);
+extern void *microphoneSpiThread(void *paramPtr);
+extern void *microphoneWriteDataThread(void *paramPtr);
 extern void *sensorThread(void *paramPtr);
 extern void *ecgThread(void *paramPtr);
 extern void isr_get_fifo_block(void);

@@ -132,9 +132,10 @@ void *sensorThread(void *paramPtr) {
         #endif
         #if USE_GPS
         getGpsLocation(gpsLocation);
-        fprintf(snsData, "\"%s\"\n", gpsLocation);
+        fprintf(snsData, "\"%s\"", gpsLocation);
         #endif
 
+        fprintf(snsData, "\n");
         fclose(snsData);
         updateState();
         usleep(SNS_SMPL_PERIOD);
@@ -477,7 +478,9 @@ int updateState() {
 
     case (ST_START):
         // Start recording
-        start_acq();
+        #if USE_MICROPHONES
+        start_microphone_acq();
+        #endif
         startTime = getTimeDeploy(); // new v0.5 gets start time from the csv
         CETI_LOG("updateState(): Deploy Start: %u", startTime);
         rcvryOn();                // turn on Recovery Board

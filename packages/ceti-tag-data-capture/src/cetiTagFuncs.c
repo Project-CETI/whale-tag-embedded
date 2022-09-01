@@ -208,7 +208,7 @@ int hdlCmd(void) {
 
     if (!strncmp(g_command, "startAcq", 8)) {
         printf("hdlCmd(): Starting Acquisition\n");
-        start_acq();
+        start_microphone_acq();
         g_rsp = fopen(RSP, "w");
         fprintf(g_rsp, "hdlCmd(): Acquisition Started\n"); // echo it
         fclose(g_rsp);
@@ -529,12 +529,12 @@ int initI2cDevices() // In work
 
 int initTag(void) {
 
-    char cTemp[16];
 
     CETI_LOG("initTag(): Initializing and checking hardware peripherals");
 
     // Configure the FPGA and log version
     #if USE_FPGA
+    char cTemp[16];
     if (!loadFpgaBitstream()) {
         cam(0x10, 0, 0, 0, 0, cTemp);
         CETI_LOG("initTag(): FPGA initial configuration successful, Ver: 0x%02X%02X ",
