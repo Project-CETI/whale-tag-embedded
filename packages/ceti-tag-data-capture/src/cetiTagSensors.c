@@ -478,8 +478,8 @@ int updateState() {
 
     case (ST_START):
         // Start recording
-        #if USE_MICROPHONES
-        start_microphone_acq();
+        #if USE_AUDIO
+        start_audio_acq();
         #endif
         startTime = getTimeDeploy(); // new v0.5 gets start time from the csv
         CETI_LOG("updateState(): Deploy Start: %u", startTime);

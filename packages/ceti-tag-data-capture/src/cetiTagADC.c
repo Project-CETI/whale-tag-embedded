@@ -58,7 +58,7 @@ struct dataPage {
 
 static struct dataPage page[2];
 
-static void createNewDataFile(void);
+static void createNewAudioDataFile(void);
 void formatRaw(void);
 void formatRawNoHeader3ch16bit(void);
 
@@ -73,7 +73,7 @@ void init_pages() {
     page[1].readyToBeSavedToDisk = false;
 }
 
-int setup_default(void) {
+int setup_audio_default(void) {
     char cam_response[8];
     cam(1, 0x01, 0x0D, 0, 0, cam_response); // DEC_RATE = 1024
     cam(1, 0x04, 0x00, 0, 0, cam_response); // POWER_MODE = LOW; MCLK_DIV = 32
@@ -82,7 +82,7 @@ int setup_default(void) {
     return 0;
 }
 
-int setup_48kHz(void) {
+int setup_audio_48kHz(void) {
     char cam_response[8];
     cam(1, 0x01, 0x09, 0, 0, cam_response); // DEC_RATE = 64
     cam(1, 0x04, 0x22, 0, 0, cam_response); // POWER_MODE = MID; MCLK_DIV = 8
@@ -94,7 +94,7 @@ int setup_48kHz(void) {
 // Initial deployments will use 96 KSPS only. The setting is checked to ensure
 // it  has been applied internal to the ADC.  
 
-int setup_96kHz(void)   //Initial deployments will use 96 KSPS only. The setting is checked
+int setup_audio_96kHz(void)   //Initial deployments will use 96 KSPS only. The setting is checked
 {
     char cam_response[8];
     cam(1,0x01,0x08,0,0,cam_response);  //DEC_RATE = 32
@@ -127,7 +127,7 @@ int setup_96kHz(void)   //Initial deployments will use 96 KSPS only. The setting
     return 0;
 }
 
-int setup_192kHz(void) {
+int setup_audio_192kHz(void) {
     char cam_response[8];
     cam(1, 0x01, 0x08, 0, 0, cam_response); // DEC_RATE = 32
     cam(1, 0x04, 0x33, 0, 0, cam_response); // POWER_MODE = FAST; MCLK_DIV = 4
@@ -136,7 +136,7 @@ int setup_192kHz(void) {
     return 0;
 }
 
-int reset_fifo(void) {
+int reset_audio_fifo(void) {
     char cam_response[8];
     cam(5, 0x01, 0x08, 0, 0, cam_response); // Stop any incoming data
     cam(3, 0x04, 0x33, 0, 0, cam_response); // Reset the FIFO
@@ -147,17 +147,17 @@ int reset_fifo(void) {
 //  Acquisition Start and Stop Controls (TODO add file open/close checking)
 //-----------------------------------------------------------------------------
 
-int start_microphone_acq(void) {
+int start_audio_acq(void) {
     char cam_response[8];
     cam(5, 0, 0, 0, 0, cam_response); // stops the input stream
     cam(3, 0, 0, 0, 0, cam_response); // flushes the FIFO
     init_pages();
-    createNewDataFile();
+    createNewAudioDataFile();
     cam(4, 0, 0, 0, 0, cam_response); // starts the stream
     return 0;
 }
 
-int stop_acq(void) {
+int stop_audio_acq(void) {
     char cam_response[8];
     cam(5, 0, 0, 0, 0, cam_response); // stops the input stream
     fclose(acqData);                  // close the data file
@@ -174,7 +174,7 @@ int stop_acq(void) {
 //-----------------------------------------------------------------------------
 static volatile char first_byte=1;  //first byte in stream must be discarded
 
-void *microphoneSpiThread(void *paramPtr) {
+void *audioSpiThread(void *paramPtr) {
     int pageIndex = 0;
     init_pages();
     int spi_fd = spiOpen(SPI_CE, SPI_CLK_RATE, 1);
@@ -244,12 +244,12 @@ void *microphoneSpiThread(void *paramPtr) {
 //-----------------------------------------------------------------------------
 // Write Data Thread moves the RAM buffer to mass storage
 //-----------------------------------------------------------------------------
-void * microphoneWriteDataThread( void * paramPtr ) {
+void * audioWriteDataThread( void * paramPtr ) {
    int pageIndex = 0;
    while (!g_exit) {
        if (page[pageIndex].readyToBeSavedToDisk) {
            if ( (acqDataFileLength > MAX_DATA_FILE_SIZE) || (acqData == NULL) ) {
-               createNewDataFile();
+               createNewAudioDataFile();
            }
            fwrite(page[pageIndex].buffer,1,RAM_SIZE,acqData); //
            page[pageIndex].readyToBeSavedToDisk = false;
@@ -264,7 +264,7 @@ void * microphoneWriteDataThread( void * paramPtr ) {
    return NULL;
 }
 
-static void createNewDataFile() {
+static void createNewAudioDataFile() {
     if (acqData != NULL) {
         fclose(acqData);
     }
@@ -280,7 +280,7 @@ static void createNewDataFile() {
         CETI_LOG("Failed to open %s", acqDataFileName);
         return;
     }
-    CETI_LOG("createNewDataFile(): Saving hydrophone data to %s", acqDataFileName);
+    CETI_LOG("createNewAudioDataFile(): Saving hydrophone data to %s", acqDataFileName);
 }
 
 

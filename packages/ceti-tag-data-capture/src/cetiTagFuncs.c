@@ -208,7 +208,7 @@ int hdlCmd(void) {
 
     if (!strncmp(g_command, "startAcq", 8)) {
         printf("hdlCmd(): Starting Acquisition\n");
-        start_microphone_acq();
+        start_audio_acq();
         g_rsp = fopen(RSP, "w");
         fprintf(g_rsp, "hdlCmd(): Acquisition Started\n"); // echo it
         fclose(g_rsp);
@@ -217,7 +217,7 @@ int hdlCmd(void) {
 
     if (!strncmp(g_command, "stopAcq", 7)) {
         printf("hdlCmd(): Stopping Acquisition\n");
-        stop_acq();
+        stop_audio_acq();
         g_rsp = fopen(RSP, "w");
         fprintf(g_rsp, "hdlCmd(): Acquisition Stopped\n"); // echo it
         fclose(g_rsp);
@@ -238,7 +238,7 @@ int hdlCmd(void) {
 
     if (!strncmp(g_command, "sr_192", 6)) {
         printf("hdlCmd(): Set sampling rate to 192 kHz\n");
-        setup_192kHz();
+        setup_audio_192kHz();
         g_rsp = fopen(RSP, "w");
         fprintf(g_rsp, "hdlCmd(): ADC Setting Changed\n"); // echo it
         fclose(g_rsp);
@@ -247,7 +247,7 @@ int hdlCmd(void) {
 
     if (!strncmp(g_command, "sr_96", 5)) {
         printf("hdlCmd(): Set sampling rate to 96 kHz\n");
-        setup_96kHz();
+        setup_audio_96kHz();
         g_rsp = fopen(RSP, "w");
         fprintf(g_rsp, "hdlCmd(): ADC Setting Changed\n"); // echo it
         fclose(g_rsp);
@@ -256,7 +256,7 @@ int hdlCmd(void) {
 
     if (!strncmp(g_command, "sr_48", 5)) {
         printf("hdlCmd(): Set sampling rate to 48 kHz\n");
-        setup_48kHz();
+        setup_audio_48kHz();
         g_rsp = fopen(RSP, "w");
         fprintf(g_rsp, "hdlCmd(): ADC Setting Changed\n"); // echo it
         fclose(g_rsp);
@@ -265,7 +265,7 @@ int hdlCmd(void) {
 
     if (!strncmp(g_command, "sr_dflt", 7)) {
         printf("hdlCmd(): Set sampling rate to default (750 Hz)\n");
-        setup_default();
+        setup_audio_default();
         g_rsp = fopen(RSP, "w");
         fprintf(g_rsp, "hdlCmd(): ADC Setting Changed\n"); // echo it
         fclose(g_rsp);
@@ -274,7 +274,7 @@ int hdlCmd(void) {
 
     if (!strncmp(g_command, "resetFIFO", 9)) {
         printf("hdlCmd(): Resetting the FIFO\n");
-        reset_fifo();
+        reset_audio_fifo();
         g_rsp = fopen(RSP, "w");
         fprintf(g_rsp, "hdlCmd(): FIFO Reset\n"); // echo it
         fclose(g_rsp);
@@ -546,8 +546,8 @@ int initTag(void) {
     #endif
 
     // Set the ADC Up with defaults (96 kHz)
-    #if USE_MICROPHONES
-    if (!setup_96kHz())
+    #if USE_AUDIO
+    if (!setup_audio_96kHz())
         CETI_LOG("initTag(): Succesfully set sampling rate to 96 kHz");
     else {
         CETI_LOG("initTag(): ADC initial configuration failed - ADC register did not read "

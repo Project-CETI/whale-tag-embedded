@@ -61,6 +61,10 @@ apt "${APT_NONINTERACTIVE}" autoremove
 raspi-config nonint do_i2c 0
 echo "dtparam=i2c_vc=on" >> /boot/config.txt
 
+# Increase the I2C clock rates.
+echo "dtparam=i2c_vc_baudrate=400000" >> /boot/config.txt
+echo "dtparam=i2c_arm_baudrate=400000" >> /boot/config.txt
+
 # Enable UART port, but disable serial console and ability to log into pi using it
 raspi-config nonint do_serial 2
 

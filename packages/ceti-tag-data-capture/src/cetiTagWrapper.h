@@ -20,11 +20,11 @@
 #define CETI_VERSION "2.1.2"
 
 // Select whether various sensors are available/enabled.
-#define USE_FPGA 1
+#define USE_FPGA 0
 #define USE_RTC 1
-#define USE_BURNWIRE 1
+#define USE_BURNWIRE 0
 #define USE_BATTERY_GAUGE 1
-#define USE_MICROPHONES 1
+#define USE_AUDIO 1
 #define USE_IMU 1
 #define USE_LIGHT_SENSOR 1
 #define USE_BOARD_TEMPERATURE_SENSOR 1
@@ -89,8 +89,8 @@ typedef struct { // To hold Keller 4LD pressure sensor data
 //-----------------------------------------------------------------------------
 
 extern void *cmdHdlThread(void *paramPtr);
-extern void *microphoneSpiThread(void *paramPtr);
-extern void *microphoneWriteDataThread(void *paramPtr);
+extern void *audioSpiThread(void *paramPtr);
+extern void *audioWriteDataThread(void *paramPtr);
 extern void *sensorThread(void *paramPtr);
 extern void *ecgThread(void *paramPtr);
 extern void isr_get_fifo_block(void);
@@ -102,13 +102,13 @@ extern int loadFpgaBitstream(void);
 extern void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
                 unsigned int pld0, unsigned int pld1, char *pResponse);
 
-extern int start_acq(void);
-extern int stop_acq(void);
-extern int setup_192kHz(void);
-extern int setup_96kHz(void);
-extern int setup_48kHz(void);
-extern int setup_default(void);
-extern int reset_fifo(void);
+extern int start_audio_acq(void);
+extern int stop_audio_acq(void);
+extern int setup_audio_192kHz(void);
+extern int setup_audio_96kHz(void);
+extern int setup_audio_48kHz(void);
+extern int setup_audio_default(void);
+extern int reset_audio_fifo(void);
 
 extern int initI2cDevices(void);
 
