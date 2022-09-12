@@ -7,6 +7,8 @@
 //  0.00    10/08/21   Begin work, establish framework
 //  2.1.1   06/27/22   Update v2.0 to work with v2.1 hardware
 //  2.1.2   07/03/22   Fix deploy timeout bug
+//  2.1.3   08/18/22   bitbang IMU, swap RX/TX lines, GPS over UART
+//  2.1.4   07/03/22   Added ECG
 //
 //-----------------------------------------------------------------------------
 // Project: CETI Tag Electronics
@@ -17,7 +19,7 @@
 #ifndef CETI_WRAP_H
 #define CETI_WRAP_H
 
-#define CETI_VERSION "2.1.2"
+#define CETI_VERSION "2.1.4"
 
 // Select whether various sensors are available/enabled.
 #define USE_FPGA 0

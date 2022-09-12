@@ -1,10 +1,15 @@
+ceti-tag-data-capture (2.1-4) stable; urgency=medium
+
+  * Add ECG sensor support
+
+ --  CETI Project <cetiproject.org>  Sun, 11 Sep 2022 00:00:01 -0800
 ceti-tag-data-capture (2.1-3) stable; urgency=medium
 
   * Get GPS sentence from the Recovery board and store in .csv
   * rework the state machine
   * use bitbanging to drive IMU to utilize clock stretching on i2c-1
 
- --  CETI Project <cetiproject.org>  Fri, 15 Jul 2022 00:00:01 -0800
+ --  CETI Project <cetiproject.org>  Thu, 18 Aug 2022 00:00:01 -0800
 ceti-tag-data-capture (2.1-2) stable; urgency=medium
 
   * Fix csv corruption due to state being incorrectly written
