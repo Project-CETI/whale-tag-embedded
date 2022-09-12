@@ -217,7 +217,7 @@ extern int testRecoverySerial(void);
 // FIFO margins may need to be tuned depending on latencies and how this program
 // is constructed. The margins are set in the FPGA Verilog code, not here.
 
-#define DATA_AVAIL (22)
+#define AUDIO_DATA_AVAILABLE (22)
 
 //-----------------------------------------------------------------------------
 // Globals

@@ -26,6 +26,7 @@
 //-----------------------------------------------------------------------------
 #define _GNU_SOURCE
 
+#include <FLAC/stream_encoder.h>
 #include <pigpio.h>
 #include <sched.h>
 #include <stdbool.h>
@@ -39,15 +40,12 @@
 #include "cetiTagLogging.h"
 #include "cetiTagWrapper.h"
 
-#define DATA_AVAIL (22)
-
 // At 96 kHz sampling rate; 16-bit; 3 channels 1 minute of data is 33750 KiB
-//#define MAX_DATA_FILE_SIZE (15 * 33750 * 1024) // 15 minute files at 96 KSPS
-#define MAX_DATA_FILE_SIZE (5625) // 10 second files for testing
-#define DATA_FILENAME_LEN (100)
+//#define MAX_AUDIO_DATA_FILE_SIZE (15 * 33750 * 1024) // 15 minute files at 96 KSPS
+#define MAX_AUDIO_DATA_FILE_SIZE (5625) // 10 second files for testing
+#define AUDIO_DATA_FILENAME_LEN (100)
 
-static FILE *acqData = NULL; // file for audio recording 
-static char acqDataFileName[DATA_FILENAME_LEN] = {};
+static char acqDataFileName[AUDIO_DATA_FILENAME_LEN] = {};
 static int acqDataFileLength = 0;
 
 struct dataPage {
@@ -72,6 +70,173 @@ void init_pages() {
     page[1].counter = 0;
     page[1].readyToBeSavedToDisk = false;
 }
+
+//-----------------------------------------------------------------------------
+// SPI Thread Gets Data from HW FIFO on Interrupt
+//-----------------------------------------------------------------------------
+static char first_byte=1;  //first byte in stream must be discarded
+
+void *audioSpiThread(void *paramPtr) {
+    int pageIndex = 0;
+    init_pages();
+    int spi_fd = spiOpen(SPI_CE, SPI_CLK_RATE, 1);
+
+    if (spi_fd < 0) {
+        CETI_LOG("pigpio SPI initialisation failed");
+        return NULL;
+    }
+
+    /* Set GPIO modes */
+    gpioSetMode(AUDIO_DATA_AVAILABLE, PI_INPUT);
+
+    struct sched_param sp;
+    memset(&sp, 0, sizeof(sp));
+    sp.sched_priority = sched_get_priority_max(SCHED_RR);
+    sched_setscheduler(0, SCHED_RR, &sp);
+    mlockall(MCL_CURRENT | MCL_FUTURE);
+
+    volatile int status;
+    volatile int prev_status;
+
+    prev_status = gpioRead(AUDIO_DATA_AVAILABLE);
+    status = prev_status;
+
+    while (!g_exit) {
+
+        status = gpioRead(AUDIO_DATA_AVAILABLE);
+
+        if (status != prev_status) {
+            prev_status = status;
+
+            while (status) {
+
+                // SPI block has become available, read it from the HW FIFO via
+                // SPI. Discard the first byte.
+
+                if (first_byte) {
+                    spiRead(spi_fd,&first_byte,1);
+                    first_byte = 0;
+                }
+
+                spiRead(spi_fd,
+                        page[pageIndex].buffer +
+                            (page[pageIndex].counter * SPI_BLOCK_SIZE),
+                        SPI_BLOCK_SIZE);
+
+                // When NUM_SPI_BLOCKS are in the ram buffer, set flag that
+                // triggers a transfer from RAM to mass storage, then flip the
+                // data page and continue get samples from SPI.
+                if (page[pageIndex].counter == NUM_SPI_BLOCKS - 1) {
+                    page[pageIndex].readyToBeSavedToDisk = true;
+                    page[pageIndex].counter = 0; // reset for next chunk
+                    pageIndex = !pageIndex;
+                } else {
+                    page[pageIndex].counter++;
+                }
+                status = gpioRead(AUDIO_DATA_AVAILABLE);
+            }
+        } else {
+            usleep(1000);
+        }
+    }
+    spiClose(spi_fd);
+    return NULL;
+}
+
+//-----------------------------------------------------------------------------
+// Write Data Thread moves the RAM buffer to mass storage
+//-----------------------------------------------------------------------------
+
+#define SAMPLE_RATE (96000)
+#define CHANNELS (3)
+#define BITS_PER_SAMPLE (16)
+#define BYTES_PER_SAMPLE  (BITS_PER_SAMPLE/8)
+#define MAX_SAMPLES_PER_FILE (MAX_AUDIO_DATA_FILE_SIZE / CHANNELS / BYTES_PER_SAMPLE)
+#define SAMPLES_PER_RAM_PAGE (RAM_SIZE / CHANNELS / BYTES_PER_SAMPLE)
+
+static FLAC__StreamEncoder *flac_encoder = 0;
+
+void * audioWriteDataThread( void * paramPtr ) {
+    FLAC__bool ok = true;
+    FLAC__int32 buff[CHANNELS] = {0};
+    int pageIndex = 0;
+    while (!g_exit) {
+        if (page[pageIndex].readyToBeSavedToDisk) {
+            if ( (acqDataFileLength > MAX_AUDIO_DATA_FILE_SIZE) || (flac_encoder == 0) ) {
+                createNewAudioDataFile();
+            }
+            // TODO: verify endianness is correct here
+            // TODO: if you call the encoder function with more than just one set of samples, it will be more efficient
+            //       but rpi0 does not have enough RAM to allocate the full buffer to fit all samples receieved from SPI
+            for (size_t ix = 0; ix < SAMPLES_PER_RAM_PAGE; ix++) {
+                for (size_t channel = 0; channel < CHANNELS; channel++) {
+                    buff[channel] = 0;
+                    buff[channel] = (FLAC__int32)(FLAC__int16)(page[pageIndex].buffer[ix*BYTES_PER_SAMPLE+1] << 8) | (FLAC__int16)(page[pageIndex].buffer[ix*BYTES_PER_SAMPLE]);
+                }
+                FLAC__stream_encoder_process_interleaved(flac_encoder, buff, 1);
+            }
+            page[pageIndex].readyToBeSavedToDisk = false;
+            acqDataFileLength += RAM_SIZE;
+        } else {
+            usleep(1000);
+        }
+        pageIndex = !pageIndex;
+    }
+    ok &= FLAC__stream_encoder_finish(flac_encoder);
+    FLAC__stream_encoder_delete(flac_encoder);
+    flac_encoder = 0;
+    return NULL;
+}
+
+
+static void createNewAudioDataFile() {
+    FLAC__bool ok = true;
+    FLAC__StreamEncoderInitStatus init_status;
+    if (flac_encoder) {
+        ok &= FLAC__stream_encoder_finish(flac_encoder);
+        FLAC__stream_encoder_delete(flac_encoder);
+        flac_encoder = 0;
+        if (!ok) {
+            CETI_LOG("FLAC encoder failed to close for %s", acqDataFileName);
+        }
+    }
+
+    // filename is the time in ms at the start of audio recording
+    struct timeval te;
+    gettimeofday(&te, NULL);
+    long long milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
+    snprintf(acqDataFileName, AUDIO_DATA_FILENAME_LEN, "../data/%lld.flac", milliseconds);
+
+    /* allocate the encoder */
+    if ((flac_encoder = FLAC__stream_encoder_new()) == NULL) {
+        CETI_LOG("ERROR: allocating FLAC encoder");
+        flac_encoder = 0;
+        return;
+    }
+
+    ok &= FLAC__stream_encoder_set_verify(flac_encoder, true);
+    ok &= FLAC__stream_encoder_set_compression_level(flac_encoder, 5);
+    ok &= FLAC__stream_encoder_set_channels(flac_encoder, CHANNELS);
+    ok &= FLAC__stream_encoder_set_bits_per_sample(flac_encoder, BITS_PER_SAMPLE);
+    ok &= FLAC__stream_encoder_set_sample_rate(flac_encoder, SAMPLE_RATE);
+    ok &= FLAC__stream_encoder_set_total_samples_estimate(flac_encoder, MAX_SAMPLES_PER_FILE);
+
+    if (!ok) {
+        CETI_LOG("FLAC encoder failed to set parameters for %s", acqDataFileName);
+        flac_encoder = 0;
+        return;
+    }
+
+    init_status = FLAC__stream_encoder_init_file(flac_encoder, acqDataFileName, NULL, NULL);
+    if (init_status != FLAC__STREAM_ENCODER_INIT_STATUS_OK) {
+        CETI_LOG("ERROR: initializing encoder: %s", FLAC__StreamEncoderInitStatusString[init_status]);
+        FLAC__stream_encoder_delete(flac_encoder);
+        flac_encoder = 0;
+        return;
+    }
+    CETI_LOG("createNewAudioDataFile(): Saving hydrophone data to %s", acqDataFileName);
+ }
+
 
 int setup_audio_default(void) {
     char cam_response[8];
@@ -160,127 +325,16 @@ int start_audio_acq(void) {
 int stop_audio_acq(void) {
     char cam_response[8];
     cam(5, 0, 0, 0, 0, cam_response); // stops the input stream
-    fclose(acqData);                  // close the data file
-    acqData=NULL;
+
+    if (flac_encoder) {
+        FLAC__stream_encoder_finish(flac_encoder);
+        FLAC__stream_encoder_delete(flac_encoder);
+        flac_encoder = 0;
+    }
+
     cam(3, 0, 0, 0, 0, cam_response); // flushes the FIFO
     // formatRaw();                   // makes formatted output file to plot
     // formatRawNoHeader3ch16bit();   // reduced data size
     return 0;
 }
-
-
-//-----------------------------------------------------------------------------
-// SPI Thread Gets Data from HW FIFO on Interrupt
-//-----------------------------------------------------------------------------
-static char first_byte=1;  //first byte in stream must be discarded
-
-void *audioSpiThread(void *paramPtr) {
-    int pageIndex = 0;
-    init_pages();
-    int spi_fd = spiOpen(SPI_CE, SPI_CLK_RATE, 1);
-
-    if (spi_fd < 0) {
-        CETI_LOG("pigpio SPI initialisation failed");
-        return NULL;
-    }
-
-    /* Set GPIO modes */
-    gpioSetMode(DATA_AVAIL, PI_INPUT);
-
-    struct sched_param sp;
-    memset(&sp, 0, sizeof(sp));
-    sp.sched_priority = sched_get_priority_max(SCHED_RR);
-    sched_setscheduler(0, SCHED_RR, &sp);
-    mlockall(MCL_CURRENT | MCL_FUTURE);
-
-    volatile int status;
-    volatile int prev_status;
-
-    prev_status = gpioRead(DATA_AVAIL);
-    status = prev_status;
-
-    while (!g_exit) {
-
-        status = gpioRead(DATA_AVAIL);
-
-        if (status != prev_status) {            
-            prev_status = status;
-            
-            while (status) {
-
-                // SPI block has become available, read it from the HW FIFO via
-                // SPI. Discard the first byte.
-
-                if (first_byte) {
-                    spiRead(spi_fd,&first_byte,1);
-                    first_byte = 0;
-                }
-
-                spiRead(spi_fd,
-                        page[pageIndex].buffer +
-                            (page[pageIndex].counter * SPI_BLOCK_SIZE),
-                        SPI_BLOCK_SIZE);
-
-                // When NUM_SPI_BLOCKS are in the ram buffer, set flag that
-                // triggers a transfer from RAM to mass storage, then flip the
-                // data page and continue get samples from SPI.
-                if (page[pageIndex].counter == NUM_SPI_BLOCKS - 1) {
-                    page[pageIndex].readyToBeSavedToDisk = true;
-                    page[pageIndex].counter = 0; // reset for next chunk
-                    pageIndex = !pageIndex;
-                } else {
-                    page[pageIndex].counter++;
-                }
-                status = gpioRead(DATA_AVAIL);
-            }
-        } else {
-            usleep(1000);
-        }
-    }
-    spiClose(spi_fd);
-    return NULL;
-}
-
-//-----------------------------------------------------------------------------
-// Write Data Thread moves the RAM buffer to mass storage
-//-----------------------------------------------------------------------------
-void * audioWriteDataThread( void * paramPtr ) {
-   int pageIndex = 0;
-   while (!g_exit) {
-       if (page[pageIndex].readyToBeSavedToDisk) {
-           if ( (acqDataFileLength > MAX_DATA_FILE_SIZE) || (acqData == NULL) ) {
-               createNewAudioDataFile();
-           }
-           fwrite(page[pageIndex].buffer,1,RAM_SIZE,acqData); //
-           page[pageIndex].readyToBeSavedToDisk = false;
-           acqDataFileLength += RAM_SIZE;
-           fflush(acqData);
-           fsync(fileno(acqData));
-       } else {
-           usleep(1000);
-       }
-       pageIndex = !pageIndex;
-   }
-   return NULL;
-}
-
-static void createNewAudioDataFile() {
-    if (acqData != NULL) {
-        fclose(acqData);
-    }
-
-    // filename is the time in ms at the start of audio recording
-    struct timeval te;
-    gettimeofday(&te, NULL);
-    long long milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
-    snprintf(acqDataFileName, DATA_FILENAME_LEN, "../data/%lld.raw", milliseconds);
-    acqData = fopen(acqDataFileName, "wb");
-    acqDataFileLength = 0;
-    if (!acqData) {
-        CETI_LOG("Failed to open %s", acqDataFileName);
-        return;
-    }
-    CETI_LOG("createNewAudioDataFile(): Saving hydrophone data to %s", acqDataFileName);
-}
-
 

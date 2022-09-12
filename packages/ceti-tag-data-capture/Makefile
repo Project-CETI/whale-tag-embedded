@@ -17,13 +17,12 @@ SRC        = $(wildcard src/*.c) $(wildcard src/*/*.c)
 OBJ        = $(SRC:.c=.o)
 CC         = gcc
 CFLAGS     = -Wall -g
-LDFLAGS    = -lpthread -lpigpio
+LDFLAGS    = -lpthread -lpigpio -lFLAC
 APP        = cetiTagApp
 BINDIR    ?= bin
 IPCDIR    ?= ipc
 CONFIGDIR ?= config
 DATADIR   ?= data
-LOGDIR    ?= log
 DESTDIR   ?= opt/ceti-tag-data-capture
 
 build: $(APP)
@@ -34,7 +33,6 @@ $(APP): $(OBJ)
 
 install: build
 	mkdir -p $(DESTDIR)
-	mkdir -p $(DESTDIR)/$(LOGDIR)
 	cp -Rp $(BINDIR) $(DESTDIR)
 	cp -Rp $(CONFIGDIR) $(DESTDIR)
 	cp -Rp $(IPCDIR) $(DESTDIR)

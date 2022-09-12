@@ -50,6 +50,7 @@ time apt install "${APT_NONINTERACTIVE}" --fix-broken --no-upgrade \
   dkms \
   dnsmasq \
   flac \
+  libflac-dev \
   libi2c-dev \
   i2c-tools \
   netcat \
