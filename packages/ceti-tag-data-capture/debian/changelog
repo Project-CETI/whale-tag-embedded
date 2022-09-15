@@ -1,7 +1,6 @@
 ceti-tag-data-capture (2.1-4) stable; urgency=medium
 
   * Add ECG sensor support
-  * Use flac compression for audio data
 
  --  CETI Project <cetiproject.org>  Sun, 11 Sep 2022 00:00:01 -0800
 ceti-tag-data-capture (2.1-3) stable; urgency=medium
