@@ -2,7 +2,7 @@ SHELL := /bin/bash
 MAKEFILE_DIR := $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 DOCKER_IMAGE ?= sdcard-builder
 OUT_DIR ?= $(MAKEFILE_DIR)/out
-RASPBIAN_IMAGE="$(MAKEFILE_DIR)/raspbian/raspbian_lite_latest.img"
+RASPIOS_IMAGE="$(MAKEFILE_DIR)/raspios/raspios_lite.img"
 
 .PHONY: \
 	clean \
@@ -19,7 +19,7 @@ build: docker-image
 	dos2unix packages/*
 	dos2unix packages/*/debian/*
 	mkdir -p $(OUT_DIR)
-	build/download_raspbian.sh $(OUT_DIR)
+	build/download_raspios.sh $(OUT_DIR)
 	build/build.sh $(OUT_DIR)
 
 clean:

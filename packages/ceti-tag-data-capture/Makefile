@@ -7,6 +7,7 @@
 #	0.00    10/08/21   Begin work, establish framework
 #       2.00    12/06/21   Port over to github.com/Project-CETI/whale-tag-embedded, add to debian build
 #       2.1.0   03/15/22   Target the summer 2022 deployment based on hardware v2.1
+#       2.2.0   09/15/22   Target raspberry pi zero 2 w, wich is arm64 cortex a53 1Ghz quad core
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 # Description

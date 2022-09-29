@@ -1,4 +1,4 @@
-FROM debian:buster
+FROM debian:bullseye
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
     git \
@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     python3-pip \
     python3-distutils \
     qemu \
-    qemu-user-static \
+    qemu-system-arm \
     binfmt-support \
     debhelper \
     fakeroot \

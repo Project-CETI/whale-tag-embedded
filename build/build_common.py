@@ -57,25 +57,20 @@ def do_expand(args, image_file, expand_bytes=(2**30)):
 def SetupEmulator(args, root_mnt):
     """Set up the QEMU emulator so it works from within the chroot.
 
-    As described here: https://wiki.debian.org/RaspberryPi/qemu-user-static
+    As described here: https://gist.github.com/cleverca22/1f2c2f60bf37de68cf0d7917cbbef9c7
     """
 
-    ld_so_preload_path = os.path.join(root_mnt, "etc", "ld.so.preload")
-    ld_so_preload_backup = ld_so_preload_path + ".bak"
-    qemu_src_path = distutils.spawn.find_executable("qemu-arm-static")
-    qemu_dst_path = os.path.join(root_mnt, "usr", "bin", "qemu-arm-static")
+    qemu_src_path = distutils.spawn.find_executable("qemu-system-arm")
+    qemu_dst_path = os.path.join(root_mnt, "usr", "bin", "qemu-system-arm")
 
     if qemu_src_path is None:
-        print("Failed to find qemu-arm-static.", file=sys.stderr)
+        print("Failed to find qemu-system-arm.", file=sys.stderr)
         print(
-            "    sudo apt-get install qemu qemu-user-static binfmt-support",
+            "    sudo apt-get install qemu qemu-system-arm binfmt-support",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    # The RPi preloads an optimized memcpy, which we need to disable to use the
-    # network with QEMU.
-    os.rename(ld_so_preload_path, ld_so_preload_backup)
 
     try:
         shutil.copy(qemu_src_path, qemu_dst_path)
@@ -86,7 +81,7 @@ def SetupEmulator(args, root_mnt):
             os.unlink(qemu_dst_path)
 
     finally:
-        os.rename(ld_so_preload_backup, ld_so_preload_path)
+        pass
 
 
 @contextlib.contextmanager
@@ -153,7 +148,7 @@ def run_in_chroot(args, root_mnt, cmd, env=None):
         "LANG=C.UTF-8",  # en_US isn't installed on the default RPi image, so use C
         "LANGUAGE=C:",
         "LC_CTYPE=C.UTF-8",
-        "QEMU_CPU=arm1176",  # Use armv6l for compatability with Pi Zero.
+        "QEMU_CPU=cortex-a53",  # Use armv6l for compatability with Pi Zero.
     ]
 
     chroot_cmd = ["sudo"] + env_list + ["chroot", "."] + cmd
