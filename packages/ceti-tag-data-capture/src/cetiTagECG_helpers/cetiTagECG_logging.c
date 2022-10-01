@@ -14,6 +14,12 @@
 // =============== INITIALIZATION / CLEANUP ===============
 // ========================================================
 
+char ecg_log_filepath[100] = {};
+FILE *ecg_log_fout = 0;
+struct timeval ecg_log_entry_time_timeval;
+long long ecg_log_entry_time_us = 0;
+
+
 int ecg_log_setup()
 {
   // Create a filename for the log.
