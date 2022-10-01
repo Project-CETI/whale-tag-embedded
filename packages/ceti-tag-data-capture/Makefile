@@ -30,7 +30,7 @@ build: $(APP)
 
 $(APP): $(OBJ)
 	mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) -o $(BINDIR)/$(APP) $(LDFLAGS) $(OBJ)
+	$(CC) $(CFLAGS) -o $(BINDIR)/$(APP) $(OBJ) $(LDFLAGS)
 
 install: build
 	mkdir -p $(DESTDIR)
