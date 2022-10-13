@@ -5,6 +5,7 @@ Description=Captures data from input sensors of the Whale Tag and saves it onto 
 Type=simple
 WorkingDirectory=/opt/ceti-tag-data-capture/bin
 ExecStart=/opt/ceti-tag-data-capture/bin/cetiTagApp
+TimeoutStartSec=60
 Restart=always
 RestartSec=10
 
