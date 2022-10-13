@@ -635,7 +635,7 @@ int updateState() {
         burnwireOff();
         rcvryOff();
         CETI_LOG("updateState(): Battery critical, halting");
-        system("halt");
+        system("systemctl poweroff");
         break;
     }
     return (0);
