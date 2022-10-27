@@ -22,7 +22,7 @@
 #ifndef CETI_WRAP_H
 #define CETI_WRAP_H
 
-#define CETI_VERSION "2.1.2"
+#define CETI_VERSION "v2_1.4 release candidate - in test"
 
 #include <stdio.h>
 
