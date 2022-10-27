@@ -3,10 +3,15 @@
 // Cummings Electronics Labs, October 2021
 // Developed under contract for Harvard University Wood Lab
 //-----------------------------------------------------------------------------
+//
+// Note - version must correspond with the repository release tag 
+//
 // Version    Date    Description
-//  0.00    10/08/21   Begin work, establish framework
-//  2.1.1   06/27/22   Update v2.0 to work with v2.1 hardware
-//  2.1.2   07/03/22   Fix deploy timeout bug
+//  2_1.0   10/08/21   Begin work, establish framework
+//  2_1.1   06/27/22   Update v2.0 to work with v2.1 hardware
+//  2_1.2   07/03/22   Fix deploy timeout bug
+//  2_1.3   08/17/22   Bit-banged i2c for IMU, serial comms for Recovery Board
+//  2_1.4   in work    Add battery check funcs, general clean up 
 //
 //-----------------------------------------------------------------------------
 // Project: CETI Tag Electronics
