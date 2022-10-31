@@ -12,7 +12,7 @@
 //  2_1.2   07/03/22   Fix deploy timeout bug
 //  2_1.3   08/17/22   Bit-banged i2c for IMU, serial comms for Recovery Board
 //  2_1.4   11/03/22   Add battery check funcs, general clean up 
-//  2.1.4   07/03/22   Added ECG
+//  2.1.5   12/03/22   Added ECG
 //
 //-----------------------------------------------------------------------------
 // Project: CETI Tag Electronics
