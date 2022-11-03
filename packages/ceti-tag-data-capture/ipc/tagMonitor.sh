@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# New for 2.1-4 release  11/3/22
+
 # Provide a startup delay to allow a user to connect before recorder begins using resources 
 sleep 30
 
@@ -34,26 +36,32 @@ do
 	v2=$(./tag.sh checkCell_2)
 	echo "cell voltages $v1 $v2"
 
-# compare with critical voltage - if either cell below critical
-# stop the recorder application and power down the Pi
-# the Tag will still take some power until the battery UV protection kicks in
-# at 2.6 V.  This is an interim
-# solution that as a minimum helps avoid file system corruption. 
-# Ideally battery discharge is disabled entirely but
-# that requires a more sophisticated approach that involves either
-# having the FPGA send commands to the protector OR somehow carefully
-# managing the file system then sending the pull the plug command 
-# from the Pi.  A bit tricky and there is a lot to improve here....
+# If either cell is less than 3.00 V, power down the Pi
+# and signal the FPGA to disable charging and discharging
 
-	check1=$( echo "$v1 < 2.99" | bc )
-	check2=$( echo "$v2 < 2.99" | bc )
+	check1=$( echo "$v1 < 3.00" | bc )
+	check2=$( echo "$v2 < 3.00" | bc )
 
 	if [ $check1 -gt 0 ] || [ $check2 -gt 0 ]
 	  then
 	  	echo "low battery cell detected, powering Pi down now!"
-	  	./tag.sh stopAcq
+	  	
+# stopAcq will turn on red LED
+	  	./tag.sh stopAcq	  	
 	  	sleep 1
-		systemctl poweroff
+
+# powerdown signals FPGA to wait for Pi to turn off
+# then disable charging and discharging. The entire
+# tag will be turned off once the Pi shuts down.
+
+# To subsequently enable the Tag requires connection of
+# a charger and running the tagWake.sh script
+
+	  	./tag.sh powerdown
+	  	sleep 1
+		
+		shutdown -P now   
+
 	  else 
 	  	echo "battery is OK"
     fi

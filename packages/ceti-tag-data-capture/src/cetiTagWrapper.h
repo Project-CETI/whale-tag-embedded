@@ -11,7 +11,7 @@
 //  2_1.1   06/27/22   Update v2.0 to work with v2.1 hardware
 //  2_1.2   07/03/22   Fix deploy timeout bug
 //  2_1.3   08/17/22   Bit-banged i2c for IMU, serial comms for Recovery Board
-//  2_1.4   in work    Add battery check funcs, general clean up 
+//  2_1.4   11/3/22    Add battery check funcs, general clean up. FPGA shutdown method 
 //
 //-----------------------------------------------------------------------------
 // Project: CETI Tag Electronics
@@ -163,6 +163,7 @@ extern int testRecoverySerial(void);
 
 
 #define IMU_N_RESET 4
+#define POWER_FLAG 17
 
 //-----------------------------------------------------------------------------
 // Data Acq SPI Settings and Audio Data Buffering
