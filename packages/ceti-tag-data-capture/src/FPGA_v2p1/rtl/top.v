@@ -7,6 +7,7 @@
 //	220523 Starting point is v2 Alpha (which is frozen).  Debugging hardware, rapid proto
 // 220524 Adjusted the UCF for new SCLK and MISO pinning for better clock location of the chip per new HW 
 // 220816 Swap TXD and RXD in the UCF to match Recovery Board HW
+// 221102 Start work on i2c power off transmission method. Companion Debian is version 2.1-4
 //
 //-----------------------------------------------------------------------------
 // Additional Information
@@ -85,7 +86,7 @@ module top(
 
 	input wire HAT_GPIO_16,   // CAM CLK    
 	
-	input wire HAT_GPIO_17,   // NOT USED
+	input wire HAT_GPIO_17,   // POWER FLAG
 	
 	input wire HAT_GPIO_18,   // CAM DIN
 	output wire HAT_GPIO_19,  // CAM DOUT
@@ -173,8 +174,10 @@ wire pb_scl_out;
 
 assign HAT_GPIO_0 =  1'hz;  //Not used, Pi controller will run the I2C
 assign HAT_GPIO_1 =  1'hz; 
-assign HAT_GPIO_2 =  1'hz; 
-assign HAT_GPIO_3 =  1'hz; 
+
+assign HAT_GPIO_2 =  pb_sda_out ? 1'hz : 1'b0; //open drain equivalent
+assign HAT_GPIO_3 =  pb_scl_out ? 1'hz : 1'b0; 
+
 assign HAT_GPIO_23 =  1'hz;  //the bit banged wiring
 assign HAT_GPIO_24 =  1'hz;  // the bit banged wiring
 
@@ -254,6 +257,8 @@ cam m_cam (
 	.sck				(HAT_GPIO_16),
 	.din				(HAT_GPIO_18),
 	.dout 			(HAT_GPIO_19),
+	
+	.power_down_flag (HAT_GPIO_17),
 	
 	.spi_fifo_rst	(spi_fifo_rst),
 	
@@ -339,6 +344,29 @@ gps m_gps (
 	.gps_rx		(gps_rx),
 	.rtk_tx		(rtk_rx),
 	.rtk_status	(rtk_status)
+);
+
+//-----------------------------------------------------------------------------
+// i2C Bus 
+//-----------------------------------------------------------------------------
+
+ceti_i2c m_pb_i2c (   // Pi i2c bus 1 is wired here. Used to power down after Pi shutdown
+
+	.clk				(i2c_clk),   
+	.n_reset			(HAT_GPIO_5),
+	.type				(type_i2c), 		//transaction type
+	.start			(start_pb_i2c),
+	.status			(status_pb_i2c),
+	.sda_out			(pb_sda_out),  	//tri-state with input grounded and EN used as the sig 
+	.sda_in			(HAT_GPIO_2),     
+	.scl_out			(pb_scl_out),
+	.scl_in			(HAT_GPIO_3),     
+	.i2c_addr		(cam_arg1),
+	.i2c_reg			(cam_arg0),
+	.i2c_wr_data0	(cam_pay0),
+	.i2c_wr_data1	(cam_pay1),
+	.i2c_rd_data0	(i2c_rd_pb_data0),
+	.i2c_rd_data1	(i2c_rd_pb_data1)
 );
 
 
