@@ -56,7 +56,8 @@ module cam(
 	input wire [7:0] i2c_rd_sns_data0,
 	input wire [7:0] i2c_rd_sns_data1,
 	
-	input wire power_down_flag			//
+	input wire power_down_flag,			//
+	input wire sec_tick
 
 );
 
@@ -96,6 +97,8 @@ module cam(
 	
 	reg [3:0] adc_ctl_state=0; //ADC control FSM
 	reg [3:0] i2c_state = 0;  // i2c FSM 
+	
+	reg [4:0] shutdown_timer = 0;  //counts from 1 sec tick, 30 second hold off
 
 	always @ (posedge clk) begin	
 			
@@ -122,6 +125,8 @@ module cam(
 			i2c_state <= 0;
 			start_pb_i2c <= 0;
 			start_sns_i2c <=0;
+			
+			shutdown_timer <=0;
 			
 		end
 		
@@ -414,10 +419,12 @@ module cam(
 											type_i2c <= 0;  
 											case (i2c_state)
 												0: begin
-														if(!power_down_flag) begin
+														if(shutdown_timer > 30) begin
 															start_pb_i2c <= 1; //starts the transaction
 															i2c_state <= 1;
 														end
+														else if (!power_down_flag && sec_tick)  //delay after power down flag 
+																shutdown_timer <= shutdown_timer + 1;
 													end
 													
 												1: begin								 // wait for start
