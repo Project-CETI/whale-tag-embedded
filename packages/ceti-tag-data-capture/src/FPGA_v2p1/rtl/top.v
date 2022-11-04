@@ -259,6 +259,7 @@ cam m_cam (
 	.dout 			(HAT_GPIO_19),
 	
 	.power_down_flag (HAT_GPIO_17),
+	.sec_tick		(sec_tick),
 	
 	.spi_fifo_rst	(spi_fifo_rst),
 	
