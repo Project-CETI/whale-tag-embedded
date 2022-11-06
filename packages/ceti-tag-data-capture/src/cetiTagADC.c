@@ -6,7 +6,7 @@
 // Version    Date          Description
 //  0.0.0   10/10/21   Begin work, establish framework
 //  2.1.1   06/27/22   Fix first byte bug with SPI, verify 96 KSPS setting
-//  2.1.4   11/5/22    Simplify stopAcq()  
+//  2.1.4   11/5/22    Simplify stopAcq()
 //-----------------------------------------------------------------------------
 // Project: CETI Tag Electronics
 // File: cetiTagADC.c
