@@ -1,12 +1,24 @@
 #!/bin/bash
 
 # New for 2.1-4 release  11/5/22
+# Supervisor script for the Tag application
 
 # Provide a startup delay to allow a user to connect before recorder begins using resources 
 sleep  30
 
-# Assume there is some storage left on the uSD card
-disk_full=0
+# Check that there is soem disk space available before starting the recorder
+	avail=$(df --output=source,avail | grep /dev/root)
+	echo $avail
+	set $avail
+	echo $2
+	if [ $2 -lt 1000000 ] 
+	then
+    	echo "disk almost full, cannot start recording"
+    	exit   		 
+	 else	 	
+	 	echo "disk space is OK - starting the recorder"
+	 	disk_full=0
+	fi
 
 # Launch the main recording application in the background
 sudo /opt/ceti-tag-data-capture/bin/cetiTagApp & 
@@ -79,6 +91,7 @@ done
 echo "stopping cetiTagApp"
 echo "quit" > cetiCommand
 cat cetiResponse
+sleep 15
 
 # Optionally disable the service, must be reenabled when waking the tag up
 # echo "disabling ceti-tag-data-capture service"
