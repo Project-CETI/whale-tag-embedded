@@ -29,9 +29,9 @@ do
 
 # Check that there is disk space available to continue recording	
 	avail=$(df --output=source,avail | grep /dev/root)
-	echo $avail
+//	echo $avail
 	set $avail
-	echo $2
+	echo "$2 KiB available 
 
 # The tags are normally built with 128 GB uSD cards.  Leave 1 GB headroom
 # Note - sensors.csv will continue, just audio is stopped.  

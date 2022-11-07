@@ -294,7 +294,7 @@ int hdlCmd(void) {
     }
 
     if (!strncmp(g_command, "checkCell_1", 11)) {
-        printf("hdlCmd(): Read cell 1 voltage\n");
+     //   printf("hdlCmd(): Read cell 1 voltage\n");
         getBattStatus(batteryData);
         g_rsp = fopen(RSP, "w");
         fprintf(g_rsp, "%.2f\n", batteryData[0]);
@@ -303,7 +303,7 @@ int hdlCmd(void) {
     }
 
     if (!strncmp(g_command, "checkCell_2", 11)) {
-        printf("hdlCmd(): Read cell 2 voltage\n");
+     //   printf("hdlCmd(): Read cell 2 voltage\n");
         getBattStatus(batteryData);
         g_rsp = fopen(RSP, "w");
         fprintf(g_rsp, "%.2f\n", batteryData[1]);
