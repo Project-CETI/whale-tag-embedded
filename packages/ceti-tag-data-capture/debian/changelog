@@ -1,3 +1,11 @@
+ceti-tag-data-capture (2.1-4) stable; urgency=medium
+
+  * Implement storage space checking and near-full handling
+  * Fix low-battery shutdown method - use FPGA
+  * Add a 30 second time delay between system boot and recording stat
+
+ --  CETI Project <cetiproject.org>  Thu, 03 Nov 2022 00:00:01 -0800
+
 ceti-tag-data-capture (2.1-3) stable; urgency=medium
 
   * Get GPS sentence from the Recovery board and store in .csv

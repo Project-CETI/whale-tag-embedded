@@ -567,8 +567,17 @@ int updateState() {
         //  reduce file system corruption risk
         burnwireOff();
         rcvryOff();
-        CETI_LOG("updateState(): Battery critical, halting");
-        system("halt");
+    
+        // 221026 The following system("halt") call has never actually worked - it does
+        // not shutoff the Pi as intended. This is being changed so 
+        // that a new external agent (tagMonitor.sh) will manage the shutdown. As part
+        // of this change, the ST_SHUTDOWN state becomes redundant in 
+        // a sense and may be removed as the architecture firms up.  For the time
+        // being just comment out the call.
+
+        //CETI_LOG("updateState(): Battery critical, halting");
+        //system("halt");
+        
         break;
     }
     return(0);

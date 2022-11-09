@@ -21,7 +21,8 @@
 //-----------------------------------------------------------------------------
 int hdlCmd(void) {
 
-    char cTemp[256]; // strings and some
+    char cTemp[256]; 
+    double batteryData[3];
 
     //-----------------------------------------------------------------------------
     // Part 1 - quit or any other special commands here
@@ -281,6 +282,66 @@ int hdlCmd(void) {
         return 0;
     }
 
+    if (!strncmp(g_command, "checkBatt", 9)) {
+        printf("hdlCmd(): Read battery voltage and current\n");
+        getBattStatus(batteryData);
+        g_rsp = fopen(RSP, "w");
+        fprintf(g_rsp, "Battery voltage 1: %.2f V \n", batteryData[0]);
+        fprintf(g_rsp, "Battery voltage 2: %.2f V \n", batteryData[1]);
+        fprintf(g_rsp, "Battery current: %.2f mA \n", batteryData[2]);
+        fclose(g_rsp);
+        return 0;
+    }
+
+    if (!strncmp(g_command, "checkCell_1", 11)) {
+     //   printf("hdlCmd(): Read cell 1 voltage\n");
+        getBattStatus(batteryData);
+        g_rsp = fopen(RSP, "w");
+        fprintf(g_rsp, "%.2f\n", batteryData[0]);
+        fclose(g_rsp);
+        return 0;
+    }
+
+    if (!strncmp(g_command, "checkCell_2", 11)) {
+     //   printf("hdlCmd(): Read cell 2 voltage\n");
+        getBattStatus(batteryData);
+        g_rsp = fopen(RSP, "w");
+        fprintf(g_rsp, "%.2f\n", batteryData[1]);
+        fclose(g_rsp);
+        return 0;
+    }
+
+    if (!strncmp(g_command, "powerdown", 9)) {
+        printf("hdlCmd(): Power down via FPGA \n");
+        g_rsp = fopen(RSP, "w");
+
+
+        // now send the FPGA shutdown opcode via CAM
+        // opcode 0xF will do a register write on i2c1
+        // 0x59 is the 7-bit i2c addr of BMS IC, 
+        // set register 0 to 0 will turn it off
+        // set register 0 to 3 to reactivate
+
+
+        cam(0x0F, 0xB2, 0x00, 0x00, 0x00, cTemp);
+
+        // To complete the shutdown, the Pi must be powered down
+        // now by an external process.  Currently the design 
+        // uses the tagMonitor script to do the Pi shutdown.
+
+        // After the Pi turns off, the FPGA will disable discharging
+        // and charging by sending a final i2c message to the BMS chip 
+        // to pull the plug. 
+
+        // A charger connection is required to wake up the tag after this event
+        // and charging/discharging needs to subsequently be 
+        // renabled.
+
+        fprintf(g_rsp,"hdlCmd(): Powering the tag down!\n");
+        fclose(g_rsp);
+        return 0;
+    }
+
     else {
         g_rsp = fopen(RSP, "w");
         fprintf(g_rsp, "\n"); // echo it
@@ -302,7 +363,7 @@ int hdlCmd(void) {
         fprintf(g_rsp, "sr_96       Set sampling rate to 96 kHz\n");
         fprintf(g_rsp, "sr_48       Set sampling rate to 48 kHz \n");
         
-        fprintf(g_rsp,"resetIMU    Pulse the IMU reset line \n");
+        fprintf(g_rsp,"resetIMU     Pulse the IMU reset line \n");
         fprintf(g_rsp,
                 "learnIMU    Dev only - sandbox for exploring IMU BNO08x\n");
         fprintf(g_rsp, "setupIMU    Dev only - bringing up IMU BNO08x\n");
@@ -318,6 +379,15 @@ int hdlCmd(void) {
 
         fprintf(g_rsp, 
                 "testSerial  Test Recovery Board serial link\n");
+
+        fprintf(g_rsp, 
+                "checkBatt   Read battery voltages and current\n");
+        fprintf(g_rsp, 
+                "checkCell_1 Read battery cell 1 voltage\n");
+        fprintf(g_rsp, 
+                "checkCell_2 Read battery cell 2 voltage\n");
+
+        fprintf(g_rsp, "powerdown   Power down the Tag\n");
 
         fprintf(g_rsp, "\n");
         fclose(g_rsp);
@@ -442,6 +512,8 @@ void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
     gpioWrite(DOUT, 0);
     usleep(2);
 
+    usleep(2000);   //need to let i2c finish
+
     // Receive the response packet FPGA -> Pi
     for (j = 0; j < NUM_BYTES_MESSAGE; j++) {
 
@@ -522,6 +594,11 @@ int initTag(void) {
     char cTemp[16];
 
     CETI_LOG("initTag(): Initializing and checking hardware peripherals");
+
+    
+    // Power present flag used by FPGA during shutdown
+    gpioSetMode(POWER_FLAG, PI_OUTPUT);
+    gpioWrite(POWER_FLAG, 1); 
 
     // Configure the FPGA and log version
     if (!loadFpgaBitstream()) {

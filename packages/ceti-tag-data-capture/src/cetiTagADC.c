@@ -6,7 +6,7 @@
 // Version    Date          Description
 //  0.0.0   10/10/21   Begin work, establish framework
 //  2.1.1   06/27/22   Fix first byte bug with SPI, verify 96 KSPS setting
-//
+//  2.1.4   11/5/22    Simplify stopAcq()  
 //-----------------------------------------------------------------------------
 // Project: CETI Tag Electronics
 // File: cetiTagADC.c
@@ -160,9 +160,9 @@ int start_acq(void) {
 int stop_acq(void) {
     char cam_response[8];
     cam(5, 0, 0, 0, 0, cam_response); // stops the input stream
-    fclose(acqData);                  // close the data file
-    acqData=NULL;
-    cam(3, 0, 0, 0, 0, cam_response); // flushes the FIFO
+//    fclose(acqData);                  // close the data file
+//    acqData=NULL;
+//    cam(3, 0, 0, 0, 0, cam_response); // flushes the FIFO
     // formatRaw();                   // makes formatted output file to plot
     // formatRawNoHeader3ch16bit();   // reduced data size
     return 0;

@@ -12,8 +12,13 @@
 // TODO [cam.v: main sm needs reset method; analyze for synch issues]
 
 
+// 2.1-4 Introduces new shutdown strategy where the FPGA issues an
+//       i2c command to the battery chip to disable charge/discharge
+//       following Pi orderly shutdown
+
 `define VER_MAJ 8'h21    //Serial revision, for hardware v2.1
-`define VER_MIN 8'h01    //Serial revision, minor.  01 is first deploy June/July 2022
+`define VER_MIN 8'h04    //Serial revision, minor.  01 is first deploy June/July 2022
+
 
 
 module cam(
@@ -49,7 +54,10 @@ module cam(
 	output reg start_sns_i2c = 0,		// Sensor Board I2C handshaking
 	input wire status_sns_i2c,				
 	input wire [7:0] i2c_rd_sns_data0,
-	input wire [7:0] i2c_rd_sns_data1
+	input wire [7:0] i2c_rd_sns_data1,
+	
+	input wire power_down_flag,			//
+	input wire sec_tick
 
 );
 
@@ -89,6 +97,8 @@ module cam(
 	
 	reg [3:0] adc_ctl_state=0; //ADC control FSM
 	reg [3:0] i2c_state = 0;  // i2c FSM 
+	
+	reg [4:0] shutdown_timer = 0;  //counts from 1 sec tick, 30 second hold off
 
 	always @ (posedge clk) begin	
 			
@@ -115,6 +125,8 @@ module cam(
 			i2c_state <= 0;
 			start_pb_i2c <= 0;
 			start_sns_i2c <=0;
+			
+			shutdown_timer <=0;
 			
 		end
 		
@@ -235,12 +247,10 @@ module cam(
 										acq_en <= 0;
 										state <= 5;
 									end
-	
-								default: state<=5; //this should just echo the original message, no action taken
-								
+									
 								6:	state <=5;  //Opcode 6 is for the data simulator version only. No operation here for the alpha
 								
-								7: begin // Power Board i2c Write
+								7: begin // Bus 1 i2c Write
 										type_i2c <= 0;  
 										case (i2c_state)
 											0: begin
@@ -261,7 +271,8 @@ module cam(
 														state <=5;														
 													end
 												end
-										endcase
+										endcase 
+										
 									end			
 
 								8: begin // Power Board i2c Read
@@ -399,16 +410,47 @@ module cam(
 										message[40:47] <= i2c_rd_sns_data1;
 										
 									end
-
-								13:	state <=5;  //Reserved
+									
+								13:	state <=5;  //Reserved									
 								14:	state <=5;  //Reserved
-								15:	state <=5;  //Reserved
+								
+								15:	begin 		//System Power Down
+
+											type_i2c <= 0;  
+											case (i2c_state)
+												0: begin
+														if(shutdown_timer > 30) begin
+															start_pb_i2c <= 1; //starts the transaction
+															i2c_state <= 1;
+														end
+														else if (!power_down_flag && sec_tick)  //delay after power down flag 
+																shutdown_timer <= shutdown_timer + 1;
+													end
+													
+												1: begin								 // wait for start
+														if (status_pb_i2c) begin
+															start_pb_i2c <= 0; //rearm
+															i2c_state <= 2;
+														end
+													end
+															
+												2: begin								// wait for finish
+														if (!status_pb_i2c) begin
+															i2c_state <=0;
+															state <=5;														
+														end
+													end
+											endcase 
+																				
+										end
 								
 								16: begin  // FPGA Version Report
 										message[32:39] <= `VER_MAJ;  
 										message[40:47] <= `VER_MIN;  
 										state <= 5;
-									end								
+									end			
+									
+								default: state<=5; //this should just echo the original message, no action taken									
 								
 							endcase	// opcode handler	state machine				
 						end // opcode handling
