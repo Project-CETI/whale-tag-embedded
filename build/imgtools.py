@@ -220,3 +220,57 @@ def resize_part(args, disk_dev, partition_number, new_start_sector, new_end_sect
     out = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode("utf-8")
     if args.verbose:
         sys.stdout.write(out)
+
+
+def create_part(args, disk_dev, partition_number, start_sector, end_sector):
+    """Create an empty partition given the parameters.
+    args: args struct with verbosity settings
+    disk_dev: /dev path for the disk
+    partition_number: number of partition to create, 1-based
+    start_sector: sector number of the new start
+    end_sector: sector number of the new end
+    """
+    commands = (
+        "\n".join(
+            [
+                # create with new size
+                "n",
+                "p",
+                str(partition_number),
+                str(start_sector),
+                str(end_sector),
+                # write table to disk and exit
+                "w",
+            ]
+        )
+        + "\n"
+    )
+    p = subprocess.Popen(
+        ["sudo", "fdisk", disk_dev],
+        stdin=subprocess.PIPE,
+        stdout=args.stdout,
+        stderr=args.stderr,
+    )
+    p.communicate(input=commands.encode("utf-8"))
+    # ignore code, as fdisk returns 1 even when it works
+
+    # reread partition table
+    cmd = ["sudo", "partprobe", disk_dev]
+    out = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode("utf-8")
+    if args.verbose:
+        sys.stdout.write(out)
+
+
+def mkfs(args, ext_dev):
+    """Resize an ext2/3/4 filesystem.
+    args: args struct with verbosity settings
+    ext_dev: /dev path for the ext partition
+    """
+
+    cmd = ["sudo", "mkfs.ext4", "-L", "cetiData", ext_dev]
+    print(cmd)
+
+    mkfs_out = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode("utf-8")
+    sys.stdout.write(mkfs_out)
+    if args.verbose:
+        sys.stdout.write(mkfs_out)
