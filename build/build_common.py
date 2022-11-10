@@ -54,14 +54,21 @@ def do_expand(args, image_file, expand_bytes=(2**30)):
         )
         print("Zeroed free blocks in root partition")
 
+def do_add_data_partition(args, image_file, expand_bytes=(2**30)):
+    """Create an ext4 partition at the end of the device with label cetiData."""
+
+    expand_sectors = expand_bytes // SECTOR_BYTES
+
     print("Extending the image file by %d bytes for data partition" % expand_bytes)
     with open(image_file, "ab") as f:
         f.truncate(f.tell() + expand_bytes)
 
     with LoopDev(args, image_file) as disk_dev:
+        partition_info = get_partition_info(args, disk_dev)
+        root_partition = partition_info[args.root_partition_number]
         print("Creating the data partition")
         partition_number = args.root_partition_number + 1
-        start_sector = end_sector + 1
+        start_sector = root_partition.end + 1
         end_sector = start_sector + expand_sectors - 1
         create_part(args, disk_dev, partition_number, start_sector, end_sector)
 
@@ -75,6 +82,7 @@ def do_expand(args, image_file, expand_bytes=(2**30)):
             ["sudo", "zerofree", data_dev], stdout=args.stdout, stderr=args.stderr
         )
         print("Zeroed free blocks in data partition")
+
 
 
 @contextlib.contextmanager
