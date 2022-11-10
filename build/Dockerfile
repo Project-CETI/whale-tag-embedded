@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     parted \
     dkms \
     zerofree \
+    e2fsprogs \
     unzip \
     zip \
     lintian
