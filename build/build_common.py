@@ -23,7 +23,7 @@ from imgtools import (
 )
 
 
-def do_expand(args, image_file, expand_bytes=(2**30)):
+def do_expand(args, image_file, expand_bytes=(2**32)):
     """Expand the root filesystem on the image."""
 
     expand_sectors = expand_bytes // SECTOR_BYTES
@@ -49,7 +49,7 @@ def do_expand(args, image_file, expand_bytes=(2**30)):
     start_bytes = start_sector * SECTOR_BYTES
     with LoopDev(args, image_file, offset=start_bytes) as root_dev:
         new_size_bytes = resize2fs(args, root_dev, "maximum")
-        print("Resized to %.1f GB" % (new_size_bytes / (2 ** 30)))
+        print("Resized to %.1f GB" % (new_size_bytes / (2 ** 32)))
         subprocess.check_call(
             ["sudo", "zerofree", root_dev], stdout=args.stdout, stderr=args.stderr
         )
