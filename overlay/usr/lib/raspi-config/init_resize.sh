@@ -2,6 +2,7 @@
 
 reboot_pi () {
   umount /boot
+  umount /data
   mount / -o remount,ro
   sync
   if [ "$NOOBS" = "1" ]; then
@@ -40,7 +41,7 @@ check_noobs () {
 }
 
 get_variables () {
-  ROOT_PART_DEV=$(findmnt / -o source -n)
+  ROOT_PART_DEV=$(findmnt /data -o source -n)
   ROOT_PART_NAME=$(echo "$ROOT_PART_DEV" | cut -d "/" -f 3)
   ROOT_DEV_NAME=$(echo /sys/block/*/"${ROOT_PART_NAME}" | cut -d "/" -f 4)
   ROOT_DEV="/dev/${ROOT_DEV_NAME}"
@@ -152,7 +153,7 @@ main () {
     fi
   fi
 
-  if ! parted -m "$ROOT_DEV" u s resizepart "$ROOT_PART_NUM" "$TARGET_END"; then
+  if ! parted -m "$ROOT_DEV" u s resizepart "$ROOT_PART_NUM" yes "$TARGET_END"; then
     FAIL_REASON="Root partition resize failed"
     return 1
   fi
@@ -167,9 +168,12 @@ mount -t proc proc /proc
 mount -t sysfs sys /sys
 mount -t tmpfs tmp /run
 mkdir -p /run/systemd
+mkdir -p /data
 
 mount /boot
 mount / -o remount,rw
+mount -L cetiData /data
+mount /data -o remount,rw
 
 sed -i 's| init=/usr/lib/raspi-config/init_resize\.sh||' /boot/cmdline.txt
 sed -i 's| sdhci\.debug_quirks2=4||' /boot/cmdline.txt
