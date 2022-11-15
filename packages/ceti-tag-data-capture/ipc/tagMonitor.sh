@@ -6,8 +6,13 @@
 # Provide a startup delay to allow a user to connect before recorder begins using resources 
 sleep  30
 
-# Check that there is soem disk space available before starting the recorder
-	avail=$(df --output=source,avail | grep /dev/root)
+# remount rootfs readonly
+mount / -o remount,ro
+mount /boot -o remount,ro
+
+
+# Check that there is some disk space available before starting the recorder
+	avail=$(df --output=target,avail | grep /data)
 	echo $avail
 	set $avail
 	echo $2
@@ -58,7 +63,7 @@ do
 # for now at 3V per cell.  
 
 	echo "checkCell_1" > cetiCommand
-    v1=$(cat cetiResponse)
+	v1=$(cat cetiResponse)
 	echo "checkCell_2" > cetiCommand
 	v2=$(cat cetiResponse)
 
@@ -77,6 +82,7 @@ do
 
 	  	echo "powerdown" > cetiCommand
 	  	cat cetiResponse
+		mount / -o remount,ro
 		shutdown -P +1
 		break	
 	 else 
