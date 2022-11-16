@@ -42,15 +42,12 @@ def do_expand(args, image_file, expand_bytes=(2**30)):
             args, disk_dev, args.root_partition_number, start_sector, end_sector
         )
 
+
     print("Increasing the size of the root filesystem...")
     start_bytes = start_sector * SECTOR_BYTES
     with LoopDev(args, image_file, offset=start_bytes) as root_dev:
         new_size_bytes = resize2fs(args, root_dev, "maximum")
         print("Resized to %.1f GB" % (new_size_bytes / (2 ** 30)))
-        subprocess.check_call(
-            ["sudo", "zerofree", root_dev], stdout=args.stdout, stderr=args.stderr
-        )
-        print("Zeroed free blocks")
 
 
 @contextlib.contextmanager

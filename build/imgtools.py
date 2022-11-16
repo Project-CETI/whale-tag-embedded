@@ -214,3 +214,9 @@ def resize_part(args, disk_dev, partition_number, new_start_sector, new_end_sect
     )
     p.communicate(input=commands.encode("utf-8"))
     # ignore code, as fdisk returns 1 even when it works
+
+    # reread partition table
+    cmd = ["sudo", "partprobe", disk_dev]
+    out = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode("utf-8")
+    if args.verbose:
+        sys.stdout.write(out)
