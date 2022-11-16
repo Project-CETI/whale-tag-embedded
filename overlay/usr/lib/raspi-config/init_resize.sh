@@ -160,6 +160,8 @@ main () {
 
   partprobe "$ROOT_DEV"
   fix_partuuid
+  e2fsck -yf "$ROOT_PART_DEV"
+  resize2fs "$ROOT_PART_DEV"
 
   return 0
 }
