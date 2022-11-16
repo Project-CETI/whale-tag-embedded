@@ -82,7 +82,6 @@ do
 
 	  	echo "powerdown" > cetiCommand
 	  	cat cetiResponse
-		mount / -o remount,ro
 		shutdown -P +1
 		break	
 	 else 
