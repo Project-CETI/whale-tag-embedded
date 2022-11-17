@@ -3,11 +3,7 @@
 # New for 2.1-4 release  11/5/22
 # Supervisor script for the Tag application
 
-# Provide a startup delay to allow a user to connect before recorder begins using resources 
-sleep  30
-
 # remount rootfs readonly
-mount / -o remount,ro
 mount /boot -o remount,ro
 
 
@@ -25,6 +21,9 @@ mount /boot -o remount,ro
 	 	disk_full=0
 	fi
 
+# Provide a startup delay to allow a user to connect before recorder begins using resources
+sleep  30
+
 # Launch the main recording application in the background
 sudo /opt/ceti-tag-data-capture/bin/cetiTagApp & 
 
@@ -33,7 +32,7 @@ while :
 do
 
 # Check that there is disk space available to continue recording	
-	avail=$(df --output=source,avail | grep /dev/root)
+	avail=$(df --output=target,avail | grep /data)
 #	echo $avail
 	set $avail
 	echo "$2 KiB available" 
@@ -79,9 +78,10 @@ do
 	if [ $check1 -gt 0 ] || [ $check2 -gt 0 ] 
 	then
 	  	echo "low battery cell detected, powering Pi down now!"
-
+		echo s > /proc/sysrq-trigger
 	  	echo "powerdown" > cetiCommand
 	  	cat cetiResponse
+		echo u > /proc/sysrq-trigger
 		shutdown -P +1
 		break	
 	 else 
