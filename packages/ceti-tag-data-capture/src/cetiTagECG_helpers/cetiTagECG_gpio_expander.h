@@ -36,7 +36,7 @@ int ecg_gpio_expander_read_lod();
 int ecg_gpio_expander_read();
 int ecg_gpio_expander_parse_dataReady(uint8_t data);
 int ecg_gpio_expander_parse_lod(uint8_t data);
-int ecg_gpio_expander_i2c_device;
+extern int ecg_gpio_expander_i2c_device;
 
 #endif // CETI_ECG_GPIO_EXPANDER_H
 

@@ -24,10 +24,10 @@ void ecg_log_cleanup();
 void ecg_log_add_entry(long long sample_index, long ecg_reading, int lod_reading);
 
 // Internal state.
-char ecg_log_filepath[100];
-FILE *ecg_log_fout;
-struct timeval ecg_log_entry_time_timeval;
-long long ecg_log_entry_time_us;
+extern char ecg_log_filepath[100];
+extern FILE *ecg_log_fout;
+extern struct timeval ecg_log_entry_time_timeval;
+extern long long ecg_log_entry_time_us;
 
 #endif // CETI_ECG_LOGGING_H
 

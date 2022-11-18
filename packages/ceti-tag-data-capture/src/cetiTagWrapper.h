@@ -22,16 +22,16 @@
 #define CETI_VERSION "2.1.4"
 
 // Select whether various sensors are available/enabled.
-#define USE_FPGA 1
+#define USE_FPGA 0
 #define USE_RTC 1
 #define USE_BURNWIRE 0
-#define USE_BATTERY_GAUGE 1
-#define USE_AUDIO 1
-#define USE_IMU 1
-#define USE_LIGHT_SENSOR 1
-#define USE_BOARD_TEMPERATURE_SENSOR 1
-#define USE_PRESSURE_SENSOR 1 // also includes a temperature sensor
-#define USE_GPS 1
+#define USE_BATTERY_GAUGE 0
+#define USE_AUDIO 0
+#define USE_IMU 0
+#define USE_LIGHT_SENSOR 0
+#define USE_BOARD_TEMPERATURE_SENSOR 0
+#define USE_PRESSURE_SENSOR 0 // also includes a temperature sensor
+#define USE_GPS 0
 #define USE_SENSORS (USE_IMU || USE_BOARD_TEMPERATURE_SENSOR  \
                       || USE_PRESSURE_SENSOR \
                       || USE_BATTERY_GAUGE || USE_GPS)

@@ -118,12 +118,12 @@ int setup_audio_96kHz(void)   //Initial deployments will use 96 KSPS only. The s
         cam(1,0,0,0,0,cam_response);       //second time  dummy clocks to get result
 
         if (cam_response[5] != 0x08) {
-            CETI_LOG("Failed to set ADC sampling to 96 kHz - Reg 0x01 reads back 0x%02X%02X should be 0x0008 ", cam_response[4],cam_response[5]);
+            CETI_LOG("Failed to set audio ADC sampling to 96 kHz - Reg 0x01 reads back 0x%02X%02X should be 0x0008 ", cam_response[4],cam_response[5]);
             return -1; //ADC failed to configure as expected
         }
     }
     
-    CETI_LOG("Successfully set ADC sampling to 96 kHz - Reg 0x01 reads back 0x%02X%02X should be 0x0008 ", cam_response[4],cam_response[5]);
+    CETI_LOG("Successfully set audio ADC sampling to 96 kHz - Reg 0x01 reads back 0x%02X%02X should be 0x0008 ", cam_response[4],cam_response[5]);
     return 0;
 }
 

@@ -94,10 +94,10 @@ void ecg_adc_write_config_register(uint8_t data);
 uint8_t ecg_adc_read_register(uint8_t reg);
 long ecg_adc_read_data();
 int ecg_adc_read_data_ready();
-uint8_t ecg_adc_config;
-uint8_t ecg_adc_config_prev;
-int ecg_adc_is_singleShot;
-int ecg_adc_i2c_device;
+extern uint8_t ecg_adc_config;
+extern uint8_t ecg_adc_config_prev;
+extern int ecg_adc_is_singleShot;
+extern int ecg_adc_i2c_device;
 
 #endif // CETI_ECG_ADC_H
 

@@ -11,6 +11,12 @@
 
 #include "cetiTagECG_adc.h"
 
+// Variables declared as extern in the header file.
+uint8_t ecg_adc_config;
+uint8_t ecg_adc_config_prev;
+int ecg_adc_is_singleShot;
+int ecg_adc_i2c_device;
+
 // ========================================================
 // ==================== INITIALIZATION ====================
 // ========================================================

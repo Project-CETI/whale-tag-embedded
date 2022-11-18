@@ -10,6 +10,9 @@
 
 #include "cetiTagECG_gpio_expander.h"
 
+// Variables declared as extern in the header file.
+int ecg_gpio_expander_i2c_device;
+
 // Initialize and connect the GPIO expander via I2C.
 int ecg_gpio_expander_setup(int i2c_bus)
 {
