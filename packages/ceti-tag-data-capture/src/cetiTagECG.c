@@ -8,6 +8,7 @@
 // Description: Control ECG-related acquisition and logging
 //-----------------------------------------------------------------------------
 
+#define _GNU_SOURCE   // change how sched.h is included
 #include "cetiTagECG.h"
 
 // -------------------------------
@@ -43,6 +44,23 @@ void *ecgThread(void *paramPtr)
   ecg_adc_set_conversion_mode(ECG_ADC_MODE_CONTINUOUS); // ECG_ADC_MODE_CONTINUOUS or ECG_ADC_MODE_SINGLE_SHOT
   // Start continuous conversion (or a single reading).
   ecg_adc_start();
+
+  // Set the thread priority.
+  struct sched_param sp;
+  memset(&sp, 0, sizeof(sp));
+  sp.sched_priority = sched_get_priority_max(SCHED_RR);
+  if(sched_setscheduler(getpid(), SCHED_RR, &sp) == 0)
+    CETI_LOG("ecgThread(): Successfully set priority");
+  else
+    CETI_LOG("ecgThread(): Failed to set priority");
+  // Set the thread CPU affinity.
+  cpu_set_t cpu_list;
+  CPU_ZERO(&cpu_list);
+  CPU_SET(0, &cpu_list);
+  if(sched_setaffinity(getpid(), sizeof(cpu_list), &cpu_list) == 0)
+    CETI_LOG("ecgThread(): Successfully set CPU affinity");
+  else
+    CETI_LOG("ecgThread(): Failed to set CPU affinity");
 
   // Continuously poll the ADC and the leads-off detection output.
   long ecg_reading = 0;

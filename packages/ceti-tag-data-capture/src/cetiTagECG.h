@@ -13,6 +13,9 @@
 
 #include <pigpio.h>   // for I2C functions
 #include <sys/time.h> // for gettimeofday
+#define _GNU_SOURCE   // change how sched.h is included
+#include <sched.h>    // to set process priority and affinity
+#include <sys/mman.h> // for locking memory (after setting priority/affinity)
 
 #include "cetiTagLogging.h"
 #include "cetiTagWrapper.h"
