@@ -268,7 +268,6 @@ def mkfs(args, ext_dev):
     """
 
     cmd = ["sudo", "mkfs.ext4", "-L", "cetiData", ext_dev]
-    print(cmd)
 
     mkfs_out = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode("utf-8")
     sys.stdout.write(mkfs_out)

@@ -24,8 +24,8 @@ function add_data_partition {
 
 # Resize image if needed.
 if ! shell_image "${IMAGE}" "ls /tmp/resized"; then
-  expand_image --expand-bytes $((512*1024*1024)) "${IMAGE}"
-  add_data_partition --expand-bytes $((512*1024*1024)) "${IMAGE}"
+  expand_image "${IMAGE}"
+  add_data_partition "${IMAGE}"
   shell_image "${IMAGE}" "touch /tmp/resized"
 fi
 

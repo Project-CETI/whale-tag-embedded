@@ -18,7 +18,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     build-essential \
     parted \
     dkms \
-    zerofree \
     e2fsprogs \
     unzip \
     zip \

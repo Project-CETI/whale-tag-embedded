@@ -23,6 +23,7 @@ build: docker-image
 	build/build.sh $(OUT_DIR)
 
 clean:
+	rm -rf build/__pycache__
 	rm -rf $(OUT_DIR)
 
 # Docker helpers
