@@ -177,8 +177,7 @@ mount / -o remount,rw
 mount -L cetiData /data
 mount /data -o remount,rw
 
-sed -i 's| init=/usr/lib/raspi-config/init_resize\.sh||' /boot/cmdline.txt
-sed -i 's| sdhci\.debug_quirks2=4||' /boot/cmdline.txt
+sed -i 's| init=/usr/lib/raspberrypi-sys-mods/firstboot||' /boot/cmdline.txt
 
 if ! grep -q splash /boot/cmdline.txt; then
   sed -i "s/ quiet//g" /boot/cmdline.txt
