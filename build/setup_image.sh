@@ -1,5 +1,4 @@
 #!/bin/bash
-set -ex
 
 if [ "$#" -ne 4 ]; then
     echo "$0 <out_dir> <build-dir> <overlay-dir> <packages-dir>" >&2
@@ -94,11 +93,8 @@ curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
 apt update
 apt install -y aiy-usb-gadget
 
-
 # Copy filesystem overlay.
-
 tar -cf - -C "${OVERLAY_DIR}" --owner=pi --group=pi . | tar -xf - -C /
-
 
 # All done
 echo "( ・◡・)つ━☆   Build complete"

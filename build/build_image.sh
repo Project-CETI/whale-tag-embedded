@@ -10,6 +10,25 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUT_DIR="$1"
 IMAGE="$OUT_DIR/sdcard.img"
 
+function shell_image {
+  sudo PYTHONDONTWRITEBYTECODE=yes "${SCRIPT_DIR}/shell_image.py" "$@"
+}
+
+function expand_image {
+  sudo "${SCRIPT_DIR}/rpi-image" expand --size +512M --image "$@"
+}
+
+function add_data_partition {
+  sudo PYTHONDONTWRITEBYTECODE=yes "${SCRIPT_DIR}/add_partition.py" "$@"
+}
+
+# Resize image if needed.
+if ! shell_image "${IMAGE}" "ls /tmp/resized"; then
+  expand_image "${IMAGE}"
+  add_data_partition "${IMAGE}"
+  shell_image "${IMAGE}" "touch /tmp/resized"
+fi
+
 # Run image setup script.
 shell_image \
     --mount "${OUT_DIR}:/out" \
@@ -21,3 +40,9 @@ shell_image \
     --arg /overlay \
     --arg /packages \
     "${IMAGE}" < "${SCRIPT_DIR}/setup_image.sh"
+
+
+# Clean /tmp.
+if [[ -n "${CLEAN_TMP}" ]]; then
+  shell_image "${IMAGE}" "rm -f /tmp/*"
+fi

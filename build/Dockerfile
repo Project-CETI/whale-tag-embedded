@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     binfmt-support \
     debhelper \
     fakeroot \
+    fdisk \
     build-essential \
     parted \
     dkms \
