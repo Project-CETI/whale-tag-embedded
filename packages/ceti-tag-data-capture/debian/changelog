@@ -1,3 +1,9 @@
+ceti-tag-data-capture (2.1-5) stable; urgency=medium
+
+  * Create a separate partition on sdcard to store the captured data
+
+ --  CETI Project <cetiproject.org>  Tue, 22 Nov 2022 00:00:01 -0800
+
 ceti-tag-data-capture (2.1-4) stable; urgency=medium
 
   * Implement storage space checking and near-full handling
