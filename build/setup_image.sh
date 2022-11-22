@@ -37,8 +37,6 @@ function install_package {
   fi
 }
 
-apt -y update --allow-releaseinfo-change
-
 time apt install "${APT_NONINTERACTIVE}" --fix-broken --no-upgrade \
   alsa-utils \
   avahi-utils \
