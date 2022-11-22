@@ -39,16 +39,6 @@ def do_resize(args):
             new_size_bytes = resize2fs(args, root_dev)
             print("Resized to %.1f GB" % (new_size_bytes / (2**30)))
 
-            print("Zeroing free blocks...")
-            try:
-                subprocess.check_call(["sudo", "zerofree", root_dev])
-            except BaseException:
-                print(
-                    "WARNING: Failed to zero free blocks, compressed image will be larger.",
-                    file=sys.stderr,
-                )
-                print("WARNING: Have you installed zerofree?", file=sys.stderr)
-
         print("Updating partition table...")
         new_end_sector = start_sector + new_size_bytes // SECTOR_BYTES - 1
         resize_part(

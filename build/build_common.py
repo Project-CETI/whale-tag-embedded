@@ -23,7 +23,7 @@ from imgtools import (
 )
 
 
-def do_expand(args, image_file, expand_bytes=(2**32)):
+def do_expand(args, image_file, expand_bytes=(2**30)):
     """Expand the root filesystem on the image."""
 
     expand_sectors = expand_bytes // SECTOR_BYTES
@@ -49,11 +49,7 @@ def do_expand(args, image_file, expand_bytes=(2**32)):
     start_bytes = start_sector * SECTOR_BYTES
     with LoopDev(args, image_file, offset=start_bytes) as root_dev:
         new_size_bytes = resize2fs(args, root_dev, "maximum")
-        print("Resized to %.1f GB" % (new_size_bytes / (2 ** 32)))
-        subprocess.check_call(
-            ["sudo", "zerofree", root_dev], stdout=args.stdout, stderr=args.stderr
-        )
-        print("Zeroed free blocks in root partition")
+        print("Resized to %.1f GB" % (new_size_bytes / (2 ** 30)))
 
 def do_add_data_partition(args, image_file, expand_bytes=(2**30)):
     """Create an ext4 partition at the end of the device with label cetiData."""
@@ -79,11 +75,6 @@ def do_add_data_partition(args, image_file, expand_bytes=(2**30)):
     size_bytes = (end_sector - start_sector) * SECTOR_BYTES
     with LoopDev(args, image_file, offset=start_bytes) as data_dev:
         mkfs(args, data_dev)
-        subprocess.check_call(
-            ["sudo", "zerofree", data_dev], stdout=args.stdout, stderr=args.stderr
-        )
-        print("Zeroed free blocks in data partition")
-
 
 
 @contextlib.contextmanager
@@ -181,7 +172,7 @@ def run_in_chroot(args, root_mnt, cmd, env=None):
         "LANG=C.UTF-8",  # en_US isn't installed on the default RPi image, so use C
         "LANGUAGE=C:",
         "LC_CTYPE=C.UTF-8",
-        "QEMU_CPU=cortex-a53",  # Use armv6l for compatability with Pi Zero.
+        "QEMU_CPU=cortex-a53",
     ]
 
     chroot_cmd = ["sudo"] + env_list + ["chroot", "."] + cmd
