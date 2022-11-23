@@ -10,11 +10,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RASPIOS_DIR="$(realpath "${SCRIPT_DIR}/../raspios")"
 RASPIOS_XZ="${RASPIOS_DIR}/raspios.xz"
 RASPIOS_IMG="${RASPIOS_DIR}/raspios.img"
-RASPIOS_URL="https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2022-09-26/2022-09-22-raspios-bullseye-arm64-lite.img.xz"
+RASPIOS_URL="$($SCRIPT_DIR/rpi-image list | grep raspios_lite_arm64)"
 OUT_DIR="$(realpath "$1")"
 
 mkdir -p "${RASPIOS_DIR}"
-
 if [ ! -f "${RASPIOS_IMG}" ]; then
     rm -rf "${RASPIOS_DIR}/*"
     wget -O "${RASPIOS_XZ}" "${RASPIOS_URL}"
