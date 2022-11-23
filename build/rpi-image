@@ -11,6 +11,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import urllib.request
@@ -85,7 +86,7 @@ def truncate(path_file, size):
   subprocess.run(['truncate', path_file, '--size', str(size)], check=True)
 
 def chroot(root_dir, cmd):
-  subprocess.run(['chroot', '.'] + cmd, cwd=root_dir, check=True)
+  return subprocess.run(['chroot', '.'] + cmd, cwd=root_dir)
 
 def umount(mount_point, attempts=5, timeout=0.1):
   while attempts > 0:
@@ -320,7 +321,7 @@ def subcommand_delete(args):
 def subcommand_mount(args):
   with mount_dir(args.directory) as root_dir:
     with mount_image(args.image, root_dir, [], args.read_only):
-      subprocess.run(args.command, cwd=root_dir)
+      sys.exit(subprocess.run(args.command, cwd=root_dir).returncode)
 
 def subcommand_run(args):
   mounts = [make_mount(s, read_only=True) for s in ('/dev', '/sys', '/proc', '/dev/pts')]
@@ -337,7 +338,7 @@ def subcommand_run(args):
   with mount_dir(args.directory) as root_dir:
     with mount_image(args.image, root_dir, mounts, args.read_only) as root_dir:
       with disable_ld_preload(root_dir):
-        chroot(root_dir, command)
+        sys.exit(chroot(root_dir, command).returncode)
 
 def existing_file(s):
   path = pathlib.Path(s)

@@ -11,35 +11,36 @@ OUT_DIR="$1"
 IMAGE="$OUT_DIR/sdcard.img"
 
 function shell_image {
-  sudo PYTHONDONTWRITEBYTECODE=yes "${SCRIPT_DIR}/shell_image.py" "$@"
+  sudo "${SCRIPT_DIR}"/rpi-image run --image "${IMAGE}" "$@"
 }
 
 function expand_image {
-  sudo "${SCRIPT_DIR}/rpi-image" expand --size +512M --image "$@"
+  sudo "${SCRIPT_DIR}/rpi-image" expand --size +512M --image "${IMAGE}"
 }
 
 function add_data_partition {
-  sudo "${SCRIPT_DIR}/rpi-image" append --size 128M --filesystem ext4 --label cetiData --image "$@"
+  sudo "${SCRIPT_DIR}/rpi-image" append --size 128M --filesystem ext4 --label cetiData --image "${IMAGE}"
 }
 
 # Resize image if needed.
-if ! shell_image "${IMAGE}" "ls /tmp/resized"; then
-  expand_image "${IMAGE}"
-  add_data_partition "${IMAGE}"
-  shell_image "${IMAGE}" "touch /tmp/resized"
+if ! shell_image ls /tmp/resized; then
+  expand_image
+  add_data_partition
+  shell_image touch /tmp/resized
 fi
 
 # Run image setup script.
 shell_image \
-    --mount "${OUT_DIR}:/out" \
-    --mount "${SCRIPT_DIR}:/build" \
-    --mount "${SCRIPT_DIR}/../overlay:/overlay" \
-    --mount "${SCRIPT_DIR}/../packages:/packages" \
-    --arg /out \
-    --arg /build \
-    --arg /overlay \
-    --arg /packages \
-    "${IMAGE}" < "${SCRIPT_DIR}/setup_image.sh"
+    --bind "${OUT_DIR}:/out" \
+    --bind "${SCRIPT_DIR}:/build" \
+    --bind "${SCRIPT_DIR}/../overlay:/overlay" \
+    --bind "${SCRIPT_DIR}/../packages:/packages" \
+    --bind-ro "${SCRIPT_DIR}/setup_image.sh:/setup_image.sh" \
+    "/setup_image.sh" \
+    "/out" \
+    "/build" \
+    "/overlay" \
+    "/packages"
 
 
 # Clean /tmp.
