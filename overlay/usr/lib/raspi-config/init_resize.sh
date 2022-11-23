@@ -163,6 +163,9 @@ main () {
   e2fsck -yf "$ROOT_PART_DEV"
   resize2fs "$ROOT_PART_DEV"
 
+  # Enable overlay filesystem and have underlying rootfs readonly
+  /usr/bin/raspi-config nonint enable_overlayfs
+
   return 0
 }
 
