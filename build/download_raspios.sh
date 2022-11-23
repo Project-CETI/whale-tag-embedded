@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RASPIOS_DIR="$(realpath "${SCRIPT_DIR}/../raspios")"
 RASPIOS_XZ="${RASPIOS_DIR}/raspios.xz"
 RASPIOS_IMG="${RASPIOS_DIR}/raspios.img"
-RASPIOS_URL="$($SCRIPT_DIR/rpi-image list | grep raspios_lite_arm64)"
+RASPIOS_URL="$($SCRIPT_DIR/rpi-image urls | grep raspios_lite_arm64)"
 OUT_DIR="$(realpath "$1")"
 
 mkdir -p "${RASPIOS_DIR}"

@@ -19,7 +19,7 @@ function expand_image {
 }
 
 function add_data_partition {
-  sudo PYTHONDONTWRITEBYTECODE=yes "${SCRIPT_DIR}/add_partition.py" "$@"
+  sudo "${SCRIPT_DIR}/rpi-image" append --size 128M --filesystem ext4 --label cetiData --image "$@"
 }
 
 # Resize image if needed.
