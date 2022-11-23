@@ -231,6 +231,9 @@ main () {
 
   raspi-config nonint do_ssh 0
 
+  # Enable overlay filesystem and have underlying rootfs readonly
+  /usr/bin/raspi-config nonint enable_overlayfs
+
   return 0
 }
 
