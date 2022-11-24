@@ -7,6 +7,7 @@
 //  0.0.0   10/10/21   Begin work, establish framework
 //  2.1.1   06/27/22   Fix first byte bug with SPI, verify 96 KSPS setting
 //  2.1.4   11/5/22    Simplify stopAcq()
+//  2.1.5   11/24/22   Correct MAX_FILE_SIZE definition
 //-----------------------------------------------------------------------------
 // Project: CETI Tag Electronics
 // File: cetiTagADC.c
@@ -41,8 +42,7 @@
 #include "cetiTagWrapper.h"
 
 // At 96 kHz sampling rate; 16-bit; 3 channels 1 minute of data is 33750 KiB
-//#define MAX_AUDIO_DATA_FILE_SIZE (15 * 33750 * 1024) // 15 minute files at 96 KSPS
-#define MAX_AUDIO_DATA_FILE_SIZE (5625) // 10 second files for testing
+#define MAX_DATA_FILE_SIZE ( (5-1) * 33750 * 1024) // Yields approx 5 minute files at 96 KSPS
 #define AUDIO_DATA_FILENAME_LEN (100)
 
 static char acqDataFileName[AUDIO_DATA_FILENAME_LEN] = {};
