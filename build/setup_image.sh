@@ -91,11 +91,11 @@ curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
 apt update
 apt install -y aiy-usb-gadget
 
+# Disable first boot rootfs resize
+rm /etc/init.d/resize2fs_once
 
 # Copy filesystem overlay.
-
 tar -cf - -C "${OVERLAY_DIR}" --owner=pi --group=pi . | tar -xf - -C /
-
 
 # All done
 echo "( ・◡・)つ━☆   Build complete"
