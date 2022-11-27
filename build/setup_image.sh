@@ -92,6 +92,9 @@ install_package "$(ls "${OUT_DIR}"/ceti-tag-data-capture_*.deb)"
 # Do not run pi wizard
 rm -rf /etc/xdg/autostart/piwiz.desktop
 
+# Disable first boot rootfs resize
+rm /etc/init.d/resize2fs_once
+
 # Copy filesystem overlay.
 tar -cf - -C "${OVERLAY_DIR}" --owner=pi --group=pi . | tar -xf - -C /
 
