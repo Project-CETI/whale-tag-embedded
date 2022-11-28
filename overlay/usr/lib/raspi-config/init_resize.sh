@@ -125,6 +125,40 @@ check_kernel () {
   NEW_KERNEL=1
 }
 
+sethostname() {
+  if [ -z "$NETWORK_ADAPTER_NAME" ]; then
+    NETWORK_ADAPTER_NAME="$(ls /sys/class/net/ | grep ^e | head -n1 | awk '{print $1;}')"
+  fi
+
+  MAC_ADDRESS="/sys/class/net/$NETWORK_ADAPTER_NAME/address"
+  if [ -f "$MAC_ADDRESS" ]; then
+	DEVICE_ID="$(< "$MAC_ADDRESS" sed s/':'//g)"
+  fi
+
+  if [ -z "$DEVICE_ID" ]; then
+	DEVICE_ID="$(< /proc/cpuinfo grep Serial | sed s/'.*:\s0*'/''/)"
+  fi
+
+  # If we still have no UID, just give up
+  if [ -z "$DEVICE_ID" ]; then
+    echo "Unable to find an identifier for the hw, exiting"
+    exit 1
+  fi
+
+  # Set device is as the hostname
+  DEVICE_ID="wt-$DEVICE_ID"
+  HOSTNAME="$(hostname)"
+
+  if [ "$HOSTNAME" != "$DEVICE_ID" ]; then
+    echo "Changing hostname to $DEVICE_ID"
+    hostname "$DEVICE_ID"
+    echo "127.0.0.1 $DEVICE_ID" >> /etc/hosts
+    echo "$DEVICE_ID" > /etc/hostname
+    sysctl kernel.hostname="$DEVICE_ID"
+  fi
+
+}
+
 main () {
   get_variables
 
@@ -163,6 +197,14 @@ main () {
   e2fsck -yf "$ROOT_PART_DEV"
   resize2fs "$ROOT_PART_DEV"
 
+  # Disable swap
+  dphys-swapfile swapoff
+  dphys-swapfile uninstall
+  echo "CONF_SWAPSIZE=0" > /etc/dphys-swapfile
+
+  # Change hostname
+  sethostname
+
   # Enable overlay filesystem and have underlying rootfs readonly
   /usr/bin/raspi-config nonint enable_overlayfs
 
@@ -180,7 +222,7 @@ mount / -o remount,rw
 mount -L cetiData /data
 mount /data -o remount,rw
 
-sed -i 's| init=/usr/lib/raspi-config/init_resize\.sh||' /boot/cmdline.txt
+sed -i 's| init=/usr/lib/raspi-config/init_resize\.sh| init=/usr/lib/raspi-config/init_overlay\.sh|' /boot/cmdline.txt
 sed -i 's| sdhci\.debug_quirks2=4||' /boot/cmdline.txt
 
 if ! grep -q splash /boot/cmdline.txt; then
@@ -195,8 +237,8 @@ if ! check_commands; then
 fi
 
 if main; then
-  whiptail --infobox "Resized root filesystem. Rebooting in 5 seconds..." 20 60
-  sleep 5
+  whiptail --infobox "Resized root filesystem. Rebooting in 1 second..." 20 60
+  sleep 1
 else
   sleep 5
   whiptail --msgbox "Could not expand filesystem, please try raspi-config or rc_gui.\n${FAIL_REASON}" 20 60
