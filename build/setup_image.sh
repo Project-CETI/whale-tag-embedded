@@ -55,22 +55,25 @@ time apt install "${APT_NONINTERACTIVE}" --fix-broken --no-upgrade \
 
 apt "${APT_NONINTERACTIVE}" autoremove
 
-# Enable I2C0
-raspi-config nonint do_i2c 0
+# Setup hardware parameters for i2c
 echo "dtparam=i2c_vc=on" >> /boot/config.txt
-
-# Increase the I2C clock rates.
 echo "dtparam=i2c_vc_baudrate=400000" >> /boot/config.txt
 echo "dtparam=i2c_arm_baudrate=400000" >> /boot/config.txt
 
-# Enable UART port, but disable serial console and ability to log into pi using it
-raspi-config nonint do_serial 2
+# Set WiFi country standard
+raspi-config nonint do_wifi_country US
 
 # Enable SSH.
-touch /boot/ssh
+raspi-config nonint do_ssh 0
+
+# Set timezone
+raspi-config nonint do_change_timezone "America/Dominica"
 
 # Update keyboard layout.
 sed -i -e 's/"gb"/"us"/' /etc/default/keyboard
+
+# Keep the original pi system user around
+/usr/bin/cancel-rename pi
 
 # Change default password
 echo -e "ceticeti\nceticeti" | passwd pi
@@ -92,6 +95,9 @@ echo "deb https://packages.cloud.google.com/apt aiyprojects-stable main" > /etc/
 curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
 apt update
 apt install -y aiy-usb-gadget
+
+# Do not run pi wizard
+rm -rf /etc/xdg/autostart/piwiz.desktop
 
 # Copy filesystem overlay.
 tar -cf - -C "${OVERLAY_DIR}" --owner=pi --group=pi . | tar -xf - -C /
