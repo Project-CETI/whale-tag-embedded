@@ -42,7 +42,7 @@
 #include "cetiTagWrapper.h"
 
 // At 96 kHz sampling rate; 16-bit; 3 channels 1 minute of data is 33750 KiB
-#define MAX_DATA_FILE_SIZE ( (5-1) * 33750 * 1024) // Yields approx 5 minute files at 96 KSPS
+#define MAX_AUDIO_DATA_FILE_SIZE ( (5-1) * 33750 * 1024) // Yields approx 5 minute files at 96 KSPS
 #define AUDIO_DATA_FILENAME_LEN (100)
 
 static char acqDataFileName[AUDIO_DATA_FILENAME_LEN] = {};
