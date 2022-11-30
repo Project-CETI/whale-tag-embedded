@@ -155,10 +155,10 @@ void *audioSpiThread(void *paramPtr) {
 #define SAMPLES_PER_RAM_PAGE (RAM_SIZE / CHANNELS / BYTES_PER_SAMPLE)
 
 static FLAC__StreamEncoder *flac_encoder = 0;
+static FLAC__int32 buff[SAMPLES_PER_RAM_PAGE*CHANNELS] = {0};
 
 void * audioWriteDataThread( void * paramPtr ) {
     FLAC__bool ok = true;
-    FLAC__int32 buff[CHANNELS] = {0};
     int pageIndex = 0;
     while (!g_exit) {
         if (page[pageIndex].readyToBeSavedToDisk) {
@@ -167,10 +167,10 @@ void * audioWriteDataThread( void * paramPtr ) {
             }
             for (size_t ix = 0; ix < SAMPLES_PER_RAM_PAGE; ix++) {
                 for (size_t channel = 0; channel < CHANNELS; channel++) {
-                    buff[channel] = (FLAC__int32)(FLAC__int16)(page[pageIndex].buffer[ix*BYTES_PER_SAMPLE] << 8) | (FLAC__int16)(page[pageIndex].buffer[ix*BYTES_PER_SAMPLE+1]);
+                    buff[ix+channel] = (FLAC__int32)(FLAC__int16)(page[pageIndex].buffer[ix*BYTES_PER_SAMPLE+channel] << 8) | (FLAC__int16)(page[pageIndex].buffer[ix*BYTES_PER_SAMPLE+channel+1]);
                 }
-                FLAC__stream_encoder_process_interleaved(flac_encoder, buff, 1);
             }
+            FLAC__stream_encoder_process_interleaved(flac_encoder, buff, 1);
             page[pageIndex].readyToBeSavedToDisk = false;
             acqDataFileLength += RAM_SIZE;
         } else {
