@@ -165,13 +165,9 @@ void * audioWriteDataThread( void * paramPtr ) {
             if ( (acqDataFileLength > MAX_AUDIO_DATA_FILE_SIZE) || (flac_encoder == 0) ) {
                 createNewAudioDataFile();
             }
-            // TODO: verify endianness is correct here
-            // TODO: if you call the encoder function with more than just one set of samples, it will be more efficient
-            //       but rpi0 does not have enough RAM to allocate the full buffer to fit all samples receieved from SPI
             for (size_t ix = 0; ix < SAMPLES_PER_RAM_PAGE; ix++) {
                 for (size_t channel = 0; channel < CHANNELS; channel++) {
-                    buff[channel] = 0;
-                    buff[channel] = (FLAC__int32)(FLAC__int16)(page[pageIndex].buffer[ix*BYTES_PER_SAMPLE+1] << 8) | (FLAC__int16)(page[pageIndex].buffer[ix*BYTES_PER_SAMPLE]);
+                    buff[channel] = (FLAC__int32)(FLAC__int16)(page[pageIndex].buffer[ix*BYTES_PER_SAMPLE] << 8) | (FLAC__int16)(page[pageIndex].buffer[ix*BYTES_PER_SAMPLE+1]);
                 }
                 FLAC__stream_encoder_process_interleaved(flac_encoder, buff, 1);
             }
@@ -182,7 +178,7 @@ void * audioWriteDataThread( void * paramPtr ) {
         }
         pageIndex = !pageIndex;
     }
-    ok &= FLAC__stream_encoder_finish(flac_encoder);
+    FLAC__stream_encoder_finish(flac_encoder);
     FLAC__stream_encoder_delete(flac_encoder);
     flac_encoder = 0;
     return NULL;
@@ -214,12 +210,9 @@ static void createNewAudioDataFile() {
         return;
     }
 
-    ok &= FLAC__stream_encoder_set_verify(flac_encoder, true);
-    ok &= FLAC__stream_encoder_set_compression_level(flac_encoder, 5);
     ok &= FLAC__stream_encoder_set_channels(flac_encoder, CHANNELS);
     ok &= FLAC__stream_encoder_set_bits_per_sample(flac_encoder, BITS_PER_SAMPLE);
     ok &= FLAC__stream_encoder_set_sample_rate(flac_encoder, SAMPLE_RATE);
-    ok &= FLAC__stream_encoder_set_total_samples_estimate(flac_encoder, MAX_SAMPLES_PER_FILE);
 
     if (!ok) {
         CETI_LOG("FLAC encoder failed to set parameters for %s", acqDataFileName);
