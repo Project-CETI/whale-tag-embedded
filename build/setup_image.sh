@@ -60,12 +60,6 @@ echo "dtparam=i2c_vc=on" >> /boot/config.txt
 echo "dtparam=i2c_vc_baudrate=400000" >> /boot/config.txt
 echo "dtparam=i2c_arm_baudrate=400000" >> /boot/config.txt
 
-# Set WiFi country standard
-raspi-config nonint do_wifi_country US
-
-# Enable SSH.
-raspi-config nonint do_ssh 0
-
 # Set timezone
 raspi-config nonint do_change_timezone "America/Dominica"
 

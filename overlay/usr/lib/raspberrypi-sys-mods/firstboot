@@ -269,6 +269,7 @@ main () {
   fix_partuuid
   sethostname
   raspi-config nonint do_ssh 0
+  raspi-config nonint do_wifi_country US
 
   mount /boot -o remount,ro
   mount / -o remount,rw
