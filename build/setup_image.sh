@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 if [ "$#" -ne 4 ]; then
     echo "$0 <out_dir> <build-dir> <overlay-dir> <packages-dir>" >&2

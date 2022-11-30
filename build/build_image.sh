@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 if [[ "$#" -ne 1 ]]; then
   echo "$0 <out_dir>" >&2

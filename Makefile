@@ -19,7 +19,6 @@ build: docker-image
 	dos2unix packages/*
 	dos2unix packages/*/debian/*
 	mkdir -p $(OUT_DIR)
-	build/download_raspios.sh $(OUT_DIR)
 	build/build.sh $(OUT_DIR)
 
 clean:

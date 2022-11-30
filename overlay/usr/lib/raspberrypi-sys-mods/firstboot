@@ -60,6 +60,10 @@ get_variables () {
   ROOT_PART_START=$(echo "$ROOT_PART_LINE" | cut -d ":" -f 2)
   ROOT_PART_END=$(echo "$ROOT_PART_LINE" | cut -d ":" -f 3)
 
+  DATA_PART_LINE=$(echo "$PARTITION_TABLE" | grep -e "^${DATA_PART_NUM}:")
+  DATA_PART_START=$(echo "$DATA_PART_LINE" | cut -d ":" -f 2)
+  DATA_PART_END=$(echo "$DATA_PART_LINE" | cut -d ":" -f 3)
+
   if [ "$NOOBS" = "1" ]; then
     EXT_PART_LINE=$(echo "$PARTITION_TABLE" | grep ":::;" | head -n 1)
     EXT_PART_NUM=$(echo "$EXT_PART_LINE" | cut -d ":" -f 1)
@@ -69,8 +73,6 @@ get_variables () {
 }
 
 fix_partuuid() {
-  mount -o remount,rw "$ROOT_PART_DEV"
-  mount -o remount,rw "$BOOT_PART_DEV"
   DISKID="$(tr -dc 'a-f0-9' < /dev/hwrng | dd bs=1 count=8 2>/dev/null)"
   fdisk "$ROOT_DEV" > /dev/null <<EOF
 x
@@ -85,22 +87,18 @@ EOF
     sync
   fi
 
-  mount -o remount,ro "$ROOT_PART_DEV"
-  mount -o remount,ro "$BOOT_PART_DEV"
 }
 
 fix_wpa() {
   if [ -e /boot/firstrun.sh ] \
      && ! grep -q 'imager_custom set_wlan' /boot/firstrun.sh \
      && grep -q wpa_supplicant.conf /boot/firstrun.sh; then
-    mount -o remount,rw "$ROOT_PART_DEV"
     modprobe rfkill
     REGDOMAIN=$(sed -n 's/^\s*country=\(..\)$/\1/p' /boot/firstrun.sh)
     [ -n "$REGDOMAIN" ] && raspi-config nonint do_wifi_country "$REGDOMAIN"
     if systemctl -q is-enabled NetworkManager; then
       systemctl disable NetworkManager
     fi
-    mount -o remount,ro "$ROOT_PART_DEV"
   fi
 }
 
@@ -169,9 +167,6 @@ do_resize () {
 }
 
 sethostname() {
-  mount -o remount,rw /
-  mount -o remount,rw /boot
-
   if [ -z "$NETWORK_ADAPTER_NAME" ]; then
     NETWORK_ADAPTER_NAME="$(ls /sys/class/net/ | grep ^e | head -n1 | awk '{print $1;}')"
   fi
@@ -202,23 +197,16 @@ sethostname() {
     echo "$DEVICE_ID" > /etc/hostname
     sysctl kernel.hostname="$DEVICE_ID"
   fi
-
-  mount -o remount,ro /
-  mount -o remount,ro /boot
 }
 
 regenerate_ssh_host_keys () {
-  mount -o remount,rw /
   /usr/lib/raspberrypi-sys-mods/regenerate_ssh_host_keys
   RET="$?"
-  mount -o remount,ro /
   return "$RET"
 }
 
 apply_custom () {
   CONFIG_FILE="$1"
-  mount -o remount,rw /
-  mount -o remount,rw /boot
   if ! python3 -c "import toml" 2> /dev/null; then
     FAIL_REASON="custom.toml provided, but python3-toml is not installed\n$FAIL_REASON"
   else
@@ -234,8 +222,6 @@ apply_custom () {
     set +o pipefail
   fi
   rm -f "$CONFIG_FILE"
-  mount -o remount,ro /boot
-  mount -o remount,ro /
 }
 
 main () {
@@ -270,10 +256,6 @@ main () {
   sethostname
   raspi-config nonint do_ssh 0
   raspi-config nonint do_wifi_country US
-
-  mount /boot -o remount,ro
-  mount / -o remount,rw
-
   raspi-config nonint do_overlayfs 0
   return 0
 }
@@ -285,6 +267,8 @@ mkdir -p /run/systemd
 mount /boot
 mkdir -p /data
 mount -L cetiData /data
+mount /boot -o remount,rw
+mount / -o remount,rw
 
 sed -i 's| init=/usr/lib/raspberrypi-sys-mods/firstboot||' /boot/cmdline.txt
 sed -i 's| sdhci\.debug_quirks2=4||' /boot/cmdline.txt
@@ -292,7 +276,6 @@ sed -i 's| sdhci\.debug_quirks2=4||' /boot/cmdline.txt
 if ! grep -q splash /boot/cmdline.txt; then
   sed -i "s/ quiet//g" /boot/cmdline.txt
 fi
-mount /boot -o remount,ro
 sync
 
 main
