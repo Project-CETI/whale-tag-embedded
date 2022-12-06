@@ -4,14 +4,15 @@
 // Developed under contract for Harvard University Wood Lab
 //-----------------------------------------------------------------------------
 //
-// Note - version must correspond with the repository release tag 
+// Note - version must correspond with the repository release tag
 //
 // Version    Date    Description
 //  2_1.0   10/08/21   Begin work, establish framework
 //  2_1.1   06/27/22   Update v2.0 to work with v2.1 hardware
 //  2_1.2   07/03/22   Fix deploy timeout bug
 //  2_1.3   08/17/22   Bit-banged i2c for IMU, serial comms for Recovery Board
-//  2_1.4   11/3/22    Add battery check funcs, general clean up. FPGA shutdown method 
+//  2_1.4   11/3/22    Add battery check funcs, general clean up. FPGA shutdown method
+//  2_1.5   11/24/22   Change RAM buffer size to accomodate read-only rootfs
 //
 //-----------------------------------------------------------------------------
 // Project: CETI Tag Electronics
@@ -22,7 +23,7 @@
 #ifndef CETI_WRAP_H
 #define CETI_WRAP_H
 
-#define CETI_VERSION "v2_1.4 release candidate - in test"
+#define CETI_VERSION "v2_1.5 release candidate - in test"
 
 #include <stdio.h>
 
@@ -179,22 +180,22 @@ extern int testRecoverySerial(void);
 #define SPI_BLOCK_SIZE                                                         \
     (HWM * 32) // make SPI block size <= HWM * 32 otherwise may underflow
 
-// 	NUM_SPI_BLOCKS is the number of blocks acquired before writing out to
-// mass storage 	A setting of 2100 will give buffer about 30 seconds at a time if
-// sample rate is 96 kHz 	Example sizing of buffer (DesignMaps.xlsx has a
-// calcuator for this)
-// 		* SPI block HWM * 32 bytes = 8192 bytes (25% of the hardware FIFO
-// in this example)
-// 		* Sampling rate 96000 Hz
-// 		* 6 bytes per sample set (3 channels, 16 bits per channel)
-// 		* 1 SPI Block is then 8192/6 = 1365.333 sample sets or about 14 ms
-// worth of data in time
-// 		* 30 seconds is 30/.014  = about 2142 SPI blocks
+// NUM_SPI_BLOCKS is the number of blocks acquired before writing out to
+// mass storage. A setting of 2100 will give buffer about 30 seconds at a time if
+// sample rate is 96 kHz. Example sizing of buffer (DesignMaps.xlsx has a
+// calcuator for this):
 //
-//      * N.B. Make NUM_SPI_BLOCKS an integer multiple of 3 for alignment
-//      reasons
+//  - SPI block HWM * 32 bytes = 8192 bytes (25% of the hardware FIFO in this example)
+//  - Sampling rate 96000 Hz
+//  - 6 bytes per sample set (3 channels, 16 bits per channel)
+//  - 1 SPI Block is then 8192/6 = 1365.333 sample sets or about 14 ms worth of data in
+//  - 30 seconds is 30/.014  = about 2142 SPI blocks
+//
+// N.B. Make NUM_SPI_BLOCKS an integer multiple of 3 for alignment
+// reasons
 
-#define NUM_SPI_BLOCKS (2100*10)   // 5 minute files are created
+//#define NUM_SPI_BLOCKS (2100*10)   // 5 minute buffer
+#define NUM_SPI_BLOCKS (2100 * 2)    //1 minute buffer
 #define RAM_SIZE (NUM_SPI_BLOCKS * SPI_BLOCK_SIZE) // bytes
 
 //-----------------------------------------------------------------------------
