@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-To increase file.img by 500MB run:
+Increases the file.img by 500MB and create an ext4 partition at the end with label cetiData:
 
 sudo ./expand_image.py --expand-bytes $((500*1024*1024)) file.img
 
@@ -9,12 +9,12 @@ sudo ./expand_image.py --expand-bytes $((500*1024*1024)) file.img
 import argparse
 import subprocess
 
-from build_common import do_expand
+from build_common import do_add_data_partition
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Expands image file by specified about of bytes",
+        description="Expands image file by specified about of bytes and create an ext4 partition at the end with label cetiData",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
@@ -29,7 +29,7 @@ def main():
     parser.add_argument(
         "--expand-bytes",
         type=int,
-        default=(2**32),
+        default=(2**30),
         help="expand image file by this amount of bytes",
     )
     parser.add_argument("image", help="path to image file")
@@ -41,7 +41,7 @@ def main():
     else:
         args.stdout, args.stderr = subprocess.DEVNULL, subprocess.DEVNULL
 
-    do_expand(args, args.image, args.expand_bytes)
+    do_add_data_partition(args, args.image, args.expand_bytes)
 
 
 if __name__ == "__main__":

@@ -18,9 +18,14 @@ function expand_image {
   sudo PYTHONDONTWRITEBYTECODE=yes "${SCRIPT_DIR}/expand_image.py" "$@"
 }
 
+function add_data_partition {
+  sudo PYTHONDONTWRITEBYTECODE=yes "${SCRIPT_DIR}/add_partition.py" "$@"
+}
+
 # Resize image if needed.
 if ! shell_image "${IMAGE}" "ls /tmp/resized"; then
-  expand_image --expand-bytes $((500*1024*1024)) "${IMAGE}"
+  expand_image --expand-bytes $((2048*1024*1024)) "${IMAGE}"
+  add_data_partition --expand-bytes $((500*1024*1024)) "${IMAGE}"
   shell_image "${IMAGE}" "touch /tmp/resized"
 fi
 

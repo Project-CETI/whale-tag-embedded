@@ -10,7 +10,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEB_DIR="$(cd "$1" && pwd)"
 PACKAGES=( \
     "${SCRIPT_DIR}/ceti-tag-data-capture" \
-    "${SCRIPT_DIR}/ceti-tag-set-hostname" \
 )
 
 function build_package {
