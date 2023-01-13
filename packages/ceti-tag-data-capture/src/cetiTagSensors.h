@@ -11,13 +11,14 @@
 #ifndef CETI_SNSRS_H
 #define CETI_SNSRS_H
 
-#include <inttypes.h>
+#define _GNU_SOURCE   // change how sched.h is included
 #include <sched.h>
+#include <sys/mman.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <unistd.h>
 
 #include <pigpio.h>

@@ -11,15 +11,15 @@
 
 #include "cetiTagECG_adc.h"
 
-// ========================================================
-// ==================== INITIALIZATION ====================
-// ========================================================
-
+// Variables declared as extern in the header file.
 uint8_t ecg_adc_config = 0;
 uint8_t ecg_adc_config_prev = 0;
 int ecg_adc_is_singleShot = 0;
 int ecg_adc_i2c_device = 0;
 
+// ========================================================
+// ==================== INITIALIZATION ====================
+// ========================================================
 
 // Initialize the I2C and connect to the ADC.
 int ecg_adc_setup(int i2c_bus)

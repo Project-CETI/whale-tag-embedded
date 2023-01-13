@@ -10,15 +10,15 @@
 
 #include "cetiTagECG_logging.h"
 
-// ========================================================
-// =============== INITIALIZATION / CLEANUP ===============
-// ========================================================
-
+// Variables declared as extern in the header file.
 char ecg_log_filepath[100] = {};
 FILE *ecg_log_fout = 0;
 struct timeval ecg_log_entry_time_timeval;
 long long ecg_log_entry_time_us = 0;
 
+// ========================================================
+// =============== INITIALIZATION / CLEANUP ===============
+// ========================================================
 
 int ecg_log_setup()
 {

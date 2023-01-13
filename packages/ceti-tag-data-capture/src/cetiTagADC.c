@@ -89,11 +89,23 @@ void *audioSpiThread(void *paramPtr) {
     /* Set GPIO modes */
     gpioSetMode(AUDIO_DATA_AVAILABLE, PI_INPUT);
 
+    // Set the thread priority.
     struct sched_param sp;
     memset(&sp, 0, sizeof(sp));
     sp.sched_priority = sched_get_priority_max(SCHED_RR);
-    sched_setscheduler(0, SCHED_RR, &sp);
-    mlockall(MCL_CURRENT | MCL_FUTURE);
+    if(sched_setscheduler(getpid(), SCHED_RR, &sp) == 0)
+      CETI_LOG("audioSpiThread(): Successfully set priority");
+    else
+      CETI_LOG("audioSpiThread(): Failed to set priority");
+    // Set the thread CPU affinity.
+    cpu_set_t cpu_list;
+    CPU_ZERO(&cpu_list);
+    CPU_SET(0, &cpu_list);
+    if(sched_setaffinity(getpid(), sizeof(cpu_list), &cpu_list) == 0)
+      CETI_LOG("audioSpiThread(): Successfully set CPU affinity");
+    else
+      CETI_LOG("audioSpiThread(): Failed to set CPU affinity");
+//    mlockall(MCL_CURRENT | MCL_FUTURE);
 
     volatile int status;
     volatile int prev_status;
@@ -276,12 +288,12 @@ int setup_audio_96kHz(void)   //Initial deployments will use 96 KSPS only. The s
         cam(1,0,0,0,0,cam_response);       //second time  dummy clocks to get result
 
         if (cam_response[5] != 0x08) {
-            CETI_LOG("Failed to set ADC sampling to 96 kHz - Reg 0x01 reads back 0x%02X%02X should be 0x0008 ", cam_response[4],cam_response[5]);
+            CETI_LOG("Failed to set audio ADC sampling to 96 kHz - Reg 0x01 reads back 0x%02X%02X should be 0x0008 ", cam_response[4],cam_response[5]);
             return -1; //ADC failed to configure as expected
         }
     }
     
-    CETI_LOG("Successfully set ADC sampling to 96 kHz - Reg 0x01 reads back 0x%02X%02X should be 0x0008 ", cam_response[4],cam_response[5]);
+    CETI_LOG("Successfully set audio ADC sampling to 96 kHz - Reg 0x01 reads back 0x%02X%02X should be 0x0008 ", cam_response[4],cam_response[5]);
     return 0;
 }
 

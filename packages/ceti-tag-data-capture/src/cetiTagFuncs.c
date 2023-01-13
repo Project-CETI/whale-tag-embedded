@@ -625,9 +625,9 @@ int initTag(void) {
     // Set the ADC Up with defaults (96 kHz)
     #if USE_AUDIO
     if (!setup_audio_96kHz())
-        CETI_LOG("initTag(): Succesfully set sampling rate to 96 kHz");
+        CETI_LOG("initTag(): Successfully set audio sampling rate to 96 kHz");
     else {
-        CETI_LOG("initTag(): ADC initial configuration failed - ADC register did not read "
+        CETI_LOG("initTag(): Audio ADC initial configuration failed - ADC register did not read "
                  "back as expected");
         return (-1);
     }
@@ -636,7 +636,7 @@ int initTag(void) {
     // Configure other peripherals here as needed
 
     if (!initI2cDevices())
-        CETI_LOG("initTag(): Succesfully initialized I2c devices");
+        CETI_LOG("initTag(): Successfully initialized I2c devices");
     else {
         CETI_LOG("I2C general failure");
         return (-1);

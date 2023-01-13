@@ -27,7 +27,7 @@
 #define CETI_VERSION "v2_1.6 release candidate - in test"
 
 // Select whether various sensors are available/enabled.
-#define USE_FPGA 0
+#define USE_FPGA 1
 #define USE_RTC 1
 #define USE_BURNWIRE 0
 #define USE_BATTERY_GAUGE 1

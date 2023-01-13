@@ -9,6 +9,8 @@
 // excluded, in a separate module)
 //-----------------------------------------------------------------------------
 
+#define _GNU_SOURCE   // change how sched.h is included
+
 #include <sys/time.h>
 #include <sys/param.h>
 #include <unistd.h>
@@ -44,6 +46,24 @@ const char * get_state_str(wt_state_t state) {
 //  - Keep track of the operational state of the tag
 //-----------------------------------------------------------------------------
 void *sensorThread(void *paramPtr) {
+
+    // Set the thread priority.
+    struct sched_param sp;
+    memset(&sp, 0, sizeof(sp));
+    sp.sched_priority = sched_get_priority_max(SCHED_RR);
+    if(sched_setscheduler(getpid(), SCHED_RR, &sp) == 0)
+      CETI_LOG("sensorThread(): Successfully set priority");
+    else
+      CETI_LOG("sensorThread(): Failed to set priority");
+    // Set the thread CPU affinity.
+    cpu_set_t cpu_list;
+    CPU_ZERO(&cpu_list);
+    CPU_SET(1, &cpu_list);
+    if(sched_setaffinity(getpid(), sizeof(cpu_list), &cpu_list) == 0)
+      CETI_LOG("sensorThread(): Successfully set CPU affinity");
+    else
+      CETI_LOG("sensorThread(): Failed to set CPU affinity");
+
     FILE *snsData = NULL; // data file for non-audio sensor data
 
     char header[250] = "Timestamp(ms)";
