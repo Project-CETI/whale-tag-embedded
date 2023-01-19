@@ -37,7 +37,9 @@ function install_package {
   fi
 }
 
-time apt install "${APT_NONINTERACTIVE}" --fix-broken --no-upgrade \
+apt update
+
+time apt install "${APT_NONINTERACTIVE}" --fix-broken --fix-missing --no-upgrade \
   alsa-utils \
   avahi-utils \
   bc \
