@@ -83,6 +83,7 @@ echo "/dev/disk/by-label/cetiData /data ext4 defaults,nofail 0 0" >> /etc/fstab
 # Build and install whale tag software as debian packages
 /packages/make_dpkg.sh "${OUT_DIR}"
 install_package "$(ls "${OUT_DIR}"/ceti-tag-data-capture_*.deb)"
+install_package "$(ls "${OUT_DIR}"/ceti-tag-battery-monitor_*.deb)"
 
 # Disable first boot rootfs resize
 rm /etc/init.d/resize2fs_once

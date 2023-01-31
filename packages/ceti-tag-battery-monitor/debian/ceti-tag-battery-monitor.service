@@ -1,0 +1,13 @@
+[Unit]
+Description=Monitors the remaining charge of the battery and shuts down the system if the battery is low
+After=network.target local-fs.target getty.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/ceti-tag-battery-monitor
+ExecStart=/opt/ceti-tag-battery-monitor/tagMonitor.sh
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
