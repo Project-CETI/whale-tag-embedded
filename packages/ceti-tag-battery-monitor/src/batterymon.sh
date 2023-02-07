@@ -1,14 +1,18 @@
 #!/bin/bash
 
-# micro-SD storage and battery periodic monitoring  
+# Battery periodic monitoring  
+
 while :
 do
 
 # check the cell voltages and power off if needed. Hardcoded
 # for now at 3V per cell.  
 
-	v1=$(/opt/ceti-tag-battery-monitor/cetiTagBatteryStatus checkCell_1)
-	v2=$(/opt/ceti-tag-battery-monitor/cetiTagBatteryStatus checkCell_2)
+	echo "checkCell_1" > cetiCommand
+	v1=$(cat cetiResponse)
+	echo "checkCell_2" > cetiCommand
+	v2=$(cat cetiResponse)
+
 	echo "cell voltages are $v1 $v2"
 
 # If either cell is less than 3.00 V:
@@ -40,10 +44,6 @@ echo "stopping cetiTagApp"
 echo "quit" > /opt/ceti-tag-data-capture/ipc/cetiCommand
 cat /opt/ceti-tag-data-capture/ipc/cetiResponse
 sleep 15
-
-# Optionally disable the service, must be reenabled when waking the tag up
-# echo "disabling ceti-tag-data-capture service"
-# systemctl disable ceti-tag-data-capture
 
 echo "good night!"
 
