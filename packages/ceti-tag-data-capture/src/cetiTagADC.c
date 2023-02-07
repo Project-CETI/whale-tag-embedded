@@ -29,6 +29,7 @@
 
 #include <FLAC/stream_encoder.h>
 #include <pigpio.h>
+#include <pthread.h>
 #include <sched.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -94,6 +95,13 @@ void *audioSpiThread(void *paramPtr) {
     sp.sched_priority = sched_get_priority_max(SCHED_RR);
     sched_setscheduler(0, SCHED_RR, &sp);
     mlockall(MCL_CURRENT | MCL_FUTURE);
+
+    pthread_t thread;
+    thread = pthread_self();
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(0, &cpuset); // Run on CPU number 0
+    pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset);
 
     volatile int status;
     volatile int prev_status;
