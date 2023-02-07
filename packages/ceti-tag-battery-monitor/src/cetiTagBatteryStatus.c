@@ -1,25 +1,9 @@
-//-----------------------------------------------------------------------------
-// Project: CETI Tag Electronics
-// File: cetiTagBatteryStatus.c
-// 
-// Description: The code in this file supports battery monitoring and is part of 
-// of the ceti-tag-battery-monitor systemd service. The service uses named pipes 
-// to execute functions to utilize the Tag's battery monitoring hardware and 
-// power control features.   
-//              
-//-----------------------------------------------------------------------------
-
 #include <pigpio.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
-#define CMD "cetiCommand"  // fifos for exchanging data with shell script or
-#define RSP "cetiResponse" // other program(s)
-
 #define ADDR_GAS_GAUGE 0x59
-
 // DS2778 Gas Gauge Registers and Settings
 #define PROTECT 0x00
 #define BATT_CTL 0x60  
@@ -35,112 +19,55 @@
 #define BATT_CTL_VAL 0X8E  //SETS UV CUTOFF TO 2.6V
 #define OV_VAL 0x5A //SETS OV CUTOFF TO 4.2V
 
-void *cmdHdlThread(void *paramPtr);
-int hdlCmd(void);
-void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
-                unsigned int pld0, unsigned int pld1, char *pResponse);
-int getBattStatus(double *batteryData);
-
 //-----------------------------------------------------------------------------
-// GPIO needed to use the hardware Control and Monitor interface (CAM)
+// GPIO For CAM
+
 #define RESET (5) // GPIO 5
 #define DIN (19)  // GPIO 19  FPGA -> HOST
 #define DOUT (18) // GPIO 18  HOST-> FPGA
 #define SCK (16)  // Moved from GPIO 1 to GPIO 16 to free I2C0
 #define NUM_BYTES_MESSAGE 8
-//-----------------------------------------------------------------------------
-// Named pipes for communication with other programs
-FILE *g_cmd = NULL;
-FILE *g_rsp = NULL;
 
-char g_command[256];
-int g_exit = 0;
-int g_cmdPend = 0;
+int getBattStatus(double *batteryData) {
 
-//-----------------------------------------------------------------------------
-void *cmdHdlThread(void *paramPtr) {
-    while (!g_exit) {
-        if (!g_cmdPend) { // open the comand pipe for reading and wait for a
-                          // command
-            g_cmd = fopen(CMD, "r");      // blocked here waiting
-            fgets(g_command, 256, g_cmd); // get the command
-            fclose(g_cmd);                // close the pipe
-            g_cmdPend = 1;
-        } else {
-            usleep(100);
-        }
+    int fd, result;
+    signed short voltage, current;
+
+    if ((fd = i2cOpen(1, ADDR_GAS_GAUGE, 0)) < 0) {
+        return (-1);
     }
-    return NULL;
+
+    result = i2cReadByteData(fd, CELL_1_V_MS);
+    voltage = result << 3;
+    result = i2cReadByteData(fd, CELL_1_V_LS);
+    voltage = (voltage | (result >> 5));
+    voltage = (voltage | (result >> 5));
+    batteryData[0] = 4.883e-3 * voltage;
+
+    result = i2cReadByteData(fd, CELL_2_V_MS);
+    voltage = result << 3;
+    result = i2cReadByteData(fd, CELL_2_V_LS);
+    voltage = (voltage | (result >> 5));
+    voltage = (voltage | (result >> 5));
+    batteryData[1] = 4.883e-3 * voltage;
+
+    result = i2cReadByteData(fd, BATT_I_MS);
+    current = result << 8;
+    result = i2cReadByteData(fd, BATT_I_LS);
+    current = current | result;
+    batteryData[2] = 1000 * current * (1.5625e-6 / R_SENSE);
+
+    i2cClose(fd);
+    return (0);
 }
+
 //-----------------------------------------------------------------------------
-int hdlCmd(void) {
-
-    char cTemp[256]; 
-    double batteryData[3];
-
-    //-----------------------------------------------------------------------------
-    // Part 1 - quit or any other special commands here
-    if (!strncmp(g_command, "quit", 4)) {
-        printf("Quitting\n");
-        g_rsp = fopen(RSP, "w");
-        fprintf(g_rsp, "Stopping the battery monitoring app\n"); // echo it back
-        fclose(g_rsp);  
-        g_exit = 1;
-        return 0;
-    }  
-
-    if (!strncmp(g_command, "checkCell_1", 11)) {
-     //   printf("hdlCmd(): Read cell 1 voltage\n");
-        getBattStatus(batteryData);
-        g_rsp = fopen(RSP, "w");
-        fprintf(g_rsp, "%.2f\n", batteryData[0]);
-        fclose(g_rsp);
-        return 0;
-    }
-
-    if (!strncmp(g_command, "checkCell_2", 11)) {
-     //   printf("hdlCmd(): Read cell 2 voltage\n");
-        getBattStatus(batteryData);
-        g_rsp = fopen(RSP, "w");
-        fprintf(g_rsp, "%.2f\n", batteryData[1]);
-        fclose(g_rsp);
-        return 0;
-    }
-
-    if (!strncmp(g_command, "powerdown", 9)) {
-        printf("hdlCmd(): Power down via FPGA \n");
-        g_rsp = fopen(RSP, "w");
-        // now send the FPGA shutdown opcode via CAM
-        // opcode 0xF will do a register write on i2c1
-        // 0x59 is the 7-bit i2c addr of BMS IC, 
-        // set register 0 to 0 will turn it off
-        // set register 0 to 3 to reactivate
-        cam(0x0F, 0xB2, 0x00, 0x00, 0x00, cTemp);
-        // To complete the shutdown, the Pi must be powered down
-        // now by an external process.  Currently the design 
-        // uses the tagMonitor script to do the Pi shutdown.
-        // After the Pi turns off, the FPGA will disable discharging
-        // and charging by sending a final i2c message to the BMS chip 
-        // to pull the plug. 
-        // A charger connection is required to wake up the tag after this event
-        // and charging/discharging needs to subsequently be 
-        // renabled.
-
-        fprintf(g_rsp,"hdlCmd(): Powering the tag down!\n");
-        fclose(g_rsp);
-        return 0;
-    }
-
-    else {
-        g_rsp = fopen(RSP, "w");
-        fprintf(g_rsp, "\n"); // echo it
-        fprintf(g_rsp, "Battery monitor did not recognize that command\n");
-        fprintf(g_rsp, "\n");
-        fclose(g_rsp);
-        return 0;
-    }
-    return 1;
-}
+// Control and monitor interface between Pi and the hardware
+//  - Uses the FPGA to implement flexible bridging to peripherals
+//  - Host (the Pi) sends and opcode, arguments and payload (see design doc for
+//  opcode defintions)
+//  - FPGA receives, executes the opcode and returns a pointer to the response
+//  string
 //-----------------------------------------------------------------------------
 void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
          unsigned int pld0, unsigned int pld1, char *pResponse) {
@@ -208,62 +135,35 @@ void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
         *(pResponse + j) = recv_packet[j];
     }
 }
-//-----------------------------------------------------------------------------
-int getBattStatus(double *batteryData) {
 
-    int fd, result;
-    signed short voltage, current;
-
-    if ((fd = i2cOpen(1, ADDR_GAS_GAUGE, 0)) < 0) {
-        return (-1);
-    }
-
-    result = i2cReadByteData(fd, CELL_1_V_MS);
-    voltage = result << 3;
-    result = i2cReadByteData(fd, CELL_1_V_LS);
-    voltage = (voltage | (result >> 5));
-    voltage = (voltage | (result >> 5));
-    batteryData[0] = 4.883e-3 * voltage;
-
-    result = i2cReadByteData(fd, CELL_2_V_MS);
-    voltage = result << 3;
-    result = i2cReadByteData(fd, CELL_2_V_LS);
-    voltage = (voltage | (result >> 5));
-    voltage = (voltage | (result >> 5));
-    batteryData[1] = 4.883e-3 * voltage;
-
-    result = i2cReadByteData(fd, BATT_I_MS);
-    current = result << 8;
-    result = i2cReadByteData(fd, BATT_I_LS);
-    current = current | result;
-    batteryData[2] = 1000 * current * (1.5625e-6 / R_SENSE);
-
-    i2cClose(fd);
-    return (0);
-}
-//-----------------------------------------------------------------------------
 int main(int argc, char *argv[]) {
+    double batteryData[3] = {0};
 
-    pthread_t cmdHdlThreadId = 0;
-    
-    pthread_create(&cmdHdlThreadId, NULL, &cmdHdlThread, NULL);
-    
-    if (gpioInitialise() < 0) {
-        fprintf(stderr, "Battery monitor gpio failed to initialize properly");
+    if (!getBattStatus(batteryData)) {
+        fprintf(stderr, "Error quering gas gauge\n");
     }
-    
-    while (!g_exit) { // main loop 
-        usleep(100000);
-        if (g_cmdPend) {
-            hdlCmd();
-            g_cmdPend = 0;
-        }
+
+    if (argc <= 1) {
+        fprintf(stdout, "Battery voltage 1: %.2f V \n", batteryData[0]);
+        fprintf(stdout, "Battery voltage 2: %.2f V \n", batteryData[1]);
+        fprintf(stdout, "Battery current: %.2f mA \n", batteryData[2]);
+        return(0);
     }
-    
-    pthread_cancel(cmdHdlThreadId);
-    gpioTerminate();
-    printf("Battery monitor program closing\n");
-    return (0);   
+
+    if (!strncmp(argv[1], "checkCell_1", strlen("checkCell_1"))) {
+        fprintf(stdout, "%.2f\n", batteryData[0]);
+        return(0);
+    }
+
+    if (!strncmp(argv[1], "checkCell_2", strlen("checkCell_2"))) {
+        fprintf(stdout, "%.2f\n", batteryData[1]);
+        return(0);
+    }
+
+    if (!strncmp(argv[1], "powerdown", strlen("powerdown"))) {
+        char cTemp[256] = {0};
+        cam(0x0F, 0xB2, 0x00, 0x00, 0x00, cTemp);
+    }
 }
 
 
