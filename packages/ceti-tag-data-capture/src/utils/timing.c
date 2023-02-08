@@ -16,36 +16,35 @@ int init_timing() {
 }
 
 unsigned int getTimeDeploy(void) {
-  return 0;
-//    // open sensors.csv and get the first RTC timestamp for use
-//    // by state machine deployment timings.
-//
-//    FILE *sensorsCsvFile = NULL;
-//    char *pTemp;
-//
-//    char line[512];
-//
-//    char strTimeDeploy[16];
-//
-//    unsigned int timeDeploy;
-//
-//    sensorsCsvFile = fopen(SNS_FILE, "r");
-//    if (sensorsCsvFile == NULL) {
-//        CETI_LOG("getTimeDeploy():cannot open sensor csv output file");
-//        return (-1);
-//    }
-//
-//    fgets(line, 512, sensorsCsvFile); // first line is always the header
-//    fgets(line, 512, sensorsCsvFile); // first line of the actual data
-//
-//    // parse out the RTC count, which is in the 2nd column of the CSV
-//    for(pTemp = line; *pTemp != ',' ; pTemp++);  //find first comma
-//    strncpy(strTimeDeploy, pTemp+1, 10);         //copy the string
-//    strTimeDeploy[10] = '\0';                    //append terminator
-//    timeDeploy = strtoul(strTimeDeploy,NULL,0);  //convert to uint
-//
-//    fclose(sensorsCsvFile);
-//    return (timeDeploy);
+    // Open the state machine data file and get the first RTC timestamp.
+    // This will be used by the state machine to determine timeouts.
+
+    FILE *stateMachineCsvFile = NULL;
+    char *pTemp;
+
+    char line[512];
+
+    char strTimeDeploy[16];
+
+    unsigned int timeDeploy;
+
+    stateMachineCsvFile = fopen(STATEMACHINE_DATA_FILEPATH, "r");
+    if (stateMachineCsvFile == NULL) {
+        CETI_LOG("getTimeDeploy():cannot open state machine csv output file: %s", STATEMACHINE_DATA_FILEPATH);
+        return (-1);
+    }
+
+    fgets(line, 512, stateMachineCsvFile); // first line is always the header
+    fgets(line, 512, stateMachineCsvFile); // first line of the actual data
+
+    // parse out the RTC count, which is in the 2nd column of the CSV
+    for(pTemp = line; *pTemp != ',' ; pTemp++);  //find first comma
+    strncpy(strTimeDeploy, pTemp+1, 10);         //copy the string
+    strTimeDeploy[10] = '\0';                    //append terminator
+    timeDeploy = strtoul(strTimeDeploy,NULL,0);  //convert to uint
+
+    fclose(stateMachineCsvFile);
+    return (timeDeploy);
 }
 
 //-----------------------------------------------------------------------------

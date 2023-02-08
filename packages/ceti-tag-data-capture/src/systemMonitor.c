@@ -171,6 +171,7 @@ long long get_virtual_memory_total()
 //------------------------------------------
 long long get_virtual_memory_used()
 {
+  sysinfo(&memInfo);
   long long virtualMemUsed = memInfo.totalram - memInfo.freeram;
   //Add other values in next statement to avoid int overflow on right hand side...
   virtualMemUsed += memInfo.totalswap - memInfo.freeswap;
@@ -180,6 +181,7 @@ long long get_virtual_memory_used()
 
 long long get_ram_total()
 {
+  sysinfo(&memInfo);
   long long totalPhysMem = memInfo.totalram;
   //Multiply in next statement to avoid int overflow on right hand side...
   totalPhysMem *= memInfo.mem_unit;
@@ -190,6 +192,7 @@ long long get_ram_total()
 //  will not match the usage reported by the "free" command.
 long long get_ram_used()
 {
+  sysinfo(&memInfo);
   long long physMemUsed = memInfo.totalram - memInfo.freeram;
   //Multiply in next statement to avoid int overflow on right hand side...
   physMemUsed *= memInfo.mem_unit;
@@ -198,6 +201,7 @@ long long get_ram_used()
 
 long long get_ram_free()
 {
+  sysinfo(&memInfo);
   long long physMemFree = memInfo.freeram;
   //Multiply in next statement to avoid int overflow on right hand side...
   physMemFree *= memInfo.mem_unit;

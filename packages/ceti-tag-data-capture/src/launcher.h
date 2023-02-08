@@ -36,6 +36,7 @@
 #define STATEMACHINE_UPDATE_PERIOD_US 1000000
 #define SYSTEMMONITOR_SAMPLING_PERIOD_US 5000000
 
+// Setting a CPU to -1 will allow the system to decide (the thread will not set an affinity)
 #define AUDIO_SPI_CPU 3
 #define AUDIO_WRITEDATA_CPU 0
 #define ECG_CPU 2

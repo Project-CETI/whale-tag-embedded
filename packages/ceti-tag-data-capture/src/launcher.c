@@ -105,7 +105,7 @@ int main(void) {
     threads_running[num_threads] = &g_audio_thread_writeData_is_running;
     num_threads++;
     #endif
-    
+
     usleep(100000);
     CETI_LOG("main(): Created %d threads", num_threads);
 

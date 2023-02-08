@@ -12,6 +12,7 @@
 // Includes
 //-----------------------------------------------------------------------------
 #include "logging.h"
+#include "../launcher.h" // for the state machine data filepath, to get an initial RTC timestamp if needed
 #include <pigpio.h>
 #include <sys/time.h>
 
