@@ -137,8 +137,12 @@ void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
 }
 
 int main(int argc, char *argv[]) {
-    double batteryData[3] = {0};
+    if (gpioInitialise() < 0) {
+        fprintf(stderr, "main(): pigpio initialisation failed\n");
+        return 1;
+    }
 
+    double batteryData[3] = {0};
     if (!getBattStatus(batteryData)) {
         fprintf(stderr, "Error quering gas gauge\n");
     }
@@ -165,5 +169,3 @@ int main(int argc, char *argv[]) {
         cam(0x0F, 0xB2, 0x00, 0x00, 0x00, cTemp);
     }
 }
-
-

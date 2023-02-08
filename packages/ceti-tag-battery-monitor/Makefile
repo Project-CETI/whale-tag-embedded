@@ -24,7 +24,7 @@ build: $(APP)
 
 $(APP): $(OBJ)
 	mkdir -p $(BINDIR)
-	cp src/batterymon.sh $(BINDIR)
+	cp -Rp src/batterymon.sh $(BINDIR)
 	$(CC) $(CFLAGS) -o $(BINDIR)/$(APP) $(LDFLAGS) $(OBJ)
 
 install: build

@@ -4,8 +4,8 @@ After=network.target local-fs.target getty.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/ceti-tag-battery-monitor
-ExecStart=/opt/ceti-tag-battery-monitor/tagMonitor.sh
+WorkingDirectory=/opt/ceti-tag-battery-monitor/bin
+ExecStart=/opt/ceti-tag-battery-monitor/bin/batterymon.sh
 Restart=always
 RestartSec=60
 

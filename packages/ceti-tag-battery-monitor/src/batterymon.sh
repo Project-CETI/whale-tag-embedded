@@ -7,8 +7,8 @@ do
 # check the cell voltages and power off if needed. Hardcoded
 # for now at 3V per cell.  
 
-	v1=$(/opt/ceti-tag-battery-monitor/cetiTagBatteryStatus checkCell_1)
-	v2=$(/opt/ceti-tag-battery-monitor/cetiTagBatteryStatus checkCell_2)
+	v1=$(/opt/ceti-tag-battery-monitor/bin/cetiTagBatteryStatus checkCell_1)
+	v2=$(/opt/ceti-tag-battery-monitor/bin/cetiTagBatteryStatus checkCell_2)
 	echo "cell voltages are $v1 $v2"
 
 # If either cell is less than 3.00 V:
@@ -22,7 +22,7 @@ do
 	then
 	  	echo "low battery cell detected, powering Pi down now!"
 		echo s > /proc/sysrq-trigger
-	  	cetiResponse=$(/opt/ceti-tag-battery-monitor/cetiTagBatteryStatus powerdown)
+		cetiResponse=$(/opt/ceti-tag-battery-monitor/bin/cetiTagBatteryStatus powerdown)
 	  	cat $cetiResponse
 		echo u > /proc/sysrq-trigger
 		shutdown -P +1
@@ -39,12 +39,10 @@ done
 echo "stopping cetiTagApp"
 echo "quit" > /opt/ceti-tag-data-capture/ipc/cetiCommand
 cat /opt/ceti-tag-data-capture/ipc/cetiResponse
-sleep 15
+sleep 5
 
 # Optionally disable the service, must be reenabled when waking the tag up
 # echo "disabling ceti-tag-data-capture service"
 # systemctl disable ceti-tag-data-capture
 
 echo "good night!"
-
-
