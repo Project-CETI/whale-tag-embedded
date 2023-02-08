@@ -8,10 +8,14 @@
 // Description: Interfacing with the PCA9674 GPIO expander
 //-----------------------------------------------------------------------------
 
-#include "cetiTagECG_gpio_expander.h"
+#include "ecg_gpioExpander.h"
 
-// Variables declared as extern in the header file.
-int ecg_gpio_expander_i2c_device = 0;
+//-----------------------------------------------------------------------------
+// Initialization
+//-----------------------------------------------------------------------------
+
+// Global/static variables
+static int ecg_gpio_expander_i2c_device = 0;
 
 // Initialize and connect the GPIO expander via I2C.
 int ecg_gpio_expander_setup(int i2c_bus)
@@ -23,7 +27,7 @@ int ecg_gpio_expander_setup(int i2c_bus)
   ecg_gpio_expander_i2c_device = i2cOpen(i2c_bus, ECG_GPIO_EXPANDER_I2C_ADDRESS, 0);
   if(ecg_gpio_expander_i2c_device < 0)
   {
-    CETI_LOG("ecg_gpio_expander_setup(): Failed to connect to the GPIO expander: returned %d.", ecg_gpio_expander_i2c_device);
+    CETI_LOG("ecg_gpio_expander_setup(): XXX Failed to connect to the GPIO expander: returned %d.", ecg_gpio_expander_i2c_device);
     switch(ecg_gpio_expander_i2c_device)
     {
       case(PI_BAD_I2C_BUS): CETI_LOG(" (PI_BAD_I2C_BUS)"); break;
@@ -34,9 +38,9 @@ int ecg_gpio_expander_setup(int i2c_bus)
       default: CETI_LOG(" (UNKNOWN CODE)"); break;
     }
     CETI_LOG("\n");
-    return 0;
+    return -1;
   }
-  CETI_LOG("ecg_gpio_expander_setup(): GPIO expander connected successfully!\n");
+  CETI_LOG("ecg_gpio_expander_setup(): GPIO expander connected successfully!");
 
   // Note that all ports are inputs by default at power-on.
   // The below (untested) code should also set them all to inputs,
@@ -44,15 +48,21 @@ int ecg_gpio_expander_setup(int i2c_bus)
   //   To avoid this for now, the default state is leveraged and no commands are sent.
   //i2cWriteByte(ecg_gpio_expander_i2c_device, 0b11111111) // set all to inputs (1 = weakly driven high)
 
-  return 1;
+  return 0;
 }
 
 // Terminate the I2C connection.
 void ecg_gpio_expander_cleanup()
 {
-  CETI_LOG("ecg_gpio_expander_cleanup(): Terminating the GPIO interface.\n");
-  gpioTerminate();
+  // Commenting the below since the launcher will call gpioTerminate()
+  //  as part of the tag-wide cleanup.
+  //CETI_LOG("ecg_gpio_expander_cleanup(): Terminating the GPIO interface.\n");
+  //gpioTerminate();
 }
+
+//-----------------------------------------------------------------------------
+// Read/parse data
+//-----------------------------------------------------------------------------
 
 // Read all inputs of the GPIO expander.
 int ecg_gpio_expander_read()
@@ -76,9 +86,9 @@ int ecg_gpio_expander_read_dataReady()
 
 // Read the ECG leads-off detection output bit.
 // Will first read all inputs of the GPIO expander, then extract the desired bit.
-int ecg_gpio_expander_read_lod()
+int ecg_gpio_expander_read_leadsOff()
 {
-  return ecg_gpio_expander_parse_lod(ecg_gpio_expander_read());
+  return ecg_gpio_expander_parse_leadsOff(ecg_gpio_expander_read());
 }
 
 // Given a byte of all GPIO expander inputs, extract the ADC data-ready bit.
@@ -88,9 +98,9 @@ int ecg_gpio_expander_parse_dataReady(uint8_t data)
 }
 
 // Given a byte of all GPIO expander inputs, extract the ECG leads-off detection bit.
-int ecg_gpio_expander_parse_lod(uint8_t data)
+int ecg_gpio_expander_parse_leadsOff(uint8_t data)
 {
-  return (data >> ECG_GPIO_EXPANDER_CHANNEL_LOD) & 0b00000001;
+  return (data >> ECG_GPIO_EXPANDER_CHANNEL_LEADSOFF) & 0b00000001;
 }
 
 

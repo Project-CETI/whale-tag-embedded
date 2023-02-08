@@ -9,17 +9,21 @@
 // Description: Interfacing with the ADS1219 ADC
 //-----------------------------------------------------------------------------
 
-#ifndef CETI_ECG_ADC_H
-#define CETI_ECG_ADC_H
+#ifndef ECG_ADC_H
+#define ECG_ADC_H
 
-#include "cetiTagECG_gpio_expander.h" // for reading the ADC data-ready bit
-#include "../cetiTagLogging.h"        // for CETI_LOG()
+//-----------------------------------------------------------------------------
+// Includes
+//-----------------------------------------------------------------------------
+
+#include "ecg_gpioExpander.h" // for reading the ADC data-ready bit
+#include "../../utils/logging.h"    // for CETI_LOG()
 #include <pigpio.h> // for I2C functions
 #include <unistd.h> // for usleep()
 #include <stdio.h>  // for printing
 
 // ------------------------------------------
-// Define configuration constants for the ADC
+// Definitions/Configuration
 // ------------------------------------------
 
 #define ECG_ADC_I2C_ADDRESS  0b1000100
@@ -67,9 +71,9 @@
 #define ECG_ADC_CMD_RREG       0x10
 #define ECG_ADC_CONFIG_RESET   0x00
 
-// -------------------------------------------------------
-// Declare methods and state for interfacing with the ADC
-// -------------------------------------------------------
+//-----------------------------------------------------------------------------
+// Methods
+//-----------------------------------------------------------------------------
 
 // Initialization and shutdown
 int ecg_adc_setup(int i2c_bus);
@@ -95,12 +99,7 @@ uint8_t ecg_adc_read_register(uint8_t reg);
 long ecg_adc_read_data();
 int ecg_adc_read_data_ready();
 
-extern uint8_t ecg_adc_config;
-extern uint8_t ecg_adc_config_prev;
-extern int ecg_adc_is_singleShot;
-extern int ecg_adc_i2c_device;
-
-#endif // CETI_ECG_ADC_H
+#endif // ECG_ADC_H
 
 
 

@@ -9,17 +9,17 @@
 // Description: Interfacing with the ADS1219 ADC
 //-----------------------------------------------------------------------------
 
-#include "cetiTagECG_adc.h"
+#include "ecg_adc.h"
 
-// Variables declared as extern in the header file.
-uint8_t ecg_adc_config = 0;
-uint8_t ecg_adc_config_prev = 0;
-int ecg_adc_is_singleShot = 0;
-int ecg_adc_i2c_device = 0;
+//-----------------------------------------------------------------------------
+// Initialization
+//-----------------------------------------------------------------------------
 
-// ========================================================
-// ==================== INITIALIZATION ====================
-// ========================================================
+// Global/static variables
+static uint8_t ecg_adc_config = 0;
+static uint8_t ecg_adc_config_prev = 0;
+static int ecg_adc_is_singleShot = 0;
+static int ecg_adc_i2c_device = 0;
 
 // Initialize the I2C and connect to the ADC.
 int ecg_adc_setup(int i2c_bus)
@@ -38,7 +38,7 @@ int ecg_adc_setup(int i2c_bus)
   #endif
   if(ecg_adc_i2c_device < 0)
   {
-    CETI_LOG("ecg_adc_setup(): Failed to connect to the ADC: returned %d.", ecg_adc_i2c_device);
+    CETI_LOG("ecg_adc_setup(): XXX Failed to connect to the ADC: returned %d.", ecg_adc_i2c_device);
     switch(ecg_adc_i2c_device)
     {
       case(PI_BAD_I2C_BUS): CETI_LOG(" (PI_BAD_I2C_BUS)"); break;
@@ -49,9 +49,9 @@ int ecg_adc_setup(int i2c_bus)
       default: CETI_LOG(" (UNKNOWN CODE)"); break;
     }
     CETI_LOG("\n");
-    return 0;
+    return -1;
   }
-  CETI_LOG("ecg_adc_setup(): ADC connected successfully!\n");
+  CETI_LOG("ecg_adc_setup(): ADC connected successfully!");
 
   // Initialize state.
   ecg_adc_is_singleShot = 1;
@@ -63,7 +63,7 @@ int ecg_adc_setup(int i2c_bus)
   // Reset the configuration and initialize our ecg_adc_config state.
   ecg_adc_config_reset();
 
-  return 1;
+  return 0;
 }
 
 // Start continuous conversion if continuous mode is configured,
@@ -82,13 +82,15 @@ void ecg_adc_powerDown()
 // Terminate the I2C connection.
 void ecg_adc_cleanup()
 {
-  CETI_LOG("ecg_adc_cleanup(): Terminating the GPIO interface.\n");
-  gpioTerminate();
+  // Commenting the below since the launcher will call gpioTerminate()
+  //  as part of the tag-wide cleanup.
+  //CETI_LOG("ecg_adc_cleanup(): Terminating the GPIO interface.\n");
+  //gpioTerminate();
 }
 
-// ========================================================
-// ==================== MODES/SETTINGS ====================
-// ========================================================
+//-----------------------------------------------------------------------------
+// Modes/Settings
+//-----------------------------------------------------------------------------
 
 // Set the gain of the ADC.
 // @param gain Can be ECG_ADC_GAIN_ONE or ECG_ADC_GAIN_FOUR.
@@ -146,9 +148,9 @@ void ecg_adc_set_voltage_reference(uint8_t vref)
   ecg_adc_config_apply();
 }
 
-// ========================================================
-// =================== CONFIG/REGISTERS ===================
-// ========================================================
+//-----------------------------------------------------------------------------
+// Config/Registers
+//-----------------------------------------------------------------------------
 
 // Write configuration data to the ADC chip.
 void ecg_adc_write_config_register(uint8_t new_config_data)
@@ -184,9 +186,9 @@ uint8_t ecg_adc_read_register(uint8_t reg)
   return result;
 }
 
-// ========================================================
-// ======================= READ DATA ======================
-// ========================================================
+//-----------------------------------------------------------------------------
+// Read Data
+//-----------------------------------------------------------------------------
 
 // Read, parse, and return data.
 // Assumes ecg_adc_config is already set for the desired channel.
@@ -299,9 +301,9 @@ long ecg_adc_read_shorted()
   return ecg_adc_read_data();
 }
 
-// ========================================================
-// ======================= HELPERS ========================
-// ========================================================
+//-----------------------------------------------------------------------------
+// Helpers
+//-----------------------------------------------------------------------------
 
 // Read the data-ready bit, either via a direct connection or via the GPIO expander.
 int ecg_adc_read_data_ready()
