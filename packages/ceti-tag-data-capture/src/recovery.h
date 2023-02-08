@@ -1,4 +1,9 @@
-
+//-----------------------------------------------------------------------------
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+//-----------------------------------------------------------------------------
 
 #ifndef RECOVERY_H
 #define RECOVERY_H
@@ -8,21 +13,18 @@
 //-----------------------------------------------------------------------------
 #define _GNU_SOURCE   // change how sched.h will be included
 
-#include "launcher.h" // for g_exit
+#include "launcher.h" // for g_exit, sampling rate, data filepath, and CPU affinity
 #include "utils/logging.h"
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 
 #include <pigpio.h>
 #include <unistd.h> // for usleep()
 #include <string.h> // for memset() and other string functions
-#include <sched.h> // to get the current CPU assigned to the thread
+#include <pthread.h> // to set CPU affinity
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
-#define RECOVERY_SAMPLING_PERIOD_US 1000000
-#define RECOVERY_DATA_FILEPATH "/data/data_gps.csv"
-
 #define ADDR_MAINTAG_IOX 0x38 // NOTE also defined in burnwire.h
 #define GPS_LOCATION_LENGTH (1024)
 #define RCVRY_RP_nEN 0x01       //Recovery board controls

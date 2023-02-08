@@ -1,3 +1,9 @@
+//-----------------------------------------------------------------------------
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+//-----------------------------------------------------------------------------
 
 #include "recovery.h"
 
@@ -34,6 +40,20 @@ void* recovery_thread(void* paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_recovery_thread_tid = gettid();
 
+    // Set the thread CPU affinity.
+    if(RECOVERY_CPU >= 0)
+    {
+      pthread_t thread;
+      thread = pthread_self();
+      cpu_set_t cpuset;
+      CPU_ZERO(&cpuset);
+      CPU_SET(RECOVERY_CPU, &cpuset);
+      if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
+        CETI_LOG("recovery_thread(): Successfully set affinity to CPU %d", RECOVERY_CPU);
+      else
+        CETI_LOG("recovery_thread(): XXX Failed to set affinity to CPU %d", RECOVERY_CPU);
+    }
+
     // Main loop while application is running.
     CETI_LOG("recovery_thread(): Starting loop to periodically acquire data");
     long long global_time_us;
@@ -51,17 +71,11 @@ void* recovery_thread(void* paramPtr) {
       }
       else
       {
-        CETI_LOG("recovery_thread(): getting data");
         // Acquire timing and sensor information as close together as possible.
         global_time_us = get_global_time_us();
         rtc_count = getRtcCount();
         if(getGpsLocation(gps_location) < 0)
           strcat(recovery_data_file_notes, "ERROR | ");
-//        if(g_latest_battery_v1_v < 0 || g_latest_battery_v2_v < 0 || g_latest_battery_i_mA < 0) // it seems to return -0.01 for voltages and -5.19 for current when no sensor is connected
-//        {
-//          CETI_LOG("battery_thread(): XXX readings are likely invalid");
-//          strcat(battery_data_file_notes, "INVALID? | ");
-//        }
 
         // Write timing information.
         fprintf(recovery_data_file, "%lld", global_time_us);
@@ -79,7 +93,6 @@ void* recovery_thread(void* paramPtr) {
         // Take into account the time it took to acquire/save data.
         polling_sleep_duration_us = RECOVERY_SAMPLING_PERIOD_US;
         polling_sleep_duration_us -= get_global_time_us() - global_time_us;
-        CETI_LOG("recovery_thread(): acquisition time: %lld us", (get_global_time_us() - global_time_us));
         if(polling_sleep_duration_us > 0)
           usleep(polling_sleep_duration_us);
       }

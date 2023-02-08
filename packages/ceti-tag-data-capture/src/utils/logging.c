@@ -1,16 +1,8 @@
 //-----------------------------------------------------------------------------
-// CETI Tag Electronics
-// Cummings Electronics Labs, October 2021
-// Developed under contract for Harvard University Wood Lab
-//-----------------------------------------------------------------------------
-//  Version Date       Description
-//  0.00    10/08/21   Begin work, establish framework
-//  1.00    03/05/22   Switch to using syslog
-//
-//-----------------------------------------------------------------------------
-// Project: CETI Tag Electronics
-// File: logging.c
-// Description: Logging system for the project
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
 #include "logging.h"
@@ -42,10 +34,10 @@ int init_data_file(FILE* data_file, const char* data_filepath,
   // Write headers if the file didn't already exist.
   if(!data_file_exists)
   {
-    char header[250] = "";
-    strcat(header,   "Timestamp [us]");
-    strcat(header, ", RTC Count");
-    strcat(header, ", Notes");
+    char header[400] = "";
+    strcat(header,  "Timestamp [us]");
+    strcat(header, ",RTC Count");
+    strcat(header, ",Notes");
     for(int header_index = 0; header_index < num_data_file_headers; header_index++)
     {
       strcat(header, ", ");

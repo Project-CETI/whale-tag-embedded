@@ -1,15 +1,8 @@
 //-----------------------------------------------------------------------------
-// CETI Tag Electronics
-// Cummings Electronics Labs, October 2021
-// Developed under contract for Harvard University Wood Lab
-//-----------------------------------------------------------------------------
-// Version    Date    Description
-//  0.00    10/08/21   Begin work, establish framework
-//  1.00    03/05/22   Switch to using linux syslog
-//
-//-----------------------------------------------------------------------------
-// Project: CETI Tag Electronics
-// Description: Logging system for the project
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
 #ifndef LOGGING_H

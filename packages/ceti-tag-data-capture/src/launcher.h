@@ -1,13 +1,8 @@
 //-----------------------------------------------------------------------------
-// CETI Tag Electronics
-// Cummings Electronics Labs, October 2021
-// Developed under contract for Harvard University Wood Lab
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-// Project: CETI Tag Electronics
-// File: cetiTagWrapper.h
-// Description: The Ceti Tag application top level header file
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
 #ifndef LAUNCHER_H
@@ -17,16 +12,52 @@
 // Select which components to enable.
 //-----------------------------------------------------------------------------
 #define ENABLE_FPGA 1 // for audio acquisition AND for safe power-down sequences
-#define ENABLE_BATTERY_GAUGE 0
+#define ENABLE_BATTERY_GAUGE 1
 #define ENABLE_AUDIO 1
-#define ENABLE_ECG 0
-#define ENABLE_IMU 0
-#define ENABLE_LIGHT_SENSOR 0
-#define ENABLE_BOARDTEMPERATURE_SENSOR 0
-#define ENABLE_PRESSURETEMPERATURE_SENSOR 0
-#define ENABLE_RECOVERY 0
+#define ENABLE_ECG 1
+#define ENABLE_IMU 1
+#define ENABLE_LIGHT_SENSOR 1
+#define ENABLE_BOARDTEMPERATURE_SENSOR 1
+#define ENABLE_PRESSURETEMPERATURE_SENSOR 1
+#define ENABLE_RECOVERY 1
 #define ENABLE_SYSTEMMONITOR 1
-#define ENABLE_BURNWIRE 0
+#define ENABLE_BURNWIRE 1
+
+//-----------------------------------------------------------------------------
+// Sampling and logging configuration.
+//-----------------------------------------------------------------------------
+#define BATTERY_SAMPLING_PERIOD_US 1000000
+#define IMU_SAMPLING_PERIOD_US 1000000
+#define LIGHT_SAMPLING_PERIOD_US 1000000
+#define PRESSURETEMPERATURE_SAMPLING_PERIOD_US 1000000
+#define BOARDTEMPERATURE_SAMPLING_PERIOD_US 1000000
+#define RECOVERY_SAMPLING_PERIOD_US 5000000
+#define COMMAND_POLLING_PERIOD_US 1000
+#define STATEMACHINE_UPDATE_PERIOD_US 1000000
+#define SYSTEMMONITOR_SAMPLING_PERIOD_US 5000000
+
+#define AUDIO_SPI_CPU 3
+#define AUDIO_WRITEDATA_CPU 0
+#define ECG_CPU 2
+#define BATTERY_CPU 1
+#define IMU_CPU 1
+#define LIGHT_CPU 1
+#define PRESSURETEMPERATURE_CPU 1
+#define BOARDTEMPERATURE_CPU 1
+#define RECOVERY_CPU 1
+#define COMMAND_CPU 0
+#define STATEMACHINE_CPU 0
+#define SYSTEMMONITOR_CPU 0
+
+#define ECG_DATA_FILEPATH "/data/data_ecg.csv"
+#define BATTERY_DATA_FILEPATH "/data/data_battery.csv"
+#define IMU_DATA_FILEPATH "/data/data_imu.csv"
+#define LIGHT_DATA_FILEPATH "/data/data_light.csv"
+#define PRESSURETEMPERATURE_DATA_FILEPATH "/data/data_pressure_temperature.csv"
+#define BOARDTEMPERATURE_DATA_FILEPATH "/data/data_boardTemperature.csv"
+#define RECOVERY_DATA_FILEPATH "/data/data_gps.csv"
+#define STATEMACHINE_DATA_FILEPATH "/data/data_state.csv"
+#define SYSTEMMONITOR_DATA_FILEPATH "/data/data_systemMonitor.csv"
 
 //-----------------------------------------------------------------------------
 // Includes

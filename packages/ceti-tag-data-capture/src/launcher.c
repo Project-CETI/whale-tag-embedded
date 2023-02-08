@@ -1,17 +1,8 @@
 //-----------------------------------------------------------------------------
-// CETI Tag Electronics
-// Cummings Electronics Labs, October 2021
-// Developed under contract for Harvard University Wood Lab
-//-----------------------------------------------------------------------------
-// Version:  Refer to cetiTagWrapper.h
-//
-//-----------------------------------------------------------------------------
-// Project: CETI Tag Electronics
-// File: cetiTagWrapper.c
-// Description: The Ceti Tag Application Top Level Framework
-//  - main() Starts the log, runs inits and launches the command monitor thread
-//  - cmdHdlThread() monitors the command FIFO and signals main when a command
-//  is received
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
 #include "launcher.h"
@@ -37,6 +28,7 @@ int main(void) {
     init_logging();
 
     // Initialize components.
+    CETI_LOG("main(): -------------------------------------------------");
     CETI_LOG("main(): Starting initialization");
     init_tag(); // returns 0 if all components succeeded, < 0 if error(s)
 
@@ -45,6 +37,7 @@ int main(void) {
     pthread_t thread_ids[50] = {0};
     int* threads_running[50];
     int num_threads = 0;
+    CETI_LOG("main(): -------------------------------------------------");
     CETI_LOG("main(): Starting acquisition threads");
     // Handle user commands.
     pthread_create(&thread_ids[num_threads], NULL, &command_thread, NULL);
@@ -54,15 +47,6 @@ int main(void) {
     pthread_create(&thread_ids[num_threads], NULL, &stateMachine_thread, NULL);
     threads_running[num_threads] = &g_stateMachine_thread_is_running;
     num_threads++;
-    // Audio
-    #if ENABLE_AUDIO
-    pthread_create(&thread_ids[num_threads], NULL, &audio_thread_spi, NULL);
-    threads_running[num_threads] = &g_audio_thread_spi_is_running;
-    num_threads++;
-    pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeData, NULL);
-    threads_running[num_threads] = &g_audio_thread_writeData_is_running;
-    num_threads++;
-    #endif
     // IMU
     #if ENABLE_IMU
     pthread_create(&thread_ids[num_threads], NULL, &imu_thread, NULL);
@@ -111,14 +95,27 @@ int main(void) {
     threads_running[num_threads] = &g_systemMonitor_thread_is_running;
     num_threads++;
     #endif
+    // Audio
+    usleep(1000000); // wait to make sure all other threads are on their assigned CPUs (maybe not needed?)
+    #if ENABLE_AUDIO
+    pthread_create(&thread_ids[num_threads], NULL, &audio_thread_spi, NULL);
+    threads_running[num_threads] = &g_audio_thread_spi_is_running;
+    num_threads++;
+    pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeData, NULL);
+    threads_running[num_threads] = &g_audio_thread_writeData_is_running;
+    num_threads++;
+    #endif
+    
+    usleep(100000);
     CETI_LOG("main(): Created %d threads", num_threads);
 
     //-----------------------------------------------------------------------------
     // Run the application!
+    CETI_LOG("main(): -------------------------------------------------");
     CETI_LOG("main(): Data acquisition is running!");
     CETI_LOG("main(): -------------------------------------------------");
     while (!g_exit) {
-        // Let threads do the work.
+        // Let threads do their work.
         usleep(100000);
     }
     CETI_LOG("main(): -------------------------------------------------");

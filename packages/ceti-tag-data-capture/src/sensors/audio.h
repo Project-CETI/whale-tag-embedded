@@ -1,3 +1,9 @@
+//-----------------------------------------------------------------------------
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+//-----------------------------------------------------------------------------
 
 #ifndef AUDIO_H
 #define AUDIO_H
@@ -8,7 +14,7 @@
 #define _GNU_SOURCE   // change how sched.h will be included
 
 #include "../utils/logging.h"
-#include "../launcher.h" // for g_exit
+#include "../launcher.h" // for g_exit, sampling rate, data filepath, and CPU affinity
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
 
 #include <FLAC/stream_encoder.h>
@@ -19,15 +25,12 @@
 #include <string.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <pthread.h>
-#include <sched.h>    // to set process priority and affinity
-#include <sys/mman.h> // for locking memory (after setting priority/affinity)
+#include <pthread.h> // to set CPU affinity
+#include <sched.h>   // to set process priority
 
 //-----------------------------------------------------------------------------
 // Definitions/Configurations
 //-----------------------------------------------------------------------------
-
-#define AUDIO_CPU 3
 
 // NUM_SPI_BLOCKS is the number of blocks acquired before writing out to
 // mass storage. A setting of 2100 will give buffer about 30 seconds at a time if

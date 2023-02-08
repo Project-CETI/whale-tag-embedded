@@ -1,7 +1,7 @@
 //-----------------------------------------------------------------------------
-// CETI Tag Electronics
-// Cummings Electronics Labs, October 2021
-// Developed under contract for Harvard University Wood Lab
+// Project:      CETI Tag Electronics
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 //
 // Note - version must correspond with the repository release tag
@@ -15,11 +15,6 @@
 //  2_1.5   11/24/22   Change RAM buffer size to accomodate read-only rootfs
 //  2.1.6   12/03/22   Added ECG
 //
-//-----------------------------------------------------------------------------
-// Project: CETI Tag Electronics
-// File: cetiTagWrapper.h
-// Description: The Ceti Tag application top level header file
-//-----------------------------------------------------------------------------
 
 #ifndef CETI_VERSIONING_H
 #define CETI_VERSIONING_H

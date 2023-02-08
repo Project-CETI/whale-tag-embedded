@@ -1,3 +1,9 @@
+//-----------------------------------------------------------------------------
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+//-----------------------------------------------------------------------------
 
 #include "imu.h"
 
@@ -41,6 +47,20 @@ void* imu_thread(void* paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_imu_thread_tid = gettid();
 
+    // Set the thread CPU affinity.
+    if(IMU_CPU >= 0)
+    {
+      pthread_t thread;
+      thread = pthread_self();
+      cpu_set_t cpuset;
+      CPU_ZERO(&cpuset);
+      CPU_SET(IMU_CPU, &cpuset);
+      if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
+        CETI_LOG("imu_thread(): Successfully set affinity to CPU %d", IMU_CPU);
+      else
+        CETI_LOG("imu_thread(): XXX Failed to set affinity to CPU %d", IMU_CPU);
+    }
+
     // Main loop while application is running.
     CETI_LOG("imu_thread(): Starting loop to periodically acquire data");
     long long global_time_us;
@@ -58,7 +78,6 @@ void* imu_thread(void* paramPtr) {
       }
       else
       {
-        CETI_LOG("imu_thread(): getting data");
         // Acquire timing and sensor information as close together as possible.
         global_time_us = get_global_time_us();
         rtc_count = getRtcCount();
@@ -84,7 +103,6 @@ void* imu_thread(void* paramPtr) {
         // Take into account the time it took to acquire/save data.
         polling_sleep_duration_us = IMU_SAMPLING_PERIOD_US;
         polling_sleep_duration_us -= get_global_time_us() - global_time_us;
-        CETI_LOG("imu_thread(): acquisition time: %lld us", (get_global_time_us() - global_time_us));
         if(polling_sleep_duration_us > 0)
           usleep(polling_sleep_duration_us);
       }
@@ -283,7 +301,7 @@ int learnIMU() {
         return -1;
     }
 
-    printf("OK, have the IMU connected!\n");
+    printf("learnIMU(): OK, have the IMU connected!\n");
 
     // Get the shtp header
     i2cReadDevice(fd, shtpHeader, 4); // pigpio i2c read raw

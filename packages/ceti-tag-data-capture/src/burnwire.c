@@ -1,3 +1,9 @@
+//-----------------------------------------------------------------------------
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin [TODO: Add other contributors here]
+//-----------------------------------------------------------------------------
 
 #include "burnwire.h"
 

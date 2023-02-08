@@ -1,3 +1,9 @@
+//-----------------------------------------------------------------------------
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+//-----------------------------------------------------------------------------
 
 #ifndef IMU_H
 #define IMU_H
@@ -9,7 +15,7 @@
 
 #include "../utils/logging.h"
 #include "../utils/timing.h" // for timestamps
-#include "../launcher.h" // for g_exit
+#include "../launcher.h" // for g_exit, sampling rate, data filepath, and CPU affinity
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
 
 #include <pigpio.h>
@@ -18,14 +24,11 @@
 #include <string.h>
 #include <unistd.h> // for usleep()
 #include <math.h> // for fmin()
-#include <sched.h> // to get the current CPU assigned to the thread
+#include <pthread.h> // to set CPU affinity
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
-#define IMU_SAMPLING_PERIOD_US 1000000
-#define IMU_DATA_FILEPATH "/data/data_imu.csv"
-
 typedef struct { // To hold rotation vector input report information
     char reportID;
     char sequenceNum;

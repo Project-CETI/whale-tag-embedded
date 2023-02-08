@@ -1,12 +1,10 @@
 //-----------------------------------------------------------------------------
-// CETI Tag Electronics
-// Created by Joseph DelPreto, within framework by Cummings Electronics Labs, August 2022
-// ADC interfacing originally based on https://github.com/OM222O/ADS1219
-// Developed for Harvard University Wood Lab
-//-----------------------------------------------------------------------------
-// Project: CETI Tag Electronics
-// File: cetiTagECG_adc.c
-// Description: Interfacing with the ADS1219 ADC
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Joseph DelPreto [TODO: Add other contributors here]
+// Description:  Interfacing with the ADS1219 ADC
+// Note: ADC interfacing originally based on https://github.com/OM222O/ADS1219
 //-----------------------------------------------------------------------------
 
 #include "ecg_adc.h"

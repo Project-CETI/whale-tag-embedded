@@ -1,3 +1,9 @@
+//-----------------------------------------------------------------------------
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+//-----------------------------------------------------------------------------
 
 #include "boardTemperature.h"
 
@@ -34,6 +40,20 @@ void* boardTemperature_thread(void* paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_boardTemperature_thread_tid = gettid();
 
+    // Set the thread CPU affinity.
+    if(BOARDTEMPERATURE_CPU >= 0)
+    {
+      pthread_t thread;
+      thread = pthread_self();
+      cpu_set_t cpuset;
+      CPU_ZERO(&cpuset);
+      CPU_SET(BOARDTEMPERATURE_CPU, &cpuset);
+      if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
+        CETI_LOG("boardTemperature_thread(): Successfully set affinity to CPU %d", BOARDTEMPERATURE_CPU);
+      else
+        CETI_LOG("boardTemperature_thread(): XXX Failed to set affinity to CPU %d", BOARDTEMPERATURE_CPU);
+    }
+
     // Main loop while application is running.
     CETI_LOG("boardTemperature_thread(): Starting loop to periodically acquire data");
     long long global_time_us;
@@ -51,7 +71,6 @@ void* boardTemperature_thread(void* paramPtr) {
       }
       else
       {
-        CETI_LOG("boardTemperature_thread(): getting data");
         // Acquire timing and sensor information as close together as possible.
         global_time_us = get_global_time_us();
         rtc_count = getRtcCount();
@@ -79,7 +98,6 @@ void* boardTemperature_thread(void* paramPtr) {
         // Take into account the time it took to acquire/save data.
         polling_sleep_duration_us = BOARDTEMPERATURE_SAMPLING_PERIOD_US;
         polling_sleep_duration_us -= get_global_time_us() - global_time_us;
-        CETI_LOG("boardTemperature_thread(): acquisition time: %lld us", (get_global_time_us() - global_time_us));
         if(polling_sleep_duration_us > 0)
           usleep(polling_sleep_duration_us);
       }

@@ -1,3 +1,9 @@
+//-----------------------------------------------------------------------------
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+//-----------------------------------------------------------------------------
 
 #include "state_machine.h"
 
@@ -33,6 +39,20 @@ int init_stateMachine() {
 void* stateMachine_thread(void* paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_stateMachine_thread_tid = gettid();
+
+    // Set the thread CPU affinity.
+    if(STATEMACHINE_CPU >= 0)
+    {
+      pthread_t thread;
+      thread = pthread_self();
+      cpu_set_t cpuset;
+      CPU_ZERO(&cpuset);
+      CPU_SET(STATEMACHINE_CPU, &cpuset);
+      if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
+        CETI_LOG("stateMachine_thread(): Successfully set affinity to CPU %d", STATEMACHINE_CPU);
+      else
+        CETI_LOG("stateMachine_thread(): XXX Failed to set affinity to CPU %d", STATEMACHINE_CPU);
+    }
 
     // Main loop while application is running.
     CETI_LOG("stateMachine_thread(): Starting loop to periodically update state");
@@ -74,7 +94,6 @@ void* stateMachine_thread(void* paramPtr) {
       // Take into account the time it took to process the state.
       polling_sleep_duration_us = STATEMACHINE_UPDATE_PERIOD_US;
       polling_sleep_duration_us -= get_global_time_us() - global_time_us;
-      CETI_LOG("stateMachine_thread(): processing time: %lld us", (get_global_time_us() - global_time_us));
       if(polling_sleep_duration_us > 0)
         usleep(polling_sleep_duration_us);
     }

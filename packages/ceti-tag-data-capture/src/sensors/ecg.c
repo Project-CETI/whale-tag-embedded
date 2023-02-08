@@ -1,11 +1,8 @@
 //-----------------------------------------------------------------------------
-// CETI Tag Electronics
-// Created by Joseph DelPreto, within framework by Cummings Electronics Labs, August 2022
-// Developed for Harvard University Wood Lab
-//-----------------------------------------------------------------------------
-// Project: CETI Tag Electronics
-// File: cetiTagECG.c
-// Description: Control ECG-related acquisition and logging
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Joseph DelPreto [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
 #include "ecg.h"
@@ -72,13 +69,18 @@ void* ecg_thread(void* paramPtr)
   else
     CETI_LOG("ecg_thread(): !!! Failed to set priority");
   // Set the thread CPU affinity.
-  cpu_set_t cpu_list;
-  CPU_ZERO(&cpu_list);
-  CPU_SET(2, &cpu_list);
-  if(sched_setaffinity(getpid(), sizeof(cpu_list), &cpu_list) == 0)
-    CETI_LOG("ecg_thread(): Successfully set affinity to CPU 2");
-  else
-    CETI_LOG("ecg_thread(): !!! Failed to set CPU affinity");
+  if(ECG_CPU >= 0)
+  {
+    pthread_t thread;
+    thread = pthread_self();
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(ECG_CPU, &cpuset);
+    if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
+      CETI_LOG("ecg_thread(): Successfully set affinity to CPU %d", ECG_CPU);
+    else
+      CETI_LOG("ecg_thread(): XXX Failed to set affinity to CPU %d", ECG_CPU);
+  }
 
   // Main loop while application is running.
   CETI_LOG("ecg_thread(): Starting loop to periodically acquire data");
@@ -98,7 +100,6 @@ void* ecg_thread(void* paramPtr)
     rtc_count = getRtcCount();
     // Note that the ADC will likely be slower than the GPIO expander,
     //  so read the ECG first to get the readings as close together as possible.
-    //CETI_LOG("ecg_thread(): getting data");
     ecg_reading = ecg_adc_read_singleEnded(ECG_ADC_CHANNEL_ECG);
     leadsOff_reading = ecg_gpio_expander_read_leadsOff();
     //      if(getQuaternion(ecg_quaternion) < 0)
@@ -131,13 +132,6 @@ void* ecg_thread(void* paramPtr)
 
     // Increment the sample index.
     sample_index++;
-
-    if(sample_index % 1000 == 0)
-    {
-      unsigned int cpu_id, node_id = 0;
-      getcpu(&cpu_id, &node_id);
-      CETI_LOG("ECG CPU %d %d %d", get_cpu_id_for_tid(gettid()), sched_getcpu(), cpu_id);
-    }
 
     // Note that there is no delay to implement a desired sampling rate,
     //  since the rate will be set by the ADC configuration.

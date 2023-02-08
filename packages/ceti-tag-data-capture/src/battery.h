@@ -1,4 +1,9 @@
-
+//-----------------------------------------------------------------------------
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+//-----------------------------------------------------------------------------
 
 #ifndef BATTERY_H
 #define BATTERY_H
@@ -8,19 +13,16 @@
 //-----------------------------------------------------------------------------
 #define _GNU_SOURCE   // change how sched.h will be included
 
-#include "launcher.h" // for g_exit
+#include "launcher.h" // for g_exit, sampling rate, data filepath, and CPU affinity
 #include "utils/logging.h"
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 
 #include <pigpio.h>
-#include <sched.h> // to get the current CPU assigned to the thread
+#include <pthread.h> // to set CPU affinity
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
-#define BATTERY_SAMPLING_PERIOD_US 1000000
-#define BATTERY_DATA_FILEPATH "/data/data_battery.csv"
-
 #define ADDR_BATT_GAUGE 0x59
 
 // DS2778 Gas Gauge Registers and Settings

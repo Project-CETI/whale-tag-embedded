@@ -1,3 +1,9 @@
+//-----------------------------------------------------------------------------
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+//-----------------------------------------------------------------------------
 
 #include "commands.h"
 
@@ -491,6 +497,20 @@ void* command_thread(void* paramPtr) {
 
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_command_thread_tid = gettid();
+    
+    // Set the thread CPU affinity.
+    if(COMMAND_CPU >= 0)
+    {
+      pthread_t thread;
+      thread = pthread_self();
+      cpu_set_t cpuset;
+      CPU_ZERO(&cpuset);
+      CPU_SET(COMMAND_CPU, &cpuset);
+      if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
+        CETI_LOG("command_thread(): Successfully set affinity to CPU %d", COMMAND_CPU);
+      else
+        CETI_LOG("command_thread(): XXX Failed to set affinity to CPU %d", COMMAND_CPU);
+    }
 
     // Main loop while application is running.
     CETI_LOG("command_thread(): Starting loop to process commands from %s", CMD_FILEPATH);
@@ -511,7 +531,7 @@ void* command_thread(void* paramPtr) {
       }
 
       // Delay to implement a desired polling rate.
-      usleep(CMD_POLLING_PERIOD_US);
+      usleep(COMMAND_POLLING_PERIOD_US);
     }
     g_command_thread_is_running = 0;
     CETI_LOG("command_thread(): Done!");

@@ -1,3 +1,9 @@
+//-----------------------------------------------------------------------------
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+//-----------------------------------------------------------------------------
 
 #include "systemMonitor.h"
 
@@ -35,11 +41,11 @@ int g_stateMachine_thread_tid = -1;
 static FILE* systemMonitor_data_file = NULL;
 static char systemMonitor_data_file_notes[256] = "";
 static const char* systemMonitor_data_file_headers[] = {
-  "CPU all [%]", "0", "1", "2", "3",
-  "Audio SPI", "Audio Write", "ECG", "IMU", "Light", "PressureTemp",
-  "BoardTemp", "Bat", "Recovery", "FSM", "Commands", "SysMonitor",
+  "CPU all [%]", "CPU 0 [%]", "CPU 1 [%]", "CPU 2 [%]", "CPU 3 [%]",
+  "Audio SPI CPU", "Audio Write CPU", "ECG CPU", "IMU CPU", "Light CPU", "PressureTemp CPU",
+  "BoardTemp CPU", "Bat CPU", "Recovery CPU", "FSM CPU", "Commands CPU", "SysMonitor CPU",
   "RAM Free [B]", "RAM Free [%]",
-  "Virt Mem Used [B]", "Virt Mem Used [%]",
+  "Virtual Memory Used [B]", "Virtual Memory Used [%]",
   };
 static const int num_systemMonitor_data_file_headers = 21;
 
@@ -72,6 +78,20 @@ void* systemMonitor_thread(void* paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_systemMonitor_thread_tid = gettid();
 
+    // Set the thread CPU affinity.
+    if(SYSTEMMONITOR_CPU >= 0)
+    {
+      pthread_t thread;
+      thread = pthread_self();
+      cpu_set_t cpuset;
+      CPU_ZERO(&cpuset);
+      CPU_SET(SYSTEMMONITOR_CPU, &cpuset);
+      if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
+        CETI_LOG("systemMonitor_thread(): Successfully set affinity to CPU %d", SYSTEMMONITOR_CPU);
+      else
+        CETI_LOG("systemMonitor_thread(): XXX Failed to set affinity to CPU %d", SYSTEMMONITOR_CPU);
+    }
+
     // Main loop while application is running.
     CETI_LOG("systemMonitor_thread(): Starting loop to periodically check system resources");
     long long virtual_memory_used, ram_free;
@@ -80,32 +100,12 @@ void* systemMonitor_thread(void* paramPtr) {
     long long polling_sleep_duration_us;
     g_systemMonitor_thread_is_running = 1;
     while (!g_exit) {
-      CETI_LOG("systemMonitor_thread(): checking resources");
       // Acquire timing and system information as close together as possible.
       global_time_us = get_global_time_us();
       rtc_count = getRtcCount();
       virtual_memory_used = get_virtual_memory_used();
       ram_free = get_ram_free();
       update_cpu_usage();
-      
-      CETI_LOG("PID: %d g_audio_thread_spi_tid", g_audio_thread_spi_tid);
-      CETI_LOG("PID: %d g_audio_thread_writeData_tid", g_audio_thread_writeData_tid);
-      CETI_LOG("PID: %d g_ecg_thread_tid", g_ecg_thread_tid);
-      CETI_LOG("PID: %d g_imu_thread_tid", g_imu_thread_tid);
-      CETI_LOG("PID: %d g_light_thread_tid", g_light_thread_tid);
-      CETI_LOG("PID: %d g_pressureTemperature_thread_tid", g_pressureTemperature_thread_tid);
-      CETI_LOG("PID: %d g_boardTemperature_thread_tid", g_boardTemperature_thread_tid);
-      CETI_LOG("PID: %d g_battery_thread_tid", g_battery_thread_tid);
-      CETI_LOG("PID: %d g_recovery_thread_tid", g_recovery_thread_tid);
-      CETI_LOG("PID: %d g_stateMachine_thread_tid", g_stateMachine_thread_tid);
-      CETI_LOG("PID: %d g_command_thread_tid", g_command_thread_tid);
-      CETI_LOG("PID: %d g_systemMonitor_thread_tid ", g_systemMonitor_thread_tid);
-      CETI_LOG("PID: %d cetiApp_pid", cetiApp_pid);
-      CETI_LOG("PID: %d systemMonitor CPU", get_cpu_id_for_tid(g_systemMonitor_thread_tid));
-
-//      CETI_LOG("systemMonitor_thread(): virtual memory: %lld (used %lld)", virtual_memory_total, virtual_memory_used);
-//      CETI_LOG("systemMonitor_thread(): RAM: %lld (used %lld free %lld)", ram_total, ram_used, ram_free);
-//      CETI_LOG("systemMonitor_thread(): CPU usage: %0.2f%% %0.2f%% %0.2f%% %0.2f%% %0.2f%%", cpu_percents[0], cpu_percents[1], cpu_percents[2], cpu_percents[3], cpu_percents[4]);
       
       // Write system usage information to the data file.
       systemMonitor_data_file = fopen(SYSTEMMONITOR_DATA_FILEPATH, "at");
@@ -147,7 +147,6 @@ void* systemMonitor_thread(void* paramPtr) {
       // Take into account the time it took to acquire/save data.
       polling_sleep_duration_us = SYSTEMMONITOR_SAMPLING_PERIOD_US;
       polling_sleep_duration_us -= get_global_time_us() - global_time_us;
-      CETI_LOG("systemMonitor_thread(): acquisition time: %lld us", (get_global_time_us() - global_time_us));
       if(polling_sleep_duration_us > 0)
         usleep(polling_sleep_duration_us);
     }

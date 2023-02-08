@@ -1,3 +1,9 @@
+//-----------------------------------------------------------------------------
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+//-----------------------------------------------------------------------------
 
 #ifndef STATE_MACHINE_H
 #define STATE_MACHINE_H
@@ -7,7 +13,7 @@
 //-----------------------------------------------------------------------------
 #define _GNU_SOURCE   // change how sched.h will be included
 
-#include "launcher.h" // for g_exit
+#include "launcher.h" // for g_exit, sampling rate, data filepath, and CPU affinity
 #include "utils/logging.h"
 #include "utils/timing.h"
 #include "battery.h"
@@ -18,14 +24,12 @@
 
 #include <stdio.h> // for FILE
 #include <stdlib.h> // for atof, atol, etc
-#include <sched.h> // to get the current CPU assigned to the thread
+#include <pthread.h> // to set CPU affinity
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
 #define CETI_CONFIG_FILE "../config/ceti-config.txt"
-#define STATEMACHINE_UPDATE_PERIOD_US 1000000
-#define STATEMACHINE_DATA_FILEPATH "/data/data_state.csv"
 
 typedef enum {       // Tag operational states for deployment sequencing
     ST_CONFIG = 0,   // get the deployment parameters from config file

@@ -1,3 +1,9 @@
+//-----------------------------------------------------------------------------
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+//-----------------------------------------------------------------------------
 
 #ifndef PRESSURETEMPERATURE_H
 #define PRESSURETEMPERATURE_H
@@ -8,19 +14,16 @@
 #define _GNU_SOURCE   // change how sched.h will be included
 
 #include "../utils/logging.h"
-#include "../launcher.h" // for g_exit
+#include "../launcher.h" // for g_exit, sampling rate, data filepath, and CPU affinity
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
 
 #include <pigpio.h>
 #include <unistd.h> // for usleep()
-#include <sched.h> // to get the current CPU assigned to the thread
+#include <pthread.h> // to set CPU affinity
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
-#define PRESSURETEMPERATURE_SAMPLING_PERIOD_US 1000000
-#define PRESSURETEMPERATURE_DATA_FILEPATH "/data/data_pressure_temperature.csv"
-
 #define ADDR_PRESSURETEMPERATURE 0x40
 // Keller 4LD Pressure Sensor 200 bar
 // Reference pressure is a 1 bar abs

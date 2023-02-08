@@ -1,17 +1,15 @@
 //-----------------------------------------------------------------------------
-// CETI Tag Electronics
-// Cummings Electronics Labs, October 2021
-// Developed under contract for Harvard University Wood Lab
+// Project:      CETI Tag Electronics
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin [TODO: Add other contributors here]
+//-----------------------------------------------------------------------------
+
 //-----------------------------------------------------------------------------
 // Version    Date          Description
 //  0.0.0   10/10/21   Begin work, establish framework
 //  2.1.1   06/27/22   Fix first byte bug with SPI, verify 96 KSPS setting
 //  2.1.4   11/5/22    Simplify stopAcq()
 //  2.1.5   11/24/22   Correct MAX_FILE_SIZE definition
-//-----------------------------------------------------------------------------
-// Project: CETI Tag Electronics
-// File: cetiTagADC.c
-// Description: AD7768-4 ADC setup and associated data acquisition functions
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
@@ -203,15 +201,18 @@ void* audio_thread_spi(void* paramPtr) {
     else
       CETI_LOG("audio_thread_spi(): !!! Failed to set priority");
     // Set the thread CPU affinity.
-    pthread_t thread;
-    thread = pthread_self();
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(AUDIO_CPU, &cpuset);
-    if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-      CETI_LOG("audio_thread_spi(): Successfully set affinity to CPU %d", AUDIO_CPU);
-    else
-      CETI_LOG("audio_thread_spi(): XXX Failed to set CPU affinity");
+    if(AUDIO_SPI_CPU >= 0)
+    {
+      pthread_t thread;
+      thread = pthread_self();
+      cpu_set_t cpuset;
+      CPU_ZERO(&cpuset);
+      CPU_SET(AUDIO_SPI_CPU, &cpuset);
+      if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
+        CETI_LOG("audio_thread_spi(): Successfully set affinity to CPU %d", AUDIO_SPI_CPU);
+      else
+        CETI_LOG("audio_thread_spi(): XXX Failed to set affinity to CPU %d", AUDIO_SPI_CPU);
+    }
 
     volatile int status;
     volatile int prev_status;
@@ -242,8 +243,6 @@ void* audio_thread_spi(void* paramPtr) {
                             (audio_page[pageIndex].counter * SPI_BLOCK_SIZE),
                         SPI_BLOCK_SIZE);
 
-                if(audio_page[pageIndex].counter % 1000 == 0)
-                  CETI_LOG("%d", audio_page[pageIndex].counter);
                 // When NUM_SPI_BLOCKS are in the ram buffer, set flag that
                 // triggers a transfer from RAM to mass storage, then flip the
                 // data audio_page and continue get samples from SPI.
@@ -273,13 +272,26 @@ void* audio_thread_writeData(void* paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_audio_thread_writeData_tid = gettid();
 
+    // Set the thread CPU affinity.
+    if(AUDIO_WRITEDATA_CPU >= 0)
+    {
+      pthread_t thread;
+      thread = pthread_self();
+      cpu_set_t cpuset;
+      CPU_ZERO(&cpuset);
+      CPU_SET(AUDIO_WRITEDATA_CPU, &cpuset);
+      if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
+        CETI_LOG("audio_thread_writeData(): Successfully set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
+      else
+        CETI_LOG("audio_thread_writeData(): XXX Failed to set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
+    }
+
     CETI_LOG("audio_thread_writeData(): Starting loop to periodically write data");
     g_audio_thread_writeData_is_running = 1;
     // FLAC__bool ok = true;
     int pageIndex = 0;
     while (!g_exit) {
         if (audio_page[pageIndex].readyToBeSavedToDisk) {
-            CETI_LOG("READY TO SAVE %d", audio_acqDataFileLength);
             if ( (audio_acqDataFileLength > MAX_AUDIO_DATA_FILE_SIZE) || (flac_encoder == 0) ) {
                 audio_createNewDataFile();
             }

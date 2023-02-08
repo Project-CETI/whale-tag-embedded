@@ -1,3 +1,9 @@
+//-----------------------------------------------------------------------------
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+//-----------------------------------------------------------------------------
 
 #ifndef SYSTEMMONITOR_H
 #define SYSTEMMONITOR_H
@@ -8,20 +14,18 @@
 #define _GNU_SOURCE   // change how sched.h will be included
 
 #include "utils/logging.h"
-#include "launcher.h" // for g_exit
+#include "launcher.h" // for g_exit, sampling rate, data filepath, and CPU affinity
 #include "sys/types.h"
 #include "sys/sysinfo.h"
 #include "stdlib.h"
 #include "stdio.h"
 #include "string.h"
 
-#include <sched.h> // to get the current CPU assigned to the thread
+#include <pthread.h> // to set CPU affinity
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
-#define SYSTEMMONITOR_SAMPLING_PERIOD_US 5000000
-#define SYSTEMMONITOR_DATA_FILEPATH "/data/data_systemMonitor.csv"
 #define NUM_CPU_ENTRIES 5 // overall, then 4 cores
 
 //-----------------------------------------------------------------------------

@@ -1,11 +1,9 @@
 //-----------------------------------------------------------------------------
-// CETI Tag Electronics
-// Created by Joseph DelPreto, within framework by Cummings Electronics Labs, August 2022
-// Developed for Harvard University Wood Lab
-//-----------------------------------------------------------------------------
-// Project: CETI Tag Electronics
-// File: cetiTagECG_gpio_expander.c
-// Description: Interfacing with the PCA9674 GPIO expander
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Joseph DelPreto [TODO: Add other contributors here]
+// Description:  Interfacing with the PCA9674 GPIO expander
 //-----------------------------------------------------------------------------
 
 #include "ecg_gpioExpander.h"

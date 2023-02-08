@@ -1,3 +1,9 @@
+//-----------------------------------------------------------------------------
+// Project:      CETI Tag Electronics
+// Version:      Refer to _versioning.h
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+//-----------------------------------------------------------------------------
 
 #ifndef COMMANDS_H
 #define COMMANDS_H
@@ -7,7 +13,7 @@
 //-----------------------------------------------------------------------------
 #define _GNU_SOURCE   // change how sched.h will be included
 
-#include "launcher.h" // for specification of enabled sensors, init_tag(), g_exit, etc.
+#include "launcher.h" // for specification of enabled sensors, init_tag(), g_exit, sampling rate, data filepath, and CPU affinity, etc.
 #include "utils/logging.h"
 #include "recovery.h"
 #include "battery.h"
@@ -19,15 +25,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <sched.h> // to get the current CPU assigned to the thread
+#include <pthread.h> // to set CPU affinity
 
 //-----------------------------------------------------------------------------
 // File locations and polling configuration
 //-----------------------------------------------------------------------------
 #define CMD_FILEPATH "../ipc/cetiCommand" // fifo locations
 #define RSP_FILEPATH "../ipc/cetiResponse"
-
-#define CMD_POLLING_PERIOD_US 1000 // How often to check the file for new commands
 
 //-----------------------------------------------------------------------------
 // Global variables
