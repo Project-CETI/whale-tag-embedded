@@ -50,7 +50,7 @@
 #define STATEMACHINE_CPU 0
 #define SYSTEMMONITOR_CPU 0
 
-#define ECG_DATA_FILEPATH "/data/data_ecg.csv"
+#define ECG_DATA_FILEPATH_BASE "/data/data_ecg" // will append a counter and create new files according to a maximum size
 #define BATTERY_DATA_FILEPATH "/data/data_battery.csv"
 #define IMU_DATA_FILEPATH "/data/data_imu.csv"
 #define LIGHT_DATA_FILEPATH "/data/data_light.csv"

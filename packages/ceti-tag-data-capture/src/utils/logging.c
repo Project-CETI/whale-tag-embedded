@@ -24,7 +24,7 @@ int init_data_file(FILE* data_file, const char* data_filepath,
                    char* data_file_notes, const char* log_tag)
 {
   // Open an output file to write data.
-  int data_file_exists = access(data_filepath, F_OK) != -1;
+  int data_file_exists = (access(data_filepath, F_OK) != -1);
   data_file = fopen(data_filepath, "at");
   if(data_file == NULL)
   {
@@ -40,7 +40,7 @@ int init_data_file(FILE* data_file, const char* data_filepath,
     strcat(header, ",Notes");
     for(int header_index = 0; header_index < num_data_file_headers; header_index++)
     {
-      strcat(header, ", ");
+      strcat(header, ",");
       strcat(header, data_file_headers[header_index]);
     }
     strcat(header, "\n");

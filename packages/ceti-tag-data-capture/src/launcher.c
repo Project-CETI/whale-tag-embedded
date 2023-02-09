@@ -96,8 +96,8 @@ int main(void) {
     num_threads++;
     #endif
     // Audio
-    usleep(1000000); // wait to make sure all other threads are on their assigned CPUs (maybe not needed?)
     #if ENABLE_AUDIO
+    usleep(1000000); // wait to make sure all other threads are on their assigned CPUs (maybe not needed?)
     pthread_create(&thread_ids[num_threads], NULL, &audio_thread_spi, NULL);
     threads_running[num_threads] = &g_audio_thread_spi_is_running;
     num_threads++;
