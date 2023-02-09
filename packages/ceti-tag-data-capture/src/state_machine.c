@@ -12,7 +12,17 @@
 //-----------------------------------------------------------------------------
 
 // Global/static variables
+//-----------------------------------------------------------------------------
 static int presentState = ST_CONFIG;
+// Config file and associated parameters
+static FILE* ceti_config_file = NULL;
+static char cPress_1[16], cPress_2[16], cVolt_1[16], cVolt_2[16], cTimeOut[16];
+static double d_press_1, d_press_2, d_volt_1, d_volt_2;
+static int timeOut_minutes, timeout_seconds;
+// RTC counts
+static unsigned int start_rtc_count = 0;
+static int current_rtc_count = 0;
+// Output file
 int g_stateMachine_thread_is_running = 0;
 static FILE* stateMachine_data_file = NULL;
 static char stateMachine_data_file_notes[256] = "";
@@ -58,13 +68,12 @@ void* stateMachine_thread(void* paramPtr) {
     CETI_LOG("stateMachine_thread(): Starting loop to periodically update state");
     int state_to_process;
     long long global_time_us;
-    int rtc_count;
     long long polling_sleep_duration_us;
     g_stateMachine_thread_is_running = 1;
     while (!g_exit) {
       // Acquire timing information for when the next state will begin processing.
       global_time_us = get_global_time_us();
-      rtc_count = getRtcCount();
+      current_rtc_count = getRtcCount();
       state_to_process = presentState;
 
       // Process the next state.
@@ -78,7 +87,7 @@ void* stateMachine_thread(void* paramPtr) {
       {
         // Write timing information.
         fprintf(stateMachine_data_file, "%lld", global_time_us);
-        fprintf(stateMachine_data_file, ",%d", rtc_count);
+        fprintf(stateMachine_data_file, ",%d", current_rtc_count);
         // Write any notes, then clear them so they are only written once.
         fprintf(stateMachine_data_file, ",%s", stateMachine_data_file_notes);
         strcpy(stateMachine_data_file_notes, "");
@@ -109,19 +118,6 @@ void* stateMachine_thread(void* paramPtr) {
 
 int updateStateMachine() {
 
-    // Config file and associated parameters
-    static FILE *cetiConfig = NULL;
-    char cPress_1[16], cPress_2[16], cVolt_1[16], cVolt_2[16], cTimeOut[16];
-    static double d_press_1, d_press_2, d_volt_1, d_volt_2;
-    static int timeOut_minutes, timeout_seconds;
-    char line[256];
-    char *pTemp;
-
-    // timing
-    static unsigned int startTime = 0;
-    // static int burnTimeStart;
-    int rtc_count = getRtcCount();
-
     // Deployment sequencer FSM
     switch (presentState) {
 
@@ -129,13 +125,15 @@ int updateStateMachine() {
     case (ST_CONFIG):
         // Load the deployment configuration
         CETI_LOG("updateState(): Configuring the deployment parameters from %s", CETI_CONFIG_FILE);
-        cetiConfig = fopen(CETI_CONFIG_FILE, "r");
-        if (cetiConfig == NULL) {
+        ceti_config_file = fopen(CETI_CONFIG_FILE, "r");
+        if (ceti_config_file == NULL) {
             CETI_LOG("updateState(): XXXX Cannot open configuration file %s", CETI_CONFIG_FILE);
             return (-1);
         }
-
-        while (fgets(line, 256, cetiConfig) != NULL) {
+        
+        char line[256];
+        char *pTemp;
+        while (fgets(line, 256, ceti_config_file) != NULL) {
 
             if (*line == '#')
                 continue; // ignore comment lines
@@ -162,7 +160,7 @@ int updateStateMachine() {
             }
         }
 
-        fclose(cetiConfig);
+        fclose(ceti_config_file);
 
         // printf("P1 is %s\n",cPress_1);
         // printf("P2 is %s\n",cPress_2);
@@ -193,8 +191,8 @@ int updateStateMachine() {
         #if ENABLE_AUDIO
         start_audio_acq();
         #endif
-        startTime = getTimeDeploy(); // new v0.5 gets start time from the csv
-        CETI_LOG("updateState(): Deploy Start: %u", startTime);
+        start_rtc_count = getTimeDeploy(); // new v0.5 gets start time from the csv
+        CETI_LOG("updateState(): Deploy Start: %u", start_rtc_count);
         recoveryOn();                // turn on Recovery Board
         presentState = ST_DEPLOY;    // underway!
         break;
@@ -204,12 +202,12 @@ int updateStateMachine() {
 
         // Waiting for 1st dive
         //	printf("State DEPLOY - Deployment elapsed time is %d seconds;
-        //Battery at %.2f \n", (rtc_count - startTime), (g_latest_battery_v1_v +
+        //Battery at %.2f \n", (current_rtc_count - start_rtc_count), (g_latest_battery_v1_v +
         //g_latest_battery_v2_v));
 
         #if ENABLE_BATTERY_GAUGE
         if ((g_latest_battery_v1_v + g_latest_battery_v2_v < d_volt_1) ||
-            (rtc_count - startTime > timeout_seconds)) {
+            (current_rtc_count - start_rtc_count > timeout_seconds)) {
             burnwireOn();
             presentState = ST_BRN_ON;
             break;
@@ -226,13 +224,13 @@ int updateStateMachine() {
     case (ST_REC_SUB):
         // Recording while sumberged
         //	printf("State REC_SUB - Deployment elapsed time is %d seconds;
-        //Battery at %.2f \n", (rtc_count - startTime), (g_latest_battery_v1_v +
+        //Battery at %.2f \n", (current_rtc_count - start_rtc_count), (g_latest_battery_v1_v +
         //g_latest_battery_v2_v));
 
         #if ENABLE_BATTERY_GAUGE
         if ((g_latest_battery_v1_v + g_latest_battery_v2_v < d_volt_1) ||
-            (rtc_count - startTime > timeout_seconds)) {
-            // burnTimeStart = rtc_count ;
+            (current_rtc_count - start_rtc_count > timeout_seconds)) {
+            // burnTimeStart = current_rtc_count ;
             burnwireOn();
             presentState = ST_BRN_ON;
             break;
@@ -252,13 +250,13 @@ int updateStateMachine() {
     case (ST_REC_SURF):
         // Recording while at surface, trying to get a GPS fix
         //	printf("State REC_SURF - Deployment elapsed time is %d seconds;
-        //Battery at %.2f \n", (rtc_count - startTime), (g_latest_battery_v1_v +
+        //Battery at %.2f \n", (current_rtc_count - start_rtc_count), (g_latest_battery_v1_v +
         //g_latest_battery_v2_v));
 
         #if ENABLE_BATTERY_GAUGE
         if ((g_latest_battery_v1_v + g_latest_battery_v2_v < d_volt_1) ||
-            (rtc_count - startTime > timeout_seconds)) {
-            //	burnTimeStart = rtc_count ;
+            (current_rtc_count - start_rtc_count > timeout_seconds)) {
+            //	burnTimeStart = current_rtc_count ;
             burnwireOn();
             presentState = ST_BRN_ON;
             break;
@@ -282,7 +280,7 @@ int updateStateMachine() {
     case (ST_BRN_ON):
         // Releasing
         //	printf("State BRN_ON - Deployment elapsed time is %d seconds;
-        //  Battery at %.2f \n", (rtc_count - startTime), (g_latest_battery_v1_v +
+        //  Battery at %.2f \n", (current_rtc_count - start_rtc_count), (g_latest_battery_v1_v +
         //  [1]));
 
         #if ENABLE_BATTERY_GAUGE
@@ -298,7 +296,7 @@ int updateStateMachine() {
 
         // update 220109 to leave burnwire on without time limit
         // Leave burn wire on for 45 minutes or until the battery is depleted
-        // else if (rtc_count - burnTimeStart > (60*45)) {
+        // else if (current_rtc_count - burnTimeStart > (60*45)) {
         //	//burnwireOff();  //leaving it on no time limit -change 220109
         //	nextState = ST_RETRIEVE;
         //}
@@ -323,7 +321,7 @@ int updateStateMachine() {
         //  Waiting to be retrieved.
 
         //	printf("State RETRIEVE - Deployment elapsed time is %d seconds;
-        //  Battery at %.2f \n", (rtc_count - startTime), (g_latest_battery_v1_v +
+        //  Battery at %.2f \n", (current_rtc_count - start_rtc_count), (g_latest_battery_v1_v +
         //  g_latest_battery_v2_v));
 
         #if ENABLE_BATTERY_GAUGE

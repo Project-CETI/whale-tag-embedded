@@ -28,7 +28,8 @@ static int cetiApp_pid = -1;
 int g_systemMonitor_thread_tid = -1;
 int g_audio_thread_spi_tid = -1;
 int g_audio_thread_writeData_tid = -1;
-int g_ecg_thread_tid = -1;
+int g_ecg_thread_getData_tid = -1;
+int g_ecg_thread_writeData_tid = -1;
 int g_imu_thread_tid = -1;
 int g_light_thread_tid = -1;
 int g_pressureTemperature_thread_tid = -1;
@@ -42,7 +43,8 @@ static FILE* systemMonitor_data_file = NULL;
 static char systemMonitor_data_file_notes[256] = "";
 static const char* systemMonitor_data_file_headers[] = {
   "CPU all [%]", "CPU 0 [%]", "CPU 1 [%]", "CPU 2 [%]", "CPU 3 [%]",
-  "Audio SPI CPU", "Audio Write CPU", "ECG CPU", "IMU CPU", "Light CPU", "PressureTemp CPU",
+  "Audio SPI CPU", "Audio Write CPU", "ECG GetData CPU", "ECG WriteData CPU",
+  "IMU CPU", "Light CPU", "PressureTemp CPU",
   "BoardTemp CPU", "Bat CPU", "Recovery CPU", "FSM CPU", "Commands CPU", "SysMonitor CPU",
   "RAM Free [B]", "RAM Free [%]",
   "Virtual Memory Used [B]", "Virtual Memory Used [%]",
@@ -124,7 +126,8 @@ void* systemMonitor_thread(void* paramPtr) {
           fprintf(systemMonitor_data_file, ",%0.2f", cpu_percents[cpu_entry_index]);
         fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_audio_thread_spi_tid));
         fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_audio_thread_writeData_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_ecg_thread_tid));
+        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_ecg_thread_getData_tid));
+        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_ecg_thread_writeData_tid));
         fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_imu_thread_tid));
         fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_light_thread_tid));
         fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_pressureTemperature_thread_tid));

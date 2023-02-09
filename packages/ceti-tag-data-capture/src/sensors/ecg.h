@@ -30,19 +30,24 @@
 //-----------------------------------------------------------------------------
 #define ECG_MAX_FILE_SIZE_MB 1024 // Seems to log about 1GB every 6.5 hours.
                                   // Note that 2GB is the file size maximum for 32-bit systems
+#define ECG_NUM_BUFFERS 2      // One for logging, one for writing.
+#define ECG_BUFFER_LENGTH 5000 // Once a buffer fills, it will be flushed to a file
+
 #define ECG_I2C_BUS 0x01
 
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
-extern int g_ecg_thread_is_running;
+extern int g_ecg_thread_getData_is_running;
+extern int g_ecg_thread_writeData_is_running;
 
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
 int init_ecg();
 int init_ecg_data_file(int restarted_program);
-void* ecg_thread(void* paramPtr);
+void* ecg_thread_getData(void* paramPtr);
+void* ecg_thread_writeData(void* paramPtr);
 
 #endif // ECG_H
 

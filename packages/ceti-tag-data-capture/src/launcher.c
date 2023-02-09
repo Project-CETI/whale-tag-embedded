@@ -85,8 +85,11 @@ int main(void) {
     #endif
     // ECG
     #if ENABLE_ECG
-    pthread_create(&thread_ids[num_threads], NULL, &ecg_thread, NULL);
-    threads_running[num_threads] = &g_ecg_thread_is_running;
+    pthread_create(&thread_ids[num_threads], NULL, &ecg_thread_getData, NULL);
+    threads_running[num_threads] = &g_ecg_thread_getData_is_running;
+    num_threads++;
+    pthread_create(&thread_ids[num_threads], NULL, &ecg_thread_writeData, NULL);
+    threads_running[num_threads] = &g_ecg_thread_writeData_is_running;
     num_threads++;
     #endif
     // System resource monitor

@@ -39,7 +39,8 @@
 // Setting a CPU to -1 will allow the system to decide (the thread will not set an affinity)
 #define AUDIO_SPI_CPU 3
 #define AUDIO_WRITEDATA_CPU 0
-#define ECG_CPU 2
+#define ECG_GETDATA_CPU 2
+#define ECG_WRITEDATA_CPU 0
 #define BATTERY_CPU 1
 #define IMU_CPU 1
 #define LIGHT_CPU 1
