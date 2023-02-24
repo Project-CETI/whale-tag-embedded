@@ -1,7 +1,8 @@
-#include <pigpio.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include "i2c.h"
+#include "gpio.h"
 
 #define ADDR_GAS_GAUGE 0x59
 // DS2778 Gas Gauge Registers and Settings
@@ -22,42 +23,52 @@
 //-----------------------------------------------------------------------------
 // GPIO For CAM
 
-#define RESET (5) // GPIO 5
-#define DIN (19)  // GPIO 19  FPGA -> HOST
-#define DOUT (18) // GPIO 18  HOST-> FPGA
-#define SCK (16)  // Moved from GPIO 1 to GPIO 16 to free I2C0
 #define NUM_BYTES_MESSAGE 8
+#define RESET "5" // GPIO 5
+#define DIN "19"  // GPIO 19  FPGA -> HOST
+#define DOUT "18" // GPIO 18  HOST-> FPGA
+#define SCK "16"  // Moved from GPIO 1 to GPIO 16 to free I2C0
+#define RESET_DIR "/sys/class/gpio/gpio5/direction"
+#define DIN_DIR "/sys/class/gpio/gpio19/direction"
+#define DOUT_DIR "/sys/class/gpio/gpio18/direction"
+#define SCK_DIR "/sys/class/gpio/gpio16/direction"
+#define RESET_VALUE "/sys/class/gpio/gpio5/value"
+#define DIN_VALUE "/sys/class/gpio/gpio19/value"
+#define DOUT_VALUE "/sys/class/gpio/gpio18/value"
+#define SCK_VALUE "/sys/class/gpio/gpio16/value"
+#define IN "in"
+#define OUT "out"
 
 int getBattStatus(double *batteryData) {
 
     int fd, result;
     signed short voltage, current;
 
-    if ((fd = i2cOpen(1, ADDR_GAS_GAUGE, 0)) < 0) {
+    if ((fd = i2c_open(1, ADDR_GAS_GAUGE)) < 0) {
         return (-1);
     }
 
-    result = i2cReadByteData(fd, CELL_1_V_MS);
+    result = i2c_read(fd, ADDR_GAS_GAUGE, CELL_1_V_MS, 1);
     voltage = result << 3;
-    result = i2cReadByteData(fd, CELL_1_V_LS);
+    result = i2c_read(fd, ADDR_GAS_GAUGE, CELL_1_V_LS, 1);
     voltage = (voltage | (result >> 5));
     voltage = (voltage | (result >> 5));
     batteryData[0] = 4.883e-3 * voltage;
 
-    result = i2cReadByteData(fd, CELL_2_V_MS);
+    result = i2c_read(fd, ADDR_GAS_GAUGE, CELL_2_V_MS, 1);
     voltage = result << 3;
-    result = i2cReadByteData(fd, CELL_2_V_LS);
+    result = i2c_read(fd, ADDR_GAS_GAUGE, CELL_2_V_LS, 1);
     voltage = (voltage | (result >> 5));
     voltage = (voltage | (result >> 5));
     batteryData[1] = 4.883e-3 * voltage;
 
-    result = i2cReadByteData(fd, BATT_I_MS);
+    result = i2c_read(fd, ADDR_GAS_GAUGE, BATT_I_MS, 1);
     current = result << 8;
-    result = i2cReadByteData(fd, BATT_I_LS);
+    result = i2c_read(fd, ADDR_GAS_GAUGE, BATT_I_LS, 1);
     current = current | result;
     batteryData[2] = 1000 * current * (1.5625e-6 / R_SENSE);
 
-    i2cClose(fd);
+    i2c_close(fd);
     return (0);
 }
 
@@ -76,15 +87,30 @@ void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
     char send_packet[NUM_BYTES_MESSAGE];
     char recv_packet[NUM_BYTES_MESSAGE];
 
-    gpioSetMode(RESET, PI_OUTPUT);
-    gpioSetMode(DOUT, PI_OUTPUT);
-    gpioSetMode(DIN, PI_INPUT);
-    gpioSetMode(SCK, PI_OUTPUT);
+    int retCode = 0;
+    retCode |= gpio_export(RESET);
+    retCode |= gpio_export(DOUT);
+    retCode |= gpio_export(DIN);
+    retCode |= gpio_export(SCK);
+    if (retCode) {
+        fprintf(stderr, "Failed to shutdown device using cam interface to FPGA");
+        return;
+    }
+
+    retCode = 0;
+    retCode |= gpio_set_direction(RESET_DIR, OUT);
+    retCode |= gpio_set_direction(DOUT_DIR, OUT);
+    retCode |= gpio_set_direction(DIN_DIR, IN);
+    retCode |= gpio_set_direction(SCK_DIR, OUT);
+    if (retCode) {
+        fprintf(stderr, "Failed to shutdown device using cam interface to FPGA");
+        return;
+    }
 
     // Initialize the GPIO lines
-    gpioWrite(RESET, 1);
-    gpioWrite(SCK, 0);
-    gpioWrite(DOUT, 0);
+    gpio_set_value(RESET_VALUE, "1");
+    gpio_set_value(DOUT_VALUE, "0");
+    gpio_set_value(SCK_VALUE, "0");
 
     // Send a CAM packet Pi -> FPGA
     send_packet[0] = 0x02;         // STX
@@ -101,17 +127,22 @@ void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
         data_byte = send_packet[j];
 
         for (i = 0; i < 8; i++) {
-            gpioWrite(DOUT, !!(data_byte & 0x80)); // setup data
+            // setup data
+            if (!!(data_byte & 0x80)) {
+                gpio_set_value(DOUT_VALUE, "1");
+            } else {
+                gpio_set_value(DOUT_VALUE, "0");
+            }
             usleep(100);
-            gpioWrite(SCK, 1); // pulse the clock
+            gpio_set_value(SCK_VALUE, "1"); // pulse the clock
             usleep(100);
-            gpioWrite(SCK, 0);
+            gpio_set_value(SCK_VALUE, "0");
             usleep(100);
             data_byte = data_byte << 1;
         }
     }
 
-    gpioWrite(DOUT, 0);
+    gpio_set_value(DOUT_VALUE, "0");
     usleep(2);
 
     usleep(2000);   //need to let i2c finish
@@ -122,10 +153,10 @@ void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
         data_byte = 0;
 
         for (i = 0; i < 8; i++) {
-            gpioWrite(SCK, 1); // pulse the clock
+            gpio_set_value(SCK_VALUE, "1"); // pulse the clock
             usleep(100);
-            data_byte = (gpioRead(DIN) << (7 - i) | data_byte);
-            gpioWrite(SCK, 0);
+            data_byte = ( !!gpio_get_value(DIN_VALUE) << (7 - i) | data_byte);
+            gpio_set_value(SCK_VALUE, "0");
             usleep(100);
         }
 
@@ -134,13 +165,14 @@ void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
     for (j = 0; j < NUM_BYTES_MESSAGE; j++) {
         *(pResponse + j) = recv_packet[j];
     }
+
+    gpio_unexport(RESET);
+    gpio_unexport(DOUT);
+    gpio_unexport(DIN);
+    gpio_unexport(SCK);
 }
 
 int main(int argc, char *argv[]) {
-    if (gpioInitialise() < 0) {
-        fprintf(stderr, "main(): pigpio initialisation failed\n");
-        return 1;
-    }
 
     double batteryData[3] = {0};
     if (!getBattStatus(batteryData)) {

@@ -11,11 +11,11 @@
 # This is the CETI makefile for the top level
 #-----------------------------------------------------------------------------
 
-SRC        = $(wildcard src/*.c)
+SRC        = $(wildcard src/*.c) $(wildcard src/Pi2c/*.cpp)
 OBJ        = $(SRC:.c=.o)
 CC         = gcc
-CFLAGS     = -Wall -g
-LDFLAGS    = -lpigpio
+CFLAGS     = -Wall -g 
+LDFLAGS    =
 APP        = cetiTagBatteryStatus
 BINDIR    ?= bin
 DESTDIR   ?= opt/ceti-tag-battery-monitor
@@ -23,6 +23,7 @@ DESTDIR   ?= opt/ceti-tag-battery-monitor
 build: $(APP)
 
 $(APP): $(OBJ)
+	echo $(SRC)
 	mkdir -p $(BINDIR)
 	cp -Rp src/batterymon.sh $(BINDIR)
 	$(CC) $(CFLAGS) -o $(BINDIR)/$(APP) $(LDFLAGS) $(OBJ)
