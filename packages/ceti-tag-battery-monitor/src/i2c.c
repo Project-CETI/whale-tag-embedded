@@ -29,8 +29,7 @@ void i2c_close(int i2c_handle) {
     }
 }
 
-unsigned char i2c_read(int i2c_handle, unsigned char address, unsigned char reg, unsigned char data) {
-    unsigned char result = 0;
+int i2c_read(int i2c_handle, unsigned char address, unsigned char reg, unsigned char data) {
     unsigned char outbuf[1], inbuf[1];
     struct i2c_msg msgs[2];
     struct i2c_rdwr_ioctl_data msgset[1];
@@ -52,12 +51,10 @@ unsigned char i2c_read(int i2c_handle, unsigned char address, unsigned char reg,
     inbuf[0] = 0;
 
     if (ioctl(i2c_handle, I2C_RDWR, &msgset) < 0) {
-        fprintf(stderr, "ioctl(I2C_RDWR) in i2c_read");
         return -1;
     }
 
-    result = inbuf[0];
-    return result;
+    return inbuf[0];
 }
 
 int i2c_write(int i2c_handle, unsigned char address, unsigned char reg, unsigned char data) {
@@ -79,7 +76,6 @@ int i2c_write(int i2c_handle, unsigned char address, unsigned char reg, unsigned
     msgset[0].nmsgs = 1;
 
     if (ioctl(i2c_handle, I2C_RDWR, &msgset) < 0) {
-        fprintf(stderr, "ioctl(I2C_RDWR) in i2c_write");
         return -1;
     }
 

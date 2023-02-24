@@ -41,30 +41,43 @@
 
 int getBattStatus(double *batteryData) {
 
-    int fd, result;
+    int fd, result = -1;
     signed short voltage, current;
 
     if ((fd = i2c_open(1, ADDR_GAS_GAUGE)) < 0) {
-        return (-1);
+        return result;
     }
 
-    result = i2c_read(fd, ADDR_GAS_GAUGE, CELL_1_V_MS, 1);
+    if ((result = i2c_read(fd, ADDR_GAS_GAUGE, CELL_1_V_MS, 1)) == -1 ) {
+        return result;
+    }
     voltage = result << 3;
-    result = i2c_read(fd, ADDR_GAS_GAUGE, CELL_1_V_LS, 1);
+    if ((result = i2c_read(fd, ADDR_GAS_GAUGE, CELL_1_V_LS, 1)) == -1 ) {
+        return result;
+    }
     voltage = (voltage | (result >> 5));
     voltage = (voltage | (result >> 5));
     batteryData[0] = 4.883e-3 * voltage;
 
-    result = i2c_read(fd, ADDR_GAS_GAUGE, CELL_2_V_MS, 1);
+    if ((result = i2c_read(fd, ADDR_GAS_GAUGE, CELL_2_V_MS, 1)) == -1 ) {
+        return result;
+    }
+
     voltage = result << 3;
-    result = i2c_read(fd, ADDR_GAS_GAUGE, CELL_2_V_LS, 1);
+    if ((result = i2c_read(fd, ADDR_GAS_GAUGE, CELL_2_V_LS, 1)) == -1 ) {
+        return result;
+    }
     voltage = (voltage | (result >> 5));
     voltage = (voltage | (result >> 5));
     batteryData[1] = 4.883e-3 * voltage;
 
-    result = i2c_read(fd, ADDR_GAS_GAUGE, BATT_I_MS, 1);
+    if ((result = i2c_read(fd, ADDR_GAS_GAUGE, BATT_I_MS, 1)) == -1 ) {
+        return result;
+    }
     current = result << 8;
-    result = i2c_read(fd, ADDR_GAS_GAUGE, BATT_I_LS, 1);
+    if ((result = i2c_read(fd, ADDR_GAS_GAUGE, BATT_I_LS, 1)) == -1 ) {
+        return result;
+    }
     current = current | result;
     batteryData[2] = 1000 * current * (1.5625e-6 / R_SENSE);
 
@@ -87,25 +100,15 @@ void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
     char send_packet[NUM_BYTES_MESSAGE];
     char recv_packet[NUM_BYTES_MESSAGE];
 
-    int retCode = 0;
-    retCode |= gpio_export(RESET);
-    retCode |= gpio_export(DOUT);
-    retCode |= gpio_export(DIN);
-    retCode |= gpio_export(SCK);
-    if (retCode) {
-        fprintf(stderr, "Failed to shutdown device using cam interface to FPGA");
-        return;
-    }
+    gpio_export(RESET);
+    gpio_export(DOUT);
+    gpio_export(DIN);
+    gpio_export(SCK);
 
-    retCode = 0;
-    retCode |= gpio_set_direction(RESET_DIR, OUT);
-    retCode |= gpio_set_direction(DOUT_DIR, OUT);
-    retCode |= gpio_set_direction(DIN_DIR, IN);
-    retCode |= gpio_set_direction(SCK_DIR, OUT);
-    if (retCode) {
-        fprintf(stderr, "Failed to shutdown device using cam interface to FPGA");
-        return;
-    }
+    gpio_set_direction(RESET_DIR, OUT);
+    gpio_set_direction(DOUT_DIR, OUT);
+    gpio_set_direction(DIN_DIR, IN);
+    gpio_set_direction(SCK_DIR, OUT);
 
     // Initialize the GPIO lines
     gpio_set_value(RESET_VALUE, "1");
@@ -174,8 +177,8 @@ void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
 
 int main(int argc, char *argv[]) {
 
-    double batteryData[3] = {0};
-    if (!getBattStatus(batteryData)) {
+    double batteryData[3] = {100.0, 100.0, 100.0};
+    if (getBattStatus(batteryData)) {
         fprintf(stderr, "Error quering gas gauge\n");
     }
 
@@ -197,7 +200,10 @@ int main(int argc, char *argv[]) {
     }
 
     if (!strncmp(argv[1], "powerdown", strlen("powerdown"))) {
+        fprintf(stdout, "Requesting powerdown from FPGA...\n");
         char cTemp[256] = {0};
         cam(0x0F, 0xB2, 0x00, 0x00, 0x00, cTemp);
+        return 0;
     }
+
 }
