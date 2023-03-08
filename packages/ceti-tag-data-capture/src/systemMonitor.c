@@ -49,7 +49,7 @@ static const char* systemMonitor_data_file_headers[] = {
   "RAM Free [B]", "RAM Free [%]",
   "Virtual Memory Used [B]", "Virtual Memory Used [%]",
   };
-static const int num_systemMonitor_data_file_headers = 21;
+static const int num_systemMonitor_data_file_headers = 22;
 
 int init_systemMonitor()
 {
