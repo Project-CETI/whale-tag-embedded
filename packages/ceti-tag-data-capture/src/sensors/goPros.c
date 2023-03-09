@@ -86,14 +86,17 @@ void* goPros_thread(void* paramPtr) {
     bzero(goPros_python_buffer, GOPRO_PYTHON_BUFFERSIZE);
 
     // Start the GoPros!
-    CETI_LOG("goPros_thread(): Starting the GoPros");
-    send_command_to_all_goPros(GOPRO_COMMAND_START);
+    if(!g_exit)
+    {
+      CETI_LOG("goPros_thread(): Starting the GoPros");
+      send_command_to_all_goPros(GOPRO_COMMAND_START);
+    }
 
     // Main loop while application is running.
     CETI_LOG("goPros_thread(): Starting loop to wait while data acquisition runs");
     g_goPros_thread_is_running = 1;
     usleep(GOPRO_PYTHON_HEARTBEAT_PERIOD_US);
-    while (!g_exit) {
+    while(!g_exit) {
       // Periodically send a heartbeat to let Python know the connection is active.
       goPro_python_message.goPro_index = NUM_GOPROS+1;
       goPro_python_message.command = GOPRO_COMMAND_HEARTBEAT;
@@ -201,7 +204,6 @@ void send_command_to_all_goPros(int goPro_command)
         }
       }
     }
-    CETI_LOG("UPDATING DATA FILE");
     // Add an entry to the data file.
     fprintf(goPros_data_file, "%lld", time_message_sent_us);
     fprintf(goPros_data_file, ",%d", rtc_count_message_sent);
