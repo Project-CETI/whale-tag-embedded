@@ -34,8 +34,8 @@ do
 # go dark with the batteries isolated.  The only way to turn it back on will
 # be to connect to an external power supply or charger.
 
-	check1=$( echo "$v1 < 3.46" | bc )
-	check2=$( echo "$v2 < 3.46" | bc )
+	check1=$( echo "$v1 < 3.00" | bc )
+	check2=$( echo "$v2 < 3.00" | bc )
 
 	if   [ $check1 -gt 0 ]  || [ $check2 -gt 0 ]; then
 		if [ $cell_check_count -eq 0 ]; then
