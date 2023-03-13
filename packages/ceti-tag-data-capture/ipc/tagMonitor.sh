@@ -2,6 +2,9 @@
 
 # New for 2.1-4 release  11/5/22
 # Supervisor script for the Tag application
+# 
+# 12/15/22 MRC 
+# Updated with additional start up delay to accomodate read-only boot time
 
 # Updated 3/11/23  Remove battery monitor feature, will be handled by separate service
 
@@ -29,7 +32,12 @@ sleep  30
 # Launch the main recording application in the background
 sudo /opt/ceti-tag-data-capture/bin/cetiTagApp & 
 
-# micro-SD storage monitoring  
+# Add another 2 minute holdoff before routine checking starts. This provides a window during
+# which the operator can intervene with the automatic shutdown in cases where the battery
+# has been deeply discharged 
+sleep  120
+
+# micro-SD storage and battery periodic monitoring  
 
 while :
 do
