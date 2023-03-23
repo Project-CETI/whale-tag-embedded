@@ -163,6 +163,7 @@ do_resize () {
   mount -L cetiData /data
   mount /data -o remount,rw
 
+  RET="$?"
   return "$RET"
 }
 
@@ -224,6 +225,13 @@ apply_custom () {
   rm -f "$CONFIG_FILE"
 }
 
+add_wifi () {
+  echo 'network={' >> /etc/wpa_supplicant/wpa_supplicant.conf
+  echo '	ssid="CETI"' >> /etc/wpa_supplicant/wpa_supplicant.conf
+  echo '	psk="Talk2Whales"' >> /etc/wpa_supplicant/wpa_supplicant.conf
+  echo '}' >> /etc/wpa_supplicant/wpa_supplicant.conf
+}
+
 main () {
   get_variables
 
@@ -240,9 +248,6 @@ main () {
   # Enable UART port, but disable serial console and ability to log into pi using it
   raspi-config nonint do_serial 2
 
-  # Switch to dhcpcd here if Imager < v1.7.3 was used to generate firstrun.sh
-  fix_wpa > /dev/null 2>&1
-
   whiptail --infobox "Generating SSH keys..." 20 60
   regenerate_ssh_host_keys
 
@@ -255,8 +260,9 @@ main () {
   fix_partuuid
   sethostname
   raspi-config nonint do_ssh 0
-  raspi-config nonint do_wifi_country US
+  add_wifi
   raspi-config nonint do_overlayfs 0
+
   return 0
 }
 

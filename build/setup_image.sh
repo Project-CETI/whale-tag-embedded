@@ -66,6 +66,9 @@ echo "dtparam=i2c_arm_baudrate=400000" >> /boot/config.txt
 # Set timezone
 raspi-config nonint do_change_timezone "America/Dominica"
 
+# Set wifi country
+raspi-config nonint do_wifi_country US
+
 # Update keyboard layout.
 sed -i -e 's/"gb"/"us"/' /etc/default/keyboard
 
