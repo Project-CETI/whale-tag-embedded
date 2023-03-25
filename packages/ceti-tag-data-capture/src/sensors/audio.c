@@ -300,7 +300,7 @@ void* audio_thread_writeData(void* paramPtr) {
                     buff[ix+channel] = (FLAC__int32)(FLAC__int16)(audio_page[pageIndex].buffer[ix*BYTES_PER_SAMPLE+channel] << 8) | (FLAC__int16)(audio_page[pageIndex].buffer[ix*BYTES_PER_SAMPLE+channel+1]);
                 }
             }
-            FLAC__stream_encoder_process_interleaved(flac_encoder, buff, 1);
+            FLAC__stream_encoder_process_interleaved(flac_encoder, buff, SAMPLES_PER_RAM_PAGE);
             audio_page[pageIndex].readyToBeSavedToDisk = false;
             audio_acqDataFileLength += RAM_SIZE;
         } else {

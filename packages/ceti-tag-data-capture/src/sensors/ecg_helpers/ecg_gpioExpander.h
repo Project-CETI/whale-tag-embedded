@@ -23,7 +23,9 @@
 // ------------------------------------------
 
 #define ECG_GPIO_EXPANDER_I2C_ADDRESS  0b0111001
-#define ECG_GPIO_EXPANDER_CHANNEL_DATAREADY  3 // The data-ready line of the ADC
+#define ECG_GPIO_EXPANDER_CHANNEL_DATAREADY  7 // The data-ready line of the ADC.
+                                               //   7 for the new ECG board (v1.1), and
+                                               //   3 for the old board (v0.9 and v1.0).
 #define ECG_GPIO_EXPANDER_CHANNEL_LEADSOFF   1 // The leads-off detection output of the ECG chip
 
 //-----------------------------------------------------------------------------

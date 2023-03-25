@@ -1,4 +1,0 @@
-#!/bin/sh
-
-raspi-config nonint do_wifi_country US
-raspi-config nonint do_netconf 1
