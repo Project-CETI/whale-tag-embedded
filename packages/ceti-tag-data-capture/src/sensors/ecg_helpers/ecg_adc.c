@@ -190,14 +190,21 @@ uint8_t ecg_adc_read_register(uint8_t reg)
 
 // Read, parse, and return data.
 // Assumes ecg_adc_config is already set for the desired channel.
-long ecg_adc_read_data()
+long ecg_adc_read_data(int* exit_flag, long long timeout_us)
 {
   // Start conversion if needed (if not using continuous mode).
   if(ecg_adc_is_singleShot)
     ecg_adc_start();
 
   // Wait for the data to be ready.
-  while(ecg_adc_read_data_ready() == 1);
+  int data_is_ready = 0;
+  long long wait_for_data_startTime_us = get_global_time_us();
+  while(!data_is_ready
+          && !*exit_flag
+          && get_global_time_us() - wait_for_data_startTime_us < timeout_us)
+    data_is_ready = (ecg_adc_read_data_ready() == 0 ? 1 : 0);
+  if(!data_is_ready)
+    return ECG_INVALID_PLACEHOLDER;
 
   // Read the data!
   uint8_t result_length = 3;
@@ -221,7 +228,7 @@ long ecg_adc_read_data()
 // Will update the ADC condiguration if needed
 //  (if the specified channel is different than the one previously read).
 // @param channel Can be 0, 1, 2, or 3.
-long ecg_adc_read_singleEnded(int channel)
+long ecg_adc_read_singleEnded(int channel, int* exit_flag, long long timeout_us)
 {
   // Update the configuration for the desired channel if needed.
 	ecg_adc_config &= ECG_ADC_MUX_MASK;
@@ -244,59 +251,59 @@ long ecg_adc_read_singleEnded(int channel)
   }
   ecg_adc_config_apply(); // Will only send the config if it has changed.
   // Read the data.
-  return ecg_adc_read_data();
+  return ecg_adc_read_data(exit_flag, timeout_us);
 }
 
 // Read a differential measurement between channels 0 and 1.
 // Will update the ADC configuration if needed
 //  (if the previous read was for a different channel subset).
-long ecg_adc_read_differential_0_1()
+long ecg_adc_read_differential_0_1(int* exit_flag, long long timeout_us)
 {
   // Update the configuration for the desired channel if needed.
   ecg_adc_config &= ECG_ADC_MUX_MASK;
   ecg_adc_config |= ECG_ADC_MUX_DIFF_0_1;
   ecg_adc_config_apply();
   // Read the data.
-  return ecg_adc_read_data();
+  return ecg_adc_read_data(exit_flag, timeout_us);
 }
 
 // Read a differential measurement between channels 2 and 3.
 // Will update the ADC configuration if needed
 //  (if the previous read was for a different channel subset).
-long ecg_adc_read_differential_2_3()
+long ecg_adc_read_differential_2_3(int* exit_flag, long long timeout_us)
 {
   // Update the configuration for the desired channel if needed.
   ecg_adc_config &= ECG_ADC_MUX_MASK;
   ecg_adc_config |= ECG_ADC_MUX_DIFF_2_3;
   ecg_adc_config_apply();
   // Read the data.
-  return ecg_adc_read_data();
+  return ecg_adc_read_data(exit_flag, timeout_us);
 }
 
 // Read a differential measurement between channels 1 and 2.
 // Will update the ADC configuration if needed
 //  (if the previous read was for a different channel subset).
-long ecg_adc_read_differential_1_2()
+long ecg_adc_read_differential_1_2(int* exit_flag, long long timeout_us)
 {
   // Update the configuration for the desired channel if needed.
   ecg_adc_config &= ECG_ADC_MUX_MASK;
   ecg_adc_config |= ECG_ADC_MUX_DIFF_1_2;
   ecg_adc_config_apply();
   // Read the data.
-  return ecg_adc_read_data();
+  return ecg_adc_read_data(exit_flag, timeout_us);
 }
 
 // Read a measurement with the positive and negative inputs both shorted to AVDD/2.
 // Will update the ADC configuration if needed
 //  (if the previous read was for a different channel subset).
-long ecg_adc_read_shorted()
+long ecg_adc_read_shorted(int* exit_flag, long long timeout_us)
 {
   // Update the configuration for the desired channel if needed.
   ecg_adc_config &= ECG_ADC_MUX_MASK;
   ecg_adc_config |= ECG_ADC_MUX_SHORTED;
   ecg_adc_config_apply();
   // Read the data.
-  return ecg_adc_read_data();
+  return ecg_adc_read_data(exit_flag, timeout_us);
 }
 
 //-----------------------------------------------------------------------------

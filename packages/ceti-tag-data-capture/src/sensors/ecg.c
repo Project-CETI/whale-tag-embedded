@@ -130,8 +130,10 @@ void* ecg_thread_getData(void* paramPtr)
   {
     // Note that the ADC will likely be slower than the GPIO expander,
     //  so read the ECG first to get the readings as close together as possible.
-    ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = ecg_adc_read_singleEnded(ECG_ADC_CHANNEL_ECG);
-    leadsOff_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = ecg_gpio_expander_read_leadsOff();
+    ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog]
+      = ecg_adc_read_singleEnded(ECG_ADC_CHANNEL_ECG, &g_exit, ECG_DATAREADY_TIMEOUT_US);
+    leadsOff_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog]
+      = ecg_gpio_expander_read_leadsOff();
     // Acquire timing information for the samples just acquired.
     // Read the time after acquisition, since reading the ADC includes a delay that sets the sampling rate.
     global_times_us[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = get_global_time_us();
@@ -142,6 +144,10 @@ void* ecg_thread_getData(void* paramPtr)
     //    CETI_LOG("ADC Reading! %ld\n", ecg_readings[ecg_buffer_index_toLog]);
     //    CETI_LOG("ADC Reading! %6.3f ", 3.3*(float)ecg_readings[ecg_buffer_index_toLog]/(float)(1 << 23));
     //    CETI_LOG("\tLeadsOff Reading! %1d\n", leadsOff_readings[ecg_buffer_index_toLog]);
+
+    // If there was an error reading, delay a bit before retrying.
+    if(ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_INVALID_PLACEHOLDER)
+      usleep(1000000);
 
     // Advance the buffer index.
     // If the buffer has filled, switch to the other buffer

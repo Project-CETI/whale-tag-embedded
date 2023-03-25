@@ -15,7 +15,8 @@
 //-----------------------------------------------------------------------------
 
 #include "ecg_gpioExpander.h" // for reading the ADC data-ready bit
-#include "../../utils/logging.h"    // for CETI_LOG()
+#include "../../utils/logging.h" // for CETI_LOG()
+#include "../../utils/timing.h"  // for get_global_time_us
 #include <pigpio.h> // for I2C functions
 #include <unistd.h> // for usleep()
 #include <stdio.h>  // for printing
@@ -84,17 +85,17 @@ void ecg_adc_set_data_rate(int rate);
 void ecg_adc_set_conversion_mode(uint8_t mode);
 void ecg_adc_set_voltage_reference(uint8_t vref);
 // Reading
-long ecg_adc_read_singleEnded(int channel);
-long ecg_adc_read_differential_0_1();
-long ecg_adc_read_differential_2_3();
-long ecg_adc_read_differential_1_2();
-long ecg_adc_read_shorted();
+long ecg_adc_read_singleEnded(int channel, int* exit_flag, long long timeout_us);
+long ecg_adc_read_differential_0_1(int* exit_flag, long long timeout_us);
+long ecg_adc_read_differential_2_3(int* exit_flag, long long timeout_us);
+long ecg_adc_read_differential_1_2(int* exit_flag, long long timeout_us);
+long ecg_adc_read_shorted(int* exit_flag, long long timeout_us);
 // Lower-level helpers
 void ecg_adc_config_reset();
 void ecg_adc_config_apply();
 void ecg_adc_write_config_register(uint8_t data);
 uint8_t ecg_adc_read_register(uint8_t reg);
-long ecg_adc_read_data();
+long ecg_adc_read_data(int* exit_flag, long long timeout_us);
 int ecg_adc_read_data_ready();
 
 #endif // ECG_ADC_H
