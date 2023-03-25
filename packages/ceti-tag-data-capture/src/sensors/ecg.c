@@ -25,6 +25,7 @@ static const int num_ecg_data_file_headers = 3;
 
 static int ecg_buffer_select_toLog = 0;   // which buffer will be populated with new incoming data
 static int ecg_buffer_select_toWrite = 0; // which buffer will be flushed to the output file
+static int ecg_buffer_index_toLog = 0;
 static long long global_times_us[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static int rtc_counts[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static long ecg_readings[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
@@ -33,6 +34,16 @@ static long long sample_indexes[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static char ecg_data_file_notes[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH][25];
 
 int init_ecg() {
+  // Initialize the GPIO expander and the ADC.
+  init_ecg_electronics();
+
+  // Open an output file to write data.
+  if(init_ecg_data_file(1) < 0)
+    return -1;
+
+  return 0;
+}
+int init_ecg_electronics() {
 
   // Set up the GPIO expander.
   //   The ADC code will use it to poll the data-ready output,
@@ -50,11 +61,7 @@ int init_ecg() {
   // Start continuous conversion (or a single reading).
   ecg_adc_start();
 
-  CETI_LOG("init_ecg(): Successfully initialized the ECG components");
-
-  // Open an output file to write data.
-  if(init_ecg_data_file(1) < 0)
-    return -1;
+  CETI_LOG("init_ecg(): Successfully initialized the ECG electronics");
 
   return 0;
 }
@@ -123,7 +130,7 @@ void* ecg_thread_getData(void* paramPtr)
   g_ecg_thread_getData_is_running = 1;
 
   // Continuously poll the ADC and the leads-off detection output.
-  int ecg_buffer_index_toLog = 0;
+  ecg_buffer_index_toLog = 0;
   long long sample_index = 0;
   long long start_time_ms = get_global_time_ms();
   while(!g_exit)
@@ -147,7 +154,12 @@ void* ecg_thread_getData(void* paramPtr)
 
     // If there was an error reading, delay a bit before retrying.
     if(ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_INVALID_PLACEHOLDER)
+    {
+      strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "INVALID? | ");
       usleep(1000000);
+      init_ecg_electronics();
+      usleep(10000);
+    }
 
     // Advance the buffer index.
     // If the buffer has filled, switch to the other buffer
@@ -214,8 +226,6 @@ void* ecg_thread_writeData(void* paramPtr)
     // Wait for new data to be in the buffer.
     while(ecg_buffer_select_toLog == ecg_buffer_select_toWrite && !g_exit)
       usleep(100000);
-    if(g_exit)
-      break;
 
     // Write the last buffer to a file.
     long ecg_data_file_size_b = 0;
@@ -227,7 +237,20 @@ void* ecg_thread_writeData(void* paramPtr)
     }
     else
     {
-      for(int ecg_buffer_index_toWrite = 0; ecg_buffer_index_toWrite < ECG_BUFFER_LENGTH; ecg_buffer_index_toWrite++)
+      // Determine the last index to write.
+      // During normal operation, will want to write the entire buffer
+      //  since the acquisition thread has just finished filling it.
+      int ecg_buffer_last_index_toWrite = ECG_BUFFER_LENGTH-1;
+      // If the program exited though, will want to write only as much
+      //  as the acquisition thread has filled.
+      if(ecg_buffer_select_toLog == ecg_buffer_select_toWrite)
+      {
+        ecg_buffer_last_index_toWrite = ecg_buffer_index_toLog-1;
+        if(ecg_buffer_last_index_toWrite < 0)
+          ecg_buffer_last_index_toWrite = 0;
+      }
+      // Write the buffer data to the file.
+      for(int ecg_buffer_index_toWrite = 0; ecg_buffer_index_toWrite <= ecg_buffer_last_index_toWrite; ecg_buffer_index_toWrite++)
       {
         // Write timing information.
         fprintf(ecg_data_file, "%lld", global_times_us[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
@@ -247,7 +270,7 @@ void* ecg_thread_writeData(void* paramPtr)
       fclose(ecg_data_file);
 
       // If the file size limit has been reached, start a new file.
-      if(ecg_data_file_size_b >= (long)(ECG_MAX_FILE_SIZE_MB)*1024L*1024L || ecg_data_file_size_b < 0)
+      if((ecg_data_file_size_b >= (long)(ECG_MAX_FILE_SIZE_MB)*1024L*1024L || ecg_data_file_size_b < 0) && !g_exit)
         init_ecg_data_file(0);
 
       //CETI_LOG("Wrote %d entries in %lld us", ECG_BUFFER_LENGTH, get_global_time_us() - start_time_us);
