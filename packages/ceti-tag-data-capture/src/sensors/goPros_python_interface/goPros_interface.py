@@ -16,34 +16,41 @@ from binascii import hexlify
 
 from bleak import BleakClient
 from tutorial_modules import GOPRO_BASE_UUID, connect_ble, logger
+
 ####################################################################
 # Define the C interface, which should match the definitions in sensors/goPros.h
 ####################################################################
 
-# Define the C-like struct.
+# Define the C-like struct that will be sent from the C program.
 class GoPro_C_Message(Structure):
   _fields_ = [
     ('goPro_index', c_uint32),
     ('command', c_uint32),
     ('is_ack', c_uint32),
+    ('success', c_uint32),
   ]
 
 # Define the commands.
-num_goPros = 2
 goPro_commands = {
   'start': 1,
   'stop': 2,
   'heartbeat': 3,
 }
 
+# Define the GoPros.
+goPro_ids = [6059, 7192]
+num_goPros = len(goPro_ids) # note that this can be greater than the number in the C program (they will simply not be started)
+
 # Socket configuration
 goPro_c_port = 2300
 connection_heartbeat_period_s = 5
 socket_receive_timeout_s = 5
 goPro_status = [0] * num_goPros # used to check whether the goPro is now on or off
+
 ####################################################################
 # Create the GoPro interface
 ####################################################################
+
 async def control_goPro(goPro_index, command):
     # Synchronization event to wait until notification response is received
     event = asyncio.Event()
@@ -53,17 +60,20 @@ async def control_goPro(goPro_index, command):
     response_uuid = COMMAND_RSP_UUID
     #logger.info(goPro_index)
     
-    if(goPro_index==0):
-        goPro_Name = 6059
-    elif(goPro_index==1):
-        goPro_Name = 7192
-    elif(goPro_index==2): # We have to change it to Camera name as we get them.
-        goPro_Name = 7777    
-    elif(goPro_index==3): # We have to change it to Camera name as we get them.
-        goPro_Name = 7777
-    else:
-        goPro_Name = 7777
-            
+    # Get the ID of the GoPro to control.
+    goPro_id = goPro_ids[goPro_index]
+
+    # Check if the command is redundant.
+    if command == goPro_commands['start'] and goPro_status[goPro_index] == 1:
+        logger.info("GoPro %d (ID %d) is already running; ignoring start command" % (goPro_index, goPro_id))
+        print('GoPro %d (ID %d) is already running; ignoring start command' % (goPro_index, goPro_id))
+        return True
+    if command == goPro_commands['stop'] and goPro_status[goPro_index] == 0:
+        logger.info("GoPro %d (ID %d) is already stopped; ignoring stop command" % (goPro_index, goPro_id))
+        print('GoPro %d (ID %d) is already stopped; ignoring stop command' % (goPro_index, goPro_id))
+        return True
+    
+    # Create a client for the GoPro.
     client: BleakClient
 
     def notification_handler(handle: int, data: bytes) -> None:
@@ -78,25 +88,40 @@ async def control_goPro(goPro_index, command):
 
         # Notify the writer
         event.set()
-
-    client = await connect_ble(notification_handler, goPro_Name)
-    event.clear()
-    if (command == goPro_commands['start'] and goPro_status[goPro_index]==0):        # Write to command request BleUUID to turn the shutter on
-        logger.info("Setting the shutter on")
-        print('Starting GoPro %d' % goPro_Name)
+    
+    # Connect to the GoPro
+    try:
+        client = await asyncio.wait_for(connect_ble(notification_handler, goPro_id),
+                                        timeout=20)
+        event.clear()
+    except (asyncio.TimeoutError, # The device was probably not found in the Bluetooth scan
+            RuntimeError):        # Probably exceeded the 10 retry attempts to connect
+        event.clear()
+        logger.info("Error or timeout connecting to GoPro %d (ID %d)" % (goPro_index, goPro_id))
+        print("Error or timeout connecting to GoPro %d (ID %d)" % (goPro_index, goPro_id))
+        return False
+    
+    # Start the GoPro.
+    if command == goPro_commands['start']: # Write to command request BleUUID to turn the shutter on
+        logger.info("Setting the shutter on for GoPro %d (ID %d)" % (goPro_index, goPro_id))
+        print('Starting GoPro %d (ID %d)' % (goPro_index, goPro_id))
         await client.write_gatt_char(COMMAND_REQ_UUID, bytearray([3, 1, 1, 1]), response=True)
         goPro_status[goPro_index] = 1
-    elif (command == goPro_commands['stop'] and goPro_status[goPro_index]==1):        # Write to command request BleUUID to turn the shutter off
-        logger.info("Setting the shutter off")
-        print('Stopping GoPro %d' % goPro_Name)
+    # Stop the GoPro.
+    elif command == goPro_commands['stop']: # Write to command request BleUUID to turn the shutter off
+        logger.info("Setting the shutter off for GoPro %d (ID %d)" % (goPro_index, goPro_id))
+        print('Stopping GoPro %d (ID %d)' % (goPro_index, goPro_id))
         await client.write_gatt_char(COMMAND_REQ_UUID, bytearray([3, 1, 1, 0]), response=True)
         goPro_status[goPro_index] = 0
+        
     await event.wait()  # Wait to receive the notification response
     await client.disconnect()
+    return True
     
 ####################################################################
 # Main loop to listen to and process commands.
 ####################################################################
+
 async def main() -> None:
     # Create the socket.
     print('Creating the socket')
@@ -144,8 +169,8 @@ async def main() -> None:
 
                     # Send an acknowledgment if it is not a heartbeat.
                     if command != goPro_commands['heartbeat']:
-                        await control_goPro(goPro_index, command)
-                        c_message = GoPro_C_Message(goPro_index, command, 1)
+                        success = await control_goPro(goPro_index, command)
+                        c_message = GoPro_C_Message(goPro_index, command, 1, 1 if success else 0)
                         c_socket.sendall(c_message)
                     # Update alive time.
                     last_message_time_s = time.time()
@@ -157,10 +182,11 @@ async def main() -> None:
     c_socket.close()
     del c_socket
 
-    if(sum(goPro_status)): # If c code stops, it automatically stops the goPro cameras
-        command = 2
+    # Ensure that the GoPros are stopped.
+    if sum(goPro_status) > 0:
+        command = goPro_commands['stop']
         for x in range(num_goPros):
-            if(goPro_status[x]==1):
+            if goPro_status[x]==1:
                 await control_goPro(x, command)
                 goPro_status[x] = 0
 

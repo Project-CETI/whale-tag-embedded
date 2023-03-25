@@ -134,7 +134,11 @@ int main(void) {
     // Give threads time to notice the g_exit flag and shut themselves down.
     int num_threads_running = num_threads;
     int threads_timeout_reached = 0;
+    #if ENABLE_GOPROS
+    long long wait_for_threads_timeout_us = 20000000*NUM_GOPROS;
+    #else
     long long wait_for_threads_timeout_us = 30000000;
+    #endif
     long long wait_for_threads_startTime_us = get_global_time_us();
     while(num_threads_running > 0 && !threads_timeout_reached)
     {
