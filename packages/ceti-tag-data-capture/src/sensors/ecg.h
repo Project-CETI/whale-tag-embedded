@@ -47,6 +47,7 @@ extern int g_ecg_thread_writeData_is_running;
 // Methods
 //-----------------------------------------------------------------------------
 int init_ecg();
+int init_ecg_electronics();
 int init_ecg_data_file(int restarted_program);
 void* ecg_thread_getData(void* paramPtr);
 void* ecg_thread_writeData(void* paramPtr);

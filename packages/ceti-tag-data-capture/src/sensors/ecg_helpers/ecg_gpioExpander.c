@@ -68,8 +68,14 @@ int ecg_gpio_expander_read()
   int result = i2cReadByte(ecg_gpio_expander_i2c_device);
   switch(result)
   {
-    case(PI_BAD_HANDLE): CETI_LOG("ecg_gpio_expander_read(): Failed to read (PI_BAD_HANDLE).\n"); break;
-    case(PI_I2C_READ_FAILED): CETI_LOG("ecg_gpio_expander_read(): Failed to read (PI_I2C_READ_FAILED).\n"); break;
+    case(PI_BAD_HANDLE):
+      CETI_LOG("ecg_gpio_expander_read(): Failed to read (PI_BAD_HANDLE).\n");
+      result = -1;
+      break;
+    case(PI_I2C_READ_FAILED):
+      CETI_LOG("ecg_gpio_expander_read(): Failed to read (PI_I2C_READ_FAILED).\n");
+      result = -1;
+      break;
     default: break;
   }
   return result;
@@ -79,14 +85,21 @@ int ecg_gpio_expander_read()
 // Will first read all inputs of the GPIO expander, then extract the desired bit.
 int ecg_gpio_expander_read_dataReady()
 {
-  return ecg_gpio_expander_parse_dataReady(ecg_gpio_expander_read());
+  int data = ecg_gpio_expander_read();
+  if(data < 0) // There was an error reading the GPIO expander
+    return -1;
+  return ecg_gpio_expander_parse_dataReady(data);
+
 }
 
 // Read the ECG leads-off detection output bit.
 // Will first read all inputs of the GPIO expander, then extract the desired bit.
 int ecg_gpio_expander_read_leadsOff()
 {
-  return ecg_gpio_expander_parse_leadsOff(ecg_gpio_expander_read());
+  int data = ecg_gpio_expander_read();
+  if(data < 0) // There was an error reading the GPIO expander
+    return -1;
+  return ecg_gpio_expander_parse_leadsOff(data);
 }
 
 // Given a byte of all GPIO expander inputs, extract the ADC data-ready bit.

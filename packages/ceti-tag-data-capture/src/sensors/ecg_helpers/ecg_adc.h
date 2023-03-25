@@ -17,6 +17,7 @@
 #include "ecg_gpioExpander.h" // for reading the ADC data-ready bit
 #include "../../utils/logging.h" // for CETI_LOG()
 #include "../../utils/timing.h"  // for get_global_time_us
+#include "../ecg.h" // for ECG_INVALID_PLACEHOLDER
 #include <pigpio.h> // for I2C functions
 #include <unistd.h> // for usleep()
 #include <stdio.h>  // for printing
