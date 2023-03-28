@@ -19,9 +19,10 @@
 #define ENABLE_LIGHT_SENSOR 1
 #define ENABLE_BOARDTEMPERATURE_SENSOR 1
 #define ENABLE_PRESSURETEMPERATURE_SENSOR 1
-#define ENABLE_RECOVERY 1
+#define ENABLE_RECOVERY 0
 #define ENABLE_SYSTEMMONITOR 1
-#define ENABLE_BURNWIRE 1
+#define ENABLE_BURNWIRE 0
+#define ENABLE_GOPROS 0
 
 //-----------------------------------------------------------------------------
 // Sampling and logging configuration.
@@ -50,6 +51,7 @@
 #define COMMAND_CPU 0
 #define STATEMACHINE_CPU 0
 #define SYSTEMMONITOR_CPU 0
+#define GOPROS_CPU 2
 
 #define ECG_DATA_FILEPATH_BASE "/data/data_ecg" // will append a counter and create new files according to a maximum size
 #define BATTERY_DATA_FILEPATH "/data/data_battery.csv"
@@ -60,6 +62,7 @@
 #define RECOVERY_DATA_FILEPATH "/data/data_gps.csv"
 #define STATEMACHINE_DATA_FILEPATH "/data/data_state.csv"
 #define SYSTEMMONITOR_DATA_FILEPATH "/data/data_systemMonitor.csv"
+#define GOPROS_DATA_FILEPATH "/data/data_goPros.csv"
 
 //-----------------------------------------------------------------------------
 // Includes
@@ -113,6 +116,11 @@
 #if ENABLE_SYSTEMMONITOR
 #include "systemMonitor.h"
 #endif
+
+#if ENABLE_GOPROS
+#include "sensors/goPros.h"
+#endif
+
 
 //-----------------------------------------------------------------------------
 // Global variables

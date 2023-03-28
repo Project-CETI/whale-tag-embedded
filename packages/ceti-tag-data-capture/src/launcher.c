@@ -98,6 +98,12 @@ int main(void) {
     threads_running[num_threads] = &g_systemMonitor_thread_is_running;
     num_threads++;
     #endif
+    // GoPros
+    #if ENABLE_GOPROS
+    pthread_create(&thread_ids[num_threads], NULL, &goPros_thread, NULL);
+    threads_running[num_threads] = &g_goPros_thread_is_running;
+    num_threads++;
+    #endif
     // Audio
     #if ENABLE_AUDIO
     usleep(1000000); // wait to make sure all other threads are on their assigned CPUs (maybe not needed?)
@@ -128,7 +134,11 @@ int main(void) {
     // Give threads time to notice the g_exit flag and shut themselves down.
     int num_threads_running = num_threads;
     int threads_timeout_reached = 0;
+    #if ENABLE_GOPROS
+    long long wait_for_threads_timeout_us = 20000000*NUM_GOPROS;
+    #else
     long long wait_for_threads_timeout_us = 30000000;
+    #endif
     long long wait_for_threads_startTime_us = get_global_time_us();
     while(num_threads_running > 0 && !threads_timeout_reached)
     {
@@ -213,6 +223,10 @@ int init_tag() {
 
   #if ENABLE_SYSTEMMONITOR
   result += init_systemMonitor() == 0 ? 0 : -1;
+  #endif
+
+  #if ENABLE_GOPROS
+  result += init_goPros() == 0 ? 0 : -1;
   #endif
 
   if(result < 0)
