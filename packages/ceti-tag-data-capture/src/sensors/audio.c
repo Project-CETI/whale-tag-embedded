@@ -152,7 +152,11 @@ int start_audio_acq(void) {
     cam(5, 0, 0, 0, 0, cam_response); // stops the input stream
     cam(3, 0, 0, 0, 0, cam_response); // flushes the FIFO
     init_pages();
-    audio_createNewDataFile();
+    #ifdef ENABLE_AUDIO_FLAC
+    audio_createNewFlacFile();
+    #else
+    audio_createNewRawFile();
+    #endif
     cam(4, 0, 0, 0, 0, cam_response); // starts the stream
     return 0;
 }
@@ -268,7 +272,7 @@ void* audio_thread_spi(void* paramPtr) {
 //-----------------------------------------------------------------------------
 // Write Data Thread moves the RAM buffer to mass storage
 //-----------------------------------------------------------------------------
-void* audio_thread_writeData(void* paramPtr) {
+void* audio_thread_writeFlac(void* paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_audio_thread_writeData_tid = gettid();
 
@@ -293,7 +297,7 @@ void* audio_thread_writeData(void* paramPtr) {
     while (!g_exit) {
         if (audio_page[pageIndex].readyToBeSavedToDisk) {
             if ( (audio_acqDataFileLength > MAX_AUDIO_DATA_FILE_SIZE) || (flac_encoder == 0) ) {
-                audio_createNewDataFile();
+                audio_createNewFlacFile();
             }
             for (size_t ix = 0; ix < SAMPLES_PER_RAM_PAGE; ix++) {
                 for (size_t channel = 0; channel < CHANNELS; channel++) {
@@ -316,7 +320,7 @@ void* audio_thread_writeData(void* paramPtr) {
     return NULL;
 }
 
-void audio_createNewDataFile() {
+void audio_createNewFlacFile() {
     FLAC__bool ok = true;
     FLAC__StreamEncoderInitStatus init_status;
     if (flac_encoder) {
@@ -324,7 +328,7 @@ void audio_createNewDataFile() {
         FLAC__stream_encoder_delete(flac_encoder);
         flac_encoder = 0;
         if (!ok) {
-            CETI_LOG("audio_createNewDataFile(): FLAC encoder failed to close for %s", audio_acqDataFileName);
+            CETI_LOG("audio_createNewFLacFile(): FLAC encoder failed to close for %s", audio_acqDataFileName);
         }
     }
 
@@ -346,19 +350,61 @@ void audio_createNewDataFile() {
     ok &= FLAC__stream_encoder_set_sample_rate(flac_encoder, SAMPLE_RATE);
 
     if (!ok) {
-        CETI_LOG("audio_createNewDataFile(): XXXX FLAC encoder failed to set parameters for %s", audio_acqDataFileName);
+        CETI_LOG("audio_createNewFlacFile(): XXXX FLAC encoder failed to set parameters for %s", audio_acqDataFileName);
         flac_encoder = 0;
         return;
     }
 
     init_status = FLAC__stream_encoder_init_file(flac_encoder, audio_acqDataFileName, NULL, NULL);
     if (init_status != FLAC__STREAM_ENCODER_INIT_STATUS_OK) {
-        CETI_LOG("audio_createNewDataFile(): XXXX ERROR: initializing encoder: %s", FLAC__StreamEncoderInitStatusString[init_status]);
+        CETI_LOG("audio_createNewFlacFile(): XXXX ERROR: initializing encoder: %s", FLAC__StreamEncoderInitStatusString[init_status]);
         FLAC__stream_encoder_delete(flac_encoder);
         flac_encoder = 0;
         return;
     }
-    CETI_LOG("audio_createNewDataFile(): Saving hydrophone data to %s", audio_acqDataFileName);
- }
+    CETI_LOG("audio_createNewFlacFile(): Saving hydrophone data to %s", audio_acqDataFileName);
+}
 
- #endif // !ENABLE_FPGA
+static FILE *acqData = NULL; // file for audio recording
+void * audio_thread_writeRaw( void * paramPtr ) {
+   g_audio_thread_writeData_tid = gettid();
+   int pageIndex = 0;
+   while (!g_exit) {
+       if (audio_page[pageIndex].readyToBeSavedToDisk) {
+           if ( (audio_acqDataFileLength > MAX_AUDIO_DATA_FILE_SIZE) || (acqData == NULL) ) {
+               audio_createNewRawFile();
+           }
+           fwrite(audio_page[pageIndex].buffer,1,RAM_SIZE,acqData); //
+           audio_page[pageIndex].readyToBeSavedToDisk = false;
+           audio_acqDataFileLength += RAM_SIZE;
+           fflush(acqData);
+           fsync(fileno(acqData));
+       } else {
+           usleep(1000);
+       }
+       pageIndex = !pageIndex;
+   }
+   return NULL;
+}
+
+void audio_createNewRawFile() {
+    if (acqData != NULL) {
+        fclose(acqData);
+    }
+
+    // filename is the time in ms at the start of audio recording
+    struct timeval te;
+    gettimeofday(&te, NULL);
+    long long milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
+    snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "../data/%lld.raw", milliseconds);
+    acqData = fopen(audio_acqDataFileName, "wb");
+    audio_acqDataFileLength = 0;
+    if (!acqData) {
+        CETI_LOG("Failed to open %s", audio_acqDataFileName);
+        return;
+    }
+    CETI_LOG("createNewDataFile(): Saving hydrophone data to %s", audio_acqDataFileName);
+}
+
+
+#endif // !ENABLE_FPGA

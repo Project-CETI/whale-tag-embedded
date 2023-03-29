@@ -95,9 +95,12 @@ int stop_audio_acq(void);
 void createNewAudioDataFile(void);
 void formatRaw(void);
 void formatRawNoHeader3ch16bit(void);
-void audio_createNewDataFile();
+void audio_createNewFlacFile();
+void audio_createNewRawFile();
 void* audio_thread_spi(void* paramPtr);
-void* audio_thread_writeData(void* paramPtr);
+void* audio_thread_writeFlac(void* paramPtr);
+void * audio_thread_writeRaw(void* paramPtr);
+
 
 //-----------------------------------------------------------------------------
 // Global variables

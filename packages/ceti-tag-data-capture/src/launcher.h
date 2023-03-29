@@ -14,6 +14,7 @@
 #define ENABLE_FPGA 1 // for audio acquisition AND for safe power-down sequences
 #define ENABLE_BATTERY_GAUGE 1
 #define ENABLE_AUDIO 1
+#define ENABLE_AUDIO_FLAC 1
 #define ENABLE_ECG 1
 #define ENABLE_IMU 1
 #define ENABLE_LIGHT_SENSOR 1

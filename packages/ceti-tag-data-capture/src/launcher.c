@@ -110,9 +110,16 @@ int main(void) {
     pthread_create(&thread_ids[num_threads], NULL, &audio_thread_spi, NULL);
     threads_running[num_threads] = &g_audio_thread_spi_is_running;
     num_threads++;
-    pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeData, NULL);
+    #if ENABLE_AUDIO_FLAC
+    pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeFlac, NULL);
     threads_running[num_threads] = &g_audio_thread_writeData_is_running;
     num_threads++;
+    #else
+    // dump raw audio files
+    pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeRaw, NULL);
+    threads_running[num_threads] = &g_audio_thread_writeData_is_running;
+    num_threads++;
+    #endif
     #endif
 
     usleep(100000);
