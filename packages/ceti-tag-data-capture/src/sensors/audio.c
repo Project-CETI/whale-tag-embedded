@@ -152,7 +152,7 @@ int start_audio_acq(void) {
     cam(5, 0, 0, 0, 0, cam_response); // stops the input stream
     cam(3, 0, 0, 0, 0, cam_response); // flushes the FIFO
     init_pages();
-    #ifdef ENABLE_AUDIO_FLAC
+    #if ENABLE_AUDIO_FLAC
     audio_createNewFlacFile();
     #else
     audio_createNewRawFile();
@@ -328,7 +328,7 @@ void audio_createNewFlacFile() {
         FLAC__stream_encoder_delete(flac_encoder);
         flac_encoder = 0;
         if (!ok) {
-            CETI_LOG("audio_createNewFLacFile(): FLAC encoder failed to close for %s", audio_acqDataFileName);
+            CETI_LOG("audio_createNewFlacFile(): FLAC encoder failed to close for %s", audio_acqDataFileName);
         }
     }
 
@@ -340,7 +340,7 @@ void audio_createNewFlacFile() {
 
     /* allocate the encoder */
     if ((flac_encoder = FLAC__stream_encoder_new()) == NULL) {
-        CETI_LOG("audio_createNewDataFile(): XXXX ERROR: allocating FLAC encoder");
+        CETI_LOG("audio_createNewFlacFile(): XXXX ERROR: allocating FLAC encoder");
         flac_encoder = 0;
         return;
     }
@@ -366,8 +366,26 @@ void audio_createNewFlacFile() {
 }
 
 static FILE *acqData = NULL; // file for audio recording
-void * audio_thread_writeRaw( void * paramPtr ) {
+void* audio_thread_writeRaw(void* paramPtr) {
+   // Get the thread ID, so the system monitor can check its CPU assignment.
    g_audio_thread_writeData_tid = gettid();
+
+   // Set the thread CPU affinity.
+   if(AUDIO_WRITEDATA_CPU >= 0)
+   {
+     pthread_t thread;
+     thread = pthread_self();
+     cpu_set_t cpuset;
+     CPU_ZERO(&cpuset);
+     CPU_SET(AUDIO_WRITEDATA_CPU, &cpuset);
+     if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
+       CETI_LOG("audio_thread_writeRaw(): Successfully set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
+     else
+       CETI_LOG("audio_thread_writeRaw(): XXX Failed to set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
+   }
+
+   CETI_LOG("audio_thread_writeRaw(): Starting loop to periodically write data");
+   g_audio_thread_writeData_is_running = 1;
    int pageIndex = 0;
    while (!g_exit) {
        if (audio_page[pageIndex].readyToBeSavedToDisk) {
@@ -384,6 +402,8 @@ void * audio_thread_writeRaw( void * paramPtr ) {
        }
        pageIndex = !pageIndex;
    }
+   g_audio_thread_writeData_is_running = 0;
+   CETI_LOG("audio_thread_writeRaw(): Done!");
    return NULL;
 }
 
@@ -396,14 +416,14 @@ void audio_createNewRawFile() {
     struct timeval te;
     gettimeofday(&te, NULL);
     long long milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
-    snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "../data/%lld.raw", milliseconds);
+    snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%lld.raw", milliseconds);
     acqData = fopen(audio_acqDataFileName, "wb");
     audio_acqDataFileLength = 0;
     if (!acqData) {
         CETI_LOG("Failed to open %s", audio_acqDataFileName);
         return;
     }
-    CETI_LOG("createNewDataFile(): Saving hydrophone data to %s", audio_acqDataFileName);
+    CETI_LOG("audio_createNewRawFile(): Saving hydrophone data to %s", audio_acqDataFileName);
 }
 
 

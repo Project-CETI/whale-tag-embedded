@@ -34,9 +34,11 @@
 int init_systemMonitor();
 long long get_virtual_memory_total();
 long long get_virtual_memory_used();
+long long get_swap_total();
+long long get_swap_free();
 long long get_ram_total();
-long long get_ram_used();
 long long get_ram_free();
+long long get_ram_used();
 int update_cpu_usage();
 int get_cpu_id_for_tid(int tid);
 void* systemMonitor_thread(void* paramPtr);

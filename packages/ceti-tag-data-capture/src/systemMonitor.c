@@ -15,7 +15,7 @@
 int g_systemMonitor_thread_is_running = 0;
 struct sysinfo memInfo;
 static long long ram_total = -1;
-static long long virtual_memory_total = -1;
+static long long swap_total = -1;
 // State for computing CPU usage.
 static unsigned long long cpu_prev_user[NUM_CPU_ENTRIES], cpu_prev_userNice[NUM_CPU_ENTRIES];
 static unsigned long long cpu_prev_system[NUM_CPU_ENTRIES], cpu_prev_idle[NUM_CPU_ENTRIES];
@@ -49,7 +49,7 @@ static const char* systemMonitor_data_file_headers[] = {
   "BoardTemp CPU", "Bat CPU", "Recovery CPU", "FSM CPU", "Commands CPU",
   "SysMonitor CPU", "GoPros CPU",
   "RAM Free [B]", "RAM Free [%]",
-  "Virtual Memory Used [B]", "Virtual Memory Used [%]",
+  "Swap Free [B]", "Swap Free [%]",
   };
 static const int num_systemMonitor_data_file_headers = 23;
 
@@ -58,7 +58,7 @@ int init_systemMonitor()
   // Get initial readings from /proc/stat, so differences can be taken later to compute CPU usage.
   update_cpu_usage();
   // Get total memory available, which does not change.
-  virtual_memory_total = get_virtual_memory_total();
+  swap_total = get_swap_total();
   ram_total = get_ram_total();
 
   CETI_LOG("init_systemMonitor(): Successfully initialized the system monitor thread");
@@ -98,7 +98,8 @@ void* systemMonitor_thread(void* paramPtr) {
 
     // Main loop while application is running.
     CETI_LOG("systemMonitor_thread(): Starting loop to periodically check system resources");
-    long long virtual_memory_used, ram_free;
+    long long ram_free;
+    long long swap_free;
     long long global_time_us;
     int rtc_count;
     long long polling_sleep_duration_us;
@@ -107,8 +108,8 @@ void* systemMonitor_thread(void* paramPtr) {
       // Acquire timing and system information as close together as possible.
       global_time_us = get_global_time_us();
       rtc_count = getRtcCount();
-      virtual_memory_used = get_virtual_memory_used();
       ram_free = get_ram_free();
+      swap_free = get_swap_free();
       update_cpu_usage();
       
       // Write system usage information to the data file.
@@ -142,8 +143,8 @@ void* systemMonitor_thread(void* paramPtr) {
         fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_goPros_thread_tid));
         fprintf(systemMonitor_data_file, ",%lld", ram_free);
         fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)ram_free)/((double)ram_total));
-        fprintf(systemMonitor_data_file, ",%lld", virtual_memory_used);
-        fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)virtual_memory_used)/((double)virtual_memory_total));
+        fprintf(systemMonitor_data_file, ",%lld", swap_free);
+        fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)swap_free)/((double)swap_total));
         // Finish the row of data and close the file.
         fprintf(systemMonitor_data_file, "\n");
         fclose(systemMonitor_data_file);
@@ -183,6 +184,24 @@ long long get_virtual_memory_used()
   virtualMemUsed += memInfo.totalswap - memInfo.freeswap;
   virtualMemUsed *= memInfo.mem_unit;
   return virtualMemUsed;
+}
+
+long long get_swap_total()
+{
+  sysinfo(&memInfo);
+  long long totalSwap = memInfo.totalswap;
+  //Multiply in next statement to avoid int overflow on right hand side...
+  totalSwap *= memInfo.mem_unit;
+  return totalSwap;
+}
+
+long long get_swap_free()
+{
+  sysinfo(&memInfo);
+  long long swapFree = memInfo.freeswap;
+  //Multiply in next statement to avoid int overflow on right hand side...
+  swapFree *= memInfo.mem_unit;
+  return swapFree;
 }
 
 long long get_ram_total()
