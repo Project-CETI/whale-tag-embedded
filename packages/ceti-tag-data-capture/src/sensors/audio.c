@@ -301,7 +301,7 @@ void* audio_thread_writeFlac(void* paramPtr) {
             }
             for (size_t ix = 0; ix < SAMPLES_PER_RAM_PAGE; ix++) {
                 for (size_t channel = 0; channel < CHANNELS; channel++) {
-                    buff[channel] = (FLAC__int32)(FLAC__int16)(audio_page[pageIndex].buffer[ix*BYTES_PER_SAMPLE+channel] << 8) | (FLAC__int16)(audio_page[pageIndex].buffer[ix*BYTES_PER_SAMPLE+channel+1]);
+                    buff[channel] = (FLAC__int32)(FLAC__int16)(audio_page[pageIndex].buffer[ix*BYTES_PER_SAMPLE+channel+1] << 8) | (FLAC__int16)(audio_page[pageIndex].buffer[ix*BYTES_PER_SAMPLE+channel]);
                 }
                 FLAC__stream_encoder_process_interleaved(flac_encoder, buff, 1);
             }
@@ -337,6 +337,7 @@ void audio_createNewFlacFile() {
     gettimeofday(&te, NULL);
     long long milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
     snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%lld.flac", milliseconds);
+    audio_acqDataFileLength = 0;
 
     /* allocate the encoder */
     if ((flac_encoder = FLAC__stream_encoder_new()) == NULL) {
