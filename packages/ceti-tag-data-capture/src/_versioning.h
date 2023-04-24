@@ -14,11 +14,12 @@
 //  2_1.4   11/3/22    Add battery check funcs, general clean up. FPGA shutdown method
 //  2_1.5   11/24/22   Change RAM buffer size to accomodate read-only rootfs
 //  2.1.6   12/03/22   Added ECG
+//  2.2.0   03/25/22   Refactored codebase, testing on Pi Zero 2
 //
 
 #ifndef CETI_VERSIONING_H
 #define CETI_VERSIONING_H
 
-#define CETI_VERSION "v2_1.6 release candidate - in test"
+#define CETI_VERSION "v2_2.0 release candidate - in test"
 
 #endif // CETI_VERSIONING_H

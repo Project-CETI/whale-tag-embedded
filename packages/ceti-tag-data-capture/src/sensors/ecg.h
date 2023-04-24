@@ -35,7 +35,7 @@
 #define ECG_DATAREADY_TIMEOUT_US 100000 // Max time to wait for ADC data to be ready
 #define ECG_INVALID_PLACEHOLDER ((long)(-6666666)) // Do not expect large negative voltages (ADC readings are out of ~8e6)
 
-#define ECG_I2C_BUS 0x01
+#define ECG_I2C_BUS 0x00
 
 //-----------------------------------------------------------------------------
 // Global variables
