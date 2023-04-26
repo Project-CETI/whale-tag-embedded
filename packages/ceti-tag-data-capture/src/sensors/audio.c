@@ -196,34 +196,33 @@ void* audio_thread_spi(void* paramPtr) {
     /* Set GPIO modes */
     gpioSetMode(AUDIO_DATA_AVAILABLE, PI_INPUT);
 
-    // Set the thread priority.
-    struct sched_param sp;
-    memset(&sp, 0, sizeof(sp));
-    sp.sched_priority = sched_get_priority_max(SCHED_RR);
-    if(sched_setscheduler(getpid(), SCHED_RR, &sp) == 0)
-      CETI_LOG("audio_thread_spi(): Successfully set priority");
-    else
-      CETI_LOG("audio_thread_spi(): !!! Failed to set priority");
     // Set the thread CPU affinity.
     if(AUDIO_SPI_CPU >= 0)
     {
-      pthread_t thread;
-      thread = pthread_self();
       cpu_set_t cpuset;
       CPU_ZERO(&cpuset);
       CPU_SET(AUDIO_SPI_CPU, &cpuset);
-      if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
+      if(pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset) == 0)
         CETI_LOG("audio_thread_spi(): Successfully set affinity to CPU %d", AUDIO_SPI_CPU);
       else
         CETI_LOG("audio_thread_spi(): XXX Failed to set affinity to CPU %d", AUDIO_SPI_CPU);
     }
+    // Set the thread priority.
+    struct sched_param sp;
+    memset(&sp, 0, sizeof(sp));
+    sp.sched_priority = sched_get_priority_max(SCHED_RR);
+    if(pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
+      CETI_LOG("audio_thread_spi(): Successfully set priority");
+    else
+      CETI_LOG("audio_thread_spi(): XXX Failed to set priority");
 
+    // Initialize state.
     volatile int status;
     volatile int prev_status;
-
     prev_status = gpioRead(AUDIO_DATA_AVAILABLE);
     status = prev_status;
 
+    // Main loop to acquire audio data.
     CETI_LOG("audio_thread_spi(): Starting loop to fetch data via SPI");
     g_audio_thread_spi_is_running = 1;
     while (!g_exit) {

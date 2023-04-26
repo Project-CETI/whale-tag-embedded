@@ -103,27 +103,25 @@ void* ecg_thread_getData(void* paramPtr)
   // Get the thread ID, so the system monitor can check its CPU assignment.
   g_ecg_thread_getData_tid = gettid();
 
-  // Set the thread priority.
-  struct sched_param sp;
-  memset(&sp, 0, sizeof(sp));
-  sp.sched_priority = sched_get_priority_max(SCHED_RR);
-  if(sched_setscheduler(getpid(), SCHED_RR, &sp) == 0)
-    CETI_LOG("ecg_thread_getData(): Successfully set priority");
-  else
-    CETI_LOG("ecg_thread_getData(): !!! Failed to set priority");
   // Set the thread CPU affinity.
   if(ECG_GETDATA_CPU >= 0)
   {
-    pthread_t thread;
-    thread = pthread_self();
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
     CPU_SET(ECG_GETDATA_CPU, &cpuset);
-    if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
+    if(pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset) == 0)
       CETI_LOG("ecg_thread_getData(): Successfully set affinity to CPU %d", ECG_GETDATA_CPU);
     else
       CETI_LOG("ecg_thread_getData(): XXX Failed to set affinity to CPU %d", ECG_GETDATA_CPU);
   }
+  // Set the thread priority.
+  struct sched_param sp;
+  memset(&sp, 0, sizeof(sp));
+  sp.sched_priority = sched_get_priority_max(SCHED_RR);
+  if(pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
+    CETI_LOG("ecg_thread_getData(): Successfully set priority");
+  else
+    CETI_LOG("ecg_thread_getData(): XXX Failed to set priority");
 
   // Main loop while application is running.
   CETI_LOG("ecg_thread_getData(): Starting loop to periodically acquire data");

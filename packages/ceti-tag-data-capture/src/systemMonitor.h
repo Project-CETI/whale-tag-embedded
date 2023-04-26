@@ -27,6 +27,7 @@
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
 #define NUM_CPU_ENTRIES 5 // overall, then 4 cores
+#define TID_PRINT_PERIOD_US 10000000 // How often to print thread IDs; -1 to never print
 
 //-----------------------------------------------------------------------------
 // Methods

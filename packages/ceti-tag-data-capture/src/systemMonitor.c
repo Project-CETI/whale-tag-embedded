@@ -105,7 +105,36 @@ void* systemMonitor_thread(void* paramPtr) {
     int rtc_count;
     long long polling_sleep_duration_us;
     g_systemMonitor_thread_is_running = 1;
+    #if TID_PRINT_PERIOD_US >= 0
+    long long last_tid_print_time_us = get_global_time_us();
+    #endif
     while (!g_exit) {
+      // Print the thread IDs if desired
+      #if TID_PRINT_PERIOD_US >= 0
+      if(get_global_time_us() - last_tid_print_time_us > TID_PRINT_PERIOD_US)
+      {
+        CETI_LOG("......");
+        CETI_LOG("Thread IDs:");
+        CETI_LOG(" %6d: audio_thread_spi", g_audio_thread_spi_tid);
+        CETI_LOG(" %6d: audio_thread_writeData", g_audio_thread_writeData_tid);
+        CETI_LOG(" %6d: ecg_thread_getData", g_ecg_thread_getData_tid);
+        CETI_LOG(" %6d: ecg_thread_writeData", g_ecg_thread_writeData_tid);
+        CETI_LOG(" %6d: imu_thread", g_imu_thread_tid);
+        CETI_LOG(" %6d: light_thread", g_light_thread_tid);
+        CETI_LOG(" %6d: pressureTemperature_thread", g_pressureTemperature_thread_tid);
+        CETI_LOG(" %6d: boardTemperature_thread", g_boardTemperature_thread_tid);
+        CETI_LOG(" %6d: battery_thread", g_battery_thread_tid);
+        CETI_LOG(" %6d: recovery_thread", g_recovery_thread_tid);
+        CETI_LOG(" %6d: stateMachine_thread", g_stateMachine_thread_tid);
+        CETI_LOG(" %6d: command_thread", g_command_thread_tid);
+        CETI_LOG(" %6d: rtc_thread", g_rtc_thread_tid);
+        CETI_LOG(" %6d: systemMonitor_thread", g_systemMonitor_thread_tid);
+        CETI_LOG(" %6d: goPros_thread", g_goPros_thread_tid);
+        CETI_LOG("......");
+        last_tid_print_time_us = get_global_time_us();
+      }
+      #endif
+      
       // Acquire timing and system information as close together as possible.
       global_time_us = get_global_time_us();
       rtc_count = getRtcCount();
