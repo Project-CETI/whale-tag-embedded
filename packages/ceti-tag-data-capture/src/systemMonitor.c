@@ -37,6 +37,7 @@ int g_boardTemperature_thread_tid = -1;
 int g_battery_thread_tid = -1;
 int g_recovery_thread_tid = -1;
 int g_command_thread_tid = -1;
+int g_rtc_thread_tid = -1;
 int g_stateMachine_thread_tid = -1;
 int g_goPros_thread_tid = -1;
 // Writing data to a log file.
@@ -46,12 +47,12 @@ static const char* systemMonitor_data_file_headers[] = {
   "CPU all [%]", "CPU 0 [%]", "CPU 1 [%]", "CPU 2 [%]", "CPU 3 [%]",
   "Audio SPI CPU", "Audio Write CPU", "ECG GetData CPU", "ECG WriteData CPU",
   "IMU CPU", "Light CPU", "PressureTemp CPU",
-  "BoardTemp CPU", "Bat CPU", "Recovery CPU", "FSM CPU", "Commands CPU",
+  "BoardTemp CPU", "Bat CPU", "Recovery CPU", "FSM CPU", "Commands CPU", "RTC CPU",
   "SysMonitor CPU", "GoPros CPU",
   "RAM Free [B]", "RAM Free [%]",
   "Swap Free [B]", "Swap Free [%]",
   };
-static const int num_systemMonitor_data_file_headers = 23;
+static const int num_systemMonitor_data_file_headers = 24;
 
 int init_systemMonitor()
 {
@@ -139,6 +140,7 @@ void* systemMonitor_thread(void* paramPtr) {
         fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_recovery_thread_tid));
         fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_stateMachine_thread_tid));
         fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_command_thread_tid));
+        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_rtc_thread_tid));
         fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_systemMonitor_thread_tid));
         fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_goPros_thread_tid));
         fprintf(systemMonitor_data_file, ",%lld", ram_free);

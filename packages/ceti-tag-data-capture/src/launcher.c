@@ -39,6 +39,12 @@ int main(void) {
     int num_threads = 0;
     CETI_LOG("main(): -------------------------------------------------");
     CETI_LOG("main(): Starting acquisition threads");
+    // RTC
+    #if ENABLE_RTC
+    pthread_create(&thread_ids[num_threads], NULL, &rtc_thread, NULL);
+    threads_running[num_threads] = &g_rtc_thread_is_running;
+    num_threads++;
+    #endif
     // Handle user commands.
     pthread_create(&thread_ids[num_threads], NULL, &command_thread, NULL);
     threads_running[num_threads] = &g_command_thread_is_running;

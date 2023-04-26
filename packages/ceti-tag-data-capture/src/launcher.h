@@ -12,6 +12,7 @@
 // Select which components to enable.
 //-----------------------------------------------------------------------------
 #define ENABLE_FPGA 1 // for audio acquisition AND for safe power-down sequences
+#define ENABLE_RTC 1
 #define ENABLE_BATTERY_GAUGE 1
 #define ENABLE_AUDIO 1
 #define ENABLE_AUDIO_FLAC 0
@@ -34,6 +35,8 @@
 #define PRESSURETEMPERATURE_SAMPLING_PERIOD_US 1000000
 #define BOARDTEMPERATURE_SAMPLING_PERIOD_US 1000000
 #define RECOVERY_SAMPLING_PERIOD_US 5000000
+#define RTC_UPDATE_PERIOD_LONG_US 950000 // A coarse delay, to get close to when the RTC is expected to change
+#define RTC_UPDATE_PERIOD_SHORT_US 10000 // A finer delay, to find the new RTC value close to its update time
 #define COMMAND_POLLING_PERIOD_US 1000
 #define STATEMACHINE_UPDATE_PERIOD_US 1000000
 #define SYSTEMMONITOR_SAMPLING_PERIOD_US 5000000
@@ -49,6 +52,7 @@
 #define PRESSURETEMPERATURE_CPU 1
 #define BOARDTEMPERATURE_CPU 1
 #define RECOVERY_CPU 1
+#define RTC_CPU 1
 #define COMMAND_CPU 0
 #define STATEMACHINE_CPU 0
 #define SYSTEMMONITOR_CPU 0
