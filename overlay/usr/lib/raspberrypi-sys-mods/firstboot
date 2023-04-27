@@ -232,6 +232,18 @@ add_wifi () {
   echo '}' >> /etc/wpa_supplicant/wpa_supplicant.conf
 }
 
+add_swap () {
+  # Create a folder where the swap file will reside
+  sudo mkdir /data/swap
+  # Set up the swap
+  sudo dphys-swapfile swapoff
+  sudo sh -c "echo 'CONF_SWAPFILE=/data/swap/swapfile' >> /etc/dphys-swapfile"
+  sudo sh -c "echo 'CONF_SWAPSIZE=1024' >> /etc/dphys-swapfile"
+  sudo dphys-swapfile setup
+  sudo dphys-swapfile swapon
+}
+
+
 main () {
   get_variables
 
@@ -261,6 +273,7 @@ main () {
   sethostname
   raspi-config nonint do_ssh 0
   add_wifi
+  add_swap
   raspi-config nonint do_overlayfs 0
 
   return 0
