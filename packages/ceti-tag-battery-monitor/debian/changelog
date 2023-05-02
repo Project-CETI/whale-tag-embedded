@@ -1,6 +1,0 @@
-ceti-tag-battery-monitor (2.1-0) stable; urgency=medium
-
-  * Create a separate systemD service to monitor the battery and shutdown the system if needed
-
- --  CETI Project <cetiproject.org>  Mon, 30 Jan 2023 00:00:01 -0800
-
