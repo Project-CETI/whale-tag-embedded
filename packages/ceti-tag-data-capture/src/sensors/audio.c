@@ -39,7 +39,7 @@ int init_audio() {
 static char audio_acqDataFileName[AUDIO_DATA_FILENAME_LEN] = {};
 static int audio_acqDataFileLength = 0;
 static FLAC__StreamEncoder* flac_encoder = 0;
-static FLAC__int32 buff[CHANNELS] = {0};
+static FLAC__int32 buff[SAMPLES_PER_RAM_PAGE*CHANNELS] = {0};
 struct audio_dataPage {
     char buffer[RAM_SIZE];
     int counter;
@@ -300,10 +300,13 @@ void* audio_thread_writeFlac(void* paramPtr) {
             }
             for (size_t ix = 0; ix < SAMPLES_PER_RAM_PAGE; ix++) {
                 for (size_t channel = 0; channel < CHANNELS; channel++) {
-                    buff[channel] = (FLAC__int32)(FLAC__int16)(audio_page[pageIndex].buffer[ix*BYTES_PER_SAMPLE+channel+1] << 8) | (FLAC__int16)(audio_page[pageIndex].buffer[ix*BYTES_PER_SAMPLE+channel]);
+                    size_t idx = (CHANNELS*BYTES_PER_SAMPLE*ix)+(BYTES_PER_SAMPLE*channel);
+                    uint8_t byte1 = (uint8_t)audio_page[pageIndex].buffer[idx];
+                    uint8_t byte2 = (uint8_t)audio_page[pageIndex].buffer[idx+1];
+                    buff[ix * CHANNELS + channel] = (FLAC__int32)((FLAC__int16)((byte1 << 8) | byte2));
                 }
-                FLAC__stream_encoder_process_interleaved(flac_encoder, buff, 1);
             }
+            FLAC__stream_encoder_process_interleaved(flac_encoder, buff, SAMPLES_PER_RAM_PAGE);
             audio_page[pageIndex].readyToBeSavedToDisk = false;
             audio_acqDataFileLength += RAM_SIZE;
         } else {
@@ -348,6 +351,7 @@ void audio_createNewFlacFile() {
     ok &= FLAC__stream_encoder_set_channels(flac_encoder, CHANNELS);
     ok &= FLAC__stream_encoder_set_bits_per_sample(flac_encoder, BITS_PER_SAMPLE);
     ok &= FLAC__stream_encoder_set_sample_rate(flac_encoder, SAMPLE_RATE);
+    ok &= FLAC__stream_encoder_set_total_samples_estimate(flac_encoder, SAMPLES_PER_RAM_PAGE);
 
     if (!ok) {
         CETI_LOG("audio_createNewFlacFile(): XXXX FLAC encoder failed to set parameters for %s", audio_acqDataFileName);
