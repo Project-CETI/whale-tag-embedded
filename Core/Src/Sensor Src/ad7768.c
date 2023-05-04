@@ -42,6 +42,7 @@
 /******************************************************************************/
 #include "ad7768.h"
 #include "main.h"
+#include "util.h"
 //#include "audio.h"
 
 
@@ -59,10 +60,6 @@ const uint8_t one_shot_pin_ctrl_mode_sel[3][4] = {
 	{0xD,	0xFF,	0xFF,	0xFF},	// Median
 	{0xF,	0xE,	0xFF,	0xFF},	// Fast
 };
-
-
-#define _RSHIFT(val, s, w) (((val) >> (s)) & ((1 << (w)) - 1))
-#define _LSHIFT(val, s, w) (((val) & ((1 << (w)) - 1)) << (s))
 
 static inline const ad7768_Reg_ChStandby __reg_channelStandby_fromRaw(const uint8_t raw) {
 	return (ad7768_Reg_ChStandby){

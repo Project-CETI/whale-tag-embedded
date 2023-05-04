@@ -44,7 +44,7 @@ void Light_UT(Light_Sensor_HandleTypedef *light_sensor){
 	Light_Sensor_Get_Data(light_sensor);
 	printf("Light (ALS) Sensor Unit Test:\r\n");
 
-	ALSPartIDRegister part_info;
+	ALSPartIDReg part_info;
 	ALSManufacIDRegister manu_info;
 	LightSensor_getPartID(light_sensor, &part_info);
 	LightSensor_getManufacturer(light_sensor, &manu_info);

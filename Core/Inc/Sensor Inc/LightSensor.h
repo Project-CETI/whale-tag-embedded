@@ -55,7 +55,7 @@ typedef enum {
     RESERVED1   = 0b101,    // Invalid value
     GAIN_48X    = 0b110,    // Gain x48 -> 0.02 lux to 1.3k lux
     GAIN_96X    = 0b111,    // Gain x96 -> 0.01 lux to 600 lux
-} ALS_Gain;
+} ALSGain;
 
 // ALS_MEAS_RATE register: ALS integration time set in bits 5:3
 typedef enum {
@@ -82,43 +82,39 @@ typedef enum {
 } ALS_Meas_Rate;
 
 /* "little-endian" storage order effects LSB vs MSB first bit ordering in gcc */
-typedef struct __attribute__ ((scalar_storage_order("little-endian"))) als_control_reg_s{
-    uint8_t als_mode: 1; //0
-    uint8_t SW_reset: 1; //1
-    uint8_t gain    : 3; //2:4
-    uint8_t res_7_5 : 3; //5:7
-}ALSControlRegister;
+typedef struct als_control_reg_s{
+    uint8_t als_mode; //0
+    uint8_t sw_reset; //1
+    ALSGain gain; //2:4
+}ALSControlReg;
 
-typedef struct __attribute__ ((scalar_storage_order("little-endian"))) als_meas_rate_reg_s{
-    uint8_t measurement_time : 3; //0:2
-    uint8_t integration_time : 3; //3:5
-    uint8_t res_7_6 : 2;          //6:7
-}ALSMeasureRateRegister;
+typedef struct als_meas_rate_reg_s{
+    ALS_Meas_Rate measurement_time; //0:2
+    ALS_Integ_Time integration_time; //3:5
+}ALSMeasureRateReg;
 
 
-typedef struct __attribute__ ((scalar_storage_order("little-endian"))) als_part_id_reg_s{
-    uint8_t revision_id: 4;    //0:3
-    uint8_t part_number_id: 4; //4:7
-}ALSPartIDRegister;
+typedef struct als_part_id_reg_s{
+    uint8_t revision_id;    //0:3
+    uint8_t part_number_id; //4:7
+}ALSPartIDReg;
 
 typedef uint8_t ALSManufacIDRegister;
 
 // Bit 7   Data Valid: 0 == valid, 1 == invalid
 // Bit 6:4 Data gain range (below)
 // Bit 2   Data Status: 0 == old/read data, 1 == new data
-typedef struct __attribute__ ((scalar_storage_order("little-endian"))) als_status_res_s{
-    uint8_t res_1_0: 2; //0:1
-    uint8_t new:     1; //2
-    uint8_t res_3:   1; //3
-    uint8_t gain:    3; //4:6
-    uint8_t invalid: 1; //7
+typedef struct als_status_res_s{
+    uint8_t invalid;
+    ALSGain gain;
+    uint8_t new;
 }ALSStatusReg;
 
 typedef struct __Light_Sensor_TypeDef
 {
 	I2C_HandleTypeDef *i2c_handler;
 
-	ALS_Gain gain;
+	ALSGain gain;
 
 	// Data buffers for I2C data
     struct __attribute__ ((scalar_storage_order("little-endian")))
@@ -131,11 +127,11 @@ typedef struct __Light_Sensor_TypeDef
 } Light_Sensor_HandleTypedef;
 
 HAL_StatusTypeDef Light_Sensor_Init(Light_Sensor_HandleTypedef *light_sensor, I2C_HandleTypeDef *hi2c_device);
-HAL_StatusTypeDef Light_Sensor_WakeUp(Light_Sensor_HandleTypedef *light_sensor, ALS_Gain gain);
+HAL_StatusTypeDef Light_Sensor_WakeUp(Light_Sensor_HandleTypedef *light_sensor, ALSGain gain);
 HAL_StatusTypeDef Light_Sensor_Set_DataRate(Light_Sensor_HandleTypedef *light_sensor, ALS_Integ_Time int_time, ALS_Meas_Rate meas_rate);
 HAL_StatusTypeDef Light_Sensor_Get_Data(Light_Sensor_HandleTypedef *light_sensor);
 HAL_StatusTypeDef Light_Sensor_Sleep(Light_Sensor_HandleTypedef *light_sensor);
-HAL_StatusTypeDef LightSensor_getPartID(Light_Sensor_HandleTypedef *light_sensor, ALSPartIDRegister *dst);
+HAL_StatusTypeDef LightSensor_getPartID(Light_Sensor_HandleTypedef *light_sensor, ALSPartIDReg *dst);
 HAL_StatusTypeDef LightSensor_getManufacturer(Light_Sensor_HandleTypedef *light_sensor, ALSManufacIDRegister *dst);
 
 #endif /* LIGHTSENSOR_H */

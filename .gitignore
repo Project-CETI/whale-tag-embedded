@@ -9,7 +9,7 @@ RemoteSystemsTempFiles/
 
 #STM32 git ignore
 *.mxproject
-*.cproject
+
 
 # Prerequisites
 *.d
