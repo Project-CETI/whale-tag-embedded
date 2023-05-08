@@ -259,11 +259,6 @@ typedef struct{
 	bool ram_bist_running;
 }ad7768_Reg_DeviceStatus;
 
-typedef struct ad7768_lazy_reg_s{
-	uint8_t valid;
-	uint8_t value;
-}ad7768_LazyRegister;
-
 /* Device Struct*/
 typedef struct {
 	SPI_HandleTypeDef	*spi_handler; //config
@@ -305,7 +300,7 @@ typedef struct {
 /************************ Functions Declarations ******************************/
 /******************************************************************************/
 /* SPI read from device. */
-HAL_StatusTypeDef ad7768_spi_read(ad7768_dev *dev,
+HAL_StatusTypeDef ad7768_spi_read(ad7768_dev *dev, 
 			uint8_t reg_addr,
 			uint8_t *reg_data);
 /* SPI write to device. */
@@ -382,10 +377,6 @@ HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev,
 
 HAL_StatusTypeDef ad7768_sync(ad7768_dev *dev);
 
-HAL_StatusTypeDef ad7768_getRevisionID(ad7768_dev *dev, uint8_t *reg_data); 
-
-void ad7768_chipSelect();
-
-void ad7768_chipDeselect();
+HAL_StatusTypeDef ad7768_get_revision_id(ad7768_dev *dev, uint8_t *reg_data); 
 
 #endif // AD7768_H_

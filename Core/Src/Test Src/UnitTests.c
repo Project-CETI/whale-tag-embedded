@@ -19,7 +19,7 @@
     }
 
 void Keller_UT(Keller_HandleTypedef *keller_sensor){
-	Keller_Get_Data(keller_sensor);
+	Keller_get_data(keller_sensor);
 	printf("Keller Sensor Unit Test\r\n");
 
 	if(fabs(keller_sensor->pressure - ATM_PRES) > PRES_TOL){
@@ -37,17 +37,17 @@ void Keller_UT(Keller_HandleTypedef *keller_sensor){
 	}
 }
 
-void Light_UT(Light_Sensor_HandleTypedef *light_sensor){
+void Light_UT(LightSensorHandleTypedef *light_sensor){
 	// ALS Integration Time is the measurement time for each ALS cycle
 	// Set a delay with the maximum integration time to ensure new data is read
 	HAL_Delay(350);
-	Light_Sensor_Get_Data(light_sensor);
+	LightSensor_get_data(light_sensor);
 	printf("Light (ALS) Sensor Unit Test:\r\n");
 
-	ALSPartIDReg part_info;
+	ALSPartIDRegister part_info;
 	ALSManufacIDRegister manu_info;
-	LightSensor_getPartID(light_sensor, &part_info);
-	LightSensor_getManufacturer(light_sensor, &manu_info);
+	LightSensor_get_part_id(light_sensor, &part_info);
+	LightSensor_get_manufacturer(light_sensor, &manu_info);
 	if((manu_info != ALS_MANUFAC_ID) || (part_info.part_number_id != ALS_PART_ID) || (part_info.revision_id != ALS_REVISION_ID)){
 	    printf("\tPart ID Failed:\r\n\
 	            \t\tExpected: {manu: 0x%x, part: 0x%x, rev: 0x%x}\r\n\
@@ -76,7 +76,7 @@ void Light_UT(Light_Sensor_HandleTypedef *light_sensor){
 void AD7768_UT(ad7768_dev *adc){
 	uint8_t rev_id;
 	printf("ADC (hydrophone) Unit Test:\r\n");
-	ad7768_getRevisionID(adc, &rev_id);
+	ad7768_get_revision_id(adc, &rev_id);
 	if(rev_id != 6){
 		printf("\tRevision Test Failed: %d\r\n", rev_id);
 	}

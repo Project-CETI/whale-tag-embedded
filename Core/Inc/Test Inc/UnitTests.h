@@ -35,7 +35,7 @@
 #define LUX_TOL		15
 
 void Keller_UT(Keller_HandleTypedef *keller_sensor);
-void Light_UT(Light_Sensor_HandleTypedef *light_sensor);
+void Light_UT(LightSensorHandleTypedef *light_sensor);
 void AD7768_UT(ad7768_dev *adc);
 bool SDcard_UT(void);
 #endif /* INC_UNITTESTS_H_ */

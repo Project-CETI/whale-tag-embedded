@@ -220,14 +220,8 @@ HAL_StatusTypeDef ad7768_spi_write(ad7768_dev *dev,
 			 uint8_t reg_addr,
 			 uint8_t reg_data)
 {
-	uint16_t buf;
-	int32_t ret;
-
-	buf = ((uint16_t)AD7768_SPI_WRITE(reg_addr) << 8) | reg_data;
-
-	ret = HAL_SPI_Transmit(dev->spi_handler, (uint8_t *)&buf, 1, ADC_TIMEOUT);
-
-	return ret;
+	uint16_t buf = ((uint16_t)AD7768_SPI_WRITE(reg_addr) << 8) | reg_data;
+	return HAL_SPI_Transmit(dev->spi_handler, (uint8_t *)&buf, 1, ADC_TIMEOUT);
 }
 
 /**
@@ -263,7 +257,7 @@ HAL_StatusTypeDef ad7768_get_sleep_mode(ad7768_dev *dev,
 {
 	*mode = dev->power_mode.sleep_mode;
 
-	return 0;
+	return HAL_OK;
 }
 
 
@@ -612,7 +606,7 @@ HAL_StatusTypeDef ad7768_get_ch_mode(ad7768_dev *dev,
 {
 	*mode = dev->channel_mode_select.ch[ch];
 
-	return 0;
+	return HAL_OK;
 }
 
 /*
@@ -681,9 +675,7 @@ HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev, SPI_HandleTypeDef *hspi, SAI_Han
 	if(data != 0x00)
 		return HAL_ERROR;
 
-    ret |= ad7768_getRevisionID(dev, &data);
-    ret |= ad7768_getRevisionID(dev, &data);
-    ret |= ad7768_getRevisionID(dev, &data);
+    ret |= ad7768_get_revision_id(dev, &data);
     if(data != 0x06){
         return HAL_ERROR;
     }
@@ -709,19 +701,14 @@ HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev, SPI_HandleTypeDef *hspi, SAI_Han
 }
 
 HAL_StatusTypeDef ad7768_sync(ad7768_dev *dev){
-	HAL_StatusTypeDef ret = HAL_ERROR;
 	const uint16_t tx_buffer[2] = {
         AD7768_WRITE_CMD(AD7768_REG_DATA_CTRL, __reg_dataControl_intoRaw(&(ad7768_Reg_DataControl){.spi_sync = 0})),
         AD7768_WRITE_CMD(AD7768_REG_DATA_CTRL, __reg_dataControl_intoRaw(&(ad7768_Reg_DataControl){.spi_sync = 1}))
     }; 
 
-	ret = HAL_SPI_Transmit(dev->spi_handler, (uint8_t*)tx_buffer, 2, ADC_TIMEOUT);
-
-	return ret;
+	return HAL_SPI_Transmit(dev->spi_handler, (uint8_t*)tx_buffer, 2, ADC_TIMEOUT);
 }
 
-HAL_StatusTypeDef ad7768_getRevisionID(ad7768_dev *dev, uint8_t *reg_data){
-	HAL_StatusTypeDef ret = HAL_ERROR;
-    ret = ad7768_spi_read(dev, AD7768_REG_REV_ID, reg_data);
-	return ret;
+HAL_StatusTypeDef ad7768_get_revision_id(ad7768_dev *dev, uint8_t *reg_data){
+    return ad7768_spi_read(dev, AD7768_REG_REV_ID, reg_data);
 }

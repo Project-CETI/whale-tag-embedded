@@ -26,6 +26,12 @@
 #define TO_BAR(RAW_IN)	(float)((RAW_IN - 16384) * (P_MAX - P_MIN) / 32768 + P_MIN)
 
 
+typedef struct __attribute__ ((packed, scalar_storage_order("little-endian")))
+keller_raw_data{
+	uint8_t status;
+	uint16_t pressure;
+}KellerRawData;
+
 typedef struct __Keller_Depth_TypeDef
 {
 	I2C_HandleTypeDef *i2c_handler;
@@ -46,7 +52,7 @@ typedef struct __Keller_Depth_TypeDef
 
 } Keller_HandleTypedef;
 
-void Keller_Init(Keller_HandleTypedef *keller_sensor, I2C_HandleTypeDef *hi2c_device);
-HAL_StatusTypeDef Keller_Get_Data(Keller_HandleTypedef *keller_sensor);
+void Keller_init(Keller_HandleTypedef *keller_sensor, I2C_HandleTypeDef *hi2c_device);
+HAL_StatusTypeDef Keller_get_data(Keller_HandleTypedef *keller_sensor);
 
 #endif /* KELLERDEPTH_H */

@@ -33,9 +33,6 @@ typedef enum {
 
 #define ALS_DLEN		4
 
-#define ALS_PART_ID      0b1010
-#define ALS_REVISION_ID  0b0000
-#define ALS_MANUFAC_ID   0b00000101
 
 // ALS_CONTR register: SW reset set in bit 1. Set to one to start a reset
 #define LIGHT_RESET		0b10
@@ -45,6 +42,11 @@ typedef enum {
 
 //ToDo: Lux conversion formula
 #define LUX(lux) lux
+
+//Expected part values
+#define ALS_MANUFAC_ID   0b00000101
+#define ALS_PART_ID      0b1010
+#define ALS_REVISION_ID  0b0000
 
 typedef enum {
     GAIN_DEF    = 0b000,    // Gain x1 -> 1 lux to 64k lux
@@ -57,81 +59,89 @@ typedef enum {
     GAIN_96X    = 0b111,    // Gain x96 -> 0.01 lux to 600 lux
 } ALSGain;
 
-// ALS_MEAS_RATE register: ALS integration time set in bits 5:3
+// ALSMeasureTime register: ALS integration time set in bits 5:3
 typedef enum {
-    INTEG_TIME_DEF	= 0b000,	// 100ms (default)
-	INTEG_TIME_2	= 0b001,	// 50ms
-	INTEG_TIME_3	= 0b010,	// 200ms
-	INTEG_TIME_4	= 0b011,	// 400ms
-	INTEG_TIME_5	= 0b100,	// 150ms
-	INTEG_TIME_6	= 0b101,	// 250ms
-	INTEG_TIME_7	= 0b110,	// 300ms
-	INTEG_TIME_8	= 0b111,	// 350ms
-} ALS_Integ_Time;
+    ALS_INTEG_TIME_100_MS	= 0b000,	// 100ms (default)
+	ALS_INTEG_TIME_50_MS	= 0b001,	// 50ms
+	ALS_INTEG_TIME_200_MS	= 0b010,	// 200ms
+	ALS_INTEG_TIME_400_MS	= 0b011,	// 400ms
+	ALS_INTEG_TIME_150_MS	= 0b100,	// 150ms
+	ALS_INTEG_TIME_250_MS	= 0b101,	// 250ms
+	ALS_INTEG_TIME_300_MS	= 0b110,	// 300ms
+	ALS_INTEG_TIME_350_MS	= 0b111,	// 350ms
+} ALSIntegrationTime;
 
-// ALS_MEAS_RATE register: ALS measurement rate set in bits 2:0
+#define ALS_INTEG_TIME_DEF ALS_INTEG_TIME_100_MS
+// ALSMeasureTime register: ALS measurement rate set in bits 2:0
 typedef enum {
-    MEAS_TIME_1		= 0b000,	// 50ms
-	MEAS_TIME_2		= 0b001,	// 100ms
-	MEAS_TIME_3		= 0b010,	// 200ms
-	MEAS_TIME_DEF	= 0b011,	// 500ms (default)
-	MEAS_TIME_5		= 0b100,	// 1000ms
-	MEAS_TIME_6		= 0b101,	// 2000ms
-	MEAS_TIME_7		= 0b110,	// 2000ms
-	MEAS_TIME_8		= 0b111,	// 2000ms
-} ALS_Meas_Rate;
+    ALS_MEAS_TIME_50_MS	  = 0b000,	// 50ms
+	ALS_MEAS_TIME_100_MS  = 0b001,	// 100ms
+	ALS_MEAS_TIME_200_MS  = 0b010,	// 200ms
+	ALS_MEAS_TIME_500_MS  = 0b011,	// 500ms (default)
+	ALS_MEAS_TIME_1000_MS = 0b100,	// 1000ms
+	ALS_MEAS_TIME_2000_MS = 0b101,	// 2000ms
+	ALS_MEAS_TIME_7		  = 0b110,	// 2000ms
+	ALS_MEAS_TIME_8		  = 0b111,	// 2000ms
+} ALSMeasureTime;
 
 /* "little-endian" storage order effects LSB vs MSB first bit ordering in gcc */
 typedef struct als_control_reg_s{
     uint8_t als_mode; //0
     uint8_t sw_reset; //1
     ALSGain gain; //2:4
-}ALSControlReg;
+}ALSControlRegister;
 
 typedef struct als_meas_rate_reg_s{
-    ALS_Meas_Rate measurement_time; //0:2
-    ALS_Integ_Time integration_time; //3:5
-}ALSMeasureRateReg;
+    ALSMeasureTime measurement_time; //0:2
+    ALSIntegrationTime integration_time; //3:5
+}ALSMeasureRateRegister;
 
 
 typedef struct als_part_id_reg_s{
     uint8_t revision_id;    //0:3
     uint8_t part_number_id; //4:7
-}ALSPartIDReg;
+}ALSPartIDRegister;
+
 
 typedef uint8_t ALSManufacIDRegister;
 
 // Bit 7   Data Valid: 0 == valid, 1 == invalid
 // Bit 6:4 Data gain range (below)
 // Bit 2   Data Status: 0 == old/read data, 1 == new data
-typedef struct als_status_res_s{
+typedef struct als_status_reg_s{
     uint8_t invalid;
     ALSGain gain;
     uint8_t new;
-}ALSStatusReg;
+}ALSStatusRegister;
 
-typedef struct __Light_Sensor_TypeDef
+__attribute__ ((scalar_storage_order("little-endian")))
+typedef struct als_data_reg_s{
+    uint16_t infrared;
+    uint16_t visible;
+}ALSDataRegister;
+
+typedef struct als_data{
+    ALSStatusRegister status;
+    ALSDataRegister data;
+}ALSData;
+
+typedef struct __LightSensor_TypeDef
 {
 	I2C_HandleTypeDef *i2c_handler;
 
 	ALSGain gain;
 
 	// Data buffers for I2C data
-    struct __attribute__ ((scalar_storage_order("little-endian")))
-    {
-        uint16_t infrared;
-        uint16_t visible;
-    }data;
+	ALSStatusRegister status;
+    ALSDataRegister data;
+} LightSensorHandleTypedef;
 
-	ALSStatusReg status;
-} Light_Sensor_HandleTypedef;
-
-HAL_StatusTypeDef Light_Sensor_Init(Light_Sensor_HandleTypedef *light_sensor, I2C_HandleTypeDef *hi2c_device);
-HAL_StatusTypeDef Light_Sensor_WakeUp(Light_Sensor_HandleTypedef *light_sensor, ALSGain gain);
-HAL_StatusTypeDef Light_Sensor_Set_DataRate(Light_Sensor_HandleTypedef *light_sensor, ALS_Integ_Time int_time, ALS_Meas_Rate meas_rate);
-HAL_StatusTypeDef Light_Sensor_Get_Data(Light_Sensor_HandleTypedef *light_sensor);
-HAL_StatusTypeDef Light_Sensor_Sleep(Light_Sensor_HandleTypedef *light_sensor);
-HAL_StatusTypeDef LightSensor_getPartID(Light_Sensor_HandleTypedef *light_sensor, ALSPartIDReg *dst);
-HAL_StatusTypeDef LightSensor_getManufacturer(Light_Sensor_HandleTypedef *light_sensor, ALSManufacIDRegister *dst);
+HAL_StatusTypeDef LightSensor_init(LightSensorHandleTypedef *light_sensor, I2C_HandleTypeDef *hi2c_device);
+HAL_StatusTypeDef LightSensor_wake_up(LightSensorHandleTypedef *light_sensor, ALSGain gain);
+HAL_StatusTypeDef LightSensor_sleep(LightSensorHandleTypedef *light_sensor);
+HAL_StatusTypeDef LightSensor_get_data(LightSensorHandleTypedef *light_sensor);
+HAL_StatusTypeDef LightSensor_set_data_rate(LightSensorHandleTypedef *light_sensor, ALSIntegrationTime int_time, ALSMeasureTime meas_rate);
+HAL_StatusTypeDef LightSensor_get_part_id(LightSensorHandleTypedef *light_sensor, ALSPartIDRegister *dst);
+HAL_StatusTypeDef LightSensor_get_manufacturer(LightSensorHandleTypedef *light_sensor, ALSManufacIDRegister *dst);
 
 #endif /* LIGHTSENSOR_H */
