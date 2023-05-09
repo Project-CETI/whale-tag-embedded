@@ -120,20 +120,20 @@ HAL_StatusTypeDef audio_set_sample_rate(
 // /*
 //  *
 //  */
-HAL_StatusTypeDef audio_receive_dma(
-    AudioManager *self;
-    uint32_t sample_count;
-//     //callback???
-){
-    uint32_t frame_size = self->bytes_per_channel*self->active_channel_count
-    if (sample_count*frame_size <= UINT16_MAX){
-        //simple circular dma
-        HAL_SAI_RegisterCallback(&self->hsai, HAL_SAI_RX_HALFCOMPLETE_CB_ID, audio_SAI_RxHalfCpltCallback);
-        HAL_SAI_RegisterCallback(&self->hsai, HAL_SAI_RX_COMPLETE_CB_ID, audio_SAI_RxCpltCallback);
-        HAL_RESULT_PROPAGATE(HAL_SAI_Receive_DMA(&hsai_BlockA1, (uint8_t *)audio_buffer, 2*AUDIO_BUFFER_SIZE_BYTES));
-    }else{
-        //non-circular dma
-
-    }
-}
+// HAL_StatusTypeDef audio_receive_dma(
+//     AudioManager *self;
+//     uint32_t sample_count;
+// //     //callback???
+// ){
+//     uint32_t frame_size = self->bytes_per_channel*self->active_channel_count
+//     if (sample_count*frame_size <= UINT16_MAX){
+//         //simple circular dma
+//         // HAL_SAI_RegisterCallback(&self->hsai, HAL_SAI_RX_HALFCOMPLETE_CB_ID, audio_SAI_RxHalfCpltCallback);
+//         // HAL_SAI_RegisterCallback(&self->hsai, HAL_SAI_RX_COMPLETE_CB_ID, audio_SAI_RxCpltCallback);
+//         HAL_RESULT_PROPAGATE(HAL_SAI_Receive_DMA(&hsai_BlockA1, (uint8_t *)audio_buffer, 2*AUDIO_BUFFER_SIZE_BYTES));
+//     }else{
+//         //non-circular dma
+//         //
+//     }
+// }
 
