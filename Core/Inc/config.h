@@ -95,18 +95,18 @@
 typedef enum {
     CFG_AUDIO_RATE_96_KHZ,
     CFG_AUDIO_RATE_192_KHZ,
-}TagConfig_audiorate;
+}TagConfigAudioSampleRate;
 
 typedef enum {
     CFG_AUDIO_DEPTH_16_BIT,
     CFG_AUDIO_DEPTH_24_BIT,
-}TagConfig_audiodepth;
+}TagConfigAudioSampleDepth;
 
 typedef struct tag_config_s{
-    uint8_t                 audio_ch_enabled[4];
-    uint8_t                 audio_ch_headers;
-    TagConfig_audiorate     audio_rate;
-    TagConfig_audiodepth    audio_depth;
+    uint8_t                     audio_ch_enabled[4];
+    uint8_t                     audio_ch_headers;
+    TagConfigAudioSampleRate    audio_rate;
+    TagConfigAudioSampleDepth   audio_depth;
 } TagConfig;
 
 /* Set tag configuration to default settings */

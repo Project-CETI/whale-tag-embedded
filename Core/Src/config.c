@@ -11,26 +11,99 @@
 
 #include "config.h"
 #include "ctype.h"
+#include "util.h"
 
+/******************
+ * PRIVATE MACROS *
+ ******************/
 
+#define REF_STR(s) (str){.ptr = s, .len = sizeof(s) - 1}
 
+/********************
+ * PRIVATE TYPEDEFS *
+ ********************/
+
+/* all possible valid key keywords */
+typedef enum {
+    CFG_TOK_KEY_AUDIO_CH_0,
+    CFG_TOK_KEY_AUDIO_CH_1,
+    CFG_TOK_KEY_AUDIO_CH_2,
+    CFG_TOK_KEY_AUDIO_CH_3,
+    CFG_TOK_KEY_AUDIO_DEPTH,
+    CFG_TOK_KEY_AUDIO_HEADERS,
+    CFG_TOK_KEY_AUDIO_RATE,
+}ConfigTokenKey;
+
+/* all possible value keywords */
+typedef enum {
+    CFG_TOK_VAL_DISABLED,
+    CFG_TOK_VAL_ENABLED,
+    CFG_TOK_VAL_16_BIT,
+    CFG_TOK_VAL_24_BIT,
+    CFG_TOK_VAL_96_KHZ,
+    CFG_TOK_VAL_192_KHZ,
+}ConfigTokenValue;
+
+/*Option<str>*/
 typedef struct{
-    uint8_t valid;
     char *ptr;
     size_t len;
 }str;
+
+OPTION_DEFINITION(str);
+
+typedef struct file_line_iter_s{
+    FX_FILE *file;
+    char buffer[512];
+    uint16_t offset;
+    uint16_t len;
+    uint8_t eof;
+}FileLineIter;
+
+typedef struct {
+    ConfigTokenKey key;
+    ConfigTokenValue val;
+}ConfigToken;
+
+OPTION_DEFINITION(ConfigToken);
+
+typedef struct config_token_iter_s{
+    FileLineIter line_iter;
+}ConfigTokenIter;
+
+/*********************
+ * PRIVATE VARIABLES *
+ *********************/
+static const str __cfg_tok_key_str[] = {
+        [CFG_TOK_KEY_AUDIO_CH_0]    = REF_STR("audio_channel_0"),
+        [CFG_TOK_KEY_AUDIO_CH_1]    = REF_STR("audio_channel_1"),
+        [CFG_TOK_KEY_AUDIO_CH_2]    = REF_STR("audio_channel_2"),
+        [CFG_TOK_KEY_AUDIO_CH_3]    = REF_STR("audio_channel_3"),
+        [CFG_TOK_KEY_AUDIO_DEPTH]   = REF_STR("audio_depth"),
+        [CFG_TOK_KEY_AUDIO_HEADERS] = REF_STR("audio_ch_headers"),
+        [CFG_TOK_KEY_AUDIO_RATE]    = REF_STR("audio_sample_rate"),
+};
+
+static const str __cfg_tok_val_str[] = {
+        [CFG_TOK_VAL_DISABLED]  = REF_STR("disabled"),
+        [CFG_TOK_VAL_ENABLED]   = REF_STR("enabled"),
+        [CFG_TOK_VAL_16_BIT]    = REF_STR("16_bit"),
+        [CFG_TOK_VAL_24_BIT]    = REF_STR("24_bit"),
+        [CFG_TOK_VAL_96_KHZ]    = REF_STR("96_khz"),
+        [CFG_TOK_VAL_192_KHZ]   = REF_STR("192_khz"),
+};
+
+/*********************
+ * PRIVATE FUNCTIONS *
+ *********************/
 
 /*
  * slices the whitespace at the start of a str
  */
 static str __str_splice_whitespace(str *in_str){
-    if(!in_str->valid) 
-        return (str){.valid = false};
-
 
     size_t in_len = in_str->len;
     str ws_str = {
-        .valid = true, 
         .ptr = in_str->ptr, 
         .len = 0
     };
@@ -50,13 +123,8 @@ static str __str_splice_whitespace(str *in_str){
  * slices the identifier str at the start of a str
  */
 static str __str_slice_identifier(str *in_str){
-    if(!in_str->valid) 
-        return (str){.valid = false};
-
-
     size_t in_len = in_str->len;
     str id_str = {
-        .valid = true, 
         .ptr = in_str->ptr, 
         .len = 0
     };
@@ -83,25 +151,13 @@ static inline void __str_into_String(str *in_str, char *string){
     string[in_str->len] = 0;
 }
 
-/* 
- * FileLineIter. struct used to iterate over the lines of a file.
- * returns lines as str slices.
- */
-typedef struct file_line_iter_s{
-    FX_FILE *file;
-    char buffer[512];
-    uint16_t offset;
-    uint16_t len;
-    uint8_t eof;
-}FileLineIter;
-
 static inline FileLineIter __fileLineIter_from_file(FX_FILE *file){
     return  (FileLineIter){
         .file= file,
     };
 }
 
-static str __fileLineIter_next(FileLineIter *self){
+static Option(str) __fileLineIter_next(FileLineIter *self){
     //see if new line in current buffer
     int i;
     uint32_t fx_result;
@@ -130,7 +186,7 @@ static str __fileLineIter_next(FileLineIter *self){
 
         //file_read_error
         if((fx_result != FX_SUCCESS) && (fx_result != FX_END_OF_FILE)){
-            return (str){.valid = 0};
+            return OPTION_NONE(str);
         }
 
         if(fx_result == FX_END_OF_FILE){
@@ -139,7 +195,7 @@ static str __fileLineIter_next(FileLineIter *self){
 
         //no data in buffer - EOF
         if(self->len == 0){ 
-            return (str){.valid = 0};
+            return OPTION_NONE(str);
         }
 
         /* see if new line in current buffer*/
@@ -158,74 +214,21 @@ static str __fileLineIter_next(FileLineIter *self){
     }
 
     //return slice new line OR remaining data in buffer
-    return (str){
-        .valid = 1,
+    return OPTION_SOME(str, ((str){
         .ptr = buffer_ptr,
         .len = &self->buffer[self->offset] - buffer_ptr,
-    };
+    }));
 }
 
-
-#define REF_STR(s) (str){.valid = true, .ptr = s, .len = sizeof(s) - 1}
-
-/* all possible valid key keywords */
-typedef enum {
-    CFG_TOK_KEY_AUDIO_CH_0,
-    CFG_TOK_KEY_AUDIO_CH_1,
-    CFG_TOK_KEY_AUDIO_CH_2,
-    CFG_TOK_KEY_AUDIO_CH_3,
-    CFG_TOK_KEY_AUDIO_DEPTH,
-    CFG_TOK_KEY_AUDIO_HEADERS,
-    CFG_TOK_KEY_AUDIO_RATE,
-}ConfigTokenKey;
-
-static const str __cfg_tok_key_str[] = {
-        [CFG_TOK_KEY_AUDIO_CH_0]    = REF_STR("audio_channel_0"),
-        [CFG_TOK_KEY_AUDIO_CH_1]    = REF_STR("audio_channel_1"),
-        [CFG_TOK_KEY_AUDIO_CH_2]    = REF_STR("audio_channel_2"),
-        [CFG_TOK_KEY_AUDIO_CH_3]    = REF_STR("audio_channel_3"),
-        [CFG_TOK_KEY_AUDIO_DEPTH]   = REF_STR("audio_depth"),
-        [CFG_TOK_KEY_AUDIO_HEADERS] = REF_STR("audio_ch_headers"),
-        [CFG_TOK_KEY_AUDIO_RATE]    = REF_STR("audio_sample_rate"),
-};
-
-/* all possible value keywords */
-typedef enum {
-    CFG_TOK_VAL_DISABLED,
-    CFG_TOK_VAL_ENABLED,
-    CFG_TOK_VAL_16_BIT,
-    CFG_TOK_VAL_24_BIT,
-    CFG_TOK_VAL_96_KHZ,
-    CFG_TOK_VAL_192_KHZ,
-}ConfigTokenValue;
-
-static const str __cfg_tok_val_str[] = {
-        [CFG_TOK_VAL_DISABLED]  = REF_STR("disabled"),
-        [CFG_TOK_VAL_ENABLED]   = REF_STR("enabled"),
-        [CFG_TOK_VAL_16_BIT]    = REF_STR("16_bit"),
-        [CFG_TOK_VAL_24_BIT]    = REF_STR("24_bit"),
-        [CFG_TOK_VAL_96_KHZ]    = REF_STR("96_khz"),
-        [CFG_TOK_VAL_192_KHZ]   = REF_STR("192_khz"),
-};
-
-typedef struct {
-    uint8_t valid;
-    ConfigTokenKey key;
-    ConfigTokenValue val;
-}ConfigToken;
 
 /*
  * tries to convert a string in the form of "key : value" 
  * into a key/val pair. 
  */
-static ConfigToken __configToken_tryFrom_str(str *in_str){
-    ConfigToken err_tok = (ConfigToken){.valid = false};
+static Option(ConfigToken) __configToken_tryFrom_str(str *in_str){
+    Option(ConfigToken) err_tok = OPTION_NONE(ConfigToken);
     ConfigTokenKey key;
     ConfigTokenValue val;
-
-    if(!in_str->valid) //invalid
-        return err_tok;
-
 
     __str_splice_whitespace(in_str);
     if(in_str->len == 0) //zero length str
@@ -304,34 +307,29 @@ static ConfigToken __configToken_tryFrom_str(str *in_str){
             
     }
 
-    return (ConfigToken){
-        .valid = true,
+    return OPTION_SOME(ConfigToken, ((ConfigToken){
         .key = key,
         .val = val,
-    };
+    }));
 }
 
-typedef struct config_token_iter_s{
-    FileLineIter line_iter;
-}ConfigTokenIter;
-
-static ConfigToken __configTokenIter_next(ConfigTokenIter *self){
+static Option(ConfigToken) __configTokenIter_next(ConfigTokenIter *self){
     //get next line.
-    str i_str = __fileLineIter_next(&self->line_iter);
-    while(i_str.valid){
+    Option(str) i_str = __fileLineIter_next(&self->line_iter);
+    while(i_str.some){
 
         //Get config token from str;
-        ConfigToken tok = __configToken_tryFrom_str(&i_str);
-        if(tok.valid){
+        Option(ConfigToken) tok = __configToken_tryFrom_str(&i_str.val);
+        if(tok.some){
             return tok;
         }
 
         //valid str but not valid ConfigToken;
         i_str =  __fileLineIter_next(&self->line_iter);
-    }
+    };
 
     //used all lines, return invalid;
-    return (ConfigToken){.valid = 0};    
+    return OPTION_NONE(ConfigToken);
 }
 
 static inline ConfigTokenIter __configTokenIter_from_file(FX_FILE *cfg_file){
@@ -340,8 +338,9 @@ static inline ConfigTokenIter __configTokenIter_from_file(FX_FILE *cfg_file){
     };
 }
 
-/* Public Function Definitions*/
-
+/********************
+ * PUBLIC FUNCTIONS *
+ ********************/
 void TagConfig_default(TagConfig *cfg){
     *cfg = (TagConfig){
         .audio_ch_enabled = {true, true, true, false},
@@ -363,8 +362,8 @@ void TagConfig_read(TagConfig *cfg, FX_FILE *cfg_file){
     ConfigTokenIter tok_iter = __configTokenIter_from_file(cfg_file);
 
     //decipher tokens pairs in file.
-    ConfigToken tok = __configTokenIter_next(&tok_iter);
-    while(tok.valid){
+    ConfigToken tok = OPTION_UNWRAP(__configTokenIter_next(&tok_iter), return);
+    do{
         switch(tok.key){
             case CFG_TOK_KEY_AUDIO_CH_0:
                 cfg->audio_ch_enabled[0] = (tok.val == CFG_TOK_VAL_ENABLED);
@@ -421,8 +420,8 @@ void TagConfig_read(TagConfig *cfg, FX_FILE *cfg_file){
             default:
                 break;
         }
-        tok = __configTokenIter_next(&tok_iter);
-    }
+        tok = OPTION_UNWRAP(__configTokenIter_next(&tok_iter), return);
+    }while(1);
 }
 
 /* Write tag configuration to file */

@@ -632,14 +632,13 @@ HAL_StatusTypeDef ad7768_softReset(ad7768_dev *dev)
  * 					   parameters.
  * @return 0 in case of success, negative error code otherwise.
  */
-HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev, SPI_HandleTypeDef *hspi, SAI_HandleTypeDef *hsai)
+HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev, SPI_HandleTypeDef *hspi)
 {
 	HAL_StatusTypeDef ret = HAL_ERROR;
 	uint8_t data = 0;
 
     *dev = (ad7768_dev){
         .spi_handler = hspi,
-        .sai_handler = hsai,
         .channel_standby = {
             .ch[0] = AD7768_ENABLED,
             .ch[1] = AD7768_ENABLED,
@@ -647,7 +646,7 @@ HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev, SPI_HandleTypeDef *hspi, SAI_Han
             .ch[3] = AD7768_STANDBY
         },
         .channel_mode[AD7768_MODE_A] = {.filter_type = AD7768_FILTER_SINC, .dec_rate = AD7768_DEC_X32},
-        .channel_mode[AD7768_MODE_B] = {.filter_type = AD7768_FILTER_SINC, .dec_rate = AD7768_DEC_X32},
+        .channel_mode[AD7768_MODE_B] = {.filter_type = AD7768_FILTER_WIDEBAND, .dec_rate = AD7768_DEC_X32},
         .channel_mode_select = {
             .ch[0] = AD7768_MODE_B,
             .ch[1] = AD7768_MODE_B,

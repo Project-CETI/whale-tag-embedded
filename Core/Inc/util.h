@@ -18,4 +18,40 @@
 
 #define HZ_TO_MILLISECONDS(f) (1000/(f))
 
+
+/*************************
+ * Option<T>
+ */
+#define HAL_RESULT_PROPAGATE(x) {\
+    HAL_StatusTypeDef ret = (x);\
+    if(ret != HAL_OK){\
+        return ret;\
+    }\
+}
+
+/*************************
+ * Option<T>
+ */
+
+//type declaration
+#define Option(type) Option_## type
+
+//type definition
+#define OPTION_DEFINITION(type) typedef struct {\
+    uint8_t some;\
+    type  val;\
+}Option(type)
+
+//macros for assigning Option(type) instances
+#define OPTION_NONE(type) ((Option(type)){.some = 0})
+#define OPTION_SOME(type, value) ((Option(type)){.some = 1, .val = (value)})
+
+//returns inner value if some(), else performs err_handle
+#define OPTION_UNWRAP(opt, err_handle) ({\
+    if(!opt.some){\
+        err_handle;\
+    }\
+    opt.val;\
+})
+
 #endif

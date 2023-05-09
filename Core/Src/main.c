@@ -219,7 +219,11 @@ int main(void)
   }
 
   // initiate ADC/circular DMA Read
-  ad7768_setup(&adc, &hspi1, &hsai_BlockA1);
+  ad7768_setup(&adc, &hspi1);
+#if (USE_HAL_SAI_REGISTER_CALLBACKS == 1)
+  HAL_SAI_RegisterCallback(&hsai_BlockA1, HAL_SAI_RX_HALFCOMPLETE_CB_ID, audio_SAI_RxHalfCpltCallback);
+  HAL_SAI_RegisterCallback(&hsai_BlockA1, HAL_SAI_RX_COMPLETE_CB_ID, audio_SAI_RxCpltCallback);
+#endif
   ret = HAL_SAI_Receive_DMA(&hsai_BlockA1, (uint8_t *)audio_buffer, 2*AUDIO_BUFFER_SIZE_BYTES);
   if(ret != HAL_OK){
     Error_Handler();

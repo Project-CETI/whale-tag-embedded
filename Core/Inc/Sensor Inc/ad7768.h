@@ -127,9 +127,9 @@ typedef enum {
 } ad7768_sleep_mode;
 
 typedef enum {
-	AD7768_ECO = 0,
-	AD7768_MEDIAN = 2,
-	AD7768_FAST = 3,
+	AD7768_ECO = 0,    /*f_mod = [0.036 .. 1.024] MHz */
+	AD7768_MEDIAN = 2, /*f_mod = [1.024 .. 4.096] MHz */
+	AD7768_FAST = 3,   /*f_mod = [4.096 .. 8.192] MHz */
 } ad7768_power_mode;
 
 typedef enum {
@@ -262,9 +262,6 @@ typedef struct{
 /* Device Struct*/
 typedef struct {
 	SPI_HandleTypeDef	*spi_handler; //config
-	SAI_HandleTypeDef   *sai_handler; //read values
-
-	uint8_t *sai_buffer;
 
 	// The GPIOs are unused
 	GPIO_TypeDef		*NRST_GPIOx;
@@ -371,8 +368,7 @@ HAL_StatusTypeDef ad7768_get_ch_mode(ad7768_dev *dev,
 			   ad7768_ch_mode *mode);
 /* Initialize the device. */
 HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev,
-		     SPI_HandleTypeDef *hspi,
-		     SAI_HandleTypeDef *hsai
+		     SPI_HandleTypeDef *hspi
 );
 
 HAL_StatusTypeDef ad7768_sync(ad7768_dev *dev);
