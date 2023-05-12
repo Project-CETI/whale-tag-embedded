@@ -227,6 +227,14 @@ void* ecg_thread_writeData(void* paramPtr)
     else
       CETI_LOG("ecg_thread_writeData(): XXX Failed to set affinity to CPU %d", ECG_WRITEDATA_CPU);
   }
+  // Set the thread to a high priority.
+ struct sched_param sp;
+ memset(&sp, 0, sizeof(sp));
+ sp.sched_priority = sched_get_priority_max(SCHED_RR);
+ if(pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
+   CETI_LOG("ecg_thread_writeData(): Successfully set priority");
+ else
+   CETI_LOG("ecg_thread_writeData(): XXX Failed to set priority");
 
   // Main loop while application is running.
   CETI_LOG("ecg_thread_writeData(): Starting loop to write data as it is acquired");

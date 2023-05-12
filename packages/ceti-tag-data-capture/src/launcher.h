@@ -45,7 +45,7 @@
 #define AUDIO_SPI_CPU 3
 #define AUDIO_WRITEDATA_CPU 0
 #define ECG_GETDATA_CPU 2
-#define ECG_WRITEDATA_CPU 0
+#define ECG_WRITEDATA_CPU 1
 #define BATTERY_CPU 1
 #define IMU_CPU 1
 #define LIGHT_CPU 1
@@ -56,7 +56,7 @@
 #define COMMAND_CPU 0
 #define STATEMACHINE_CPU 0
 #define SYSTEMMONITOR_CPU 0
-#define GOPROS_CPU 2
+#define GOPROS_CPU ECG_GETDATA_CPU // Note that the wearable tag will not use ECG
 
 #define ECG_DATA_FILEPATH_BASE "/data/data_ecg" // will append a counter and create new files according to a maximum size
 #define BATTERY_DATA_FILEPATH "/data/data_battery.csv"

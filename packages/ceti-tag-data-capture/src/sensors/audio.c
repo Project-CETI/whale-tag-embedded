@@ -288,6 +288,14 @@ void* audio_thread_writeFlac(void* paramPtr) {
       else
         CETI_LOG("audio_thread_writeData(): XXX Failed to set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
     }
+    // Set the thread to a low priority.
+    struct sched_param sp;
+    memset(&sp, 0, sizeof(sp));
+    sp.sched_priority = sched_get_priority_min(SCHED_RR);
+    if(pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
+      CETI_LOG("audio_thread_writeFlac(): Successfully set priority");
+    else
+      CETI_LOG("audio_thread_writeFlac(): XXX Failed to set priority");
 
     CETI_LOG("audio_thread_writeData(): Starting loop to periodically write data");
     g_audio_thread_writeData_is_running = 1;
@@ -387,6 +395,14 @@ void* audio_thread_writeRaw(void* paramPtr) {
      else
        CETI_LOG("audio_thread_writeRaw(): XXX Failed to set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
    }
+   // Set the thread to a low priority.
+   struct sched_param sp;
+   memset(&sp, 0, sizeof(sp));
+   sp.sched_priority = sched_get_priority_min(SCHED_RR);
+   if(pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
+     CETI_LOG("audio_thread_writeRaw(): Successfully set priority");
+   else
+     CETI_LOG("audio_thread_writeRaw(): XXX Failed to set priority");
 
    CETI_LOG("audio_thread_writeRaw(): Starting loop to periodically write data");
    g_audio_thread_writeData_is_running = 1;
