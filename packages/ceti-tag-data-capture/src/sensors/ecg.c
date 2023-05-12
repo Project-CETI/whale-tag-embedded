@@ -58,6 +58,7 @@ int init_ecg_electronics() {
   ecg_adc_set_gain(ECG_ADC_GAIN_ONE); // ECG_ADC_GAIN_ONE or ECG_ADC_GAIN_FOUR
   ecg_adc_set_data_rate(1000); // 20, 90, 330, or 1000
   ecg_adc_set_conversion_mode(ECG_ADC_MODE_CONTINUOUS); // ECG_ADC_MODE_CONTINUOUS or ECG_ADC_MODE_SINGLE_SHOT
+  ecg_adc_set_channel(ECG_ADC_CHANNEL_ECG);
   // Start continuous conversion (or a single reading).
   ecg_adc_start();
 
@@ -128,50 +129,63 @@ void* ecg_thread_getData(void* paramPtr)
   g_ecg_thread_getData_is_running = 1;
 
   // Continuously poll the ADC and the leads-off detection output.
+  long long prev_ecg_adc_latest_reading_global_time_us = 0;
   ecg_buffer_index_toLog = 0;
   long long sample_index = 0;
   long long start_time_ms = get_global_time_ms();
   while(!g_exit)
   {
-    // Note that the ADC will likely be slower than the GPIO expander,
-    //  so read the ECG first to get the readings as close together as possible.
-    ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog]
-      = ecg_adc_read_singleEnded(ECG_ADC_CHANNEL_ECG, &g_exit, ECG_DATAREADY_TIMEOUT_US);
-    leadsOff_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog]
-      = ecg_gpio_expander_read_leadsOff();
-    // Acquire timing information for the samples just acquired.
-    // Read the time after acquisition, since reading the ADC includes a delay that sets the sampling rate.
-    global_times_us[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = get_global_time_us();
-    rtc_counts[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = getRtcCount();
-    sample_indexes[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = sample_index;
-    sample_index++;
-    
-    //    CETI_LOG("ADC Reading! %ld\n", ecg_readings[ecg_buffer_index_toLog]);
-    //    CETI_LOG("ADC Reading! %6.3f ", 3.3*(float)ecg_readings[ecg_buffer_index_toLog]/(float)(1 << 23));
-    //    CETI_LOG("\tLeadsOff Reading! %1d\n", leadsOff_readings[ecg_buffer_index_toLog]);
-
-    // If there was an error reading, delay a bit before retrying.
-    if(ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_INVALID_PLACEHOLDER)
+    // Request an update of the ECG data, then see if new data was received yet.
+    //  The new data may be read immediately by this call after waiting for data to be ready,
+    //  or nothing may happen if waiting for an interrupt callback to be triggered.
+    ecg_adc_update_data(&g_exit, ECG_DATAREADY_TIMEOUT_US);
+    if(g_ecg_adc_latest_reading_global_time_us != prev_ecg_adc_latest_reading_global_time_us)
     {
-      strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "INVALID? | ");
-      usleep(1000000);
-      init_ecg_electronics();
-      usleep(10000);
-    }
+      // Store the new data sample and its timestamp.
+      ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = g_ecg_adc_latest_reading;
+      global_times_us[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = g_ecg_adc_latest_reading_global_time_us;
+      // Update the previous timestamp, for checking whether new data is available.
+      prev_ecg_adc_latest_reading_global_time_us = global_times_us[ecg_buffer_select_toLog][ecg_buffer_index_toLog];
 
-    // Advance the buffer index.
-    // If the buffer has filled, switch to the other buffer
-    //   (this will also trigger the writeData thread to write the previous buffer to a file).
-    ecg_buffer_index_toLog++;
-    if(ecg_buffer_index_toLog == ECG_BUFFER_LENGTH)
-    {
-      ecg_buffer_index_toLog = 0;
-      ecg_buffer_select_toLog++;
-      ecg_buffer_select_toLog %= ECG_NUM_BUFFERS;
+      // Read the GPIO expander for the latest leads-off detection.
+      // Assume it's fast enough that the ECG sample timestamp is close enough to this leads-off timestamp.
+      leadsOff_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog]
+        = ecg_gpio_expander_read_leadsOff();
+
+      // Read the RTC.
+      rtc_counts[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = getRtcCount();
+
+      // Update indexes.
+      sample_indexes[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = sample_index;
+      sample_index++;
+
+      //    CETI_LOG("ADC Reading! %ld\n", ecg_readings[ecg_buffer_index_toLog]);
+      //    CETI_LOG("ADC Reading! %6.3f ", 3.3*(float)ecg_readings[ecg_buffer_index_toLog]/(float)(1 << 23));
+      //    CETI_LOG("\tLeadsOff Reading! %1d\n", leadsOff_readings[ecg_buffer_index_toLog]);
+
+      // If there was an error reading, delay a bit before retrying.
+      if(ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_INVALID_PLACEHOLDER)
+      {
+        strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "INVALID? | ");
+        usleep(1000000);
+        init_ecg_electronics();
+        usleep(10000);
+      }
+
+      // Advance the buffer index.
+      // If the buffer has filled, switch to the other buffer
+      //   (this will also trigger the writeData thread to write the previous buffer to a file).
+      ecg_buffer_index_toLog++;
+      if(ecg_buffer_index_toLog == ECG_BUFFER_LENGTH)
+      {
+        ecg_buffer_index_toLog = 0;
+        ecg_buffer_select_toLog++;
+        ecg_buffer_select_toLog %= ECG_NUM_BUFFERS;
+      }
+
+      // Clear the next notes.
+      strcpy(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "");
     }
-    
-    // Clear the next notes.
-    strcpy(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "");
 
     // Note that there is no delay to implement a desired sampling rate,
     //  since the rate will be set by the ADC configuration.
