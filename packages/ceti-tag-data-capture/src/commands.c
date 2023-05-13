@@ -10,8 +10,8 @@
 //-----------------------------------------------------------------------------
 // Initialize global variables
 //-----------------------------------------------------------------------------
-FILE *g_cmd_file = NULL;
-FILE *g_rsp_file = NULL;
+FILE *g_cmd_pipe = NULL;
+FILE *g_rsp_pipe = NULL;
 
 char g_command[256];
 
@@ -37,9 +37,9 @@ int handle_command(void) {
     // Part 1 - quit or any other special commands here
     if (!strncmp(g_command, "quit", 4)) {
         CETI_LOG("handle_command(): Received Quit command");
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "Received Quit command: stopping the app\n"); // echo it back
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "Received Quit command - stopping the app\n"); // echo it back
+        fclose(g_rsp_pipe);
         CETI_LOG("handle_command(): SETTING EXIT FLAG");
         g_exit = 1;
         return 0;
@@ -49,9 +49,9 @@ int handle_command(void) {
     // Part 2 - Client commands
     if (!strncmp(g_command, "dbug", 4)) {
         CETI_LOG("handle_command(): Debug Placeholder is Executing");
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "Running Debug Routine(s)\n"); // echo it back
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "Running Debug Routine(s)\n"); // echo it back
+        fclose(g_rsp_pipe);
         CETI_LOG("handle_command(): Debugged... %d", 1234);
         return 0;
     }
@@ -60,9 +60,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Testing Recovery Serial Link");
         #if ENABLE_RECOVERY
         testRecoverySerial();
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "handle_command(): Tested Recovery Serial Link\n");
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Tested Recovery Serial Link\n");
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX Recovery is not selected for operation - skipping command XXXX");
         #endif
@@ -73,9 +73,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Turning on burnwire");
         #if ENABLE_BURNWIRE
         burnwireOn();
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "handle_command(): Turned burnwire on\n");
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Turned burnwire on\n");
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX The burnwire is not selected for operation - skipping command XXXX");
         #endif
@@ -86,9 +86,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Turning off burnwire");
         #if ENABLE_BURNWIRE
         burnwireOff();
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "handle_command(): Turned burnwire off\n");
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Turned burnwire off\n");
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX The burnwire is not selected for operation - skipping command XXXX");
         #endif
@@ -99,9 +99,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Turning ON power to the Recovery Board");
         #if ENABLE_RECOVERY
         recoveryOn();
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "handle_command(): Turned Recovery Board ON\n");
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Turned Recovery Board ON\n");
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX Recovery is not selected for operation - skipping command XXXX");
         #endif
@@ -112,9 +112,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Turning OFF power to the Recovery Board");
         #if ENABLE_RECOVERY
         recoveryOff();
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "handle_command(): Turned Recovery Board OFF\n");
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Turned Recovery Board OFF\n");
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX Recovery is not selected for operation - skipping command XXXX");
         #endif
@@ -125,9 +125,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Resetting the IMU");
         #if ENABLE_IMU
         resetIMU();
-        g_rsp_file = fopen(RSP_FILEPATH,"w");
-        fprintf(g_rsp_file,"handle_command(): Reset the IMU \n");
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH,"w");
+        fprintf(g_rsp_pipe,"handle_command(): Reset the IMU \n");
+        fclose(g_rsp_pipe);
         return 0;
         #else
         CETI_LOG("handle_command(): XXXX The IMU is not selected for operation - skipping command XXXX");
@@ -143,9 +143,9 @@ int handle_command(void) {
         getRotation(&rotation);
         CETI_LOG("Testing the function 0x%02X 0x%02X", rotation.reportID,
                rotation.sequenceNum);
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "handle_command(): Finished getting the Rotation report\n");
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Finished getting the Rotation report\n");
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX The IMU is not selected for operation - skipping command XXXX");
         #endif
@@ -156,9 +156,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Setting up the IMU");
         #if ENABLE_IMU
         setupIMU();
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "handle_command(): Finished setting up the IMU\n");
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Finished setting up the IMU\n");
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX The IMU is not selected for operation - skipping command XXXX");
         #endif
@@ -169,9 +169,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Experimenting with the IMU");
         #if ENABLE_IMU
         learnIMU(); // a sandbox function in sensors.c
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "handle_command(): Finished running IMU experiments\n");
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Finished running IMU experiments\n");
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX The IMU is not selected for operation - skipping command XXXX");
         #endif
@@ -184,15 +184,15 @@ int handle_command(void) {
 
         if (!init_tag()) {
             CETI_LOG("handle_command(): Tag initialization successful");
-            g_rsp_file = fopen(RSP_FILEPATH, "w");
-            fprintf(g_rsp_file, "handle_command(): Tag initialization successful\n");
+            g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+            fprintf(g_rsp_pipe, "handle_command(): Tag initialization successful\n");
         } else {
             CETI_LOG("handle_command(): XXXX Tag Initialization Failed XXXX");
-            g_rsp_file = fopen(RSP_FILEPATH, "w");
-            fprintf(g_rsp_file,
+            g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+            fprintf(g_rsp_pipe,
                     "handle_command(): Tag initialization failed\n");
         }
-        fclose(g_rsp_file);
+        fclose(g_rsp_pipe);
         return 0;
     }
 
@@ -202,17 +202,17 @@ int handle_command(void) {
         #if ENABLE_FPGA
         if (!loadFpgaBitstream()) {
             CETI_LOG("handle_command(): FPGA Configuration Succeeded");
-            g_rsp_file = fopen(RSP_FILEPATH, "w");
-            fprintf(g_rsp_file,
+            g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+            fprintf(g_rsp_pipe,
                     "handle_command(): Configuring FPGA Succeeded\n");
         } else {
             CETI_LOG("handle_command(): XXXX FPGA Configuration Failed XXXX");
-            g_rsp_file = fopen(RSP_FILEPATH, "w");
+            g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
             fprintf(
-                g_rsp_file,
+                g_rsp_pipe,
                 "handle_command(): Configuring FPGA Failed - Try Again\n");
         }
-        fclose(g_rsp_file);
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX The FPGA is not selected for operation - skipping configuration XXXX");
         #endif
@@ -227,10 +227,10 @@ int handle_command(void) {
 
         CETI_LOG("handle_command(): FPGA Version: 0x%02X%02X\n", fpgaCamResponse[4], fpgaCamResponse[5]); // should be FE
 
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "FPGA Version: 0x%02X%02X\n", fpgaCamResponse[4], fpgaCamResponse[5]);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "FPGA Version: 0x%02X%02X\n", fpgaCamResponse[4], fpgaCamResponse[5]);
 
-        fclose(g_rsp_file);
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX The FPGA is not selected for operation - skipping configuration XXXX");
         #endif
@@ -242,15 +242,15 @@ int handle_command(void) {
         #if ENABLE_FPGA
         cam(0, 0, 0, 0, 0, fpgaCamResponse);
 
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
 
         if (fpgaCamResponse[4] == 0xAA)
-            fprintf(g_rsp_file, "CAM Link OK\n");
+            fprintf(g_rsp_pipe, "CAM Link OK\n");
         else
-            fprintf(g_rsp_file, "CAM Link Failure\n");
+            fprintf(g_rsp_pipe, "CAM Link Failure\n");
 
         CETI_LOG("handle_command(): camcheck - expect 0xAA: %02X", fpgaCamResponse[4]); // should be FE
-        fclose(g_rsp_file);
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX The FPGA is not selected for operation - skipping command XXXX");
         #endif
@@ -261,9 +261,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Starting audio acquisition");
         #if ENABLE_AUDIO
         start_audio_acq();
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "handle_command(): Audio acquisition Started\n"); // echo it
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Audio acquisition Started\n"); // echo it
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX Audio is not selected for operation - skipping command XXXX");
         #endif
@@ -274,9 +274,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Stopping audio acquisition");
         #if ENABLE_AUDIO
         stop_audio_acq();
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "handle_command(): Audio acquisition Stopped\n"); // echo it
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Audio acquisition Stopped\n"); // echo it
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX Audio is not selected for operation - skipping command XXXX");
         #endif
@@ -290,9 +290,9 @@ int handle_command(void) {
         gpioWrite(RESET, 0);
         usleep(1000);
         gpioWrite(RESET, 1);
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "handle_command(): FPGA Reset Completed\n"); // echo it
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): FPGA Reset Completed\n"); // echo it
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX The FPGA is not selected for operation - skipping command XXXX");
         #endif
@@ -303,9 +303,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Setting audio sampling rate to 192 kHz");
         #if ENABLE_AUDIO
         setup_audio_192kHz();
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "handle_command(): Audio rate set to 192 kHz\n"); // echo it
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Audio rate set to 192 kHz\n"); // echo it
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX Audio is not selected for operation - skipping command XXXX");
         #endif
@@ -316,9 +316,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Setting audio sampling rate to 96 kHz");
         #if ENABLE_AUDIO
         setup_audio_96kHz();
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "handle_command(): Audio rate set to 96 kHz\n"); // echo it
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Audio rate set to 96 kHz\n"); // echo it
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX Audio is not selected for operation - skipping command XXXX");
         #endif
@@ -329,9 +329,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Setting audio sampling rate to 48 kHz");
         #if ENABLE_AUDIO
         setup_audio_48kHz();
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "handle_command(): Audio rate set to 48 kHz\n"); // echo it
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Audio rate set to 48 kHz\n"); // echo it
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX Audio is not selected for operation - skipping command XXXX");
         #endif
@@ -342,9 +342,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Setting audio sampling rate to default (750 Hz)");
         #if ENABLE_AUDIO
         setup_audio_default();
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "handle_command(): Audio rate set to default (750 Hz)\n"); // echo it
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Audio rate set to default (750 Hz)\n"); // echo it
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX Audio is not selected for operation - skipping command XXXX");
         #endif
@@ -355,9 +355,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Resetting the audio FIFO");
         #if ENABLE_AUDIO
         reset_audio_fifo();
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "handle_command(): Audio FIFO Reset\n"); // echo it
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Audio FIFO Reset\n"); // echo it
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX Audio is not selected for operation - skipping command XXXX");
         #endif
@@ -368,11 +368,11 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Reading battery voltage and current");
         #if ENABLE_BATTERY_GAUGE
         getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v, &g_latest_battery_i_mA);
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "Battery voltage 1: %.2f V \n", g_latest_battery_v1_v);
-        fprintf(g_rsp_file, "Battery voltage 2: %.2f V \n", g_latest_battery_v2_v);
-        fprintf(g_rsp_file, "Battery current: %.2f mA \n", g_latest_battery_i_mA);
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "Battery voltage 1: %.2f V \n", g_latest_battery_v1_v);
+        fprintf(g_rsp_pipe, "Battery voltage 2: %.2f V \n", g_latest_battery_v2_v);
+        fprintf(g_rsp_pipe, "Battery current: %.2f mA \n", g_latest_battery_i_mA);
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX The battery gauge is not selected for operation - skipping command XXXX");
         #endif
@@ -383,9 +383,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Reading battery cell 1 voltage");
         #if ENABLE_BATTERY_GAUGE
         getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v, &g_latest_battery_i_mA);
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "%.2f\n", g_latest_battery_v1_v);
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "%.2f\n", g_latest_battery_v1_v);
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX The battery gauge is not selected for operation - skipping command XXXX");
         #endif
@@ -396,9 +396,9 @@ int handle_command(void) {
         CETI_LOG("handle_command(): Reading battery cell 2 voltage");
         #if ENABLE_BATTERY_GAUGE
         getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v, &g_latest_battery_i_mA);
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
-        fprintf(g_rsp_file, "%.2f\n", g_latest_battery_v2_v);
-        fclose(g_rsp_file);
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "%.2f\n", g_latest_battery_v2_v);
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX The battery gauge is not selected for operation - skipping command XXXX");
         #endif
@@ -408,7 +408,7 @@ int handle_command(void) {
     if (!strncmp(g_command, "powerdown", 9)) {
         CETI_LOG("handle_command(): Powering down the tag via the FPGA");
         #if ENABLE_FPGA
-        g_rsp_file = fopen(RSP_FILEPATH, "w");
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
 
         // now send the FPGA shutdown opcode via CAM
         // opcode 0xF will do a register write on i2c1
@@ -430,8 +430,8 @@ int handle_command(void) {
         // and charging/discharging needs to subsequently be
         // renabled.
 
-        fprintf(g_rsp_file,"handle_command(): Powering the tag down!\n");
-        fclose(g_rsp_file);
+        fprintf(g_rsp_pipe,"handle_command(): Powering the tag down!\n");
+        fclose(g_rsp_pipe);
         #else
         CETI_LOG("handle_command(): XXXX The FPGA is not selected for operation - skipping command XXXX");
         #endif
@@ -439,48 +439,48 @@ int handle_command(void) {
     }
 
     // Print available commands.
-    g_rsp_file = fopen(RSP_FILEPATH, "w");
-    fprintf(g_rsp_file, "\n"); // echo it
-    fprintf(g_rsp_file, "CETI Tag Electronics Available Commands\n");
-    fprintf(g_rsp_file,
+    g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+    fprintf(g_rsp_pipe, "\n"); // echo it
+    fprintf(g_rsp_pipe, "CETI Tag Electronics Available Commands\n");
+    fprintf(g_rsp_pipe,
             "---------------------------------------------------------\n");
-    fprintf(g_rsp_file, "initTag	    Initialize the Tag\n");
+    fprintf(g_rsp_pipe, "initTag	    Initialize the Tag\n");
 
-    fprintf(g_rsp_file, "configFPGA  Load FPGA bitstream\n");
-    fprintf(g_rsp_file, "verFPGA     Get FPGA version\n");
+    fprintf(g_rsp_pipe, "configFPGA  Load FPGA bitstream\n");
+    fprintf(g_rsp_pipe, "verFPGA     Get FPGA version\n");
 
-    fprintf(g_rsp_file, "resetFPGA        Reset FPGA state machines\n");
-    fprintf(g_rsp_file, "resetAudioFIFO   Reset audio HW FIFO\n");
-    fprintf(g_rsp_file, "checkCAM         Verify hardware control link\n");
+    fprintf(g_rsp_pipe, "resetFPGA        Reset FPGA state machines\n");
+    fprintf(g_rsp_pipe, "resetAudioFIFO   Reset audio HW FIFO\n");
+    fprintf(g_rsp_pipe, "checkCAM         Verify hardware control link\n");
 
-    fprintf(g_rsp_file, "startAudioAcq    Start acquiring audio samples from the FIFO\n");
-    fprintf(g_rsp_file, "stopAudioAcq     Stop acquiring audio samples from  the FIFO\n");
-    fprintf(g_rsp_file, "setAudioRate_192      Set audio sampling rate to 192 kHz \n");
-    fprintf(g_rsp_file, "setAudioRate_96       Set audio sampling rate to 96 kHz\n");
-    fprintf(g_rsp_file, "setAudioRate_48       Set audio sampling rate to 48 kHz \n");
-    fprintf(g_rsp_file, "setAudioRate_default  Set audio sampling rate to default (750 Hz) \n");
+    fprintf(g_rsp_pipe, "startAudioAcq    Start acquiring audio samples from the FIFO\n");
+    fprintf(g_rsp_pipe, "stopAudioAcq     Stop acquiring audio samples from  the FIFO\n");
+    fprintf(g_rsp_pipe, "setAudioRate_192      Set audio sampling rate to 192 kHz \n");
+    fprintf(g_rsp_pipe, "setAudioRate_96       Set audio sampling rate to 96 kHz\n");
+    fprintf(g_rsp_pipe, "setAudioRate_48       Set audio sampling rate to 48 kHz \n");
+    fprintf(g_rsp_pipe, "setAudioRate_default  Set audio sampling rate to default (750 Hz) \n");
 
-    fprintf(g_rsp_file, "resetIMU    Pulse the IMU reset line \n");
-    fprintf(g_rsp_file, "learnIMU    Dev only - sandbox for exploring IMU BNO08x\n");
-    fprintf(g_rsp_file, "setupIMU    Dev only - bringing up IMU BNO08x\n");
-    fprintf(g_rsp_file, "getRotation Dev only - bringing up IMU BNO08x\n");
+    fprintf(g_rsp_pipe, "resetIMU    Pulse the IMU reset line \n");
+    fprintf(g_rsp_pipe, "learnIMU    Dev only - sandbox for exploring IMU BNO08x\n");
+    fprintf(g_rsp_pipe, "setupIMU    Dev only - bringing up IMU BNO08x\n");
+    fprintf(g_rsp_pipe, "getRotation Dev only - bringing up IMU BNO08x\n");
 
-    fprintf(g_rsp_file, "bwOn        Turn on the burnwire current\n");
-    fprintf(g_rsp_file, "bwOff       Turn off the burnwire current\n");
+    fprintf(g_rsp_pipe, "bwOn        Turn on the burnwire current\n");
+    fprintf(g_rsp_pipe, "bwOff       Turn off the burnwire current\n");
 
-    fprintf(g_rsp_file, "rcvryOn     Turn on the Recovery Board\n");
-    fprintf(g_rsp_file, "rcvryOff    Turn off the Recovery Board\n");
+    fprintf(g_rsp_pipe, "rcvryOn     Turn on the Recovery Board\n");
+    fprintf(g_rsp_pipe, "rcvryOff    Turn off the Recovery Board\n");
 
-    fprintf(g_rsp_file, "testSerial  Test Recovery Board serial link\n");
+    fprintf(g_rsp_pipe, "testSerial  Test Recovery Board serial link\n");
 
-    fprintf(g_rsp_file, "checkBatt   Read battery voltages and current\n");
-    fprintf(g_rsp_file, "checkCell_1 Read battery cell 1 voltage\n");
-    fprintf(g_rsp_file, "checkCell_2 Read battery cell 2 voltage\n");
+    fprintf(g_rsp_pipe, "checkBatt   Read battery voltages and current\n");
+    fprintf(g_rsp_pipe, "checkCell_1 Read battery cell 1 voltage\n");
+    fprintf(g_rsp_pipe, "checkCell_2 Read battery cell 2 voltage\n");
 
-    fprintf(g_rsp_file, "powerdown   Power down the Tag\n");
+    fprintf(g_rsp_pipe, "powerdown   Power down the Tag\n");
 
-    fprintf(g_rsp_file, "\n");
-    fclose(g_rsp_file);
+    fprintf(g_rsp_pipe, "\n");
+    fclose(g_rsp_pipe);
 
     return 0;
 }
@@ -513,22 +513,17 @@ void* command_thread(void* paramPtr) {
     }
 
     // Main loop while application is running.
-    CETI_LOG("command_thread(): Starting loop to process commands from %s", CMD_FILEPATH);
+    CETI_LOG("command_thread(): Starting loop to process commands from %s", CMD_PIPE_PATH);
     g_command_thread_is_running = 1;
     while (!g_exit) {
-      // Read commands from the file.
-      g_cmd_file = fopen(CMD_FILEPATH, "r");
-      fgets(g_command, 256, g_cmd_file); // get the command
-      fclose(g_cmd_file);                     // close the pipe
+      // Read commands from the pipe.
+      // Note that this will block until a command is sent.
+      g_cmd_pipe = fopen(CMD_PIPE_PATH, "r");
+      fgets(g_command, 256, g_cmd_pipe); // get the command
+      fclose(g_cmd_pipe);                     // close the pipe
       // Process the command if one was present.
       if(strlen(g_command) > 0 && g_command[0] != '\n')
-      {
         handle_command();
-        // Clear the command file so the command is only executed once.
-        // This also signals to the user that the command was ingested.
-        g_cmd_file = fopen(CMD_FILEPATH, "w");
-        fclose(g_cmd_file);
-      }
 
       // Delay to implement a desired polling rate.
       usleep(COMMAND_POLLING_PERIOD_US);
