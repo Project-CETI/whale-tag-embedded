@@ -91,6 +91,7 @@
 
 #include "app_filex.h"
 #include "stdbool.h"
+#include <stdint.h>
 
 typedef enum {
     CFG_AUDIO_RATE_96_KHZ,

@@ -11,6 +11,9 @@
 
 #include "fx_stm32_sd_driver.h"
 
+TX_SEMAPHORE sd_tx_semaphore;
+TX_SEMAPHORE sd_rx_semaphore;
+
 extern SD_HandleTypeDef hsd1;
 #if (FX_STM32_SD_INIT == 1)
 extern void MX_SDMMC1_SD_Init(void);
@@ -19,9 +22,6 @@ extern void MX_SDMMC1_SD_Init(void);
 /* USER CODE BEGIN  0 */
 
 /* USER CODE END  0 */
-
-__IO UINT sd_rx_cplt;
-__IO UINT sd_tx_cplt;
 
 /**
 * @brief Initializes the SD IP instance
@@ -110,9 +110,8 @@ INT fx_stm32_sd_read_blocks(UINT instance, UINT *buffer, UINT start_block, UINT 
   INT ret = 0;
 
   /* USER CODE BEGIN PRE_READ_BLOCKS */
+	UNUSED(instance);
   /* USER CODE END PRE_READ_BLOCKS */
-
-  sd_rx_cplt = 0;
 
   if(HAL_SD_ReadBlocks_DMA(&hsd1, (uint8_t *)buffer, start_block, total_blocks) != HAL_OK)
   {
@@ -139,9 +138,8 @@ INT fx_stm32_sd_write_blocks(UINT instance, UINT *buffer, UINT start_block, UINT
   INT ret = 0;
 
   /* USER CODE BEGIN PRE_WRITE_BLOCKS */
+	UNUSED(instance);
   /* USER CODE END PRE_WRITE_BLOCKS */
-
-  sd_tx_cplt = 0;
 
   if(HAL_SD_WriteBlocks_DMA(&hsd1, (uint8_t *)buffer, start_block, total_blocks) != HAL_OK)
   {
@@ -157,39 +155,39 @@ INT fx_stm32_sd_write_blocks(UINT instance, UINT *buffer, UINT start_block, UINT
 
 /**
 * @brief SD DMA Tx Transfer completed callbacks
-* @param SD_HandleTypeDef *hsd the SD_HandleTypeDef handle
+* @param Instance the sd instance
 * @retval None
 */
 void HAL_SD_TxCpltCallback(SD_HandleTypeDef *hsd)
 {
-/* USER CODE BEGIN TX_COMPLETED_0 */
+  /* USER CODE BEGIN PRE_TX_CMPLT */
 
-/* USER CODE END TX_COMPLETED_0 */
+  /* USER CODE END PRE_TX_CMPLT */
 
-  sd_tx_cplt = 1;
+  tx_semaphore_put(&sd_tx_semaphore);
 
-/* USER CODE BEGIN TX_COMPLETED_1 */
+  /* USER CODE BEGIN POST_TX_CMPLT */
 
-/* USER CODE END TX_COMPLETED_1 */
-
+  /* USER CODE END POST_TX_CMPLT */
 }
 
 /**
 * @brief SD DMA Rx Transfer completed callbacks
-* @param SD_HandleTypeDef *hsd the SD_HandleTypeDef handle
+* @param Instance the sd instance
 * @retval None
 */
 void HAL_SD_RxCpltCallback(SD_HandleTypeDef *hsd)
 {
-  /* USER CODE BEGIN RX_COMPLETED_0 */
 
-/* USER CODE END RX_COMPLETED_0 */
-  sd_rx_cplt = 1;
+   /* USER CODE BEGIN PRE_RX_CMPLT */
 
-/* USER CODE BEGIN RX_COMPLETED_1 */
+  /* USER CODE END PRE_RX_CMPLT */
 
-/* USER CODE END RX_COMPLETED_1 */
+  tx_semaphore_put(&sd_rx_semaphore);
 
+  /* USER CODE BEGIN POST_RX_CMPLT */
+
+  /* USER CODE END POST_RX_CMPLT */
 }
 
 /* USER CODE BEGIN 1 */
