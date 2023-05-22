@@ -24,6 +24,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdbool.h>
+#include "main.h"
+#include "stm32u5xx_hal_sd.h"
+#include "fx_stm32_sd_driver.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -34,8 +37,8 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define STORAGE_LUN_NBR 1
-#define STORAGE_BLK_NBR 200
 #define STORAGE_BLK_SIZE 0x200
+#define SD_CARD_TIMEOUT 10000
 #define MEDIA_INSERTED  0;
 #define MEDIA_REMOVED  1;
 /* USER CODE END PD */
@@ -47,14 +50,14 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-uint8_t buffer[STORAGE_BLK_NBR * STORAGE_BLK_SIZE];
-ULONG lbaTracker = 0;
 bool inserted = false;
+extern SD_HandleTypeDef hsd1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
 UINT media_status_callback();
+static int32_t check_sd_status();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -72,6 +75,7 @@ VOID USBD_STORAGE_Activate(VOID *storage_instance)
 {
   /* USER CODE BEGIN USBD_STORAGE_Activate */
   UX_PARAMETER_NOT_USED(storage_instance);
+  inserted = true;
   /* USER CODE END USBD_STORAGE_Activate */
 
   return;
@@ -87,6 +91,7 @@ VOID USBD_STORAGE_Deactivate(VOID *storage_instance)
 {
   /* USER CODE BEGIN USBD_STORAGE_Activate */
   UX_PARAMETER_NOT_USED(storage_instance);
+  inserted = true;
   /* USER CODE END USBD_STORAGE_Activate */
 
   return;
@@ -117,7 +122,9 @@ UINT USBD_STORAGE_Read(VOID *storage_instance, ULONG lun, UCHAR *data_pointer,
   //UX_PARAMETER_NOT_USED(lba);
   //UX_PARAMETER_NOT_USED(media_status);
 
-  memcpy(data_pointer, &buffer[lba * STORAGE_BLK_SIZE], number_blocks * STORAGE_BLK_SIZE);
+  __disable_irq();
+  HAL_SD_ReadBlocks(&hsd1, data_pointer, lba, number_blocks, HAL_MAX_DELAY);
+  __enable_irq();
 
   /* USER CODE END USBD_STORAGE_Read */
 
@@ -142,6 +149,7 @@ UINT USBD_STORAGE_Write(VOID *storage_instance, ULONG lun, UCHAR *data_pointer,
   UINT status = UX_SUCCESS;
 
   /* USER CODE BEGIN USBD_STORAGE_Write */
+
   //UX_PARAMETER_NOT_USED(storage_instance);
   //UX_PARAMETER_NOT_USED(lun);
   //UX_PARAMETER_NOT_USED(data_pointer);
@@ -149,8 +157,9 @@ UINT USBD_STORAGE_Write(VOID *storage_instance, ULONG lun, UCHAR *data_pointer,
   //UX_PARAMETER_NOT_USED(lba);
   //UX_PARAMETER_NOT_USED(media_status);
 
-  memcpy(&buffer[lba * STORAGE_BLK_SIZE], data_pointer, number_blocks * STORAGE_BLK_SIZE);
-  lbaTracker += number_blocks * STORAGE_BLK_SIZE;
+  __disable_irq();
+    HAL_SD_WriteBlocks(&hsd1, data_pointer, lba, number_blocks, HAL_MAX_DELAY);
+  __enable_irq();
   /* USER CODE END USBD_STORAGE_Write */
 
   return status;
@@ -249,7 +258,7 @@ ULONG USBD_STORAGE_GetMediaLastLba(VOID)
   ULONG LastLba = 0U;
 
   /* USER CODE BEGIN USBD_STORAGE_GetMediaLastLba */
-  //LastLba = lbaTracker;
+  LastLba = (ULONG) (hsd1.SdCard.LogBlockNbr - 1);
   /* USER CODE END USBD_STORAGE_GetMediaLastLba */
 
   return LastLba;
@@ -266,7 +275,7 @@ ULONG USBD_STORAGE_GetMediaBlocklength(VOID)
   ULONG MediaBlockLen = 0U;
 
   /* USER CODE BEGIN USBD_STORAGE_GetMediaBlocklength */
-  MediaBlockLen = (ULONG) STORAGE_BLK_NBR;
+  MediaBlockLen = (ULONG) hsd1.SdCard.LogBlockSize;
   /* USER CODE END USBD_STORAGE_GetMediaBlocklength */
 
   return MediaBlockLen;
@@ -280,5 +289,26 @@ UINT media_status_callback(void){
 	else {
 		return MEDIA_REMOVED;
 	}
+}
+
+/**
+  * @brief  check_sd_status
+  *         check SD card Transfer Status.
+  * @param  none
+  * @retval BSP status
+  */
+static int32_t check_sd_status(VOID)
+{
+  uint32_t start = tx_time_get();
+
+  while (tx_time_get() - start < SD_CARD_TIMEOUT)
+  {
+    if (HAL_SD_GetCardState(&hsd1) == HAL_SD_CARD_TRANSFER)
+    {
+      return HAL_OK;
+    }
+  }
+
+  return HAL_ERROR;
 }
 /* USER CODE END 1 */
