@@ -32,8 +32,10 @@
                                   // Note that 2GB is the file size maximum for 32-bit systems
 #define ECG_NUM_BUFFERS 2      // One for logging, one for writing.
 #define ECG_BUFFER_LENGTH 5000 // Once a buffer fills, it will be flushed to a file
-#define ECG_DATAREADY_TIMEOUT_US 100000 // Max time to wait for ADC data to be ready
+#define ECG_SAMPLE_TIMEOUT_US 100000 // Max time to wait for ADC or GPIO expander data to be ready before reconnecting the ECG electronics
+#define ECG_ZEROCOUNT_THRESHOLD 100 // Max number of samples to tolerate consecutive 0s before reconnecting the ECG electronics
 #define ECG_INVALID_PLACEHOLDER ((long)(-6666666)) // Do not expect large negative voltages (ADC readings are out of ~8e6)
+#define ECG_LEADSOFF_INVALID_PLACEHOLDER ((int)(-1)) // Only expect 0 or 1
 
 #define ECG_I2C_BUS 0x00
 

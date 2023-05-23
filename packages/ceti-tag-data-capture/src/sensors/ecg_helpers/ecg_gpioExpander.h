@@ -14,6 +14,7 @@
 //-----------------------------------------------------------------------------
 
 #include "../../utils/logging.h" // for CETI_LOG()
+#include "../ecg.h" // for ECG_LEADSOFF_INVALID_PLACEHOLDER
 #include <pigpio.h> // for I2C functions
 #include <unistd.h> // for usleep()
 #include <stdio.h>  // for printing

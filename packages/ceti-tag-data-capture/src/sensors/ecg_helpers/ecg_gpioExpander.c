@@ -98,7 +98,7 @@ int ecg_gpio_expander_read_leadsOff()
 {
   int data = ecg_gpio_expander_read();
   if(data < 0) // There was an error reading the GPIO expander
-    return -1;
+    return ECG_LEADSOFF_INVALID_PLACEHOLDER;
   return ecg_gpio_expander_parse_leadsOff(data);
 }
 
