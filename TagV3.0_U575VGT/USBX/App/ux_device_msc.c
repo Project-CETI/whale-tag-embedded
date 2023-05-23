@@ -290,25 +290,4 @@ UINT media_status_callback(void){
 		return MEDIA_REMOVED;
 	}
 }
-
-/**
-  * @brief  check_sd_status
-  *         check SD card Transfer Status.
-  * @param  none
-  * @retval BSP status
-  */
-static int32_t check_sd_status(VOID)
-{
-  uint32_t start = tx_time_get();
-
-  while (tx_time_get() - start < SD_CARD_TIMEOUT)
-  {
-    if (HAL_SD_GetCardState(&hsd1) == HAL_SD_CARD_TRANSFER)
-    {
-      return HAL_OK;
-    }
-  }
-
-  return HAL_ERROR;
-}
 /* USER CODE END 1 */
