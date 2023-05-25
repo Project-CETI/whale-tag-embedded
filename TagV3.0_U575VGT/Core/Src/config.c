@@ -44,7 +44,7 @@ typedef enum {
     CFG_TOK_VAL_192_KHZ,
 }ConfigTokenValue;
 
-/*Option<str>*/
+/*string slice*/
 typedef struct{
     char *ptr;
     size_t len;
@@ -109,7 +109,7 @@ static str __str_splice_whitespace(str *in_str){
     };
 
     while(ws_str.len < in_len){
-        if(!isspace(in_str->ptr[ws_str.len])){
+        if(!isspace((unsigned char)in_str->ptr[ws_str.len])){
             break;
         }
         ws_str.len++;
@@ -130,7 +130,7 @@ static str __str_slice_identifier(str *in_str){
     };
 
     while(id_str.len < in_len){
-        if( (!isalnum(in_str->ptr[id_str.len]))
+        if( (!isalnum((unsigned char)in_str->ptr[id_str.len]))
             && (in_str->ptr[id_str.len] != '_')
             && (in_str->ptr[id_str.len] != '.')
             && (in_str->ptr[id_str.len] != '-')
@@ -182,15 +182,15 @@ static Option(str) __fileLineIter_next(FileLineIter *self){
             uint32_t read_in_len;
             fx_result = fx_file_read(self->file, &self->buffer[self->len], 512 - self->len, &read_in_len);
             self->len += read_in_len;
-        }
 
-        //file_read_error
-        if((fx_result != FX_SUCCESS) && (fx_result != FX_END_OF_FILE)){
-            return OPTION_NONE(str);
-        }
+            //file_read_error
+            if((fx_result != FX_SUCCESS) && (fx_result != FX_END_OF_FILE)){
+                return OPTION_NONE(str);
+            }
 
-        if(fx_result == FX_END_OF_FILE){
-            self->eof = true;
+            if(fx_result == FX_END_OF_FILE){
+                self->eof = true;
+            }
         }
 
         //no data in buffer - EOF
