@@ -22,7 +22,7 @@
 
 
 /*************************
- * Option<T>
+ * Result<T>
  */
 #define HAL_RESULT_PROPAGATE(x) {\
     HAL_StatusTypeDef ret = (x);\
@@ -55,5 +55,4 @@
     }\
     opt.val;\
 })
-
 #endif
