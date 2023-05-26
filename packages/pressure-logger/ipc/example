@@ -1,0 +1,8 @@
+
+To use, open an SSH session from any client.
+From this directory, send message to command
+pipe and fetch response from the return pipe.
+This can be done with one line as follows:
+
+$ echo "some command" > cetiCommand && cat cetiResponse
+

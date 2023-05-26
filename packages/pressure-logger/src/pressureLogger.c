@@ -101,3 +101,13 @@ void * cmdHdlThread(void * paramPtr)
 	}
 	return NULL;
 }
+
+void * sensorThread(void * paramPtr)
+{
+
+
+// code to read the sensors and save to file will go here
+
+	return NULL;
+
+}
