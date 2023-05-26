@@ -48,12 +48,7 @@
 /* USER CODE BEGIN PV */
 TX_THREAD test_thread;
 uint8_t thread_stack[THREAD_STACK_SIZE];
-uint32_t test_thread_counter = 0;
-TX_TIMER timer_ptr;
-extern TIM_HandleTypeDef htim2;
-extern TIM_HandleTypeDef htim4;
 
-bool is2400Hz = true;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -104,15 +99,15 @@ void MX_ThreadX_Init(void)
 /* USER CODE BEGIN 1 */
 void test_thread_entry(ULONG thread_input){
 
-	//Create test timer
-	//tx_timer_create(&timer_ptr, "My Timer", timer_entry, 0x1234, 1000, 1000, TX_AUTO_ACTIVATE);
-	/* Enter forever loop */
-
-	uint8_t data[2] = {0x55, 0xE1};
+	//test
+	uint8_t data[2] = {0x55, 0xC3};
 	aprs_transmit_send_data(data, 2);
+
+	/* Enter forever loop */
 	while (1){
 
 	}
+
 }
 
 /* USER CODE END 1 */
