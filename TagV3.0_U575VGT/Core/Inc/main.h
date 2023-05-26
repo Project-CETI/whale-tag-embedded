@@ -53,7 +53,7 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-void MX_TIM2_Fake_Init(void);
+void MX_TIM2_Fake_Init(uint8_t newPeriod);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -89,7 +89,7 @@ void MX_TIM2_Fake_Init(void);
 #define ECG_NSDN_GPIO_Port GPIOD
 
 /* USER CODE BEGIN Private defines */
-#define NUM_SAMPLES 100
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

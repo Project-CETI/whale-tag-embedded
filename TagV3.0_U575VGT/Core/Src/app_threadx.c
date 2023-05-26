@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "main.h"
+#include "Recovery Inc/AprsTransmit.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -104,30 +105,14 @@ void MX_ThreadX_Init(void)
 void test_thread_entry(ULONG thread_input){
 
 	//Create test timer
-	tx_timer_create(&timer_ptr, "My Timer", timer_entry, 0x1234, 1000, 1000, TX_AUTO_ACTIVATE);
+	//tx_timer_create(&timer_ptr, "My Timer", timer_entry, 0x1234, 1000, 1000, TX_AUTO_ACTIVATE);
 	/* Enter forever loop */
+
+	uint8_t data[2] = {0x55, 0xE1};
+	aprs_transmit_send_data(data, 2);
 	while (1){
 
 	}
 }
 
-void timer_entry(ULONG timer_input){
-
-	MX_TIM2_Fake_Init();
-	/*if (is2400Hz){
-		HAL_TIM_Base_Stop_IT(&htim2);
-		HAL_TIM_Base_Start_IT(&htim4);
-		is2400Hz = false;
-	}
-	else {
-		HAL_TIM_Base_Stop_IT(&htim4);
-		HAL_TIM_Base_Start_IT(&htim2);
-		is2400Hz = true;
-	}*/
-
-	//for (int index = 0; index < 1000; index++){
-		//index++;
-	//}
-	//tx_thread_sleep(1);
-}
 /* USER CODE END 1 */

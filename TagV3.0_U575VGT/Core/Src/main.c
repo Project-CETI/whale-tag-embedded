@@ -36,8 +36,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define NUM_SAMPLES 100
-#define PI 3.141592
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -80,7 +79,6 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 /* USER CODE BEGIN PV */
 Keller_HandleTypedef depth_sensor;
 LightSensorHandleTypedef light_sensor;
-uint32_t dac_input[NUM_SAMPLES];
 uint8_t counter;
 /* USER CODE END PV */
 
@@ -103,16 +101,12 @@ static void MX_USART3_UART_Init(void);
 static void MX_DAC1_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
-static void calcSinValues();
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-static void calcSinValues(){
-	for (uint8_t i = 0; i < NUM_SAMPLES; i++){
-		dac_input[i] = (sin(i * 2 * PI/100) + 1) * (256/2);
-	}
-}
+
 /* USER CODE END 0 */
 
 /**
@@ -122,7 +116,7 @@ static void calcSinValues(){
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  calcSinValues();
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -166,10 +160,8 @@ int main(void)
   Keller_UT(&depth_sensor);
   Light_UT(&light_sensor);
 
-  //uint8_t counter = 0;
-  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, dac_input, 100, DAC_ALIGN_8B_R);
-  //HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 4095);
-  HAL_TIM_Base_Start(&htim2);
+  ///HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, dac_input, 100, DAC_ALIGN_8B_R);
+  //HAL_TIM_Base_Start(&htim2);
   //MX_TIM2_Fake_Init();
   /* USER CODE END 2 */
 
@@ -183,11 +175,6 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	//dac_input = (sin(counter * 2 * PI/10) + 1) * (256/2);
-	//if(HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_8B_R, dac_input) == HAL_OK){
-		//counter = (counter + 1) % 10;
-	//}
-	//HAL_Delay(1);
   }
   /* USER CODE END 3 */
 }
@@ -1030,7 +1017,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void MX_TIM2_Fake_Init(void){
+void MX_TIM2_Fake_Init(uint8_t newPeriod){
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
@@ -1039,9 +1026,9 @@ void MX_TIM2_Fake_Init(void){
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 32-1;
+  htim2.Init.Prescaler = 16 - 1;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 42-1;
+  htim2.Init.Period = newPeriod - 1;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)

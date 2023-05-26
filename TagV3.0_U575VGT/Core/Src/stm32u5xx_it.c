@@ -68,7 +68,6 @@ extern TIM_HandleTypeDef htim6;
 
 /* USER CODE BEGIN EV */
 extern DAC_HandleTypeDef hdac1;
-extern uint32_t dac_input[NUM_SAMPLES];
 extern uint8_t counter;
 /* USER CODE END EV */
 
@@ -204,9 +203,7 @@ void GPDMA1_Channel1_IRQHandler(void)
 void TIM2_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM2_IRQn 0 */
-	//if(HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_8B_R, dac_input[counter]) == HAL_OK){
-		//counter = (counter + 1) % 100;
-	//}
+
   /* USER CODE END TIM2_IRQn 0 */
   HAL_TIM_IRQHandler(&htim2);
   /* USER CODE BEGIN TIM2_IRQn 1 */
