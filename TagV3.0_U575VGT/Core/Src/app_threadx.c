@@ -24,6 +24,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdint.h>
+#include <stdbool.h>
+#include "main.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,11 +48,17 @@
 TX_THREAD test_thread;
 uint8_t thread_stack[THREAD_STACK_SIZE];
 uint32_t test_thread_counter = 0;
+TX_TIMER timer_ptr;
+extern TIM_HandleTypeDef htim2;
+extern TIM_HandleTypeDef htim4;
+
+bool is2400Hz = true;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
 void test_thread_entry(ULONG thread_input);
+void timer_entry(ULONG timer_input);
 /* USER CODE END PFP */
 
 /**
@@ -61,14 +69,12 @@ void test_thread_entry(ULONG thread_input);
 UINT App_ThreadX_Init(VOID *memory_ptr)
 {
   UINT ret = TX_SUCCESS;
-
   /* USER CODE BEGIN App_ThreadX_MEM_POOL */
   VOID * pointer = &thread_stack;
   // Allocate memory pool
   TX_BYTE_POOL* byte_pool = (TX_BYTE_POOL*) memory_ptr;
   ret = tx_byte_allocate(byte_pool, &pointer, THREAD_STACK_SIZE, TX_NO_WAIT);
   /* USER CODE END App_ThreadX_MEM_POOL */
-
   /* USER CODE BEGIN App_ThreadX_Init */
   tx_thread_create(&test_thread, "Test_Thread", test_thread_entry, 0x1234, thread_stack, THREAD_STACK_SIZE, 3, 3, TX_NO_TIME_SLICE, TX_AUTO_START);
   /* USER CODE END App_ThreadX_Init */
@@ -97,16 +103,31 @@ void MX_ThreadX_Init(void)
 /* USER CODE BEGIN 1 */
 void test_thread_entry(ULONG thread_input){
 
+	//Create test timer
+	tx_timer_create(&timer_ptr, "My Timer", timer_entry, 0x1234, 1000, 1000, TX_AUTO_ACTIVATE);
 	/* Enter forever loop */
 	while (1){
 
-		test_thread_counter++;
-
-		tx_thread_sleep(1);
-
-		if (test_thread_counter > 5000){
-			test_thread_counter = 0;
-		}
 	}
+}
+
+void timer_entry(ULONG timer_input){
+
+	MX_TIM2_Fake_Init();
+	/*if (is2400Hz){
+		HAL_TIM_Base_Stop_IT(&htim2);
+		HAL_TIM_Base_Start_IT(&htim4);
+		is2400Hz = false;
+	}
+	else {
+		HAL_TIM_Base_Stop_IT(&htim4);
+		HAL_TIM_Base_Start_IT(&htim2);
+		is2400Hz = true;
+	}*/
+
+	//for (int index = 0; index < 1000; index++){
+		//index++;
+	//}
+	//tx_thread_sleep(1);
 }
 /* USER CODE END 1 */
