@@ -1,4 +1,4 @@
 #!/bin/bash
-echo "$1 $2" > pressureCommand
+echo "$1 $2" > Command
 
-cat pressureResponse
+cat Response

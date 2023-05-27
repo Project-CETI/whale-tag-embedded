@@ -274,7 +274,10 @@ main () {
   raspi-config nonint do_ssh 0
   add_wifi
   add_swap
-  raspi-config nonint do_overlayfs 0
+
+# Don't need read only file system for pressure logger
+#  raspi-config nonint do_overlayfs 0
+
 
   return 0
 }

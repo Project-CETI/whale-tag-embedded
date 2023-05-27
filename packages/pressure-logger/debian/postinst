@@ -2,5 +2,6 @@
 
 #DEBHELPER#
 
-mkfifo -m 644 /opt/pressure-logger/ipc/pressureCommand || /bin/true
-mkfifo -m 644 /opt/pressure-logger/ipc/pressureResponse || /bin/true
+mkfifo -m 644 /opt/pressure-logger/ipc/Command || /bin/true
+mkfifo -m 644 /opt/pressure-logger/ipc/Response || /bin/true
+chmod +x /opt/pressure-logger/ipc/pressure-logger.sh
