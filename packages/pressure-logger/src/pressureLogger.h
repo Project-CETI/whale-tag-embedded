@@ -55,7 +55,7 @@ extern int getTempPsns (double * pressureSensorData);
 // Defines
 //-----------------------------------------------------------------------------
 
-#define CMD "../ipc/Command"     //fifo locations
+#define CMD "../ipc/Command"     //fifo locations for interactive comms
 #define RSP "../ipc/Response"
 #define SNS_FILE "../data/pressure.csv"
 

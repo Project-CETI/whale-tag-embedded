@@ -40,22 +40,6 @@ int main (void)
 //	CETI_initializeLog(LOGFILE);
 	printf("main(): Starting Pressure Logging Application\n");
 
-#if 0  //
-
-	if (gpioInitialise() < 0)
-	{
-		fprintf(stderr, "main(): pigpio initialisation failed\n");
-		return 1;
-	}
-
-	if (initTag() < 0)
-	{
-		fprintf(stderr, "main(): Tag initialisation failed\n");
-		return 1;
-	}
-
-#endif
-
 	printf("main(): Creating Command/Response Thread\n");
 	pthread_create(&cmdHdlThreadId,NULL,&cmdHdlThread,NULL); //TODO add error check
 
@@ -106,7 +90,10 @@ void * sensorThread(void * paramPtr)
 {
 
 
-// code to read the sensors and save to file will go here
+// The actual code to read the sensors and save to file will go here
+// ...
+// code here!
+//
 
 	return NULL;
 

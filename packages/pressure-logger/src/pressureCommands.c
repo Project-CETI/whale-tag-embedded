@@ -26,11 +26,31 @@ int hdlCmd(void) {
     }
     //-----------------------------------------------------------------------------
     // Part 2 - Client commands
-    if (!strncmp(g_command, "dbug", 4)) {
+    if (!strncmp(g_command, "debug", 5)) {
         printf("Debug Placeholder is Executing\n");
         g_rsp = fopen(RSP, "w");
         printf("Debug Placeholder is Finished\n");
         fprintf(g_rsp, "Running Debug Routine(s)\n"); // echo it back
+        fclose(g_rsp);
+        return 0;
+    }  
+
+    if (!strncmp(g_command, "rd_0", 4)) {
+        printf("Reading Pressure Sensor on i2c-0\n");
+        g_rsp = fopen(RSP, "w");
+        // call the function to read the device here
+        printf("Read Pressure Sensor on i2c-0\n");
+        fprintf(g_rsp, "Read Pressure Sensor on i2c-0\n"); // echo it back
+        fclose(g_rsp);
+        return 0;
+    }  
+
+    if (!strncmp(g_command, "rd_1", 4)) {
+        printf("Reading Pressure Sensor on i2c-1\n");
+        g_rsp = fopen(RSP, "w");
+        // call the function to read the device here
+        printf("Read Pressure Sensor on i2c-1\n");
+        fprintf(g_rsp, "Read Pressure Sensor on i2c-1\n"); // echo it back
         fclose(g_rsp);
         return 0;
     }  
@@ -42,6 +62,9 @@ int hdlCmd(void) {
         fprintf(g_rsp,
                 "---------------------------------------------------------\n");
         fprintf(g_rsp, "quit        Exit the application gracefully\n");
+
+        fprintf(g_rsp, "rd_0        Read Keller sensor connected to i2c0\n");
+        fprintf(g_rsp, "rd_1        Read Keller sensor connected to i2c1\n");
 
         fprintf(g_rsp, "debug       Dummy function for debugging\n");       
 
