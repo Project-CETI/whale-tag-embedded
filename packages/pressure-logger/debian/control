@@ -1,0 +1,11 @@
+Source: pressure-logger
+Section: misc
+Priority: optional
+Maintainer: CETI Project <projectceti.org>
+Build-Depends: debhelper (>= 10)
+Standards-Version: 3.8.1
+
+Package: pressure-logger
+Depends: 
+Architecture: arm64
+Description: Captures data from a pair of pressure sensors

@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+# Uncomment this to turn on verbose mode.
+# export DH_VERBOSE=1
+
+%:
+	dh $@
+
+override_dh_systemd_enable:
+	dh_systemd_enable --name ceti-tag-data-capture
+
+override_dh_auto_install:
+	$(MAKE) prefix=/opt/ceti-tag-data-capture install
+

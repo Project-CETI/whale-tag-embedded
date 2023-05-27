@@ -1,0 +1,6 @@
+#!/bin/bash
+
+#DEBHELPER#
+
+mkfifo -m 644 /opt/pressure-logger/ipc/pressureCommand || /bin/true
+mkfifo -m 644 /opt/pressure-logger/ipc/pressureResponse || /bin/true

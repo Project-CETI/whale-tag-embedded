@@ -1,0 +1,13 @@
+[Unit]
+Description=Captures data from a pair of Keller pressure sensors and logs to a file
+After=network.target local-fs.target getty.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/pressure-logger/bin
+ExecStart=/opt/pressure-logger/bin/pressureLogger
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
