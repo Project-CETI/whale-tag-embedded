@@ -8,7 +8,7 @@ SRC        = $(wildcard src/*.c) $(wildcard src/*/*.c) $(wildcard src/*/*/*.c)
 OBJ        = $(SRC:.c=.o)
 CC         = gcc
 CFLAGS     = -Wall -g
-LDFLAGS    = -lpthread -lpigpio -lFLAC -lm
+LDFLAGS    = -lpthread -lpigpio -lm
 APP        = pressureLogger
 BINDIR    ?= bin
 IPCDIR    ?= ipc

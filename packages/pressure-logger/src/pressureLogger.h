@@ -34,14 +34,6 @@
 
 #include <stdio.h>
 
-typedef struct {  //To hold Keller 4LD pressure sensor data
-	char status;
-	char p_msb;
-	char p_lsb;
-	char t_msb;
-	char t_lsb;
-} psns_t;
-
 //-----------------------------------------------------------------------------
 // Function Prototypes
 //-----------------------------------------------------------------------------
@@ -49,7 +41,8 @@ typedef struct {  //To hold Keller 4LD pressure sensor data
 extern void * cmdHdlThread( void * paramPtr);
 extern void * sensorThread(void * paramPtr);
 extern int hdlCmd(void);
-extern int getTempPsns (double * pressureSensorData);
+extern int getTempPsns_0 (double * pressureSensorData);
+extern int getTempPsns_1 (double * pressureSensorData);
 
 //-----------------------------------------------------------------------------
 // Defines
@@ -58,6 +51,12 @@ extern int getTempPsns (double * pressureSensorData);
 #define CMD "../ipc/Command"     //fifo locations for interactive comms
 #define RSP "../ipc/Response"
 #define SNS_FILE "../data/pressure.csv"
+
+// Keller 4LD Pressure Sensor 200 bar
+// Reference pressure is a 1 bar abs
+#define ADDR_DEPTH 0x40 //default i2c slave addr
+#define PMIN 0  	// bar
+#define PMAX 200 	// bar 
 
 //-----------------------------------------------------------------------------
 // Globals

@@ -36,8 +36,7 @@ int main (void)
 	printf("CETI Dual Pressure Logger ");
 	printf(VERSION);
 	printf("\n");
-	printf("main(): Begin Logging\n");
-//	CETI_initializeLog(LOGFILE);
+
 	printf("main(): Starting Pressure Logging Application\n");
 
 	printf("main(): Creating Command/Response Thread\n");
@@ -45,6 +44,12 @@ int main (void)
 
 	printf("main(): Creating Sensor And Control Thread\n");
 	pthread_create(&sensorThreadId,NULL,&sensorThread,NULL);
+
+	if (gpioInitialise() < 0)
+	{
+		fprintf(stderr, "main(): pigpio initialization failed\n");
+		return 1;
+	}
 
 // Interactive command monitor and handling
 
@@ -92,7 +97,7 @@ void * sensorThread(void * paramPtr)
 
 // The actual code to read the sensors and save to file will go here
 // ...
-// code here!
+// code here, call the helper funcs to get sensor values
 //
 
 	return NULL;
