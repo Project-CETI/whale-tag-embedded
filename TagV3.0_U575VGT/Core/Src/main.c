@@ -74,7 +74,37 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 /* USER CODE BEGIN PV */
 Keller_HandleTypedef depth_sensor;
 LightSensorHandleTypedef light_sensor;
-ad7768_dev audio_adc = {};
+
+ad7768_dev audio_adc = {
+    .spi_handler = &hspi1,
+		.spi_cs_port = ADC_CS_GPIO_Port,
+		.spi_cs_pin = ADC_CS_Pin,
+    .channel_standby = {
+        .ch[0] = AD7768_ENABLED,
+        .ch[1] = AD7768_ENABLED,
+        .ch[2] = AD7768_ENABLED,
+        .ch[3] = AD7768_STANDBY
+    },
+    .channel_mode[AD7768_MODE_A] = {.filter_type = AD7768_FILTER_SINC, .dec_rate = AD7768_DEC_X32},
+    .channel_mode[AD7768_MODE_B] = {.filter_type = AD7768_FILTER_WIDEBAND, .dec_rate = AD7768_DEC_X32},
+    .channel_mode_select = {
+        .ch[0] = AD7768_MODE_B,
+        .ch[1] = AD7768_MODE_B,
+        .ch[2] = AD7768_MODE_B,
+        .ch[3] = AD7768_MODE_A,
+    },
+    .power_mode = {
+        .sleep_mode = AD7768_ACTIVE,
+        .power_mode = AD7768_MEDIAN,
+        .lvds_enable = false,
+        .mclk_div = AD7768_MCLK_DIV_4,
+    },
+    .interface_config = {
+        .crc_select = AD7768_CRC_NONE,
+        .dclk_div = AD7768_DCLK_DIV_1,
+    },
+    .pin_spi_ctrl = AD7768_SPI_CTRL,
+};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -653,7 +683,7 @@ static void MX_SPI1_Init(void)
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
   hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_16BIT;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
