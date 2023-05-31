@@ -66,6 +66,7 @@
 									<listOptionValue builtIn="false" value="../Middlewares/ST/threadx/ports/cortex_m33/gnu/inc"/>
 									<listOptionValue builtIn="false" value="../FileX/Target"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/TagV3.0_U5_VGT/Core/Inc}&quot;"/>
+									<listOptionValue builtIn="false" value="../Core/Inc"/>
 								</option>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c.1741626806" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c"/>
 							</tool>

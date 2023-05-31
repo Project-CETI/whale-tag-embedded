@@ -100,8 +100,8 @@ void MX_ThreadX_Init(void)
 void test_thread_entry(ULONG thread_input){
 
 	//test
-	uint8_t data[2] = {0x55, 0xC3};
-	aprs_transmit_send_data(data, 2);
+	uint8_t data[3] = {0x00, 0x00, 0xFF};
+	aprs_transmit_send_data(data, 3);
 
 	/* Enter forever loop */
 	while (1){

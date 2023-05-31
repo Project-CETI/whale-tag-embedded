@@ -32,7 +32,8 @@
 
 //Defines
 //The time to transmit each bit for
-#define APRS_TRANSMIT_BIT_TIME 100
+//Each ThreadX tick is 100us -> 9 ticks makes it 900us. Based off the PICO code for the old recovery boards, where the bit time is 862us.
+#define APRS_TRANSMIT_BIT_TIME 9
 
 //The hardware timer periods for 1200Hz and 2400Hz signals
 #define APRS_TRANSMIT_PERIOD_1200HZ 84
