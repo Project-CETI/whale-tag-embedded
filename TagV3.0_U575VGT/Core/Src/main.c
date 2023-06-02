@@ -27,6 +27,7 @@
 #include "KellerDepth.h"
 #include "LightSensor.h"
 #include "ad7768.h"
+#include "BNO08x.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -47,6 +48,9 @@
 /* Private variables ---------------------------------------------------------*/
 
 DAC_HandleTypeDef hdac1;
+DMA_NodeTypeDef Node_GPDMA1_Channel1;
+DMA_QListTypeDef List_GPDMA1_Channel1;
+DMA_HandleTypeDef handle_GPDMA1_Channel1;
 
 DCMI_HandleTypeDef hdcmi;
 
@@ -65,6 +69,8 @@ SD_HandleTypeDef hsd1;
 
 SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi2;
+
+TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart3;
@@ -88,12 +94,13 @@ static void MX_UART4_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_RTC_Init(void);
 static void MX_DCMI_Init(void);
-static void MX_DAC1_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_SAI1_Init(void);
 static void MX_I2C3_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_DAC1_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -139,25 +146,30 @@ int main(void)
   MX_USB_OTG_FS_PCD_Init();
   MX_RTC_Init();
   MX_DCMI_Init();
-  MX_DAC1_Init();
   MX_I2C2_Init();
   MX_SAI1_Init();
   MX_I2C3_Init();
   MX_SPI2_Init();
   MX_USART3_UART_Init();
+  MX_DAC1_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  ad7768_setup(&audio_adc, &hspi1, ADC_CS_GPIO_Port, ADC_CS_Pin);
+  //ad7768_setup(&audio_adc, &hspi1, ADC_CS_GPIO_Port, ADC_CS_Pin);
 //  Keller_init(&depth_sensor, &hi2c2);
 //  LightSensor_init(&light_sensor, &hi2c2);
 
-  AD7768_UT(&audio_adc);
+  //AD7768_UT(&audio_adc);
 //  SDcard_UT();
 //  Keller_UT(&depth_sensor);
 //  Light_UT(&light_sensor);
+  IMU_HandleTypeDef imu;
+  imu.cs_port = IMU_CS_GPIO_Port;
+  imu.cs_pin = IMU_CS_Pin;
 
+  IMU_init(&hspi1, &imu);
   /* USER CODE END 2 */
 
-  MX_ThreadX_Init();
+  //MX_ThreadX_Init();
 
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
@@ -165,8 +177,9 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+	  IMU_get_data(&imu);
     /* USER CODE BEGIN 3 */
+
   }
   /* USER CODE END 3 */
 }
@@ -264,8 +277,8 @@ static void MX_DAC1_Init(void)
   sConfig.DAC_DMADoubleDataMode = DISABLE;
   sConfig.DAC_SignedFormat = DISABLE;
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
-  sConfig.DAC_Trigger = DAC_TRIGGER_NONE;
-  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_DISABLE;
+  sConfig.DAC_Trigger = DAC_TRIGGER_T2_TRGO;
+  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
   sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_EXTERNAL;
   sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
   if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
@@ -341,6 +354,8 @@ static void MX_GPDMA1_Init(void)
   /* GPDMA1 interrupt Init */
     HAL_NVIC_SetPriority(GPDMA1_Channel0_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(GPDMA1_Channel0_IRQn);
+    HAL_NVIC_SetPriority(GPDMA1_Channel1_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(GPDMA1_Channel1_IRQn);
 
   /* USER CODE BEGIN GPDMA1_Init 1 */
 
@@ -653,7 +668,7 @@ static void MX_SPI1_Init(void)
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
   hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_16BIT;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
@@ -666,7 +681,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
   hspi1.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
   hspi1.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
-  hspi1.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_08CYCLE;
+  hspi1.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
   hspi1.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
   hspi1.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
   hspi1.Init.IOSwap = SPI_IO_SWAP_DISABLE;
@@ -743,6 +758,51 @@ static void MX_SPI2_Init(void)
   /* USER CODE BEGIN SPI2_Init 2 */
 
   /* USER CODE END SPI2_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 16-1;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 42;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
 
 }
 
@@ -900,13 +960,13 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, VHF_PTT_Pin|APRS_PD_Pin|APRS_H_L_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(ADC_CS_GPIO_Port, ADC_CS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(ADC_CS_GPIO_Port, ADC_CS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(IMU_CS_GPIO_Port, IMU_CS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(IMU_CS_GPIO_Port, IMU_CS_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin : BMS_ALRT_Pin */
   GPIO_InitStruct.Pin = BMS_ALRT_Pin;
@@ -934,12 +994,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : ADC_CS_Pin */
-  GPIO_InitStruct.Pin = ADC_CS_Pin;
+  /*Configure GPIO pins : ADC_CS_Pin IMU_CS_Pin */
+  GPIO_InitStruct.Pin = ADC_CS_Pin|IMU_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(ADC_CS_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : IMU_WAKE_Pin */
   GPIO_InitStruct.Pin = IMU_WAKE_Pin;
@@ -950,22 +1010,19 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : IMU_INT_Pin */
   GPIO_InitStruct.Pin = IMU_INT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(IMU_INT_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : IMU_CS_Pin */
-  GPIO_InitStruct.Pin = IMU_CS_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(IMU_CS_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : ECG_LOD__Pin ECG_LOD_D11_Pin ECG_NDRDY_Pin ECG_NSDN_Pin */
   GPIO_InitStruct.Pin = ECG_LOD__Pin|ECG_LOD_D11_Pin|ECG_NDRDY_Pin|ECG_NSDN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI12_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI12_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
