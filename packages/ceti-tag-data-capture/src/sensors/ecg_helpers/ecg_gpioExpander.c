@@ -44,7 +44,7 @@ int ecg_gpio_expander_setup(int i2c_bus)
   // The below (untested) code should also set them all to inputs,
   //   but will also cause strong pullups to be briefly connected (during HIGH time of the acknowledgment pulse).
   //   To avoid this for now, the default state is leveraged and no commands are sent.
-  //i2cWriteByte(ecg_gpio_expander_i2c_device, 0b11111111) // set all to inputs (1 = weakly driven high)
+  //i2cWriteByte(ecg_gpio_expander_i2c_device, 0b11111111); // set all to inputs (1 = weakly driven high)
 
   return 0;
 }
@@ -92,14 +92,24 @@ int ecg_gpio_expander_read_dataReady()
 
 }
 
-// Read the ECG leads-off detection output bit.
+// Read the ECG leads-off detection (positive electrode) output bit.
 // Will first read all inputs of the GPIO expander, then extract the desired bit.
-int ecg_gpio_expander_read_leadsOff()
+int ecg_gpio_expander_read_leadsOff_p()
 {
   int data = ecg_gpio_expander_read();
   if(data < 0) // There was an error reading the GPIO expander
     return ECG_LEADSOFF_INVALID_PLACEHOLDER;
-  return ecg_gpio_expander_parse_leadsOff(data);
+  return ecg_gpio_expander_parse_leadsOff_p(data);
+}
+
+// Read the ECG leads-off detection (negative electrode) output bit.
+// Will first read all inputs of the GPIO expander, then extract the desired bit.
+int ecg_gpio_expander_read_leadsOff_n()
+{
+  int data = ecg_gpio_expander_read();
+  if(data < 0) // There was an error reading the GPIO expander
+    return ECG_LEADSOFF_INVALID_PLACEHOLDER;
+  return ecg_gpio_expander_parse_leadsOff_n(data);
 }
 
 // Given a byte of all GPIO expander inputs, extract the ADC data-ready bit.
@@ -108,12 +118,51 @@ int ecg_gpio_expander_parse_dataReady(uint8_t data)
   return (data >> ECG_GPIO_EXPANDER_CHANNEL_DATAREADY) & 0b00000001;
 }
 
-// Given a byte of all GPIO expander inputs, extract the ECG leads-off detection bit.
-int ecg_gpio_expander_parse_leadsOff(uint8_t data)
+// Given a byte of all GPIO expander inputs, extract the ECG leads-off detection bit (positive electrode).
+int ecg_gpio_expander_parse_leadsOff_p(uint8_t data)
 {
-  return (data >> ECG_GPIO_EXPANDER_CHANNEL_LEADSOFF) & 0b00000001;
+  return (data >> ECG_GPIO_EXPANDER_CHANNEL_LEADSOFF_P) & 0b00000001;
 }
 
+// Given a byte of all GPIO expander inputs, extract the ECG leads-off detection bit (negative electrode).
+int ecg_gpio_expander_parse_leadsOff_n(uint8_t data)
+{
+  return (data >> ECG_GPIO_EXPANDER_CHANNEL_LEADSOFF_N) & 0b00000001;
+}
+
+// Turn off all LEDs.
+void ecg_gpio_expander_set_leds_off()
+{
+  // Setting all bits to 1 will set them all to inputs (will turn LEDs off).
+  i2cWriteByte(ecg_gpio_expander_i2c_device, 0b11111111);
+}
+
+// Turn on the green LED (and turn off the other LEDs).
+void ecg_gpio_expander_set_leds_green()
+{
+  // Setting a 0 in the desired position will turn the LED off.
+  // Setting all other bits to 1 will keep all other channels as inputs.
+  i2cWriteByte(ecg_gpio_expander_i2c_device, (uint8_t)~(1 << (ECG_GPIO_EXPANDER_CHANNEL_LEDGREEN)));
+//  i2cWriteByte(ecg_gpio_expander_i2c_device, 0b11101111);
+}
+
+// Turn on the yellow LED (and turn off the other LEDs).
+void ecg_gpio_expander_set_leds_yellow()
+{
+  // Setting a 0 in the desired position will turn the LED off.
+  // Setting all other bits to 1 will keep all other channels as inputs.
+  i2cWriteByte(ecg_gpio_expander_i2c_device, (uint8_t)~(1 << (ECG_GPIO_EXPANDER_CHANNEL_LEDYELLOW)));
+//  i2cWriteByte(ecg_gpio_expander_i2c_device, 0b11011111);
+}
+
+// Turn on the red LED (and turn off the other LEDs).
+void ecg_gpio_expander_set_leds_red()
+{
+  // Setting a 0 in the desired position will turn the LED off.
+  // Setting all other bits to 1 will keep all other channels as inputs.
+  i2cWriteByte(ecg_gpio_expander_i2c_device, (uint8_t)~(1 << (ECG_GPIO_EXPANDER_CHANNEL_LEDRED)));
+//  i2cWriteByte(ecg_gpio_expander_i2c_device, 0b10111111);
+}
 
 
 

@@ -19,9 +19,10 @@ static FILE* ecg_data_file = NULL;
 static const char* ecg_data_file_headers[] = {
   "Sample Index",
   "ECG",
-  "Leads-Off",
+  "Leads-Off-P",
+  "Leads-Off-N",
   };
-static const int num_ecg_data_file_headers = 3;
+static const int num_ecg_data_file_headers = 4;
 
 static int ecg_buffer_select_toLog = 0;   // which buffer will be populated with new incoming data
 static int ecg_buffer_select_toWrite = 0; // which buffer will be flushed to the output file
@@ -29,7 +30,8 @@ static int ecg_buffer_index_toLog = 0;
 static long long global_times_us[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static int rtc_counts[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static long ecg_readings[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
-static int leadsOff_readings[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
+static int leadsOff_readings_p[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
+static int leadsOff_readings_n[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static long long sample_indexes[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static char ecg_data_file_notes[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH][75];
 
@@ -63,6 +65,13 @@ int init_ecg_electronics() {
   ecg_adc_start();
 
   CETI_LOG("init_ecg(): Successfully initialized the ECG electronics");
+  for(int i = 0; i < 5; i++)
+  {
+    ecg_gpio_expander_set_leds_green();
+    usleep(100000);
+    ecg_gpio_expander_set_leds_off();
+    usleep(100000);
+  }
 
   return 0;
 }
@@ -137,6 +146,8 @@ void* ecg_thread_getData(void* paramPtr)
   int first_sample = 1;
   int is_invalid = 0;
   long long start_time_ms = get_global_time_ms();
+  int previous_leadsoff = 0;
+  ecg_gpio_expander_set_leds_green();
   while(!g_exit)
   {
     // Request an update of the ECG data, then see if new data was received yet.
@@ -154,8 +165,10 @@ void* ecg_thread_getData(void* paramPtr)
 
       // Read the GPIO expander for the latest leads-off detection.
       // Assume it's fast enough that the ECG sample timestamp is close enough to this leads-off timestamp.
-      leadsOff_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog]
-        = ecg_gpio_expander_read_leadsOff();
+      leadsOff_readings_p[ecg_buffer_select_toLog][ecg_buffer_index_toLog]
+        = ecg_gpio_expander_read_leadsOff_p();
+      leadsOff_readings_n[ecg_buffer_select_toLog][ecg_buffer_index_toLog]
+        = ecg_gpio_expander_read_leadsOff_n();
 
       // Read the RTC.
       rtc_counts[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = getRtcCount();
@@ -166,7 +179,8 @@ void* ecg_thread_getData(void* paramPtr)
 
 //      CETI_LOG("ADC Reading! %ld\n", ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog]);
 //      CETI_LOG("ADC Reading! %6.3f ", 3.3*(float)ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog]/(float)(1 << 23));
-//      CETI_LOG("\tLeadsOff Reading! %1d\n", leadsOff_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog]);
+//      CETI_LOG("\tLeadsOff Reading [p]! %1d\n", leadsOff_readings_p[ecg_buffer_select_toLog][ecg_buffer_index_toLog]);
+//      CETI_LOG("\tLeadsOff Reading [n]! %1d\n", leadsOff_readings_n[ecg_buffer_select_toLog][ecg_buffer_index_toLog]);
 
       // Check if there was an error reading from the ADC.
       // Note that the sample will already be set to ECG_INVALID_PLACEHOLDER
@@ -191,7 +205,8 @@ void* ecg_thread_getData(void* paramPtr)
         CETI_LOG("ecg_thread_getData(): ADC returned %ld zero readings in a row", consecutive_zero_ecg_count);
       }
       // Check if there was an error communicating with the GPIO expander.
-      if(leadsOff_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_LEADSOFF_INVALID_PLACEHOLDER)
+      if(leadsOff_readings_p[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_LEADSOFF_INVALID_PLACEHOLDER
+         || leadsOff_readings_n[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_LEADSOFF_INVALID_PLACEHOLDER)
       {
         is_invalid = 1;
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "LO ERROR | ");
@@ -209,6 +224,7 @@ void* ecg_thread_getData(void* paramPtr)
       //  wait a bit and then try to reconnect to them.
       if(is_invalid)
       {
+        ecg_gpio_expander_set_leds_red();
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "INVALID? | ");
         usleep(1000000);
         init_ecg_electronics();
@@ -216,6 +232,23 @@ void* ecg_thread_getData(void* paramPtr)
         consecutive_zero_ecg_count = 0;
         first_sample = 1;
         is_invalid = 0;
+        previous_leadsoff = 0;
+        ecg_gpio_expander_set_leds_green();
+      }
+
+      // Set the LEDs to yellow if the leads are off.
+      if(leadsOff_readings_p[ecg_buffer_select_toLog][ecg_buffer_index_toLog]
+          || leadsOff_readings_n[ecg_buffer_select_toLog][ecg_buffer_index_toLog])
+      {
+        if(!previous_leadsoff)
+          ecg_gpio_expander_set_leds_yellow();
+        previous_leadsoff = 1;
+      }
+      else
+      {
+        if(previous_leadsoff)
+          ecg_gpio_expander_set_leds_green();
+        previous_leadsoff = 0;
       }
 
 
@@ -245,6 +278,7 @@ void* ecg_thread_getData(void* paramPtr)
             sample_index, duration_ms);
 
   // Clean up.
+  ecg_gpio_expander_set_leds_off();
   ecg_adc_cleanup();
   ecg_gpio_expander_cleanup();
 
@@ -327,7 +361,8 @@ void* ecg_thread_writeData(void* paramPtr)
         // Write the sensor data.
         fprintf(ecg_data_file, ",%lld", sample_indexes[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
         fprintf(ecg_data_file, ",%ld", ecg_readings[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
-        fprintf(ecg_data_file, ",%d", leadsOff_readings[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
+        fprintf(ecg_data_file, ",%d", leadsOff_readings_p[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
+        fprintf(ecg_data_file, ",%d", leadsOff_readings_n[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
         // Finish the row of data.
         fprintf(ecg_data_file, "\n");
       }
