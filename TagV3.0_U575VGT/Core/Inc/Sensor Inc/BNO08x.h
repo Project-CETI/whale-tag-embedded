@@ -60,9 +60,6 @@ typedef struct __IMU_Typedef{
 	GPIO_TypeDef* cs_port;
 	uint16_t cs_pin;
 
-	//Data buffer for reads
-	uint8_t rotation_read_buffer[IMU_ROTATION_VECTOR_REPORT_LENGTH];
-
 	//Data variables - rotation unit quaternions
 	// real, i, j and k components
 	uint16_t quat_r;
@@ -75,7 +72,7 @@ typedef struct __IMU_Typedef{
 
 //Function prototypes
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu);
-void IMU_get_data(IMU_HandleTypeDef* imu);
+HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu);
 
 
 #endif /* INC_BNO08X_H_ */

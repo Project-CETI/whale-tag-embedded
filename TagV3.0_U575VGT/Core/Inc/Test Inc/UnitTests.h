@@ -11,6 +11,7 @@
 #include <Sensor Inc/ad7768.h>
 #include <Sensor Inc/KellerDepth.h>
 #include <Sensor Inc/LightSensor.h>
+#include <Sensor Inc/BNO08x.h>
 
 
 // Steps for writing a unit test
@@ -36,6 +37,7 @@
 
 void Keller_UT(Keller_HandleTypedef *keller_sensor);
 void Light_UT(LightSensorHandleTypedef *light_sensor);
+void IMU_UT(IMU_HandleTypeDef* imu);
 void AD7768_UT(ad7768_dev *adc);
 bool SDcard_UT(void);
 #endif /* INC_UNITTESTS_H_ */

@@ -167,6 +167,8 @@ int main(void)
   imu.cs_pin = IMU_CS_Pin;
 
   IMU_init(&hspi1, &imu);
+
+  IMU_UT(&imu);
   /* USER CODE END 2 */
 
   //MX_ThreadX_Init();

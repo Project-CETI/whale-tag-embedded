@@ -73,6 +73,28 @@ void Light_UT(LightSensorHandleTypedef *light_sensor){
 	}
 }
 
+void IMU_UT(IMU_HandleTypeDef* imu){
+
+	//Check to ensure we're receiving data from the IMU.
+	//There's not alot to check here since the orientation of the tag changes our expected readings
+	HAL_StatusTypeDef ret = IMU_get_data(imu);
+
+	//If we did not get any data, log as failure and exit function
+	if (ret != HAL_OK){
+		printf("\tIMU Failed: Could not read data\n");
+		return;
+	}
+
+	//Ensure data is not all 0's
+	if ((imu->quat_i == 0) && (imu->quat_j == 0) && (imu->quat_k == 0) && (imu->quat_r == 0)){
+		printf("\tIMU Failed: all readings are 0\n");
+		return;
+	}
+
+	printf("\tIMU Passed: i: %d j: %d k: %d r: %d\n", imu->quat_i, imu->quat_j, imu->quat_k, imu->quat_r);
+
+}
+
 void AD7768_UT(ad7768_dev *adc){
 	uint8_t rev_id;
 	printf("ADC (hydrophone) Unit Test:\r\n");

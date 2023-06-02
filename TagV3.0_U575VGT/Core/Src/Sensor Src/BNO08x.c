@@ -10,6 +10,7 @@
 #include "BNO08x.h"
 #include "stm32u5xx_hal_gpio.h"
 #include "stm32u5xx_hal_spi.h"
+#include <stdbool.h>
 uint32_t good_counter = 0;
 uint32_t bad_counter = 0;
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
@@ -19,11 +20,11 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 	//Need to setup the IMU to send the appropriate data to us. Transmit a "set feature" command to start receiving rotation data.
 	//All non-populated bytes are left as default 0.
 	uint8_t transmitData[256] = {0};
-	//uint8_t receiveData[256] = {0};
-
-	while (HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin)){};
+	uint8_t receiveData[256] = {0};
 
 	HAL_Delay(1000);
+
+	while (HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin)){}
 
 	//Configure SHTP header (first 4 bytes)
 	transmitData[0] = IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH; //LSB
@@ -47,56 +48,29 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 	HAL_SPI_Transmit(hspi, transmitData, IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
-	uint8_t testTransmit[256] = {0};
-	uint8_t testReceive[256] = {0};
-
-
-	//TEST - get feature
-	/*while (HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin)){};
-
-	//Configure SHTP header (first 4 bytes)
-	testTransmit[0] = 6; //LSB
-	testTransmit[1] = 0x00; //MSB
-	testTransmit[2] = IMU_CONTROL_CHANNEL;
-
-	testTransmit[4] = 0xFE;
-	testTransmit[5] = IMU_ROTATION_VECTOR_REPORT_ID;
-
-	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-	HAL_SPI_TransmitReceive(hspi, testTransmit, testReceive, 6, HAL_MAX_DELAY);
-	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
-
-	while(1){
-		//Poll for falling edge on interrupt pin
-	while (HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin)){};
-	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-	HAL_SPI_Receive(hspi, testReceive, IMU_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
-	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
-	if ((testReceive[4] == 0xFB) && (testReceive[9] == 0x05)){
-		HAL_Delay(1);
-		good_counter++;
-	}else {
-		bad_counter++;
-	}
-	}*/
 }
 
-void IMU_get_data(IMU_HandleTypeDef* imu){
+HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 
+	//receive data buffer
 	uint8_t receiveData[256] = {0};
 
-	//loop of reading data
+
+
+
 	while(1){
 
 		//Poll for the data to be ready (observe interrupt line)
 		while (HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin)){};
+
+		//Read the data into a buffer
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
 		HAL_SPI_Receive(imu->hspi, receiveData, IMU_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
+
 		//Ensure this is the correct channel we're receiving data on
 		if (receiveData[2] == IMU_DATA_CHANNEL){
-
 			//Ensure that this is the correct data (timestamp + rotation vector)
 			if ((receiveData[4] == IMU_TIMESTAMP_REPORT_ID) && (receiveData[9] == IMU_ROTATION_VECTOR_REPORT_ID)){
 
@@ -107,8 +81,11 @@ void IMU_get_data(IMU_HandleTypeDef* imu){
 				imu->quat_r = receiveData[20] << 8 | receiveData[19];
 				imu->accurary_rad = receiveData[22] << 8 | receiveData[21];
 
+				return HAL_OK;
 			}
 		}
-
 	}
+
+
+	return HAL_ERROR;
 }
