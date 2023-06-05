@@ -126,7 +126,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  //HAL_Delay(1000);
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -168,7 +168,7 @@ int main(void)
 
   IMU_init(&hspi1, &imu);
 
-  IMU_UT(&imu);
+  //IMU_UT(&imu);
   /* USER CODE END 2 */
 
   //MX_ThreadX_Init();
@@ -179,8 +179,11 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	  IMU_get_data(&imu);
+
     /* USER CODE BEGIN 3 */
+	  //HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
+	  //HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
+	  //IMU_get_data(&imu);
 
   }
   /* USER CODE END 3 */
@@ -674,7 +677,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -965,7 +968,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(ADC_CS_GPIO_Port, ADC_CS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(IMU_CS_GPIO_Port, IMU_CS_Pin, GPIO_PIN_SET);

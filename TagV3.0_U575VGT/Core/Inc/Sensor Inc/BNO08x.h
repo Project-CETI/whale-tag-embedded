@@ -22,6 +22,7 @@
 #include "main.h"
 #include "stm32u575xx.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 //Useful defines
 
@@ -67,6 +68,8 @@ typedef struct __IMU_Typedef{
 	uint16_t quat_j;
 	uint16_t quat_k;
 	float accurary_rad;
+
+	bool hasValidData;
 
 } IMU_HandleTypeDef;
 

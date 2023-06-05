@@ -13,19 +13,43 @@
 #include <stdbool.h>
 uint32_t good_counter = 0;
 uint32_t bad_counter = 0;
+uint32_t reinit_counter = 0;
+
+static void IMU_ReadStartupData(IMU_HandleTypeDef* imu);
+
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 
 	imu->hspi = hspi;
+
+	bool firstInit = true;
+	imu->hasValidData = false;
 
 	//Need to setup the IMU to send the appropriate data to us. Transmit a "set feature" command to start receiving rotation data.
 	//All non-populated bytes are left as default 0.
 	uint8_t transmitData[256] = {0};
 	uint8_t receiveData[256] = {0};
 
+	//Wait for IMU to signal its ready (Poll interrupt pin for falling edge)
+	//while (!HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin)){};
+	//while (HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin)){};
+
+	//HAL_Delay(1000);
+	//IMU_ReadStartupData(imu);
 	HAL_Delay(1000);
 
-	while (HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin)){}
 
+	//HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
+	//while (!HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin)){};
+	//HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
+	//HAL_Delay(1000);
+	while (HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin)){};
+	//dummy transmit
+	transmitData[0] = 0xAA;
+	HAL_SPI_TransmitReceive(hspi, transmitData, receiveData, 1, 5);
+
+	//HAL_Delay(1000);
+
+	//while (HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin)){};
 	//Configure SHTP header (first 4 bytes)
 	transmitData[0] = IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH; //LSB
 	transmitData[1] = 0x00; //MSB
@@ -41,13 +65,12 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 	transmitData[9] = IMU_REPORT_INTERVAL_0; //LSB
 	transmitData[10] = IMU_REPORT_INTERVAL_1;
 	transmitData[11] = IMU_REPORT_INTERVAL_2;
-	transmitData[12] = IMU_REPORT_INTERVAL_3; //MSB
+	transmitData[12] = IMU_REPORT_INTERVAL_3; //MSBs
 
 	//Select CS by pulling low and write configuration to the IMU
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-	HAL_SPI_Transmit(hspi, transmitData, IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
+	HAL_SPI_TransmitReceive(hspi, transmitData, receiveData, 256, HAL_MAX_DELAY);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
-
 }
 
 HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
@@ -55,19 +78,25 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 	//receive data buffer
 	uint8_t receiveData[256] = {0};
 
-
-
-
 	while(1){
 
+		uint32_t startTime = HAL_GetTick();
+
 		//Poll for the data to be ready (observe interrupt line)
-		while (HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin)){};
+		while (HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin)){
+			uint32_t currentTime = HAL_GetTick();
+
+			if ((currentTime - startTime) > 2000){
+				startTime = HAL_GetTick();
+				IMU_init(imu->hspi, imu);
+				reinit_counter++;
+			}
+		}
 
 		//Read the data into a buffer
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
 		HAL_SPI_Receive(imu->hspi, receiveData, IMU_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
-
 
 		//Ensure this is the correct channel we're receiving data on
 		if (receiveData[2] == IMU_DATA_CHANNEL){
@@ -81,11 +110,39 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 				imu->quat_r = receiveData[20] << 8 | receiveData[19];
 				imu->accurary_rad = receiveData[22] << 8 | receiveData[21];
 
+				good_counter++;
 				return HAL_OK;
 			}
+		}else{
+			bad_counter++;
 		}
 	}
 
 
 	return HAL_ERROR;
+}
+
+static void IMU_ReadStartupData(IMU_HandleTypeDef* imu){
+
+	bool reading = true;
+	uint8_t receiveData[256] = {0};
+
+	//Track start time
+	uint32_t startTime = HAL_GetTick();
+
+	while (reading){
+
+		while (HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin) && reading){
+			uint32_t currentTime = HAL_GetTick();
+
+			if ((currentTime - startTime) > 2000){
+				reading = false;
+			}
+		}
+
+		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
+		HAL_SPI_Receive(imu->hspi, receiveData, 100, HAL_MAX_DELAY);
+		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+
+	}
 }
