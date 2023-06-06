@@ -76,8 +76,12 @@ void Light_UT(LightSensorHandleTypedef *light_sensor){
 void IMU_UT(IMU_HandleTypeDef* imu){
 
 	//Check to ensure we're receiving data from the IMU.
-	//There's not alot to check here since the orientation of the tag changes our expected readings
-	HAL_StatusTypeDef ret = IMU_get_data(imu);
+	//There's not alot to check here since the orientation of the tag changes our expected readings.
+	//Sometimes the IMU takes a few readings to start working, so we read it 5 times and save the last read
+	HAL_StatusTypeDef ret;
+	for (int index = 0; index < 5; index++){
+		ret = IMU_get_data(imu);
+	}
 
 	//If we did not get any data, log as failure and exit function
 	if (ret != HAL_OK){

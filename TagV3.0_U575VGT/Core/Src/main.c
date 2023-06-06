@@ -168,7 +168,7 @@ int main(void)
 
   IMU_init(&hspi1, &imu);
 
-  //IMU_UT(&imu);
+  IMU_UT(&imu);
   /* USER CODE END 2 */
 
   //MX_ThreadX_Init();

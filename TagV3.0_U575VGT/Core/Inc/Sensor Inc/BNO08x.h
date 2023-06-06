@@ -61,6 +61,14 @@ typedef struct __IMU_Typedef{
 	GPIO_TypeDef* cs_port;
 	uint16_t cs_pin;
 
+	//GPIO info for the interrupt line
+	GPIO_TypeDef* int_port;
+	uint16_t int_pin;
+
+	//GPIO info for the wakeup line
+	GPIO_TypeDef* wake_port;
+	uint16_t wake_pin;
+
 	//Data variables - rotation unit quaternions
 	// real, i, j and k components
 	uint16_t quat_r;
@@ -68,8 +76,6 @@ typedef struct __IMU_Typedef{
 	uint16_t quat_j;
 	uint16_t quat_k;
 	float accurary_rad;
-
-	bool hasValidData;
 
 } IMU_HandleTypeDef;
 
