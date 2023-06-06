@@ -81,6 +81,7 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 Keller_HandleTypedef depth_sensor;
 LightSensorHandleTypedef light_sensor;
 ad7768_dev audio_adc = {};
+IMU_HandleTypeDef imu;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -126,7 +127,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  //HAL_Delay(1000);
+
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -154,24 +155,20 @@ int main(void)
   MX_DAC1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  //ad7768_setup(&audio_adc, &hspi1, ADC_CS_GPIO_Port, ADC_CS_Pin);
-//  Keller_init(&depth_sensor, &hi2c2);
-//  LightSensor_init(&light_sensor, &hi2c2);
-
-  //AD7768_UT(&audio_adc);
-//  SDcard_UT();
-//  Keller_UT(&depth_sensor);
-//  Light_UT(&light_sensor);
-  IMU_HandleTypeDef imu;
-  imu.cs_port = IMU_CS_GPIO_Port;
-  imu.cs_pin = IMU_CS_Pin;
-
+  ad7768_setup(&audio_adc, &hspi1, ADC_CS_GPIO_Port, ADC_CS_Pin);
+  Keller_init(&depth_sensor, &hi2c2);
+  LightSensor_init(&light_sensor, &hi2c2);
   IMU_init(&hspi1, &imu);
 
+  AD7768_UT(&audio_adc);
+  SDcard_UT();
+  Keller_UT(&depth_sensor);
+  Light_UT(&light_sensor);
   IMU_UT(&imu);
+
   /* USER CODE END 2 */
 
-  //MX_ThreadX_Init();
+  MX_ThreadX_Init();
 
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
@@ -182,9 +179,6 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-	  IMU_get_data(&imu);
-
   }
   /* USER CODE END 3 */
 }

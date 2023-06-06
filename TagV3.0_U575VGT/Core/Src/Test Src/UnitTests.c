@@ -95,7 +95,7 @@ void IMU_UT(IMU_HandleTypeDef* imu){
 		return;
 	}
 
-	printf("\tIMU Passed: i: %d j: %d k: %d r: %d\n", imu->quat_i, imu->quat_j, imu->quat_k, imu->quat_r);
+ 	printf("\tIMU Passed: i: %d j: %d k: %d r: %d\n", imu->quat_i, imu->quat_j, imu->quat_k, imu->quat_r);
 
 }
 
