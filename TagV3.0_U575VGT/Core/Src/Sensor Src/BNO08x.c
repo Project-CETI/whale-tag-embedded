@@ -6,14 +6,10 @@
  *
  * 	Source file for the IMU drivers. See header file for more details
  */
-
 #include "BNO08x.h"
 #include "stm32u5xx_hal_gpio.h"
 #include "stm32u5xx_hal_spi.h"
 #include <stdbool.h>
-uint32_t good_counter = 0;
-uint32_t bad_counter = 0;
-uint32_t reinit_counter = 0;
 
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu);
 static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout);
@@ -22,7 +18,7 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 
 	imu->hspi = hspi;
 
-	//GPIO info
+	//GPIO info for important pins
 	imu->cs_port = IMU_CS_GPIO_Port;
 	imu->cs_pin = IMU_CS_Pin;
 
@@ -32,14 +28,18 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 	imu->wake_port = IMU_WAKE_GPIO_Port;
 	imu->wake_pin = IMU_WAKE_Pin;
 
-
+	//Delay to allow IMU to fully initialize
 	HAL_Delay(1000);
+
+	//The IMU outputs "advertisement" packets at startup. These aren't important for us, so we read through them.
 	IMU_read_startup_data(imu);
 
+	//Assert WAKE by causing a falling edge on the WAKE pin
 	HAL_GPIO_WritePin(imu->wake_port, imu->wake_pin, GPIO_PIN_SET);
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(imu->wake_port, imu->wake_pin, GPIO_PIN_RESET);
 
+	//Wait for IMU to be ready (poll for falling edge)
 	if (IMU_poll_new_data(imu, HAL_MAX_DELAY) == HAL_TIMEOUT){
 		return;
 	}
@@ -84,18 +84,21 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 	//Poll for the data to be ready (observe interrupt line)
 	if (IMU_poll_new_data(imu, IMU_NEW_DATA_TIMEOUT_MS) == HAL_TIMEOUT){
 		IMU_init(imu->hspi, imu);
-		reinit_counter++;
 	}
 
-	//Read the data into a buffer
+	//Read the header in to a buffer
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
 	HAL_SPI_Receive(imu->hspi, receiveData, IMU_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
-	//Ensure this is the correct channel we're receiving data on
-	if (receiveData[2] == IMU_DATA_CHANNEL){
+	//Extract length from first 2 bytes
+	uint32_t dataLength = ((receiveData[1] << 8) | receiveData[0]) & IMU_LENGTH_BIT_MASK;
+
+	//Ensure this is the correct channel we're receiving data on and it matches expected length
+	if (receiveData[2] == IMU_DATA_CHANNEL && dataLength == IMU_ROTATION_VECTOR_REPORT_LENGTH){
+
 		//Ensure that this is the correct data (timestamp + rotation vector)
-		if ((receiveData[4] == IMU_TIMESTAMP_REPORT_ID) && (receiveData[9] == IMU_ROTATION_VECTOR_REPORT_ID)){
+	 	if ((receiveData[4] == IMU_TIMESTAMP_REPORT_ID) && (receiveData[9] == IMU_ROTATION_VECTOR_REPORT_ID)){
 
 			//Save data parameters to our struct. We need to combine the MSB and LSB to get the correct 16bit value.
 			imu->quat_i = receiveData[14] << 8 | receiveData[13];
@@ -104,31 +107,28 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 			imu->quat_r = receiveData[20] << 8 | receiveData[19];
 			imu->accurary_rad = receiveData[22] << 8 | receiveData[21];
 
-			good_counter++;
 			return HAL_OK;
 		}
-	}else{
-		bad_counter++;
 	}
-
 
 	return HAL_ERROR;
 }
 
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu){
 
+	//Helper variables
 	bool reading = true;
 	uint8_t receiveData[256] = {0};
 
-	//Track start time
-	uint32_t startTime = HAL_GetTick();
-
+	//Loop until done reading
 	while (reading){
 
+		//Poll for INT edge. If it never happens, then the IMU is done dumping data.
 		if (IMU_poll_new_data(imu, IMU_DUMMY_PACKET_TIMEOUT_MS) == HAL_TIMEOUT){
 			reading = false;
 		}
 
+		//Read through dummy data
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
 		HAL_SPI_Receive(imu->hspi, receiveData, 100, HAL_MAX_DELAY);
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
@@ -137,12 +137,15 @@ static void IMU_read_startup_data(IMU_HandleTypeDef* imu){
 
 static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout){
 
+	//Get start time
 	uint32_t startTime = HAL_GetTick();
 
+	//Poll for RESET (asserted INT)
 	while (HAL_GPIO_ReadPin(imu->int_port, imu->int_pin)){
 
 		uint32_t currentTime = HAL_GetTick();
 
+		//after the timeout, return HAL_TIMEOUT and let caller handle
 		if ((currentTime - startTime) > timeout){
 			return HAL_TIMEOUT;
 		}
