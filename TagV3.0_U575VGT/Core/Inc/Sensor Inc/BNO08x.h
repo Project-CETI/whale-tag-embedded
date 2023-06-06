@@ -50,6 +50,12 @@
 //The length of the rotation vector data received from the IMU
 #define IMU_ROTATION_VECTOR_REPORT_LENGTH 24 //19 bytes
 
+//the length of the SHTP header
+#define IMU_SHTP_HEADER_LENGTH 4
+
+//Timeout values
+#define IMU_NEW_DATA_TIMEOUT_MS 2000
+#define IMU_DUMMY_PACKET_TIMEOUT_MS 500
 
 //IMU typedef definition for useful variables
 typedef struct __IMU_Typedef{

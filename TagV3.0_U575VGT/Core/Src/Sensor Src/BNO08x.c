@@ -16,7 +16,7 @@ uint32_t bad_counter = 0;
 uint32_t reinit_counter = 0;
 
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu);
-static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu);
+static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout);
 
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 
@@ -32,18 +32,21 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 	imu->wake_port = IMU_WAKE_GPIO_Port;
 	imu->wake_pin = IMU_WAKE_Pin;
 
-	//Need to setup the IMU to send the appropriate data to us. Transmit a "set feature" command to start receiving rotation data.
-	//All non-populated bytes are left as default 0.
-	uint8_t transmitData[256] = {0};
 
 	HAL_Delay(1000);
 	IMU_read_startup_data(imu);
 
-	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(imu->wake_port, imu->wake_pin, GPIO_PIN_SET);
 	HAL_Delay(1);
-	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(imu->wake_port, imu->wake_pin, GPIO_PIN_RESET);
 
-	while (HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin)){};
+	if (IMU_poll_new_data(imu, HAL_MAX_DELAY) == HAL_TIMEOUT){
+		return;
+	}
+
+	//Need to setup the IMU to send the appropriate data to us. Transmit a "set feature" command to start receiving rotation data.
+	//All non-populated bytes are left as default 0.
+	uint8_t transmitData[256] = {0};
 
 	//Configure SHTP header (first 4 bytes)
 	transmitData[0] = IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH; //LSB
@@ -62,11 +65,10 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 	transmitData[11] = IMU_REPORT_INTERVAL_2;
 	transmitData[12] = IMU_REPORT_INTERVAL_3; //MSBs
 
-	HAL_Delay(1);
-	//Select CS by pulling low and write configuration to the IMU
+	//Select CS by pulling low and write configuration to the IMU. Add delays to ensure good timing.
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
 	HAL_Delay(1);
-	HAL_SPI_Transmit(hspi, transmitData, 256, HAL_MAX_DELAY);
+	HAL_SPI_Transmit(hspi, transmitData, IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
@@ -78,17 +80,11 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 
 	//receive data buffer
 	uint8_t receiveData[256] = {0};
-	uint32_t startTime = HAL_GetTick();
 
 	//Poll for the data to be ready (observe interrupt line)
-	while (HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin)){
-		uint32_t currentTime = HAL_GetTick();
-
-		if ((currentTime - startTime) > 2000){
-			startTime = HAL_GetTick();
-			IMU_init(imu->hspi, imu);
-			reinit_counter++;
-		}
+	if (IMU_poll_new_data(imu, IMU_NEW_DATA_TIMEOUT_MS) == HAL_TIMEOUT){
+		IMU_init(imu->hspi, imu);
+		reinit_counter++;
 	}
 
 	//Read the data into a buffer
@@ -129,12 +125,8 @@ static void IMU_read_startup_data(IMU_HandleTypeDef* imu){
 
 	while (reading){
 
-		while (HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin) && reading){
-			uint32_t currentTime = HAL_GetTick();
-
-			if ((currentTime - startTime) > 500){
-				reading = false;
-			}
+		if (IMU_poll_new_data(imu, IMU_DUMMY_PACKET_TIMEOUT_MS) == HAL_TIMEOUT){
+			reading = false;
 		}
 
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
@@ -143,6 +135,18 @@ static void IMU_read_startup_data(IMU_HandleTypeDef* imu){
 	}
 }
 
-static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu){
+static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout){
 
+	uint32_t startTime = HAL_GetTick();
+
+	while (HAL_GPIO_ReadPin(imu->int_port, imu->int_pin)){
+
+		uint32_t currentTime = HAL_GetTick();
+
+		if ((currentTime - startTime) > timeout){
+			return HAL_TIMEOUT;
+		}
+	}
+
+	return HAL_OK;
 }
