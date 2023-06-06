@@ -176,14 +176,14 @@ int main(void)
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  //HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
-	  //HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
-	  //IMU_get_data(&imu);
+
+	  IMU_get_data(&imu);
 
   }
   /* USER CODE END 3 */
@@ -1008,7 +1008,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : IMU_WAKE_Pin */
   GPIO_InitStruct.Pin = IMU_WAKE_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(IMU_WAKE_GPIO_Port, &GPIO_InitStruct);

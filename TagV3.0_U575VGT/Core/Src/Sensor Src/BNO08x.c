@@ -37,6 +37,8 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 	//IMU_ReadStartupData(imu);
 	HAL_Delay(1000);
 
+	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
 
 	//HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
 	//while (!HAL_GPIO_ReadPin(IMU_INT_GPIO_Port, IMU_INT_Pin)){};
@@ -67,10 +69,15 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 	transmitData[11] = IMU_REPORT_INTERVAL_2;
 	transmitData[12] = IMU_REPORT_INTERVAL_3; //MSBs
 
+	HAL_Delay(1000);
 	//Select CS by pulling low and write configuration to the IMU
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
+	HAL_Delay(10);
 	HAL_SPI_TransmitReceive(hspi, transmitData, receiveData, 256, HAL_MAX_DELAY);
+	HAL_Delay(10);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+
+	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
 }
 
 HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
@@ -98,6 +105,9 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 		HAL_SPI_Receive(imu->hspi, receiveData, IMU_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
+		if (receiveData[0] == 0){
+			IMU_init(imu->hspi, imu);
+		}
 		//Ensure this is the correct channel we're receiving data on
 		if (receiveData[2] == IMU_DATA_CHANNEL){
 			//Ensure that this is the correct data (timestamp + rotation vector)
