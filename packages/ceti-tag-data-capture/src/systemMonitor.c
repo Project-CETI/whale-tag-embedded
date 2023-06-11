@@ -51,8 +51,9 @@ static const char* systemMonitor_data_file_headers[] = {
   "SysMonitor CPU", "GoPros CPU",
   "RAM Free [B]", "RAM Free [%]",
   "Swap Free [B]", "Swap Free [%]",
+  "CPU Temperature [C]", "GPU Temperature [C]",
   };
-static const int num_systemMonitor_data_file_headers = 24;
+static const int num_systemMonitor_data_file_headers = 26;
 
 int init_systemMonitor()
 {
@@ -176,6 +177,8 @@ void* systemMonitor_thread(void* paramPtr) {
         fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)ram_free)/((double)ram_total));
         fprintf(systemMonitor_data_file, ",%lld", swap_free);
         fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)swap_free)/((double)swap_total));
+        fprintf(systemMonitor_data_file, ",%f", get_cpu_temperature_c());
+        fprintf(systemMonitor_data_file, ",%f", get_gpu_temperature_c());
         // Finish the row of data and close the file.
         fprintf(systemMonitor_data_file, "\n");
         fclose(systemMonitor_data_file);
@@ -193,8 +196,13 @@ void* systemMonitor_thread(void* paramPtr) {
     return NULL;
 }
 
-// cpu_total virtual memory.
 //------------------------------------------
+// Helpers
+//------------------------------------------
+
+// Memory
+//------------------------------------------
+
 long long get_virtual_memory_total()
 {
   sysinfo(&memInfo);
@@ -205,8 +213,6 @@ long long get_virtual_memory_total()
   return totalVirtualMem;
 }
 
-// Virtual memory used.
-//------------------------------------------
 long long get_virtual_memory_used()
 {
   sysinfo(&memInfo);
@@ -264,8 +270,9 @@ long long get_ram_free()
   return physMemFree;
 }
 
-// CPU usage.
+// CPU usage
 //------------------------------------------
+
 int update_cpu_usage()
 {
     unsigned long long cpu_user, cpu_userNice, cpu_system, cpu_idle;
@@ -377,8 +384,62 @@ int get_cpu_id_for_tid(int tid)
   return ps_cpu_id;
 }
 
-//// Virtual memory used by current process.
-////------------------------------------------
+// Temperature
+//------------------------------------------
+
+float get_cpu_temperature_c()
+{
+  char temperature_c_str[20] = "";
+  int system_success = system_call_with_output(
+    "cat /sys/devices/virtual/thermal/thermal_zone0/temp | awk '{print $1/1000}'",
+    temperature_c_str);
+  if(system_success == -1)
+    return -1;
+  return atof(temperature_c_str);
+}
+
+float get_gpu_temperature_c()
+{
+  char temperature_c_str[20] = "";
+  int system_success = system_call_with_output(
+    "vcgencmd measure_temp | egrep  -o  '[[:digit:]]*\\.[[:digit:]]*'",
+    temperature_c_str);
+  if(system_success == -1)
+    return -1;
+  return atof(temperature_c_str);
+}
+
+// Various
+//------------------------------------------
+
+// Run a system command and read the output.
+int system_call_with_output(char* cmd, char* result)
+{
+  strcpy(result, "");
+  FILE *system_pipe;
+
+  /* Open the command for reading. */
+  system_pipe = popen(cmd, "r");
+  if(system_pipe == NULL)
+  {
+    printf("Failed to run command\n" );
+    return -1;
+  }
+
+  /* Read the output a line at a time. */
+  char result_line[100];
+  while(fgets(result_line, sizeof(result_line), system_pipe) != NULL)
+    strcat(result, result_line);
+
+  /* close the pipe */
+  pclose(system_pipe);
+
+  return 0;
+}
+
+// Archived
+//------------------------------------------
+
 //int parseLine(char* line){
 //    // This assumes that a digit will be found and the line ends in " Kb".
 //    int i = strlen(line);
@@ -389,6 +450,7 @@ int get_cpu_id_for_tid(int tid)
 //    return i;
 //}
 //
+//// Virtual memory used by current process.
 //int getValue(){ //Note: this value is in KB!
 //    FILE* file = fopen("/proc/self/status", "r");
 //    int result = -1;
@@ -403,9 +465,7 @@ int get_cpu_id_for_tid(int tid)
 //    fclose(file);
 //    return result;
 //}
-
 //// RAM used by current process.
-////------------------------------------------
 //int getValue(){ //Note: this value is in KB!
 //    FILE* file = fopen("/proc/self/status", "r");
 //    int result = -1;
@@ -420,6 +480,10 @@ int get_cpu_id_for_tid(int tid)
 //    fclose(file);
 //    return result;
 //}
+
+
+
+
 
 
 
