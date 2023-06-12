@@ -140,3 +140,49 @@ int _write(int file, char *ptr, int len) {
 	}
 	return len;
 }
+
+void ECG_UT(ECG_HandleTypeDef *ecg) {
+
+	printf("ECG Unit Tests:\r\n");
+
+	//Read the configuration register to ensure it matches what we expect (default configuration)
+	uint8_t registerBuffer = 0;
+	ecg_read_configuration_register(ecg, &registerBuffer);
+
+	if (registerBuffer != ECG_ADC_DEFAULT_CONFIG_REGISTER){
+		printf("ECG Initialization Failed\r\n");
+		return;
+	}
+
+	//Try to change the electrodes to ensure we can change the register
+	ecg_configure_electrodes(ecg, 0b00000111);
+
+	//Reread to ensure the changes saved
+	ecg_read_configuration_register(ecg, &registerBuffer);
+
+	if (registerBuffer != 0b11100010){
+		printf("ECG Writing Registers Failed\r\n");
+		return;
+	}
+
+	ecg_read_adc(ecg);
+
+	//Since we shorted our electrodes, the reading should be 0.
+	if (ecg->voltage != 0){
+		printf("ECG Invalid Reading\r\n");
+		return;
+	}
+
+	//Change our electrodes back to the default
+	ecg_configure_electrodes(ecg, 0);
+
+	//Reread to ensure the changes saved and we are back to the default
+	ecg_read_configuration_register(ecg, &registerBuffer);
+	if (registerBuffer != ECG_ADC_DEFAULT_CONFIG_REGISTER){
+		printf("ECG Writing Registers Failed\r\n");
+		return;
+	}
+
+	printf("ECG Unit Tests Passed!\r\n");
+	return;
+}

@@ -27,6 +27,7 @@
 #include "KellerDepth.h"
 #include "LightSensor.h"
 #include "ad7768.h"
+#include "Sensor Inc/ECG.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -75,6 +76,7 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 Keller_HandleTypedef depth_sensor;
 LightSensorHandleTypedef light_sensor;
 ad7768_dev audio_adc = {};
+ECG_HandleTypeDef ecg_sensor;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -147,14 +149,15 @@ int main(void)
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
   ad7768_setup(&audio_adc, &hspi1, ADC_CS_GPIO_Port, ADC_CS_Pin);
-//  Keller_init(&depth_sensor, &hi2c2);
-//  LightSensor_init(&light_sensor, &hi2c2);
+  Keller_init(&depth_sensor, &hi2c2);
+  LightSensor_init(&light_sensor, &hi2c2);
+  ecg_init(&hi2c4, &ecg_sensor);
 
   AD7768_UT(&audio_adc);
-//  SDcard_UT();
-//  Keller_UT(&depth_sensor);
-//  Light_UT(&light_sensor);
-
+  SDcard_UT();
+  Keller_UT(&depth_sensor);
+  Light_UT(&light_sensor);
+  ECG_UT(&ecg_sensor);
   /* USER CODE END 2 */
 
   MX_ThreadX_Init();
@@ -961,11 +964,17 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(IMU_CS_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : ECG_LOD__Pin ECG_LOD_D11_Pin ECG_NDRDY_Pin ECG_NSDN_Pin */
-  GPIO_InitStruct.Pin = ECG_LOD__Pin|ECG_LOD_D11_Pin|ECG_NDRDY_Pin|ECG_NSDN_Pin;
+  /*Configure GPIO pins : ECG_LOD__Pin ECG_LOD_D11_Pin ECG_NSDN_Pin */
+  GPIO_InitStruct.Pin = ECG_LOD__Pin|ECG_LOD_D11_Pin|ECG_NSDN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : ECG_NDRDY_Pin */
+  GPIO_InitStruct.Pin = ECG_NDRDY_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(ECG_NDRDY_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
