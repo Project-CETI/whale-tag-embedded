@@ -26,7 +26,7 @@
 #include "UnitTests.h"
 #include "KellerDepth.h"
 #include "LightSensor.h"
-#include "Sensor Inc/VHF.h"
+#include "Recovery Inc/VHF.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -161,10 +161,10 @@ int main(void)
 //  SDcard_UT();
 //  Keller_UT(&depth_sensor);
 //  Light_UT(&light_sensor);
-  	initialize_vhf(huart4, true);
+  	//initialize_vhf(huart4, true);
   /* USER CODE END 2 */
 
-  //MX_ThreadX_Init();
+  MX_ThreadX_Init();
 
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */

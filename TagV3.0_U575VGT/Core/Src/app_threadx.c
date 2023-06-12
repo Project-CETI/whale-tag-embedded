@@ -27,6 +27,7 @@
 #include <stdbool.h>
 #include "main.h"
 #include "Recovery Inc/AprsTransmit.h"
+#include "Recovery Inc/VHF.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,7 +49,7 @@
 /* USER CODE BEGIN PV */
 TX_THREAD test_thread;
 uint8_t thread_stack[THREAD_STACK_SIZE];
-
+extern UART_HandleTypeDef huart4;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -101,11 +102,13 @@ void test_thread_entry(ULONG thread_input){
 
 	//test
 	uint8_t data[3] = {0x00, 0x00, 0xFF};
-	aprs_transmit_send_data(data, 3);
+	volatile HAL_StatusTypeDef ret = initialize_vhf(huart4, true);
 
 	/* Enter forever loop */
 	while (1){
-
+		set_ptt(true);
+		aprs_transmit_send_data(data, 3);
+		set_ptt(false);
 	}
 
 }

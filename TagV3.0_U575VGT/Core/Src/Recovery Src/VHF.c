@@ -5,7 +5,7 @@
  *      Author: Kaveet
  */
 
-#include "Sensor Inc/VHF.h"
+#include "Recovery Inc/VHF.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -23,7 +23,8 @@ HAL_StatusTypeDef initialize_vhf(UART_HandleTypeDef huart, bool isHigh){
 
 HAL_StatusTypeDef configure_dra818v(UART_HandleTypeDef huart, bool emphasis, bool lpf, bool hpf){
 
-	bool successfulConfig = true;
+	//Note: variable tracks failure so that false (0) maps to HAL_OK (also 0)
+	bool failedConfig = false;
 
 	//Data buffer to hold transmissions and responses
 	char transmitData[100];
@@ -45,7 +46,7 @@ HAL_StatusTypeDef configure_dra818v(UART_HandleTypeDef huart, bool emphasis, boo
 
 	//Ensure the response matches the expected response
 	if (strncmp(responseData, VHF_HANDSHAKE_EXPECTED_RESPONSE, HANDSHAKE_RESPONSE_LENGTH) != 0)
-		successfulConfig = false;
+		failedConfig = true;
 
 	HAL_Delay(100);
 
@@ -57,7 +58,7 @@ HAL_StatusTypeDef configure_dra818v(UART_HandleTypeDef huart, bool emphasis, boo
 
 	//Ensure the response matches the expected response
 	if (strncmp(responseData, VHF_SET_PARAMETERS_EXPECTED_RESPONSE, SET_PARAMETERS_RESPONSE_LENGTH) != 0)
-		successfulConfig = false;
+		failedConfig = true;
 
 	HAL_Delay(100);
 
@@ -69,7 +70,7 @@ HAL_StatusTypeDef configure_dra818v(UART_HandleTypeDef huart, bool emphasis, boo
 
 	//Ensure the response matches the expected response
 	if (strncmp(responseData, VHF_SET_VOLUME_EXPECTED_RESPONSE, SET_VOLUME_RESPONSE_LENGTH) != 0)
-		successfulConfig = false;
+		failedConfig = true;
 
 	HAL_Delay(100);
 
@@ -82,11 +83,11 @@ HAL_StatusTypeDef configure_dra818v(UART_HandleTypeDef huart, bool emphasis, boo
 
 	//Ensure the response matches the expected response
 	if (strncmp(responseData, VHF_SET_FILTER_EXPECTED_RESPONSE, SET_FILTER_RESPONSE_LENGTH) != 0)
-		successfulConfig = false;
+		failedConfig = true;
 
 	HAL_Delay(100);
 
-	return successfulConfig;
+	return failedConfig;
 }
 
 

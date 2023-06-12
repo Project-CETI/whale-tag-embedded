@@ -9,8 +9,8 @@
  *  It initializes, configures and manages the VHF module used in recovery mode.
  */
 
-#ifndef INC_SENSOR_INC_VHF_H_
-#define INC_SENSOR_INC_VHF_H_
+#ifndef INC_RECOVERY_INC_VHF_H_
+#define INC_RECOVERY_INC_VHF_H_
 
 #include "main.h"
 #include <stdbool.h>
@@ -72,4 +72,4 @@ void sleep_vhf();
 //Wakes up the VHF module
 void wake_vhf();
 
-#endif /* INC_SENSOR_INC_VHF_H_ */
+#endif /* INC_RECOVERY_INC_VHF_H_ */
