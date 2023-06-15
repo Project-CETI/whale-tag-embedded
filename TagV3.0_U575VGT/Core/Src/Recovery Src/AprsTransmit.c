@@ -60,12 +60,19 @@ void aprs_transmit_bit_timer_entry(ULONG bit_timer_input){
 
 	//static variable to keep track of our bit index
 	static uint8_t bit_index = 0;
+	static uint8_t bit_stuff_counter = 0;
+	static bool isStuffedBit = false;
 
 	//Current byte we will iterate over
 	uint8_t current_byte = (uint8_t) bit_timer_input;
 
+	if (bit_stuff_counter >= 5){
+		isStuffedBit = true;
+
+	}
+
 	//Check if the current bit is 0
-	if (!aprs_transmit_read_bit(current_byte, bit_index)){
+	if (!aprs_transmit_read_bit(current_byte, bit_index) || isStuffedBit){
 
 		//Since the bit is 0, switch the frequency
 		uint8_t newPeriod = (is1200Hz) ? (APRS_TRANSMIT_PERIOD_2400HZ) : (APRS_TRANSMIT_PERIOD_1200HZ);
@@ -73,10 +80,19 @@ void aprs_transmit_bit_timer_entry(ULONG bit_timer_input){
 
 		//Use fake init function to re-initialize the timer with a new period
 		MX_TIM2_Fake_Init(newPeriod);
+		bit_stuff_counter = 0;
+
+	} else {
+		bit_stuff_counter++;
 	}
 
-	//increment bit index
-	bit_index++;
+
+	if (!isStuffedBit){
+		//increment bit index
+		bit_index++;
+	}else {
+		isStuffedBit = false;
+	}
 
 	//If we've iterated through all bits, set flag and reset index counter
 	if (bit_index >= BITS_PER_BYTE){

@@ -37,7 +37,7 @@
 
 //The hardware timer periods for 1200Hz and 2400Hz signals
 #define APRS_TRANSMIT_PERIOD_1200HZ 84
-#define APRS_TRANSMIT_PERIOD_2400HZ 42
+#define APRS_TRANSMIT_PERIOD_2400HZ 45
 
 //Max digital input to a dac for 8-bit inputs
 #define APRS_TRANSMIT_MAX_DAC_INPUT 256
