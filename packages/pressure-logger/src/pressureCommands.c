@@ -59,7 +59,7 @@ double pressureSensorData[2];
             fprintf(g_rsp,  "Pressure %.2f bar \n", pressureSensorData[1]);
         }
 
-    else fprintf(g_rsp, "Sensor read failed on i2c bus 0, check power and connections\n");
+    else fprintf(g_rsp, "Sensor read failed on i2c bus 1, check power and connections\n");
 
         fclose(g_rsp);
 

@@ -33,6 +33,7 @@
 #define VERSION "0.0 Begin Implementation"
 
 #include <stdio.h>
+#include <unistd.h> // for access() to check file existence
 
 //-----------------------------------------------------------------------------
 // Function Prototypes
@@ -50,13 +51,14 @@ extern int getTempPsns_1 (double * pressureSensorData);
 
 #define CMD "../ipc/Command"     //fifo locations for interactive comms
 #define RSP "../ipc/Response"
-#define SNS_FILE "../data/pressure.csv"
+#define SNS_FILE "/data/pressure.csv"
 
 // Keller 4LD Pressure Sensor 200 bar
 // Reference pressure is a 1 bar abs
 #define ADDR_DEPTH 0x40 //default i2c slave addr
 #define PMIN 0  	// bar
 #define PMAX 200 	// bar 
+#define SAMPLING_RATE_US 100000 // microseconds
 
 //-----------------------------------------------------------------------------
 // Globals
