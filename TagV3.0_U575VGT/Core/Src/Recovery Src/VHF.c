@@ -45,7 +45,7 @@ HAL_StatusTypeDef configure_dra818v(UART_HandleTypeDef huart, bool emphasis, boo
 	HAL_Delay(1000);
 
 	//Start with the VHF handshake to confirm module is setup correctly
-	sprintf(transmitData, "AT+DMOCONNECT\r\n");
+	sprintf(transmitData, "AT+DMOCONNECT \r\n");
 
 	HAL_UART_Transmit(&huart, (uint8_t*) transmitData, HANDSHAKE_TRANSMIT_LENGTH, HAL_MAX_DELAY);
 	HAL_UART_Receive(&huart, (uint8_t*) responseData, HANDSHAKE_RESPONSE_LENGTH, HAL_MAX_DELAY);
@@ -75,8 +75,8 @@ HAL_StatusTypeDef configure_dra818v(UART_HandleTypeDef huart, bool emphasis, boo
 	//HAL_UART_Receive(&huart, (uint8_t*) responseData, SET_VOLUME_RESPONSE_LENGTH, HAL_MAX_DELAY);
 
 	//Ensure the response matches the expected response
-	if (strncmp(responseData, VHF_SET_VOLUME_EXPECTED_RESPONSE, SET_VOLUME_RESPONSE_LENGTH) != 0)
-		failedConfig = true;
+	//if (strncmp(responseData, VHF_SET_VOLUME_EXPECTED_RESPONSE, SET_VOLUME_RESPONSE_LENGTH) != 0)
+		//failedConfig = true;
 
 	HAL_Delay(1000);
 
@@ -100,7 +100,7 @@ HAL_StatusTypeDef configure_dra818v(UART_HandleTypeDef huart, bool emphasis, boo
 void set_ptt(bool isTx){
 
 	//isTx determines if the GPIO is high or low, and thus if we are transmitting or not
-	HAL_GPIO_WritePin(VHF_PTT_GPIO_Port, VHF_PTT_Pin, !isTx);
+	HAL_GPIO_WritePin(VHF_PTT_GPIO_Port, VHF_PTT_Pin, isTx);
 
 }
 
