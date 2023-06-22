@@ -160,12 +160,39 @@ int main(void)
   Keller_UT(&depth_sensor);
   Light_UT(&light_sensor);
 
+  uint8_t transmitData[21] ={/* header */ 0xB5,
+          0x62,
+          /* class & id */ 0x06,
+          0x09,
+          /* length */ 0x0D,
+          0x00,
+          /* payload */ 0x00,
+          0x00,
+          0x00,
+          0x00,
+          0xFF,
+          0xFF,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x03,
+          /* checksum */ 0x1D,
+          0xAB};
+
+  uint8_t receive[6] = {0};
+
+
+
+
   ///HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, dac_input, 100, DAC_ALIGN_8B_R);
   //HAL_TIM_Base_Start(&htim2);
   //MX_TIM2_Fake_Init();
   /* USER CODE END 2 */
 
-  MX_ThreadX_Init();
+  //MX_ThreadX_Init();
 
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
@@ -175,6 +202,9 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  HAL_UART_Transmit(&huart3, transmitData, 21, HAL_MAX_DELAY);
+	  HAL_UART_Receive(&huart3, receive, 6, 2000);
+	  HAL_Delay(1000);
   }
   /* USER CODE END 3 */
 }
@@ -865,7 +895,7 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 115200;
+  huart3.Init.BaudRate = 38400;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;
