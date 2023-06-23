@@ -27,6 +27,7 @@
 #include "KellerDepth.h"
 #include "LightSensor.h"
 #include <math.h>
+#include "Lib Inc/minmea.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -182,7 +183,7 @@ int main(void)
           /* checksum */ 0x1D,
           0xAB};
 
-  uint8_t receive[6] = {0};
+  uint8_t receive[256] = {0};
 
 
 
@@ -197,14 +198,35 @@ int main(void)
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  volatile enum minmea_sentence_id sentence;
+  volatile struct minmea_sentence_rmc frame;
+  volatile float lat;
+  volatile float lon;
+
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  HAL_UART_Transmit(&huart3, transmitData, 21, HAL_MAX_DELAY);
-	  HAL_UART_Receive(&huart3, receive, 6, 2000);
-	  HAL_Delay(1000);
+	  HAL_UART_Receive(&huart3, receive, 1, 5000);
+	  if (receive[0] == 0x24){
+		  uint8_t read_index = 0;
+		  while (receive[read_index] != 0x0D){
+			  read_index++;
+			  HAL_UART_Receive(&huart3, &receive[read_index], 1, 5000);
+		  }
+
+		  sentence = minmea_sentence_id(receive, false);
+
+		  if (sentence == MINMEA_SENTENCE_RMC){
+			  if (minmea_parse_rmc(&frame, receive)){
+				  lat = minmea_tocoord(&frame.latitude);
+				  lon = minmea_tocoord(&frame.longitude);
+				  HAL_Delay(1);
+			  }
+		  }
+	  }
+	  HAL_Delay(1);
   }
   /* USER CODE END 3 */
 }
