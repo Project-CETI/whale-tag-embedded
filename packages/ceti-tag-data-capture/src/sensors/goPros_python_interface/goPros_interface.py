@@ -179,7 +179,8 @@ async def main() -> None:
 
     # The C program stopped sending a heartbeat, so close the connection and restart.
     print('No heartbeat! Closing the socket')
-    c_socket.close()
+    if is_connected:
+        c_socket.close()
     del c_socket
 
     # Ensure that the GoPros are stopped.
