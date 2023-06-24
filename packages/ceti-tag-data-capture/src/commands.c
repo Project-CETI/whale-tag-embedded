@@ -134,23 +134,23 @@ int handle_command(void) {
         #endif
     }
 
-    if (!strncmp(g_command, "getRotation", 11)) {
-        CETI_LOG("handle_command(): Retrieving an IMU Vector Rotation input report");
-        #if ENABLE_IMU
-        rotation_t rotation;
-
-        setupIMU();
-        getRotation(&rotation);
-        CETI_LOG("Testing the function 0x%02X 0x%02X", rotation.reportID,
-               rotation.sequenceNum);
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
-        fprintf(g_rsp_pipe, "handle_command(): Finished getting the Rotation report\n");
-        fclose(g_rsp_pipe);
-        #else
-        CETI_LOG("handle_command(): XXXX The IMU is not selected for operation - skipping command XXXX");
-        #endif
-        return 0;
-    }
+//    if (!strncmp(g_command, "getRotation", 11)) {
+//        CETI_LOG("handle_command(): Retrieving an IMU Vector Rotation input report");
+//        #if ENABLE_IMU
+//        rotation_t rotation;
+//
+//        setupIMU();
+//        getRotation(&rotation);
+//        CETI_LOG("Testing the function 0x%02X 0x%02X", rotation.reportID,
+//               rotation.sequenceNum);
+//        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+//        fprintf(g_rsp_pipe, "handle_command(): Finished getting the Rotation report\n");
+//        fclose(g_rsp_pipe);
+//        #else
+//        CETI_LOG("handle_command(): XXXX The IMU is not selected for operation - skipping command XXXX");
+//        #endif
+//        return 0;
+//    }
 
     if (!strncmp(g_command, "setupIMU", 8)) {
         CETI_LOG("handle_command(): Setting up the IMU");
@@ -165,18 +165,18 @@ int handle_command(void) {
         return 0;
     }
 
-    if (!strncmp(g_command, "learnIMU", 8)) {
-        CETI_LOG("handle_command(): Experimenting with the IMU");
-        #if ENABLE_IMU
-        learnIMU(); // a sandbox function in sensors.c
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
-        fprintf(g_rsp_pipe, "handle_command(): Finished running IMU experiments\n");
-        fclose(g_rsp_pipe);
-        #else
-        CETI_LOG("handle_command(): XXXX The IMU is not selected for operation - skipping command XXXX");
-        #endif
-        return 0;
-    }
+//    if (!strncmp(g_command, "learnIMU", 8)) {
+//        CETI_LOG("handle_command(): Experimenting with the IMU");
+//        #if ENABLE_IMU
+//        learnIMU(); // a sandbox function in sensors.c
+//        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+//        fprintf(g_rsp_pipe, "handle_command(): Finished running IMU experiments\n");
+//        fclose(g_rsp_pipe);
+//        #else
+//        CETI_LOG("handle_command(): XXXX The IMU is not selected for operation - skipping command XXXX");
+//        #endif
+//        return 0;
+//    }
 
     if (!strncmp(g_command, "initTag", 4)) {
 
@@ -461,9 +461,9 @@ int handle_command(void) {
     fprintf(g_rsp_pipe, "setAudioRate_default  Set audio sampling rate to default (750 Hz) \n");
 
     fprintf(g_rsp_pipe, "resetIMU    Pulse the IMU reset line \n");
-    fprintf(g_rsp_pipe, "learnIMU    Dev only - sandbox for exploring IMU BNO08x\n");
+//    fprintf(g_rsp_pipe, "learnIMU    Dev only - sandbox for exploring IMU BNO08x\n");
     fprintf(g_rsp_pipe, "setupIMU    Dev only - bringing up IMU BNO08x\n");
-    fprintf(g_rsp_pipe, "getRotation Dev only - bringing up IMU BNO08x\n");
+//    fprintf(g_rsp_pipe, "getRotation Dev only - bringing up IMU BNO08x\n");
 
     fprintf(g_rsp_pipe, "bwOn        Turn on the burnwire current\n");
     fprintf(g_rsp_pipe, "bwOff       Turn off the burnwire current\n");

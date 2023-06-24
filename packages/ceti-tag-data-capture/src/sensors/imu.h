@@ -71,8 +71,8 @@ typedef struct { // To hold rotation vector input report information
 // All the different sensors and features we can get reports from
 // These are used when enabling a given sensor
 #define IMU_SENSOR_REPORTID_ACCELEROMETER 0x01
-#define IMU_SENSOR_REPORTID_GYROSCOPE 0x02
-#define IMU_SENSOR_REPORTID_MAGNETIC_FIELD 0x03
+#define IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED 0x02
+#define IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED 0x03
 #define IMU_SENSOR_REPORTID_LINEAR_ACCELERATION 0x04
 #define IMU_SENSOR_REPORTID_ROTATION_VECTOR 0x05
 #define IMU_SENSOR_REPORTID_GRAVITY 0x06
@@ -129,9 +129,8 @@ extern int g_imu_thread_is_running;
 int init_imu();
 int resetIMU();
 int setupIMU();
-int getRotation(rotation_t *pRotation);
-int getQuaternion(short *quaternion);
-int learnIMU();
+int imu_enable_feature_report(int report_id);
+int imu_read_data();
 void* imu_thread(void* paramPtr);
 
 #endif // IMU_H
