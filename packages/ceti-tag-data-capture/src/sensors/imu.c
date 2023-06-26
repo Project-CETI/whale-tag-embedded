@@ -105,13 +105,16 @@ void* imu_thread(void* paramPtr) {
       else
       {
         // Wait for the IMU to have data available.
-        // Note that it is a bit stochastic as to which channel will be ready next.
+        // Note that it is a bit stochastic as to which feature report will be ready next.
         if(imu_is_connected)
         {
           do
           {
-            usleep(2000); // Note that we are streaming 4 reports at 50 Hz, so we expect data available at about 200 Hz
             report_id_updated = imu_read_data();
+            if(report_id_updated == -1) // no data received yet
+              usleep(2000); // Note that we are streaming 4 reports at 50 Hz, so we expect data to be available at about 200 Hz
+            else
+              usleep(100);  // Seems nice to limit the polling frequency a bit to manage CPU usage
           } while(report_id_updated == -1 // no data received yet
                   && get_global_time_us() - global_time_us < 5000000 // timeout not reached
                   && !g_exit); // program not quitting
@@ -244,19 +247,19 @@ int setupIMU()
       imu_sequence_numbers[channel_index] = 0;
 
     // Enable desired feature reports.
-    imu_enable_feature_report(IMU_SENSOR_REPORTID_ROTATION_VECTOR);
-    usleep(100000 + (int)(IMU_SAMPLING_PERIOD_US/4)); // the fractional delay is an attempt to offset the reporting times for each stream, but not sure if it will have an impact
-    imu_enable_feature_report(IMU_SENSOR_REPORTID_ACCELEROMETER);
-    usleep(100000 + (int)(IMU_SAMPLING_PERIOD_US/4)); // the fractional delay is an attempt to offset the reporting times for each stream, but not sure if it will have an impact
-    imu_enable_feature_report(IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED);
-    usleep(100000 + (int)(IMU_SAMPLING_PERIOD_US/4)); // the fractional delay is an attempt to offset the reporting times for each stream, but not sure if it will have an impact
-    imu_enable_feature_report(IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED);
-    usleep(100000 + (int)(IMU_SAMPLING_PERIOD_US/4)); // the fractional delay is an attempt to offset the reporting times for each stream, but not sure if it will have an impact
+    imu_enable_feature_report(IMU_SENSOR_REPORTID_ROTATION_VECTOR, IMU_SAMPLING_PERIOD_QUAT_US);
+    usleep(100000);
+    imu_enable_feature_report(IMU_SENSOR_REPORTID_ACCELEROMETER, IMU_SAMPLING_PERIOD_9DOF_US);
+    usleep(100000);
+    imu_enable_feature_report(IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED, IMU_SAMPLING_PERIOD_9DOF_US);
+    usleep(100000);
+    imu_enable_feature_report(IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED, IMU_SAMPLING_PERIOD_9DOF_US);
+    usleep(100000);
 
     return 0;
 }
 
-int imu_enable_feature_report(int report_id)
+int imu_enable_feature_report(int report_id, uint32_t report_interval_us)
 {
   char setFeatureCommand[21] = {0};
   char shtpHeader[4] = {0};
@@ -278,7 +281,6 @@ int imu_enable_feature_report(int report_id)
   setFeatureCommand[7] = 0; // change sensitivity LSB
   setFeatureCommand[8] = 0; // change sensitivity MSB
   // Set the report interval in microseconds, as 4 bytes with LSB first
-  uint32_t report_interval_us = IMU_SAMPLING_PERIOD_US;
   for(int interval_byte_index = 0; interval_byte_index < 4; interval_byte_index++)
     setFeatureCommand[9+interval_byte_index] = (report_interval_us >> (8*interval_byte_index)) & 0xFF;
   setFeatureCommand[13] = 0; // batch interval LSB

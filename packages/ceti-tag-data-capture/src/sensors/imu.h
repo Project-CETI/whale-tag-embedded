@@ -129,7 +129,7 @@ extern int g_imu_thread_is_running;
 int init_imu();
 int resetIMU();
 int setupIMU();
-int imu_enable_feature_report(int report_id);
+int imu_enable_feature_report(int report_id, uint32_t report_interval_us);
 int imu_read_data();
 void* imu_thread(void* paramPtr);
 

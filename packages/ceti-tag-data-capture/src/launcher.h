@@ -30,7 +30,8 @@
 // Sampling and logging configuration.
 //-----------------------------------------------------------------------------
 #define BATTERY_SAMPLING_PERIOD_US 1000000
-#define IMU_SAMPLING_PERIOD_US 20000 // all streams from the device will use this rate
+#define IMU_SAMPLING_PERIOD_QUAT_US  50000 // rate for the computed orientation
+#define IMU_SAMPLING_PERIOD_9DOF_US  20000 // rate for the accelerometer/gyroscope/magnetometer
 #define LIGHT_SAMPLING_PERIOD_US 1000000
 #define PRESSURETEMPERATURE_SAMPLING_PERIOD_US 1000000
 #define BOARDTEMPERATURE_SAMPLING_PERIOD_US 1000000
