@@ -35,6 +35,7 @@ bool read_gps_data(GPS_HandleTypeDef* gps){
 		gps->data[GPS_SIM].is_valid_data = true;
 		gps->data[GPS_SIM].latitude = GPS_SIM_LAT;
 		gps->data[GPS_SIM].longitude = GPS_SIM_LON;
+		gps->data[GPS_SIM].is_dominica = is_in_dominica(GPS_SIM_LAT);
 		gps->data[GPS_SIM].timestamp[0] = 0;
 		gps->data[GPS_SIM].timestamp[1] = 0;
 		gps->data[GPS_SIM].timestamp[2] = 0;
@@ -64,14 +65,15 @@ bool read_gps_data(GPS_HandleTypeDef* gps){
 static void parse_gps_output(GPS_HandleTypeDef* gps, uint8_t* buffer, uint8_t buffer_length){
 
 	enum minmea_sentence_id sentence_id = minmea_sentence_id(buffer, false);
-	struct minmea_sentence_rmc frame;
+
 	float lat;
 	float lon;
 
 	switch (sentence_id) {
 
-	case MINMEA_SENTENCE_RMC:
-
+	case MINMEA_SENTENCE_RMC: {
+		;
+		struct minmea_sentence_rmc frame;
 		if (minmea_parse_rmc(&frame, buffer)){
 
 			lat = minmea_tocoord(&frame.latitude);
@@ -91,6 +93,7 @@ static void parse_gps_output(GPS_HandleTypeDef* gps, uint8_t* buffer, uint8_t bu
 				gps->data[GPS_RMC].latitude = lat;
 				gps->data[GPS_RMC].longitude = lon;
 				gps->data[GPS_RMC].is_valid_data = true;
+				gps->data[GPS_RMC].is_dominica = is_in_dominica(lat);
 				gps->is_pos_locked = true;
 
 				//save the time data into our struct.
@@ -100,17 +103,72 @@ static void parse_gps_output(GPS_HandleTypeDef* gps, uint8_t* buffer, uint8_t bu
 		}
 
 		break;
+	}
+	case MINMEA_SENTENCE_GLL: {
+		;
+		struct minmea_sentence_gll frame;
+		if (minmea_parse_gll(&frame, buffer)){
 
-	case MINMEA_SENTENCE_GLL:
+			lat = minmea_tocoord(&frame.latitude);
+			lon = minmea_tocoord(&frame.longitude);
 
+			//Ensure the data is valid or not.
+			if (isnan(lat) || isnan(lon)){
+
+				//data invalid, set the default values and indicate invalid data
+				gps->data[GPS_GLL].latitude = DEFAULT_LAT;
+				gps->data[GPS_GLL].longitude = DEFAULT_LON;
+				gps->data[GPS_GLL].is_valid_data = false;
+
+			} else {
+
+				//data is valid, save the latitude and longitude + valid data flags
+				gps->data[GPS_GLL].latitude = lat;
+				gps->data[GPS_GLL].longitude = lon;
+				gps->data[GPS_GLL].is_valid_data = true;
+				gps->data[GPS_GLL].is_dominica = is_in_dominica(lat);
+				gps->is_pos_locked = true;
+
+				//save the time data into our struct.
+				uint16_t time_temp[3] = {frame.time.hours, frame.time.minutes, frame.time.seconds};
+				memcpy(gps->data[GPS_GLL].timestamp, time_temp, 3);
+			}
+		}
 
 		break;
+	}
+	case MINMEA_SENTENCE_GGA: {
+		struct minmea_sentence_gga frame;
+		if (minmea_parse_gga(&frame, buffer)){
 
-	case MINMEA_SENTENCE_GGA:
+			lat = minmea_tocoord(&frame.latitude);
+			lon = minmea_tocoord(&frame.longitude);
 
+			//Ensure the data is valid or not.
+			if (isnan(lat) || isnan(lon)){
+
+				//data invalid, set the default values and indicate invalid data
+				gps->data[GPS_GGA].latitude = DEFAULT_LAT;
+				gps->data[GPS_GGA].longitude = DEFAULT_LON;
+				gps->data[GPS_GGA].is_valid_data = false;
+
+			} else {
+
+				//data is valid, save the latitude and longitude + valid data flags
+				gps->data[GPS_GGA].latitude = lat;
+				gps->data[GPS_GGA].longitude = lon;
+				gps->data[GPS_GGA].is_valid_data = true;
+				gps->data[GPS_GGA].is_dominica = is_in_dominica(lat);
+				gps->is_pos_locked = true;
+
+				//save the time data into our struct.
+				uint16_t time_temp[3] = {frame.time.hours, frame.time.minutes, frame.time.seconds};
+				memcpy(gps->data[GPS_GGA].timestamp, time_temp, 3);
+			}
+		}
 
 		break;
-
+	}
 	default:
 
 		break;
@@ -127,15 +185,12 @@ bool get_gps_lock(GPS_HandleTypeDef* gps, GPS_Data* gps_data){
 
 	//Keep trying to read the GPS data until we get a lock, or we timeout
 	while (!gps->is_pos_locked && ((currentTime - startTime) < GPS_TRY_LOCK_TIMEOUT)){
-
 		read_gps_data(gps);
 		currentTime = HAL_GetTick();
-
 	}
 
 	//Populate the GPS data struct that we are officially returning to the caller. Prioritize message types in the order they appear in the enum definiton
 	for (GPS_MsgTypes msg_type = GPS_SIM; msg_type < GPS_NUM_MSG_TYPES; msg_type++){
-
 		if (gps->data[msg_type].is_valid_data){
 
 			//Set the message type
@@ -149,4 +204,9 @@ bool get_gps_lock(GPS_HandleTypeDef* gps, GPS_Data* gps_data){
 	}
 
 	return false;
+}
+
+//TODO: implement properly
+bool is_in_dominica(float latitude){
+	return true;
 }

@@ -80,4 +80,7 @@ bool read_gps_data(GPS_HandleTypeDef* gps);
 //Repeatedly tries to read the GPS data to get a lock. User should call this function if they want a position lock.
 bool get_gps_lock(GPS_HandleTypeDef* gps, GPS_Data* gps_data);
 
+//Checks if a GPS location is in dominica based on the latitude
+bool is_in_dominica(float latitude);
+
 #endif /* INC_RECOVERY_INC_GPS_H_ */
