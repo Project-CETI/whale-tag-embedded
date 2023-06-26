@@ -22,19 +22,28 @@
 #include "stm32u5xx_hal_uart.h"
 #include <stdbool.h>
 
-#define PACKET_START_CHAR 0x24 //"$"
-#define PACKET_END_CHAR 0x0D //"\r" or <CR>
+#define GPS_PACKET_START_CHAR 0x24 //"$"
+#define GPS_PACKET_END_CHAR 0x0D //"\r" or <CR>
 
-#define UART_TIMEOUT 5000
+#define GPS_UART_TIMEOUT 5000
+#define GPS_TRY_LOCK_TIMEOUT 5000
 
-typedef struct __GPS_TypeDef {
+#define GPS_SIMULATION true
+#define GPS_SIM_LAT 42.36326
+#define GPS_SIM_LON -71.12650
 
-	//UART handler for communication
-	UART_HandleTypeDef* huart;
+#define DEFAULT_LAT 15.31383
+#define DEFAULT_LON -61.30075
 
-	bool isPosLocked;
+typedef enum __GPS_MESSAGE_TYPES {
+	GPS_SIM = 0,
+	GPS_GLL = 1,
+	GPS_GGA = 2,
+	GPS_RMC = 3,
+	GPS_NUM_MSG_TYPES //Should always be the last element in the enum. Represents the number of message types. If you need to add a new type, put it before this element.
+}GPS_MsgTypes;
 
-	bool isDominica;
+typedef struct __GPS_Data {
 
 	float latitude;
 	float longitude;
@@ -42,6 +51,23 @@ typedef struct __GPS_TypeDef {
 	uint32_t quality;
 
 	uint16_t timestamp[3]; //0 is hour, 1 is minute, 2 is second
+
+	bool is_dominica;
+
+	bool is_valid_data;
+
+	GPS_MsgTypes msg_type;
+
+}GPS_Data;
+
+typedef struct __GPS_TypeDef {
+
+	//UART handler for communication
+	UART_HandleTypeDef* huart;
+
+	bool is_pos_locked;
+
+	GPS_Data data[GPS_NUM_MSG_TYPES];
 
 }GPS_HandleTypeDef;
 
@@ -52,6 +78,6 @@ HAL_StatusTypeDef initialize_gps(UART_HandleTypeDef* huart, GPS_HandleTypeDef* g
 bool read_gps_data(GPS_HandleTypeDef* gps);
 
 //Repeatedly tries to read the GPS data to get a lock. User should call this function if they want a position lock.
-void get_gps_lock(GPS_HandleTypeDef* gps);
+bool get_gps_lock(GPS_HandleTypeDef* gps, GPS_Data* gps_data);
 
 #endif /* INC_RECOVERY_INC_GPS_H_ */

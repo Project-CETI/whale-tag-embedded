@@ -27,7 +27,7 @@
 #include "KellerDepth.h"
 #include "LightSensor.h"
 #include <math.h>
-#include "Lib Inc/minmea.h"
+#include "Recovery Inc/GPS.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -81,6 +81,7 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 Keller_HandleTypedef depth_sensor;
 LightSensorHandleTypedef light_sensor;
 uint8_t counter;
+GPS_HandleTypeDef gps;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -156,37 +157,11 @@ int main(void)
   /* USER CODE BEGIN 2 */
   Keller_init(&depth_sensor, &hi2c2);
   LightSensor_init(&light_sensor, &hi2c2);
+  initialize_gps(&huart3, &gps);
 
   SDcard_UT();
   Keller_UT(&depth_sensor);
   Light_UT(&light_sensor);
-
-  uint8_t transmitData[21] ={/* header */ 0xB5,
-          0x62,
-          /* class & id */ 0x06,
-          0x09,
-          /* length */ 0x0D,
-          0x00,
-          /* payload */ 0x00,
-          0x00,
-          0x00,
-          0x00,
-          0xFF,
-          0xFF,
-          0x00,
-          0x00,
-          0x00,
-          0x00,
-          0x00,
-          0x00,
-          0x03,
-          /* checksum */ 0x1D,
-          0xAB};
-
-  uint8_t receive[256] = {0};
-
-
-
 
   ///HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, dac_input, 100, DAC_ALIGN_8B_R);
   //HAL_TIM_Base_Start(&htim2);
@@ -198,17 +173,13 @@ int main(void)
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  volatile enum minmea_sentence_id sentence;
-  volatile struct minmea_sentence_rmc frame;
-  volatile float lat;
-  volatile float lon;
-
+  GPS_Data data;
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  HAL_UART_Receive(&huart3, receive, 1, 5000);
+	  /*HAL_UART_Receive(&huart3, receive, 1, 5000);
 	  if (receive[0] == 0x24){
 		  uint8_t read_index = 0;
 		  while (receive[read_index] != 0x0D){
@@ -226,7 +197,9 @@ int main(void)
 			  }
 		  }
 	  }
-	  HAL_Delay(1);
+	  HAL_Delay(1);*/
+
+	  get_gps_lock(&gps, &data);
   }
   /* USER CODE END 3 */
 }
