@@ -81,7 +81,6 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 Keller_HandleTypedef depth_sensor;
 LightSensorHandleTypedef light_sensor;
 uint8_t counter;
-GPS_HandleTypeDef gps;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -157,7 +156,6 @@ int main(void)
   /* USER CODE BEGIN 2 */
   Keller_init(&depth_sensor, &hi2c2);
   LightSensor_init(&light_sensor, &hi2c2);
-  initialize_gps(&huart3, &gps);
 
   SDcard_UT();
   Keller_UT(&depth_sensor);
@@ -179,27 +177,6 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  /*HAL_UART_Receive(&huart3, receive, 1, 5000);
-	  if (receive[0] == 0x24){
-		  uint8_t read_index = 0;
-		  while (receive[read_index] != 0x0D){
-			  read_index++;
-			  HAL_UART_Receive(&huart3, &receive[read_index], 1, 5000);
-		  }
-
-		  sentence = minmea_sentence_id(receive, false);
-
-		  if (sentence == MINMEA_SENTENCE_RMC){
-			  if (minmea_parse_rmc(&frame, receive)){
-				  lat = minmea_tocoord(&frame.latitude);
-				  lon = minmea_tocoord(&frame.longitude);
-				  HAL_Delay(1);
-			  }
-		  }
-	  }
-	  HAL_Delay(1);*/
-
-	  get_gps_lock(&gps, &data);
   }
   /* USER CODE END 3 */
 }
