@@ -110,7 +110,7 @@ void* imu_thread(void* paramPtr) {
         {
           do
           {
-            usleep(100);
+            usleep(2000); // Note that we are streaming 4 reports at 50 Hz, so we expect data available at about 200 Hz
             report_id_updated = imu_read_data();
           } while(report_id_updated == -1 // no data received yet
                   && get_global_time_us() - global_time_us < 5000000 // timeout not reached
@@ -245,13 +245,13 @@ int setupIMU()
 
     // Enable desired feature reports.
     imu_enable_feature_report(IMU_SENSOR_REPORTID_ROTATION_VECTOR);
-    usleep(100000);
+    usleep(100000 + (int)(IMU_SAMPLING_PERIOD_US/4)); // the fractional delay is an attempt to offset the reporting times for each stream, but not sure if it will have an impact
     imu_enable_feature_report(IMU_SENSOR_REPORTID_ACCELEROMETER);
-    usleep(100000);
+    usleep(100000 + (int)(IMU_SAMPLING_PERIOD_US/4)); // the fractional delay is an attempt to offset the reporting times for each stream, but not sure if it will have an impact
     imu_enable_feature_report(IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED);
-    usleep(100000);
+    usleep(100000 + (int)(IMU_SAMPLING_PERIOD_US/4)); // the fractional delay is an attempt to offset the reporting times for each stream, but not sure if it will have an impact
     imu_enable_feature_report(IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED);
-    usleep(100000);
+    usleep(100000 + (int)(IMU_SAMPLING_PERIOD_US/4)); // the fractional delay is an attempt to offset the reporting times for each stream, but not sure if it will have an impact
 
     return 0;
 }
