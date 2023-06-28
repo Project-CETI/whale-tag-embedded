@@ -26,6 +26,7 @@
 #include "UnitTests.h"
 #include "KellerDepth.h"
 #include "LightSensor.h"
+#include "Recovery Inc/Aprs.h"
 #include <math.h>
 /* USER CODE END Includes */
 
@@ -165,7 +166,7 @@ int main(void)
   //MX_TIM2_Fake_Init();
   /* USER CODE END 2 */
 
-  MX_ThreadX_Init();
+  //MX_ThreadX_Init();
 
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
@@ -175,6 +176,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  aprs_generate_packet(0, 0);
   }
   /* USER CODE END 3 */
 }
