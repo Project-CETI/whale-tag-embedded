@@ -16,8 +16,11 @@
 //       i2c command to the battery chip to disable charge/discharge
 //       following Pi orderly shutdown
 
-`define VER_MAJ 8'h21    //Serial revision, for hardware v2.1
-`define VER_MIN 8'h04    //Serial revision, minor.  01 is first deploy June/July 2022
+// 2.2-5 6/26/23 EXPERIMENTAL connect DRDY from ECG to GPIO_6 only will work on
+// 		v2.2 hardware
+
+`define VER_MAJ 8'h22    //Serial revision, for hardware v2.2
+`define VER_MIN 8'h01    //Serial revision, minor.  01 is the ECG DRDY experiment
 
 
 
