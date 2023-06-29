@@ -65,6 +65,8 @@ int init_ecg_electronics() {
   ecg_adc_start();
 
   CETI_LOG("init_ecg(): Successfully initialized the ECG electronics");
+  CETI_LOG("init_ecg(): ECG LEDs are in use? %d", ECG_GPIO_EXPANDER_USE_LEDS);
+  CETI_LOG("init_ecg(): ECG data-ready pin: %d", ECG_ADC_DATA_READY_PIN);
   for(int i = 0; i < 5; i++)
   {
     ecg_gpio_expander_set_leds_green();
@@ -222,7 +224,7 @@ void* ecg_thread_getData(void* paramPtr)
       first_sample = 0;
       // If the ADC or the GPIO expander had an error,
       //  wait a bit and then try to reconnect to them.
-      if(is_invalid)
+      if(is_invalid && !g_exit)
       {
         ecg_gpio_expander_set_leds_red();
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "INVALID? | ");

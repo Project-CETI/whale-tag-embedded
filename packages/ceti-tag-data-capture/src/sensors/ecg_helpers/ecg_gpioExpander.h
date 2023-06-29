@@ -33,6 +33,8 @@
 #define ECG_GPIO_EXPANDER_CHANNEL_LEDYELLOW  5 // 3
 #define ECG_GPIO_EXPANDER_CHANNEL_LEDGREEN   4 // 4
 
+#define ECG_GPIO_EXPANDER_USE_LEDS 0 // Currently, using the LEDs seems to prevent successful reading of the data-ready line (and thus raises concerns for reading leads-off detections too)
+
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
