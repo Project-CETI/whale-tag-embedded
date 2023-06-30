@@ -11,20 +11,20 @@
 //-----------------------------------------------------------------------------
 // Select which components to enable.
 //-----------------------------------------------------------------------------
-#define ENABLE_FPGA 1 // for audio acquisition AND for safe power-down sequences
-#define ENABLE_RTC 1
-#define ENABLE_BATTERY_GAUGE 1
-#define ENABLE_AUDIO 1
-#define ENABLE_AUDIO_FLAC 1
-#define ENABLE_ECG 1
+#define ENABLE_FPGA 0 // for audio acquisition AND for safe power-down sequences
+#define ENABLE_RTC 0
+#define ENABLE_BATTERY_GAUGE 0
+#define ENABLE_AUDIO 0
+#define ENABLE_AUDIO_FLAC 0
+#define ENABLE_ECG 0
 #define ENABLE_IMU 1
-#define ENABLE_LIGHT_SENSOR 1
-#define ENABLE_BOARDTEMPERATURE_SENSOR 1
-#define ENABLE_PRESSURETEMPERATURE_SENSOR 1
-#define ENABLE_RECOVERY 1
+#define ENABLE_LIGHT_SENSOR 0
+#define ENABLE_BOARDTEMPERATURE_SENSOR 0
+#define ENABLE_PRESSURETEMPERATURE_SENSOR 0
+#define ENABLE_RECOVERY 0
 #define ENABLE_SYSTEMMONITOR 1
-#define ENABLE_BURNWIRE 1
-#define ENABLE_GOPROS 0
+#define ENABLE_BURNWIRE 0
+#define ENABLE_GOPROS 1
 
 //-----------------------------------------------------------------------------
 // Sampling and logging configuration.
