@@ -58,6 +58,12 @@ time apt install "${APT_NONINTERACTIVE}" --fix-broken --fix-missing --no-upgrade
 
 apt "${APT_NONINTERACTIVE}" autoremove
 
+
+# Isolate CPUs that will be used for audio and ECG capture,
+#  so kernel/system processes are scheduled on other cores.
+sed -i '$ s/$/ isolcpus=2,3/' /boot/cmdline.txt
+
+
 # Setup hardware parameters for i2c
 raspi-config nonint do_i2c 0
 echo "dtparam=i2c_vc=on" >> /boot/config.txt

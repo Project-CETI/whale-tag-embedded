@@ -57,6 +57,8 @@ module top(
 	output wire RCVRY_RX, // to Recovery Board
 	input wire  RCVRY_TX, // from Recovery Board, 
 	
+	input wire ECG_DRDY,
+	
 	//input wire PRESSURE_EOC,
 
 	inout wire HAT_GPIO_0,   // i2C 0 reserved
@@ -69,7 +71,7 @@ module top(
 	
 	input wire HAT_GPIO_5,    // FGPA master reset
 	
-	//input wire HAT_GPIO_6,
+	output wire HAT_GPIO_6,   // ECG DRDY pass through
 	
 	//input wire HAT_GPIO_7,  // DACQ SPI CE1 (may not need)
 	//input wire HAT_GPIO_8,  // DACQ SPI CE0  (may not need) 
@@ -132,6 +134,11 @@ reg led_alive;
 
 assign HAT_GPIO_15 = RCVRY_TX;      //Connect  Pi RXD to Recovery Board TXD
 assign RCVRY_RX 	 = HAT_GPIO_14;   //Connects Pi TXD to Recovery Board
+
+//-----------------------------------------------------------------------------
+// ECG DRDY Connection
+
+assign HAT_GPIO_6 = ECG_DRDY;
 
 //-----------------------------------------------------------------------------
 assign LED_1 = led_alive;            //GREEN

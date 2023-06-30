@@ -49,6 +49,15 @@ typedef struct payload_t {
 } goPro_python_message_struct;
 #pragma pack()
 
+// Define user interface parameters
+#define GOPRO_SWITCH_GPIO    13
+#define GOPRO_LED_GPIO_BLUE  10
+#define GOPRO_LED_GPIO_RED    9
+#define GOPRO_LED_GPIO_GREEN 11
+#define GOPRO_LED_HEARTBEAT_PERIOD_US 1000000
+#define GOPRO_MAGNET_DETECTION_BUFFER_US 3000000
+#define GOPRO_MAGNET_DETECTION_THRESHOLD_US 2500000
+
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------

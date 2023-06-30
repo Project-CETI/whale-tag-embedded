@@ -27,6 +27,7 @@
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
 #define NUM_CPU_ENTRIES 5 // overall, then 4 cores
+#define TID_PRINT_PERIOD_US 60000000 // How often to print thread IDs; -1 to never print
 
 //-----------------------------------------------------------------------------
 // Methods
@@ -34,11 +35,16 @@
 int init_systemMonitor();
 long long get_virtual_memory_total();
 long long get_virtual_memory_used();
+long long get_swap_total();
+long long get_swap_free();
 long long get_ram_total();
-long long get_ram_used();
 long long get_ram_free();
+long long get_ram_used();
 int update_cpu_usage();
 int get_cpu_id_for_tid(int tid);
+float get_cpu_temperature_c();
+float get_gpu_temperature_c();
+int system_call_with_output(char* cmd, char* result);
 void* systemMonitor_thread(void* paramPtr);
 
 //-----------------------------------------------------------------------------
@@ -57,6 +63,7 @@ extern int g_battery_thread_tid;
 extern int g_recovery_thread_tid;
 extern int g_stateMachine_thread_tid;
 extern int g_command_thread_tid;
+extern int g_rtc_thread_tid;
 extern int g_systemMonitor_thread_tid;
 extern int g_goPros_thread_tid;
 
