@@ -28,7 +28,7 @@
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
-#define ECG_MAX_FILE_SIZE_MB 1024 // Seems to log about 1GB every 6.5 hours.
+#define ECG_MAX_FILE_SIZE_MB 1024 // Seems to log about 1GiB every 6.5 hours.
                                   // Note that 2GB is the file size maximum for 32-bit systems
 #define ECG_NUM_BUFFERS 2      // One for logging, one for writing.
 #define ECG_BUFFER_LENGTH 5000 // Once a buffer fills, it will be flushed to a file

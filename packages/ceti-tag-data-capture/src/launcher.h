@@ -61,7 +61,7 @@
 
 #define ECG_DATA_FILEPATH_BASE "/data/data_ecg" // will append a counter and create new files according to a maximum size
 #define BATTERY_DATA_FILEPATH "/data/data_battery.csv"
-#define IMU_DATA_FILEPATH "/data/data_imu.csv"
+#define IMU_DATA_FILEPATH_BASE "/data/data_imu" // will append a counter and create new files according to a maximum size
 #define LIGHT_DATA_FILEPATH "/data/data_light.csv"
 #define PRESSURETEMPERATURE_DATA_FILEPATH "/data/data_pressure_temperature.csv"
 #define BOARDTEMPERATURE_DATA_FILEPATH "/data/data_boardTemperature.csv"

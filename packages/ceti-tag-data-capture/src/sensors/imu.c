@@ -13,6 +13,7 @@
 
 // Global/static variables
 int g_imu_thread_is_running = 0;
+static char imu_data_filepath[100];
 static FILE* imu_data_file = NULL;
 static char imu_data_file_notes[256] = "";
 static const char* imu_data_file_headers[] = {
@@ -57,12 +58,33 @@ int init_imu() {
   CETI_LOG("init_imu(): Successfully initialized the IMU");
 
   // Open an output file to write data.
-  if(init_data_file(imu_data_file, IMU_DATA_FILEPATH,
-                     imu_data_file_headers,  num_imu_data_file_headers,
-                     imu_data_file_notes, "init_imu()") < 0)
+  if(init_imu_data_file(1) < 0)
     return -1;
 
   return 0;
+}
+
+// Determine a new IMU data filename that does not already exist, and open a file for it.
+int init_imu_data_file(int restarted_program)
+{
+  // Append a number to the filename base until one is found that doesn't exist yet.
+  int data_file_postfix_count = 0;
+  int data_file_exists = 0;
+  do
+  {
+    sprintf(imu_data_filepath, "%s_%02d.csv", IMU_DATA_FILEPATH_BASE, data_file_postfix_count);
+    data_file_exists = (access(imu_data_filepath, F_OK) != -1);
+    data_file_postfix_count++;
+  } while(data_file_exists);
+
+  // Open the new file.
+  int init_data_file_success = init_data_file(imu_data_file, imu_data_filepath,
+                                              imu_data_file_headers,  num_imu_data_file_headers,
+                                              imu_data_file_notes, "init_imu_data_file()");
+  // Change the note from restarted to new file if this is not the first initialization.
+  if(!restarted_program)
+    strcpy(imu_data_file_notes, "New log file! | ");
+  return init_data_file_success;
 }
 
 //-----------------------------------------------------------------------------
@@ -89,18 +111,22 @@ void* imu_thread(void* paramPtr) {
     // Main loop while application is running.
     CETI_LOG("imu_thread(): Starting loop to periodically acquire data");
     int report_id_updated = -1;
+    long imu_data_file_size_b = 0;
     long long global_time_us = get_global_time_us();
     long long start_global_time_us = get_global_time_us();
     int rtc_count;
+    long long imu_last_data_file_flush_time_us = get_global_time_us();
     g_imu_thread_is_running = 1;
-    while (!g_exit) {
-      imu_data_file = fopen(IMU_DATA_FILEPATH, "at");
+    imu_data_file = fopen(imu_data_filepath, "at");
+    while(!g_exit)
+    {
       if(imu_data_file == NULL)
       {
-        CETI_LOG("imu_thread(): failed to open data output file: %s", IMU_DATA_FILEPATH);
+        CETI_LOG("imu_thread(): failed to open data output file: %s", imu_data_filepath);
         // Sleep a bit before retrying.
         for(int i = 0; i < 10 && !g_exit; i++)
           usleep(100000);
+        imu_data_file = fopen(imu_data_filepath, "at");
       }
       else
       {
@@ -114,7 +140,7 @@ void* imu_thread(void* paramPtr) {
             if(report_id_updated == -1) // no data received yet
               usleep(2000); // Note that we are streaming 4 reports at 50 Hz, so we expect data to be available at about 200 Hz
             else
-              usleep(100);  // Seems nice to limit the polling frequency a bit to manage CPU usage
+              usleep(50);  // Seems nice to limit the polling frequency a bit to manage CPU usage
           } while(report_id_updated == -1 // no data received yet
                   && get_global_time_us() - global_time_us < 5000000 // timeout not reached
                   && !g_exit); // program not quitting
@@ -178,9 +204,27 @@ void* imu_thread(void* paramPtr) {
           }
           else
             fprintf(imu_data_file, ",,,,");
-          // Finish the row of data and close the file.
+          // Finish the row of data.
           fprintf(imu_data_file, "\n");
-          fclose(imu_data_file);
+
+          // Flush the file periodically.
+          if(get_global_time_us() - imu_last_data_file_flush_time_us >= IMU_DATA_FILE_FLUSH_PERIOD_US)
+          {
+            // Check the file size and close the file.
+            fseek(imu_data_file, 0L, SEEK_END);
+            imu_data_file_size_b = ftell(imu_data_file);
+            fclose(imu_data_file);
+
+            // If the file size limit has been reached, start a new file.
+            if((imu_data_file_size_b >= (long)(IMU_MAX_FILE_SIZE_MB)*1024L*1024L || imu_data_file_size_b < 0) && !g_exit)
+              init_imu_data_file(0);
+
+            // Open the file again.
+            imu_data_file = fopen(imu_data_filepath, "at");
+
+            // Record the flush time.
+            imu_last_data_file_flush_time_us = get_global_time_us();
+          }
         }
         // If there was an error, try to reset the IMU.
         // Ignore the initial few seconds though, since sometimes it takes a little bit to get in sync.
@@ -199,6 +243,8 @@ void* imu_thread(void* paramPtr) {
     resetIMU(); // seems nice to stop the feature reports
     bbI2CClose(IMU_BB_I2C_SDA);
     imu_is_connected = 0;
+    if(imu_data_file != NULL)
+      fclose(imu_data_file);
     g_imu_thread_is_running = 0;
     CETI_LOG("imu_thread(): Done!");
     return NULL;

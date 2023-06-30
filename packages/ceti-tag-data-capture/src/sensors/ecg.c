@@ -82,7 +82,7 @@ int init_ecg_electronics() {
 // Helpers
 //-----------------------------------------------------------------------------
 
-// Determine a new ECG data filename that does not already exist.
+// Determine a new ECG data filename that does not already exist, and open a file for it.
 int init_ecg_data_file(int restarted_program)
 {
   // Append a number to the filename base until one is found that doesn't exist yet.
@@ -103,7 +103,6 @@ int init_ecg_data_file(int restarted_program)
   // Change the note from restarted to new file if this is not the first initialization.
   if(!restarted_program)
     strcpy(ecg_data_file_notes[ecg_buffer_select_toLog][0], "New log file! | ");
-  ecg_data_file = fopen(ecg_data_filepath, "at");
   return init_data_file_success;
 }
 

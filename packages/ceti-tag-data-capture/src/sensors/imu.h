@@ -29,6 +29,10 @@
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
+#define IMU_MAX_FILE_SIZE_MB 1024 // Seems to log about 1GiB every 33 hours when nominally streaming quaternion at 20 Hz and accel/gyro/mag at 50 Hz
+                                  // Note that 2GB is the file size maximum for 32-bit systems
+#define IMU_DATA_FILE_FLUSH_PERIOD_US 1000000 // How often to close/reopen the data file (avoid doing it at every sample to reduce delays in the loop)
+
 typedef struct { // To hold rotation vector input report information
     char reportID;
     char sequenceNum;
@@ -127,6 +131,7 @@ extern int g_imu_thread_is_running;
 // Methods
 //-----------------------------------------------------------------------------
 int init_imu();
+int init_imu_data_file(int restarted_program);
 int resetIMU();
 int setupIMU();
 int imu_enable_feature_report(int report_id, uint32_t report_interval_us);
