@@ -69,7 +69,7 @@ HAL_StatusTypeDef configure_dra818v(UART_HandleTypeDef huart, bool emphasis, boo
 	HAL_Delay(1000);
 
 	//Set the volume of the transmissions
-	sprintf(transmitData, "AT+DMOSETVOLUME=%d\r\n", VHF_VOLUME_LEVEL);
+	//sprintf(transmitData, "AT+DMOSETVOLUME=%d\r\n", VHF_VOLUME_LEVEL);
 
 	//HAL_UART_Transmit(&huart, (uint8_t*) transmitData, SET_VOLUME_TRANSMIT_LENGTH, HAL_MAX_DELAY);
 	//HAL_UART_Receive(&huart, (uint8_t*) responseData, SET_VOLUME_RESPONSE_LENGTH, HAL_MAX_DELAY);
@@ -78,7 +78,7 @@ HAL_StatusTypeDef configure_dra818v(UART_HandleTypeDef huart, bool emphasis, boo
 	//if (strncmp(responseData, VHF_SET_VOLUME_EXPECTED_RESPONSE, SET_VOLUME_RESPONSE_LENGTH) != 0)
 		//failedConfig = true;
 
-	HAL_Delay(1000);
+	//HAL_Delay(1000);
 
 	//Set the filter parameters
 	//Invert all the bools passed in since the VHF module treats "0" as true

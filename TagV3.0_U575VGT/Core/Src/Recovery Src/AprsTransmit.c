@@ -22,6 +22,11 @@ extern TIM_HandleTypeDef htim2;
 
 uint32_t dac_input[APRS_TRANSMIT_NUM_SINE_SAMPLES];
 
+uint8_t bitStuffSamples[255] = {0};
+uint8_t sampleIndex = 0;
+
+bool gpioFlag = true;
+
 bool aprs_transmit_send_data(uint8_t * packet_data, uint16_t packet_length){
 
 	calcSineValues();
@@ -74,6 +79,11 @@ void aprs_transmit_bit_timer_entry(ULONG bit_timer_input){
 	//Check if the current bit is 0
 	if (!aprs_transmit_read_bit(current_byte, bit_index) || isStuffedBit){
 
+		if (isStuffedBit){
+			bitStuffSamples[sampleIndex] = 2;
+		}else{
+			bitStuffSamples[sampleIndex] = 0;
+		}
 		//Since the bit is 0, switch the frequency
 		uint8_t newPeriod = (is1200Hz) ? (APRS_TRANSMIT_PERIOD_2400HZ) : (APRS_TRANSMIT_PERIOD_1200HZ);
 		is1200Hz = !is1200Hz;
@@ -82,7 +92,10 @@ void aprs_transmit_bit_timer_entry(ULONG bit_timer_input){
 		MX_TIM2_Fake_Init(newPeriod);
 		bit_stuff_counter = 0;
 
+
+
 	} else {
+		bitStuffSamples[sampleIndex] = 1;
 		bit_stuff_counter++;
 	}
 
@@ -90,6 +103,8 @@ void aprs_transmit_bit_timer_entry(ULONG bit_timer_input){
 	if (!isStuffedBit){
 		//increment bit index
 		bit_index++;
+		gpioFlag = !gpioFlag;
+		HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, gpioFlag);
 	}else {
 		isStuffedBit = false;
 	}
@@ -99,6 +114,8 @@ void aprs_transmit_bit_timer_entry(ULONG bit_timer_input){
 		byteCompleteFlag = true;
 		bit_index = 0;
 	}
+
+	sampleIndex++;
 }
 
 //Calculates an array of digital values to pass into the DAC in order to generate a sine wave.
@@ -108,6 +125,6 @@ static void calcSineValues(){
 
 		//Formula taken from STM32 documentation online on sine wave generation.
 		//Generates a sine wave with a min of 0V and a max of the reference voltage.
-		dac_input[i] = (sin(i * 2 * PI/APRS_TRANSMIT_NUM_SINE_SAMPLES) + 1) * (APRS_TRANSMIT_MAX_DAC_INPUT/2);
+		dac_input[i] = ((sin(i * 2 * PI/APRS_TRANSMIT_NUM_SINE_SAMPLES) + 1) * (43)) + 170;
 	}
 }
