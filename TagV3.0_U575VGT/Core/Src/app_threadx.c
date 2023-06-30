@@ -27,6 +27,7 @@
 #include <stdbool.h>
 #include "main.h"
 #include "Recovery Inc/AprsTransmit.h"
+#include "Recovery Inc/VHF.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -36,7 +37,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define THREAD_STACK_SIZE 1024
+#define THREAD_STACK_SIZE 2048
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -48,7 +49,8 @@
 /* USER CODE BEGIN PV */
 TX_THREAD test_thread;
 uint8_t thread_stack[THREAD_STACK_SIZE];
-
+extern UART_HandleTypeDef huart4;
+extern uint8_t transmits;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -98,10 +100,6 @@ void MX_ThreadX_Init(void)
 
 /* USER CODE BEGIN 1 */
 void test_thread_entry(ULONG thread_input){
-
-	//test
-	uint8_t data[3] = {0x00, 0x00, 0xFF};
-	aprs_transmit_send_data(data, 3);
 
 	/* Enter forever loop */
 	while (1){

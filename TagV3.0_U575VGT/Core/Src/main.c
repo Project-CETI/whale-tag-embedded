@@ -26,6 +26,7 @@
 #include "UnitTests.h"
 #include "KellerDepth.h"
 #include "LightSensor.h"
+#include "Recovery Inc/VHF.h"
 #include "Recovery Inc/Aprs.h"
 #include <math.h>
 #include "Recovery Inc/GPS.h"
@@ -155,16 +156,15 @@ int main(void)
   MX_DAC1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  Keller_init(&depth_sensor, &hi2c2);
-  LightSensor_init(&light_sensor, &hi2c2);
+ //ad7768_setup(&audio_adc, &hspi1, ADC_CS_GPIO_Port, ADC_CS_Pin);
+//  Keller_init(&depth_sensor, &hi2c2);
+//  LightSensor_init(&light_sensor, &hi2c2);
 
-  SDcard_UT();
-  Keller_UT(&depth_sensor);
-  Light_UT(&light_sensor);
-
-  ///HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, dac_input, 100, DAC_ALIGN_8B_R);
-  //HAL_TIM_Base_Start(&htim2);
-  //MX_TIM2_Fake_Init();
+  //AD7768_UT(&audio_adc);
+//  SDcard_UT();
+//  Keller_UT(&depth_sensor);
+//  Light_UT(&light_sensor);
+  	//initialize_vhf(huart4, true);
   /* USER CODE END 2 */
 
   //MX_ThreadX_Init();
@@ -172,12 +172,49 @@ int main(void)
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+ /* HAL_GPIO_WritePin(VHF_PTT_GPIO_Port, VHF_PTT_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(APRS_PD_GPIO_Port, APRS_PD_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(APRS_H_L_GPIO_Port, APRS_H_L_Pin, GPIO_PIN_SET);*/
   GPS_Data data;
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+	  /*uint8_t dummyTransmit[] = "test \r\n";
+	  uint8_t dummyResponse[5] = {0};
+	  volatile HAL_StatusTypeDef ret = HAL_UART_Transmit(&huart4, dummyTransmit, sizeof(dummyTransmit) - 1, HAL_MAX_DELAY);
+	  ret = HAL_UART_Receive(&huart4, dummyResponse, sizeof(dummyResponse), 500);
+
+ 	  uint8_t handshake[] = "AT+DMOCONNECT \r\n";
+	  uint8_t handshakeResponse[15] = {0};
+	  ret = HAL_UART_Transmit(&huart4, handshake, sizeof(handshake) - 1, HAL_MAX_DELAY);
+	  ret = HAL_UART_Receive(&huart4, handshakeResponse, sizeof(handshakeResponse), 500);
+	  HAL_Delay(100);
+
+	  uint8_t setParameters[] = "AT+DMOCONNECT=0,144.3900,144.3900,000,0,000 \r\n";
+	  uint8_t setParametersResponse[15] = {0};
+
+	  ret = HAL_UART_Transmit(&huart4, setParameters, sizeof(setParameters) - 1, HAL_MAX_DELAY);
+	  ret = HAL_UART_Receive(&huart4, setParametersResponse, sizeof(setParametersResponse), 500);
+	  HAL_Delay(100);
+
+	  uint8_t setVolume[] = "AT+DMOSETVOLUME=4 \r\n";
+	  uint8_t setVolumeResponse[17] = {0};
+
+	  ret = HAL_UART_Transmit(&huart4, setVolume, sizeof(setVolume) - 1, HAL_MAX_DELAY);
+	  ret = HAL_UART_Receive(&huart4, setVolumeResponse, sizeof(setVolumeResponse), 500);
+	  HAL_Delay(100);
+
+	  uint8_t setFilter[] = "AT+SETFILTER=1,1,1 \r\n";
+	  uint8_t setFilterResponse[17] = {0};
+
+	  ret = HAL_UART_Transmit(&huart4, setFilter, sizeof(setFilter) - 1, HAL_MAX_DELAY);
+	  ret = HAL_UART_Receive(&huart4, setFilterResponse, sizeof(setFilterResponse), 500);
+	  HAL_Delay(100);*/
+
+
   }
   /* USER CODE END 3 */
 }
@@ -780,7 +817,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 16-1;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 42;
+  htim2.Init.Period = 45;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -820,7 +857,7 @@ static void MX_UART4_Init(void)
 
   /* USER CODE END UART4_Init 1 */
   huart4.Instance = UART4;
-  huart4.Init.BaudRate = 115200;
+  huart4.Init.BaudRate = 9600;
   huart4.Init.WordLength = UART_WORDLENGTH_8B;
   huart4.Init.StopBits = UART_STOPBITS_1;
   huart4.Init.Parity = UART_PARITY_NONE;
@@ -829,7 +866,8 @@ static void MX_UART4_Init(void)
   huart4.Init.OverSampling = UART_OVERSAMPLING_16;
   huart4.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
   huart4.Init.ClockPrescaler = UART_PRESCALER_DIV1;
-  huart4.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  huart4.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXOVERRUNDISABLE_INIT;
+  huart4.AdvancedInit.OverrunDisable = UART_ADVFEATURE_OVERRUN_DISABLE;
   if (HAL_UART_Init(&huart4) != HAL_OK)
   {
     Error_Handler();
@@ -950,12 +988,14 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_LPGPIO1_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, VHF_PTT_Pin|APRS_PD_Pin|APRS_H_L_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, VHF_PTT_Pin|APRS_H_L_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(APRS_PD_GPIO_Port, APRS_PD_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, ADC_CS_Pin|IMU_CS_Pin, GPIO_PIN_RESET);
@@ -969,19 +1009,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(BMS_ALRT_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : VHF_PTT_Pin APRS_PD_Pin */
-  GPIO_InitStruct.Pin = VHF_PTT_Pin|APRS_PD_Pin;
+  /*Configure GPIO pins : VHF_PTT_Pin APRS_PD_Pin APRS_H_L_Pin */
+  GPIO_InitStruct.Pin = VHF_PTT_Pin|APRS_PD_Pin|APRS_H_L_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure LPGPIO pin : Pin2 */
-  GPIO_InitStruct.Pin = GPIO_PIN_2;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LPGPIO1, &GPIO_InitStruct);
 
   /*Configure GPIO pins : GPS_EXTINT_Pin KELLER_EOC_Pin */
   GPIO_InitStruct.Pin = GPS_EXTINT_Pin|KELLER_EOC_Pin;

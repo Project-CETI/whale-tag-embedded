@@ -30,7 +30,7 @@ bool aprs_transmit_send_data(uint8_t * packet_data, uint16_t packet_length){
 	TX_TIMER bit_timer;
 
 	//Start our DAC and our timer to trigger the conversion edges
-	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, dac_input, 100, DAC_ALIGN_8B_R);
+	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, dac_input, APRS_TRANSMIT_NUM_SINE_SAMPLES, DAC_ALIGN_8B_R);
 	HAL_TIM_Base_Start(&htim2);
 
 	//Loop through each byte
@@ -45,6 +45,7 @@ bool aprs_transmit_send_data(uint8_t * packet_data, uint16_t packet_length){
 		//Poll for completion of the byte
 		while (!byteCompleteFlag);
 
+
 		//Delete the timer so we can recreate it later with the next byte as an input
 		tx_timer_delete(&bit_timer);
 	}
@@ -53,6 +54,10 @@ bool aprs_transmit_send_data(uint8_t * packet_data, uint16_t packet_length){
 	HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
 	HAL_TIM_Base_Stop(&htim2);
 
+	//Reset the timer period for the next transmission
+	MX_TIM2_Fake_Init(APRS_TRANSMIT_PERIOD_2400HZ);
+	is1200Hz = false;
+
 	return true;
 }
 
@@ -60,12 +65,18 @@ void aprs_transmit_bit_timer_entry(ULONG bit_timer_input){
 
 	//static variable to keep track of our bit index
 	static uint8_t bit_index = 0;
+	static uint8_t bit_stuff_counter = 0;
+	static bool isStuffedBit = false;
 
 	//Current byte we will iterate over
 	uint8_t current_byte = (uint8_t) bit_timer_input;
 
+	if (bit_stuff_counter >= 5){
+		isStuffedBit = true;
+	}
+
 	//Check if the current bit is 0
-	if (!aprs_transmit_read_bit(current_byte, bit_index)){
+	if (!aprs_transmit_read_bit(current_byte, bit_index) || isStuffedBit){
 
 		//Since the bit is 0, switch the frequency
 		uint8_t newPeriod = (is1200Hz) ? (APRS_TRANSMIT_PERIOD_2400HZ) : (APRS_TRANSMIT_PERIOD_1200HZ);
@@ -73,10 +84,19 @@ void aprs_transmit_bit_timer_entry(ULONG bit_timer_input){
 
 		//Use fake init function to re-initialize the timer with a new period
 		MX_TIM2_Fake_Init(newPeriod);
+		bit_stuff_counter = 0;
+
+	} else if (current_byte != 0x7E){
+		bit_stuff_counter++;
 	}
 
-	//increment bit index
-	bit_index++;
+
+	if (!isStuffedBit){
+		//increment bit index
+		bit_index++;
+	}else {
+		isStuffedBit = false;
+	}
 
 	//If we've iterated through all bits, set flag and reset index counter
 	if (bit_index >= BITS_PER_BYTE){
@@ -92,6 +112,6 @@ static void calcSineValues(){
 
 		//Formula taken from STM32 documentation online on sine wave generation.
 		//Generates a sine wave with a min of 0V and a max of the reference voltage.
-		dac_input[i] = (sin(i * 2 * PI/APRS_TRANSMIT_NUM_SINE_SAMPLES) + 1) * (APRS_TRANSMIT_MAX_DAC_INPUT/2);
+		dac_input[i] = ((sin(i * 2 * PI/APRS_TRANSMIT_NUM_SINE_SAMPLES) + 1) * (43)) + 170;
 	}
 }
