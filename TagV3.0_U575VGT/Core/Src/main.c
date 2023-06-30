@@ -26,6 +26,7 @@
 #include "UnitTests.h"
 #include "KellerDepth.h"
 #include "LightSensor.h"
+#include "Recovery Inc/Aprs.h"
 #include <math.h>
 #include "Recovery Inc/GPS.h"
 /* USER CODE END Includes */
