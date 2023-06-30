@@ -22,11 +22,6 @@ extern TIM_HandleTypeDef htim2;
 
 uint32_t dac_input[APRS_TRANSMIT_NUM_SINE_SAMPLES];
 
-uint8_t bitStuffSamples[255] = {0};
-uint8_t sampleIndex = 0;
-
-bool gpioFlag = true;
-
 bool aprs_transmit_send_data(uint8_t * packet_data, uint16_t packet_length){
 
 	calcSineValues();
@@ -35,7 +30,7 @@ bool aprs_transmit_send_data(uint8_t * packet_data, uint16_t packet_length){
 	TX_TIMER bit_timer;
 
 	//Start our DAC and our timer to trigger the conversion edges
-	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, dac_input, 100, DAC_ALIGN_8B_R);
+	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, dac_input, APRS_TRANSMIT_NUM_SINE_SAMPLES, DAC_ALIGN_8B_R);
 	HAL_TIM_Base_Start(&htim2);
 
 	//Loop through each byte
@@ -50,6 +45,7 @@ bool aprs_transmit_send_data(uint8_t * packet_data, uint16_t packet_length){
 		//Poll for completion of the byte
 		while (!byteCompleteFlag);
 
+
 		//Delete the timer so we can recreate it later with the next byte as an input
 		tx_timer_delete(&bit_timer);
 	}
@@ -57,6 +53,10 @@ bool aprs_transmit_send_data(uint8_t * packet_data, uint16_t packet_length){
 	//Stop DAC and timer
 	HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
 	HAL_TIM_Base_Stop(&htim2);
+
+	//Reset the timer period for the next transmission
+	MX_TIM2_Fake_Init(APRS_TRANSMIT_PERIOD_2400HZ);
+	is1200Hz = false;
 
 	return true;
 }
@@ -73,17 +73,11 @@ void aprs_transmit_bit_timer_entry(ULONG bit_timer_input){
 
 	if (bit_stuff_counter >= 5){
 		isStuffedBit = true;
-
 	}
 
 	//Check if the current bit is 0
 	if (!aprs_transmit_read_bit(current_byte, bit_index) || isStuffedBit){
 
-		if (isStuffedBit){
-			bitStuffSamples[sampleIndex] = 2;
-		}else{
-			bitStuffSamples[sampleIndex] = 0;
-		}
 		//Since the bit is 0, switch the frequency
 		uint8_t newPeriod = (is1200Hz) ? (APRS_TRANSMIT_PERIOD_2400HZ) : (APRS_TRANSMIT_PERIOD_1200HZ);
 		is1200Hz = !is1200Hz;
@@ -92,10 +86,7 @@ void aprs_transmit_bit_timer_entry(ULONG bit_timer_input){
 		MX_TIM2_Fake_Init(newPeriod);
 		bit_stuff_counter = 0;
 
-
-
-	} else {
-		bitStuffSamples[sampleIndex] = 1;
+	} else if (current_byte != 0x7E){
 		bit_stuff_counter++;
 	}
 
@@ -103,8 +94,6 @@ void aprs_transmit_bit_timer_entry(ULONG bit_timer_input){
 	if (!isStuffedBit){
 		//increment bit index
 		bit_index++;
-		gpioFlag = !gpioFlag;
-		HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, gpioFlag);
 	}else {
 		isStuffedBit = false;
 	}
@@ -114,8 +103,6 @@ void aprs_transmit_bit_timer_entry(ULONG bit_timer_input){
 		byteCompleteFlag = true;
 		bit_index = 0;
 	}
-
-	sampleIndex++;
 }
 
 //Calculates an array of digital values to pass into the DAC in order to generate a sine wave.

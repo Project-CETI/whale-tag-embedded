@@ -13,18 +13,13 @@ HAL_StatusTypeDef initialize_vhf(UART_HandleTypeDef huart, bool isHigh){
 
 	//Set the modes of the GPIO pins attached to the vhf module.
 	//Leave PTT floating, set appropriate power level and wake chip
-	HAL_Delay(600);
+	HAL_Delay(1000);
 	set_ptt(true);
 	set_power_level(isHigh);
 	wake_vhf();
 	HAL_Delay(1000);
 
-	//Configure the module over UART
-	HAL_StatusTypeDef ret = configure_dra818v(huart, false, false, false);
-
-	set_ptt(true);
-	wake_vhf();
-	return ret;
+	return configure_dra818v(huart, false, false, false);
 }
 
 HAL_StatusTypeDef configure_dra818v(UART_HandleTypeDef huart, bool emphasis, bool lpf, bool hpf){
@@ -35,12 +30,6 @@ HAL_StatusTypeDef configure_dra818v(UART_HandleTypeDef huart, bool emphasis, boo
 	//Data buffer to hold transmissions and responses
 	char transmitData[100];
 	char responseData[100];
-
-	//Start with a dummy transmission to setup the UART
-	//sprintf(transmitData, "test\r\n");
-
-	//HAL_UART_Transmit(&huart, (uint8_t*) transmitData, DUMMY_TRANSMIT_LENGTH, HAL_MAX_DELAY);
-	//HAL_UART_Receive(&huart, (uint8_t*) responseData, DUMMY_RESPONSE_LENGTH, HAL_MAX_DELAY);
 
 	HAL_Delay(1000);
 
@@ -69,16 +58,16 @@ HAL_StatusTypeDef configure_dra818v(UART_HandleTypeDef huart, bool emphasis, boo
 	HAL_Delay(1000);
 
 	//Set the volume of the transmissions
-	//sprintf(transmitData, "AT+DMOSETVOLUME=%d\r\n", VHF_VOLUME_LEVEL);
+	sprintf(transmitData, "AT+DMOSETVOLUME=%d\r\n", VHF_VOLUME_LEVEL);
 
-	//HAL_UART_Transmit(&huart, (uint8_t*) transmitData, SET_VOLUME_TRANSMIT_LENGTH, HAL_MAX_DELAY);
-	//HAL_UART_Receive(&huart, (uint8_t*) responseData, SET_VOLUME_RESPONSE_LENGTH, HAL_MAX_DELAY);
+	HAL_UART_Transmit(&huart, (uint8_t*) transmitData, SET_VOLUME_TRANSMIT_LENGTH, HAL_MAX_DELAY);
+	HAL_UART_Receive(&huart, (uint8_t*) responseData, SET_VOLUME_RESPONSE_LENGTH, HAL_MAX_DELAY);
 
 	//Ensure the response matches the expected response
-	//if (strncmp(responseData, VHF_SET_VOLUME_EXPECTED_RESPONSE, SET_VOLUME_RESPONSE_LENGTH) != 0)
-		//failedConfig = true;
+	if (strncmp(responseData, VHF_SET_VOLUME_EXPECTED_RESPONSE, SET_VOLUME_RESPONSE_LENGTH) != 0)
+		failedConfig = true;
 
-	//HAL_Delay(1000);
+	HAL_Delay(1000);
 
 	//Set the filter parameters
 	//Invert all the bools passed in since the VHF module treats "0" as true
