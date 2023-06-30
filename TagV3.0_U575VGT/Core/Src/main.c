@@ -27,6 +27,9 @@
 #include "KellerDepth.h"
 #include "LightSensor.h"
 #include "Recovery Inc/VHF.h"
+#include "Recovery Inc/Aprs.h"
+#include <math.h>
+#include "Recovery Inc/GPS.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -164,7 +167,7 @@ int main(void)
   	//initialize_vhf(huart4, true);
   /* USER CODE END 2 */
 
-  MX_ThreadX_Init();
+  //MX_ThreadX_Init();
 
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
@@ -172,6 +175,7 @@ int main(void)
  /* HAL_GPIO_WritePin(VHF_PTT_GPIO_Port, VHF_PTT_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(APRS_PD_GPIO_Port, APRS_PD_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(APRS_H_L_GPIO_Port, APRS_H_L_Pin, GPIO_PIN_SET);*/
+  GPS_Data data;
   while (1)
   {
     /* USER CODE END WHILE */
@@ -902,7 +906,7 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 115200;
+  huart3.Init.BaudRate = 38400;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;
