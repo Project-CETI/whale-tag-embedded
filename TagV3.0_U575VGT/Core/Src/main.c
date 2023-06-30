@@ -27,6 +27,7 @@
 #include "KellerDepth.h"
 #include "LightSensor.h"
 #include <math.h>
+#include "Recovery Inc/GPS.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -165,11 +166,12 @@ int main(void)
   //MX_TIM2_Fake_Init();
   /* USER CODE END 2 */
 
-  MX_ThreadX_Init();
+  //MX_ThreadX_Init();
 
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  GPS_Data data;
   while (1)
   {
     /* USER CODE END WHILE */
@@ -865,7 +867,7 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 115200;
+  huart3.Init.BaudRate = 38400;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;
