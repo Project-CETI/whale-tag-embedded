@@ -38,7 +38,7 @@ goPro_commands = {
 }
 
 # Define the GoPros.
-goPro_ids = [6059, 7192]
+goPro_ids = [1311,1212,111,1,1,11,]
 num_goPros = len(goPro_ids) # note that this can be greater than the number in the C program (they will simply not be started)
 
 # Socket configuration
