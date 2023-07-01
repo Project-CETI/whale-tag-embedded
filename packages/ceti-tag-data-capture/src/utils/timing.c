@@ -10,8 +10,27 @@
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
+
+// Global/static variables
+int g_rtc_thread_is_running = 0;
+static int latest_rtc_count = -1;
+static long long last_rtc_update_time_us = -1;
+
 int init_timing() {
-  CETI_LOG("init_timing(): Successfully initialized timing [did nothing]");
+  #if ENABLE_RTC
+  // Test whether the RTC is available.
+  updateRtcCount();
+  if(latest_rtc_count == -1)
+  {
+    CETI_LOG("init_timing(): XXX Failed to fetch a valid RTC count");
+    return (-1);
+  }
+  // Reset the count so it is clear if the RTC update thread never starts.
+  latest_rtc_count = -1;
+  last_rtc_update_time_us = -1;
+  #endif
+
+  CETI_LOG("init_timing(): Successfully initialized timing");
   return 0;
 }
 
@@ -51,6 +70,10 @@ unsigned int getTimeDeploy(void) {
 // RTC second counter
 //-----------------------------------------------------------------------------
 int getRtcCount() {
+  return latest_rtc_count;
+}
+
+void updateRtcCount() {
 
     int fd;
     int rtcCount, rtcShift = 0;
@@ -58,7 +81,7 @@ int getRtcCount() {
 
     if ((fd = i2cOpen(1, ADDR_RTC, 0)) < 0) {
         CETI_LOG("getRtcCount(): Failed to connect to the RTC");
-        return (-1);
+        rtcCount = -1;
     }
 
     else { // read the time of day counter and assemble the bytes in 32 bit int
@@ -78,13 +101,15 @@ int getRtcCount() {
     }
 
     i2cClose(fd);
-    return rtcCount;
+
+    latest_rtc_count = rtcCount;
+    last_rtc_update_time_us = get_global_time_us();
 }
 
 int resetRtcCount() {
     int fd;
 
-    CETI_LOG("resetRtcCount(): Exectuting");
+    CETI_LOG("resetRtcCount(): Executing");
 
     if ((fd = i2cOpen(1, ADDR_RTC, 0)) < 0) {
         CETI_LOG("getRtcCount(): Failed to connect to the RTC");
@@ -99,6 +124,62 @@ int resetRtcCount() {
     }
     i2cClose(fd);
     return (0);
+}
+
+// Thread to update the latest RTC time, to use the I2C bus more sparingly
+//  instead of having all other threads that request RTC use the bus.
+void* rtc_thread(void* paramPtr) {
+    // Get the thread ID, so the system monitor can check its CPU assignment.
+    g_rtc_thread_tid = gettid();
+
+    // Set the thread CPU affinity.
+    if(RTC_CPU >= 0)
+    {
+      pthread_t thread;
+      thread = pthread_self();
+      cpu_set_t cpuset;
+      CPU_ZERO(&cpuset);
+      CPU_SET(RTC_CPU, &cpuset);
+      if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
+        CETI_LOG("rtc_thread(): Successfully set affinity to CPU %d", RTC_CPU);
+      else
+        CETI_LOG("rtc_thread(): XXX Failed to set affinity to CPU %d", RTC_CPU);
+    }
+
+    // Do an initial RTC update.
+    updateRtcCount();
+
+    // Main loop while application is running.
+    CETI_LOG("rtc_thread(): Starting loop to periodically acquire data");
+    int old_rtc_count = -1;
+    long delay_duration_us = 0;
+    int prev_num_updates_required = 0;
+    g_rtc_thread_is_running = 1;
+    while (!g_exit) {
+      // Wait the long polling period since the last update.
+      // Unless the last time only required a single update to find a new RTC value,
+      //  in which case we might be out of step with the RTC clock and we should use
+      //  fast polling again to get near the RTC update boundary.
+      //    Note that this is hopefully only the case on the first loop.
+      if(prev_num_updates_required > 1)
+      {
+        delay_duration_us = (last_rtc_update_time_us + RTC_UPDATE_PERIOD_LONG_US) - get_global_time_us();
+        if(delay_duration_us > RTC_UPDATE_PERIOD_SHORT_US)
+          usleep(delay_duration_us);
+      }
+      // Update the RTC until its value changes, using the faster polling period.
+      old_rtc_count = latest_rtc_count;
+      prev_num_updates_required = 0;
+      while(latest_rtc_count == old_rtc_count)
+      {
+        usleep(RTC_UPDATE_PERIOD_SHORT_US);
+        updateRtcCount();
+        prev_num_updates_required++;
+      }
+    }
+    g_rtc_thread_is_running = 0;
+    CETI_LOG("rtc_thread(): Done!");
+    return NULL;
 }
 
 //-----------------------------------------------------------------------------

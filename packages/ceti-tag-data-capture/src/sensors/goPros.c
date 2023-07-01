@@ -31,12 +31,27 @@ static const int num_goPros_data_file_headers = 3;
 
 int init_goPros()
 {
+  // Set up the user interface pins.
+  gpioSetMode(GOPRO_SWITCH_GPIO, PI_INPUT);
+  gpioSetMode(GOPRO_LED_GPIO_GREEN, PI_OUTPUT);
+  gpioSetMode(GOPRO_LED_GPIO_BLUE, PI_OUTPUT);
+  gpioSetMode(GOPRO_LED_GPIO_RED, PI_OUTPUT);
+  usleep(100000);
+  for(int i = 0; i < 6; i++)
+  {
+    gpioWrite(GOPRO_LED_GPIO_GREEN, i % 2 == 0 ? PI_ON : PI_OFF);
+    gpioWrite(GOPRO_LED_GPIO_BLUE,  i % 2 == 0 ? PI_ON : PI_OFF);
+    gpioWrite(GOPRO_LED_GPIO_RED,   i % 2 == 0 ? PI_ON : PI_OFF);
+    usleep(250000);
+  }
+
   // Initialize the Python communication (paths are relative to the bin directory where this program runs).
   system("python3 ../src/sensors/goPros_python_interface/goPros_interface.py &");
   usleep(5000000); // wait until python starts
   if(create_goPros_socket(GOPRO_PYTHON_PORT) < 0)
   {
     CETI_LOG("init_goPros(): XXX ERROR: Socket creation or bind failed XXX");
+    gpioWrite(GOPRO_LED_GPIO_RED, PI_ON);
     return -1;
   }
   CETI_LOG("init_goPros(): Successfully created the Python socket");
@@ -88,39 +103,103 @@ void *goPros_thread(void *paramPtr)
   CETI_LOG("goPros_thread(): Accepted client connection from Python program (%s)", inet_ntoa(goPros_python_client.sin_addr));
   bzero(goPros_python_buffer, GOPRO_PYTHON_BUFFERSIZE);
 
-  // Start the GoPros!
-  int success = 0;
-  do
-  {
-    CETI_LOG("goPros_thread(): Starting %d GoPros", NUM_GOPROS);
-    success = send_command_to_all_goPros(GOPRO_COMMAND_START);
-  } while(!success && !g_exit);
-
   // Main loop while application is running.
-  CETI_LOG("goPros_thread(): Starting loop to wait while data acquisition runs");
+  CETI_LOG("goPros_thread(): Starting loop to control GoPros when needed");
   g_goPros_thread_is_running = 1;
-  usleep(GOPRO_PYTHON_HEARTBEAT_PERIOD_US);
+  int goPro_thread_polling_period_us = 10000;
+  int goPro_command_success = 0;
+  int goPros_are_recording = 0;
+  int magnet_detected_debounced = 0;
+  int prev_magnet_detected_debounced = 0;
+  int magnet_detection_count = 0;
+  int magnet_detection_count_max = GOPRO_MAGNET_DETECTION_BUFFER_US/goPro_thread_polling_period_us;
+  int magnet_detection_count_threshold = GOPRO_MAGNET_DETECTION_THRESHOLD_US/goPro_thread_polling_period_us;
+  long led_heartbeat_recording_duration_us = (8*((long long)GOPRO_LED_HEARTBEAT_PERIOD_US)/10);
+  long led_heartbeat_stopped_duration_us = (1*((long long)GOPRO_LED_HEARTBEAT_PERIOD_US)/10);
+  long long last_python_heartbeat_us = get_global_time_us();
+  long long last_led_heartbeat_us = 0;
+  long long led_heartbeat_on_us = -1;
   while(!g_exit)
   {
     // Periodically send a heartbeat to let Python know the connection is active.
-    goPro_python_message.goPro_index = NUM_GOPROS + 1;
-    goPro_python_message.command = GOPRO_COMMAND_HEARTBEAT;
-    goPro_python_message.is_ack = 0;
-    goPro_python_message.success = 1;
-    send_goPros_message(&goPro_python_message, sizeof(goPro_python_message_struct));
-    usleep(GOPRO_PYTHON_HEARTBEAT_PERIOD_US);
+    if(get_global_time_us() - last_python_heartbeat_us >= GOPRO_PYTHON_HEARTBEAT_PERIOD_US)
+    {
+      goPro_python_message.goPro_index = NUM_GOPROS + 1;
+      goPro_python_message.command = GOPRO_COMMAND_HEARTBEAT;
+      goPro_python_message.is_ack = 0;
+      goPro_python_message.success = 1;
+      send_goPros_message(&goPro_python_message, sizeof(goPro_python_message_struct));
+      last_python_heartbeat_us = get_global_time_us();
+    }
+    // Periodically flash a heartbeat on the LEDs.
+    if(get_global_time_us() - last_led_heartbeat_us >= GOPRO_LED_HEARTBEAT_PERIOD_US)
+    {
+      if(led_heartbeat_on_us == -1)
+      {
+        gpioWrite(GOPRO_LED_GPIO_GREEN, PI_ON);
+        led_heartbeat_on_us = get_global_time_us();
+      }
+      if(get_global_time_us() - led_heartbeat_on_us >= (goPros_are_recording ? led_heartbeat_recording_duration_us : led_heartbeat_stopped_duration_us))
+      {
+        gpioWrite(GOPRO_LED_GPIO_GREEN,  PI_OFF);
+        last_led_heartbeat_us = get_global_time_us() - (goPros_are_recording ? led_heartbeat_recording_duration_us : led_heartbeat_stopped_duration_us);
+        led_heartbeat_on_us = -1;
+      }
+    }
+
+    // Determine whether the magnet is present, debouncing the result to make a stable verdict.
+    // The magnet pulls the GPIO low.
+    magnet_detection_count += (!gpioRead(GOPRO_SWITCH_GPIO)) ? 1 : -1;
+    if(magnet_detection_count < 0)
+      magnet_detection_count = 0;
+    if(magnet_detection_count > magnet_detection_count_max)
+      magnet_detection_count = magnet_detection_count_max;
+    magnet_detected_debounced = magnet_detection_count >= magnet_detection_count_threshold;
+    // Indicate whether the magnet is detected.
+    gpioWrite(GOPRO_LED_GPIO_BLUE, magnet_detected_debounced ? PI_ON : PI_OFF);
+
+    // Toggle the GoPro recording state if the magnet was removed.
+    if(!magnet_detected_debounced && prev_magnet_detected_debounced)
+    {
+      goPro_command_success = 0;
+      for(int i = 0; i < 3 && !goPro_command_success && !g_exit; i++)
+      {
+        if(!goPros_are_recording)
+        {
+          CETI_LOG("goPros_thread(): Starting %d GoPros", NUM_GOPROS);
+          goPro_command_success = send_command_to_all_goPros(GOPRO_COMMAND_START);
+        }
+        else
+        {
+          CETI_LOG("goPros_thread(): Stopping %d GoPros", NUM_GOPROS);
+          goPro_command_success = send_command_to_all_goPros(GOPRO_COMMAND_STOP);
+        }
+        gpioWrite(GOPRO_LED_GPIO_RED, goPro_command_success ? PI_OFF : PI_ON);
+      }
+      // Toggle the recording state.
+      //  Even if some failed, will want to send the opposite command next time.
+      goPros_are_recording = !goPros_are_recording;
+    }
+    // Update the previous magnet detection state.
+    prev_magnet_detected_debounced = magnet_detected_debounced;
+
+    // Delay to limit the loop rate.
+    usleep(goPro_thread_polling_period_us);
   }
 
-  // Stop the GoPros
-  success = 0;
-  for(int i = 0; i < 10 && !success; i++)
+  // Stop the GoPros in case they weren't stopped manually.
+  goPro_command_success = 0;
+  for(int i = 0; i < 5 && !goPro_command_success; i++)
   {
-    CETI_LOG("goPros_thread(): Stopping %d GoPros", NUM_GOPROS);
-    success = send_command_to_all_goPros(GOPRO_COMMAND_STOP);
+    CETI_LOG("goPros_thread(): Exiting thread; stopping %d GoPros", NUM_GOPROS);
+    goPro_command_success = send_command_to_all_goPros(GOPRO_COMMAND_STOP);
   }
 
   // Clean up and exit.
   close_goPros_socket();
+  gpioWrite(GOPRO_LED_GPIO_GREEN,  PI_OFF);
+  gpioWrite(GOPRO_LED_GPIO_BLUE, PI_OFF);
+  gpioWrite(GOPRO_LED_GPIO_RED,    PI_OFF);
   g_goPros_thread_is_running = 0;
   CETI_LOG("goPros_thread(): Done!");
   return NULL;

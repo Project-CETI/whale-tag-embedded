@@ -39,6 +39,12 @@ int main(void) {
     int num_threads = 0;
     CETI_LOG("main(): -------------------------------------------------");
     CETI_LOG("main(): Starting acquisition threads");
+    // RTC
+    #if ENABLE_RTC
+    pthread_create(&thread_ids[num_threads], NULL, &rtc_thread, NULL);
+    threads_running[num_threads] = &g_rtc_thread_is_running;
+    num_threads++;
+    #endif
     // Handle user commands.
     pthread_create(&thread_ids[num_threads], NULL, &command_thread, NULL);
     threads_running[num_threads] = &g_command_thread_is_running;
@@ -110,9 +116,16 @@ int main(void) {
     pthread_create(&thread_ids[num_threads], NULL, &audio_thread_spi, NULL);
     threads_running[num_threads] = &g_audio_thread_spi_is_running;
     num_threads++;
-    pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeData, NULL);
+    #if ENABLE_AUDIO_FLAC
+    pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeFlac, NULL);
     threads_running[num_threads] = &g_audio_thread_writeData_is_running;
     num_threads++;
+    #else
+    // dump raw audio files
+    pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeRaw, NULL);
+    threads_running[num_threads] = &g_audio_thread_writeData_is_running;
+    num_threads++;
+    #endif
     #endif
 
     usleep(100000);

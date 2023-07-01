@@ -15,7 +15,7 @@
 int g_systemMonitor_thread_is_running = 0;
 struct sysinfo memInfo;
 static long long ram_total = -1;
-static long long virtual_memory_total = -1;
+static long long swap_total = -1;
 // State for computing CPU usage.
 static unsigned long long cpu_prev_user[NUM_CPU_ENTRIES], cpu_prev_userNice[NUM_CPU_ENTRIES];
 static unsigned long long cpu_prev_system[NUM_CPU_ENTRIES], cpu_prev_idle[NUM_CPU_ENTRIES];
@@ -37,6 +37,7 @@ int g_boardTemperature_thread_tid = -1;
 int g_battery_thread_tid = -1;
 int g_recovery_thread_tid = -1;
 int g_command_thread_tid = -1;
+int g_rtc_thread_tid = -1;
 int g_stateMachine_thread_tid = -1;
 int g_goPros_thread_tid = -1;
 // Writing data to a log file.
@@ -46,19 +47,20 @@ static const char* systemMonitor_data_file_headers[] = {
   "CPU all [%]", "CPU 0 [%]", "CPU 1 [%]", "CPU 2 [%]", "CPU 3 [%]",
   "Audio SPI CPU", "Audio Write CPU", "ECG GetData CPU", "ECG WriteData CPU",
   "IMU CPU", "Light CPU", "PressureTemp CPU",
-  "BoardTemp CPU", "Bat CPU", "Recovery CPU", "FSM CPU", "Commands CPU",
+  "BoardTemp CPU", "Bat CPU", "Recovery CPU", "FSM CPU", "Commands CPU", "RTC CPU",
   "SysMonitor CPU", "GoPros CPU",
   "RAM Free [B]", "RAM Free [%]",
-  "Virtual Memory Used [B]", "Virtual Memory Used [%]",
+  "Swap Free [B]", "Swap Free [%]",
+  "CPU Temperature [C]", "GPU Temperature [C]",
   };
-static const int num_systemMonitor_data_file_headers = 23;
+static const int num_systemMonitor_data_file_headers = 26;
 
 int init_systemMonitor()
 {
   // Get initial readings from /proc/stat, so differences can be taken later to compute CPU usage.
   update_cpu_usage();
   // Get total memory available, which does not change.
-  virtual_memory_total = get_virtual_memory_total();
+  swap_total = get_swap_total();
   ram_total = get_ram_total();
 
   CETI_LOG("init_systemMonitor(): Successfully initialized the system monitor thread");
@@ -98,17 +100,47 @@ void* systemMonitor_thread(void* paramPtr) {
 
     // Main loop while application is running.
     CETI_LOG("systemMonitor_thread(): Starting loop to periodically check system resources");
-    long long virtual_memory_used, ram_free;
+    long long ram_free;
+    long long swap_free;
     long long global_time_us;
     int rtc_count;
     long long polling_sleep_duration_us;
     g_systemMonitor_thread_is_running = 1;
+    #if TID_PRINT_PERIOD_US >= 0
+    long long last_tid_print_time_us = get_global_time_us();
+    #endif
     while (!g_exit) {
+      // Print the thread IDs if desired
+      #if TID_PRINT_PERIOD_US >= 0
+      if(get_global_time_us() - last_tid_print_time_us > TID_PRINT_PERIOD_US)
+      {
+        CETI_LOG("......");
+        CETI_LOG("Thread IDs:");
+        CETI_LOG(" %6d: audio_thread_spi", g_audio_thread_spi_tid);
+        CETI_LOG(" %6d: audio_thread_writeData", g_audio_thread_writeData_tid);
+        CETI_LOG(" %6d: ecg_thread_getData", g_ecg_thread_getData_tid);
+        CETI_LOG(" %6d: ecg_thread_writeData", g_ecg_thread_writeData_tid);
+        CETI_LOG(" %6d: imu_thread", g_imu_thread_tid);
+        CETI_LOG(" %6d: light_thread", g_light_thread_tid);
+        CETI_LOG(" %6d: pressureTemperature_thread", g_pressureTemperature_thread_tid);
+        CETI_LOG(" %6d: boardTemperature_thread", g_boardTemperature_thread_tid);
+        CETI_LOG(" %6d: battery_thread", g_battery_thread_tid);
+        CETI_LOG(" %6d: recovery_thread", g_recovery_thread_tid);
+        CETI_LOG(" %6d: stateMachine_thread", g_stateMachine_thread_tid);
+        CETI_LOG(" %6d: command_thread", g_command_thread_tid);
+        CETI_LOG(" %6d: rtc_thread", g_rtc_thread_tid);
+        CETI_LOG(" %6d: systemMonitor_thread", g_systemMonitor_thread_tid);
+        CETI_LOG(" %6d: goPros_thread", g_goPros_thread_tid);
+        CETI_LOG("......");
+        last_tid_print_time_us = get_global_time_us();
+      }
+      #endif
+      
       // Acquire timing and system information as close together as possible.
       global_time_us = get_global_time_us();
       rtc_count = getRtcCount();
-      virtual_memory_used = get_virtual_memory_used();
       ram_free = get_ram_free();
+      swap_free = get_swap_free();
       update_cpu_usage();
       
       // Write system usage information to the data file.
@@ -138,12 +170,15 @@ void* systemMonitor_thread(void* paramPtr) {
         fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_recovery_thread_tid));
         fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_stateMachine_thread_tid));
         fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_command_thread_tid));
+        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_rtc_thread_tid));
         fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_systemMonitor_thread_tid));
         fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_goPros_thread_tid));
         fprintf(systemMonitor_data_file, ",%lld", ram_free);
         fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)ram_free)/((double)ram_total));
-        fprintf(systemMonitor_data_file, ",%lld", virtual_memory_used);
-        fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)virtual_memory_used)/((double)virtual_memory_total));
+        fprintf(systemMonitor_data_file, ",%lld", swap_free);
+        fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)swap_free)/((double)swap_total));
+        fprintf(systemMonitor_data_file, ",%f", get_cpu_temperature_c());
+        fprintf(systemMonitor_data_file, ",%f", get_gpu_temperature_c());
         // Finish the row of data and close the file.
         fprintf(systemMonitor_data_file, "\n");
         fclose(systemMonitor_data_file);
@@ -161,8 +196,13 @@ void* systemMonitor_thread(void* paramPtr) {
     return NULL;
 }
 
-// cpu_total virtual memory.
 //------------------------------------------
+// Helpers
+//------------------------------------------
+
+// Memory
+//------------------------------------------
+
 long long get_virtual_memory_total()
 {
   sysinfo(&memInfo);
@@ -173,8 +213,6 @@ long long get_virtual_memory_total()
   return totalVirtualMem;
 }
 
-// Virtual memory used.
-//------------------------------------------
 long long get_virtual_memory_used()
 {
   sysinfo(&memInfo);
@@ -183,6 +221,24 @@ long long get_virtual_memory_used()
   virtualMemUsed += memInfo.totalswap - memInfo.freeswap;
   virtualMemUsed *= memInfo.mem_unit;
   return virtualMemUsed;
+}
+
+long long get_swap_total()
+{
+  sysinfo(&memInfo);
+  long long totalSwap = memInfo.totalswap;
+  //Multiply in next statement to avoid int overflow on right hand side...
+  totalSwap *= memInfo.mem_unit;
+  return totalSwap;
+}
+
+long long get_swap_free()
+{
+  sysinfo(&memInfo);
+  long long swapFree = memInfo.freeswap;
+  //Multiply in next statement to avoid int overflow on right hand side...
+  swapFree *= memInfo.mem_unit;
+  return swapFree;
 }
 
 long long get_ram_total()
@@ -214,8 +270,9 @@ long long get_ram_free()
   return physMemFree;
 }
 
-// CPU usage.
+// CPU usage
 //------------------------------------------
+
 int update_cpu_usage()
 {
     unsigned long long cpu_user, cpu_userNice, cpu_system, cpu_idle;
@@ -327,8 +384,62 @@ int get_cpu_id_for_tid(int tid)
   return ps_cpu_id;
 }
 
-//// Virtual memory used by current process.
-////------------------------------------------
+// Temperature
+//------------------------------------------
+
+float get_cpu_temperature_c()
+{
+  char temperature_c_str[20] = "";
+  int system_success = system_call_with_output(
+    "cat /sys/devices/virtual/thermal/thermal_zone0/temp | awk '{print $1/1000}'",
+    temperature_c_str);
+  if(system_success == -1)
+    return -1;
+  return atof(temperature_c_str);
+}
+
+float get_gpu_temperature_c()
+{
+  char temperature_c_str[20] = "";
+  int system_success = system_call_with_output(
+    "vcgencmd measure_temp | egrep  -o  '[[:digit:]]*\\.[[:digit:]]*'",
+    temperature_c_str);
+  if(system_success == -1)
+    return -1;
+  return atof(temperature_c_str);
+}
+
+// Various
+//------------------------------------------
+
+// Run a system command and read the output.
+int system_call_with_output(char* cmd, char* result)
+{
+  strcpy(result, "");
+  FILE *system_pipe;
+
+  /* Open the command for reading. */
+  system_pipe = popen(cmd, "r");
+  if(system_pipe == NULL)
+  {
+    printf("Failed to run command\n" );
+    return -1;
+  }
+
+  /* Read the output a line at a time. */
+  char result_line[100];
+  while(fgets(result_line, sizeof(result_line), system_pipe) != NULL)
+    strcat(result, result_line);
+
+  /* close the pipe */
+  pclose(system_pipe);
+
+  return 0;
+}
+
+// Archived
+//------------------------------------------
+
 //int parseLine(char* line){
 //    // This assumes that a digit will be found and the line ends in " Kb".
 //    int i = strlen(line);
@@ -339,6 +450,7 @@ int get_cpu_id_for_tid(int tid)
 //    return i;
 //}
 //
+//// Virtual memory used by current process.
 //int getValue(){ //Note: this value is in KB!
 //    FILE* file = fopen("/proc/self/status", "r");
 //    int result = -1;
@@ -353,9 +465,7 @@ int get_cpu_id_for_tid(int tid)
 //    fclose(file);
 //    return result;
 //}
-
 //// RAM used by current process.
-////------------------------------------------
 //int getValue(){ //Note: this value is in KB!
 //    FILE* file = fopen("/proc/self/status", "r");
 //    int result = -1;
@@ -370,6 +480,10 @@ int get_cpu_id_for_tid(int tid)
 //    fclose(file);
 //    return result;
 //}
+
+
+
+
 
 
 

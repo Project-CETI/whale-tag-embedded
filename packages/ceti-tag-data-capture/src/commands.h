@@ -30,14 +30,14 @@
 //-----------------------------------------------------------------------------
 // File locations and polling configuration
 //-----------------------------------------------------------------------------
-#define CMD_FILEPATH "../ipc/cetiCommand" // fifo locations
-#define RSP_FILEPATH "../ipc/cetiResponse"
+#define CMD_PIPE_PATH "../ipc/cetiCommand" // fifo locations
+#define RSP_PIPE_PATH "../ipc/cetiResponse"
 
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
-extern FILE *g_cmd_file;
-extern FILE *g_rsp_file;
+extern FILE *g_cmd_pipe;
+extern FILE *g_rsp_pipe;
 extern char g_command[256];
 extern int g_command_thread_is_running;
 

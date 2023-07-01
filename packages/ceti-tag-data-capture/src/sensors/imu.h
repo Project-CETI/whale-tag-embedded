@@ -29,6 +29,10 @@
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
+#define IMU_MAX_FILE_SIZE_MB 1024 // Seems to log about 1GiB every 33 hours when nominally streaming quaternion at 20 Hz and accel/gyro/mag at 50 Hz
+                                  // Note that 2GB is the file size maximum for 32-bit systems
+#define IMU_DATA_FILE_FLUSH_PERIOD_US 1000000 // How often to close/reopen the data file (avoid doing it at every sample to reduce delays in the loop)
+
 typedef struct { // To hold rotation vector input report information
     char reportID;
     char sequenceNum;
@@ -71,8 +75,8 @@ typedef struct { // To hold rotation vector input report information
 // All the different sensors and features we can get reports from
 // These are used when enabling a given sensor
 #define IMU_SENSOR_REPORTID_ACCELEROMETER 0x01
-#define IMU_SENSOR_REPORTID_GYROSCOPE 0x02
-#define IMU_SENSOR_REPORTID_MAGNETIC_FIELD 0x03
+#define IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED 0x02
+#define IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED 0x03
 #define IMU_SENSOR_REPORTID_LINEAR_ACCELERATION 0x04
 #define IMU_SENSOR_REPORTID_ROTATION_VECTOR 0x05
 #define IMU_SENSOR_REPORTID_GRAVITY 0x06
@@ -127,11 +131,11 @@ extern int g_imu_thread_is_running;
 // Methods
 //-----------------------------------------------------------------------------
 int init_imu();
+int init_imu_data_file(int restarted_program);
 int resetIMU();
 int setupIMU();
-int getRotation(rotation_t *pRotation);
-int getQuaternion(short *quaternion);
-int learnIMU();
+int imu_enable_feature_report(int report_id, uint32_t report_interval_us);
+int imu_read_data();
 void* imu_thread(void* paramPtr);
 
 #endif // IMU_H

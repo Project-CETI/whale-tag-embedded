@@ -12,10 +12,12 @@
 // Select which components to enable.
 //-----------------------------------------------------------------------------
 #define ENABLE_FPGA 0 // for audio acquisition AND for safe power-down sequences
+#define ENABLE_RTC 0
 #define ENABLE_BATTERY_GAUGE 0
 #define ENABLE_AUDIO 0
+#define ENABLE_AUDIO_FLAC 0
 #define ENABLE_ECG 0
-#define ENABLE_IMU 0
+#define ENABLE_IMU 1
 #define ENABLE_LIGHT_SENSOR 0
 #define ENABLE_BOARDTEMPERATURE_SENSOR 0
 #define ENABLE_PRESSURETEMPERATURE_SENSOR 0
@@ -28,11 +30,14 @@
 // Sampling and logging configuration.
 //-----------------------------------------------------------------------------
 #define BATTERY_SAMPLING_PERIOD_US 1000000
-#define IMU_SAMPLING_PERIOD_US 1000000
+#define IMU_SAMPLING_PERIOD_QUAT_US  50000 // rate for the computed orientation
+#define IMU_SAMPLING_PERIOD_9DOF_US  20000 // rate for the accelerometer/gyroscope/magnetometer
 #define LIGHT_SAMPLING_PERIOD_US 1000000
 #define PRESSURETEMPERATURE_SAMPLING_PERIOD_US 1000000
 #define BOARDTEMPERATURE_SAMPLING_PERIOD_US 1000000
 #define RECOVERY_SAMPLING_PERIOD_US 5000000
+#define RTC_UPDATE_PERIOD_LONG_US 950000 // A coarse delay, to get close to when the RTC is expected to change
+#define RTC_UPDATE_PERIOD_SHORT_US 10000 // A finer delay, to find the new RTC value close to its update time
 #define COMMAND_POLLING_PERIOD_US 1000
 #define STATEMACHINE_UPDATE_PERIOD_US 1000000
 #define SYSTEMMONITOR_SAMPLING_PERIOD_US 5000000
@@ -41,21 +46,22 @@
 #define AUDIO_SPI_CPU 3
 #define AUDIO_WRITEDATA_CPU 0
 #define ECG_GETDATA_CPU 2
-#define ECG_WRITEDATA_CPU 0
+#define ECG_WRITEDATA_CPU 1
 #define BATTERY_CPU 1
 #define IMU_CPU 1
 #define LIGHT_CPU 1
 #define PRESSURETEMPERATURE_CPU 1
 #define BOARDTEMPERATURE_CPU 1
 #define RECOVERY_CPU 1
+#define RTC_CPU 1
 #define COMMAND_CPU 0
 #define STATEMACHINE_CPU 0
 #define SYSTEMMONITOR_CPU 0
-#define GOPROS_CPU 2
+#define GOPROS_CPU ECG_GETDATA_CPU // Note that the wearable tag will not use ECG
 
 #define ECG_DATA_FILEPATH_BASE "/data/data_ecg" // will append a counter and create new files according to a maximum size
 #define BATTERY_DATA_FILEPATH "/data/data_battery.csv"
-#define IMU_DATA_FILEPATH "/data/data_imu.csv"
+#define IMU_DATA_FILEPATH_BASE "/data/data_imu" // will append a counter and create new files according to a maximum size
 #define LIGHT_DATA_FILEPATH "/data/data_light.csv"
 #define PRESSURETEMPERATURE_DATA_FILEPATH "/data/data_pressure_temperature.csv"
 #define BOARDTEMPERATURE_DATA_FILEPATH "/data/data_boardTemperature.csv"

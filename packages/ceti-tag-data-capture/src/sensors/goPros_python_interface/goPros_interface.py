@@ -178,8 +178,10 @@ async def main() -> None:
             print('Exception on socket: %s' % str(socket_error))
 
     # The C program stopped sending a heartbeat, so close the connection and restart.
-    print('No heartbeat! Closing the socket')
-    c_socket.close()
+    print('No heartbeat! Exiting the program.')
+    if is_connected:
+        print('Closing the socket')
+        c_socket.close()
     del c_socket
 
     # Ensure that the GoPros are stopped.
@@ -187,8 +189,11 @@ async def main() -> None:
         command = goPro_commands['stop']
         for x in range(num_goPros):
             if goPro_status[x]==1:
+                print('Stopping GoPro', x)
                 await control_goPro(x, command)
                 goPro_status[x] = 0
+    
+    print('Program completed.')
 
 if __name__ == '__main__':
     try:
