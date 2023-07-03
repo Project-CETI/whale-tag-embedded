@@ -31,6 +31,6 @@ V2=6.2
 # time reaches this value, the tag will release
 # The battery thresholds take precedence
 # Units are minutes, use integers only
-# 240
-T0=240
+# (4 day) * (24 hr/day) * (60 min/hr) = 5760
+T0=5760
 #------------------------------------------------------------------------------
