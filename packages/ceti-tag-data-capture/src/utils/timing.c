@@ -23,11 +23,10 @@ int init_timing() {
   if(latest_rtc_count == -1)
   {
     CETI_LOG("init_timing(): XXX Failed to fetch a valid RTC count");
+    latest_rtc_count = -1;
+    last_rtc_update_time_us = -1;
     return (-1);
   }
-  // Reset the count so it is clear if the RTC update thread never starts.
-  latest_rtc_count = -1;
-  last_rtc_update_time_us = -1;
   #endif
 
   CETI_LOG("init_timing(): Successfully initialized timing");
