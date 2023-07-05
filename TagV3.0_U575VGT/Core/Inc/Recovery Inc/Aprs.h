@@ -24,9 +24,11 @@
 
 #define APRS_PACKET_LENGTH 224
 
-#define GPS_SLEEP_LENGTH 200000
+#define GPS_SLEEP_LENGTH tx_s_to_ticks(10)
 
-#define APRS_BASE_SLEEP_LENGTH 1200000
+#define APRS_BASE_SLEEP_LENGTH tx_s_to_ticks(60)
+
+#define NUM_TX_ATTEMPTS 3
 
 //Main thread entry
 void aprs_thread_entry(ULONG aprs_thread_input);

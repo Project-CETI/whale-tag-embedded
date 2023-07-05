@@ -29,11 +29,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "tx_api.h"
+#include "Lib Inc/timing.h"
 
 //Defines
 //The time to transmit each bit for
 //Each ThreadX tick is 50us -> 17 ticks makes it 850us. Based off the PICO code for the old recovery boards, where the bit time is 832us.
-#define APRS_TRANSMIT_BIT_TIME 17
+#define APRS_TRANSMIT_BIT_TIME tx_us_to_ticks(850)
 
 //The hardware timer periods for 1200Hz and 2400Hz signals
 #define APRS_TRANSMIT_PERIOD_1200HZ 84

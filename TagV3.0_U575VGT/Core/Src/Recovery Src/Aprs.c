@@ -11,6 +11,7 @@
 #include "Recovery Inc/AprsPacket.h"
 #include "Recovery Inc/AprsTransmit.h"
 #include "main.h"
+#include <stdlib.h>
 
 //Extern variables for HAL UART handlers
 extern UART_HandleTypeDef huart4;
@@ -61,7 +62,7 @@ void aprs_thread_entry(ULONG aprs_thread_input){
 			set_ptt(true);
 
 			//Now, transmit the signal through the VHF module. Transmit a few times just for safety.
-			for (uint8_t transmits = 0; transmits < 3; transmits++){
+			for (uint8_t transmits = 0; transmits < NUM_TX_ATTEMPTS; transmits++){
 				aprs_transmit_send_data(packetBuffer, APRS_PACKET_LENGTH);
 			}
 
@@ -70,6 +71,12 @@ void aprs_thread_entry(ULONG aprs_thread_input){
 
 			//Set the sleep period for a successful APRS transmission
 			sleepPeriod = APRS_BASE_SLEEP_LENGTH;
+
+			//Add a random component to it so that we dont transmit at the same interval each time (to prevent bad timing drowning out other transmissions)
+			uint8_t randomNum = rand() % 30;
+
+			//Add a random amount of seconds to the sleep, from 0 to 29
+			sleepPeriod += tx_s_to_ticks(randomNum);
 		}
 
 		//Go to sleep now
