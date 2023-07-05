@@ -7,6 +7,8 @@
  *  This file outlines the UART driver for the VHF module (DRA818V).
  *
  *  It initializes, configures and manages the VHF module used in recovery mode.
+ *
+ *  The VHF module attached our input signal (DAC) to the carrier wave. The carrier wave has a configurable frequency.
  */
 
 #ifndef INC_RECOVERY_INC_VHF_H_
@@ -16,10 +18,13 @@
 #include <stdbool.h>
 
 //Defines
+
+//Useful Frequencies
 #define TX_FREQ "144.3900"
 #define RX_FREQ "144.3900"
 #define DOMINICA_TX_FREQ "145.0500"
 #define DOMINICA_RX_FREQ "145.0500"
+
 #define VHF_VOLUME_LEVEL 4
 
 //Lengths of messages used to configure the VHF module

@@ -45,7 +45,7 @@ void aprs_thread_entry(ULONG aprs_thread_input){
 		bool is_locked = get_gps_lock(&gps, &gps_data);
 
 		//The time we will eventually put this task to sleep for. We assign this assuming the GPS lock has failed (only sleep for a shorter, fixed period of time).
-		//If we did get a GPS lock, the sleepPeriod will correct itself by the end of the task (be appropriately assigned after APRS transmission)
+		//If we did get a GPS lock, the sleep_period will correct itself by the end of the task (be appropriately assigned after succesful APRS transmission)
 		uint32_t sleep_period = GPS_SLEEP_LENGTH;
 
 		//If we've locked onto a position, we can start creating an APRS packet.

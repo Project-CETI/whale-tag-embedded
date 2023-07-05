@@ -12,7 +12,6 @@
  *
  * Integration Manual: https://content.u-blox.com/sites/default/files/NEO-M9N_Integrationmanual_UBX-19014286.pdf
  * Interface Description: https://content.u-blox.com/sites/default/files/u-blox-M9-SPG-4.04_InterfaceDescription_UBX-21022436.pdf
- *
  */
 
 #ifndef INC_RECOVERY_INC_GPS_H_

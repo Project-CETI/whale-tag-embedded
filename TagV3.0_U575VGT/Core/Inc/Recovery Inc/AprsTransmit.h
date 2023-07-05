@@ -3,27 +3,26 @@
  *
  *  Created on: May 26, 2023
  *      Author: Kaveet
- */
-
-#ifndef INC_RECOVERY_INC_APRSTRANSMIT_H_
-#define INC_RECOVERY_INC_APRSTRANSMIT_H_
-
-
-/*
+ *
  * This file handles the transmission of the APRS sine wave to the VHF module.
  *
  * This includes:
- * 			- Tell the VHF module we will start talking to it
- * 			- Generate the sine wave and appropriately apply the frequency modulation to it
+ * 			- Generating the sine wave and appropriately apply the frequency modulation to it
  *
  * Parameters:
  * 			- The raw data array to transmit (received from main APRS task)
  *
+ * It uses the DAC to transmit a sine wave through DMA. The frequency of the wave is controlled by a hardware timer (changing the period changes the frequency).
  *
- * Returns:
- * 			- Whether or not the transmission was successful
+ * There is a software timer that cycles through bits, changing the frequency appropriately.
  *
+ * A "0" bit indicates a change in frequency, while a "1" bit will keep the same frequency. We toggle between 1200 and 2200 Hz.
+ *
+ * During the main data/payload, there must be a stuffed bit (forced transition) after 5 consecutive 1's.
  */
+
+#ifndef INC_RECOVERY_INC_APRSTRANSMIT_H_
+#define INC_RECOVERY_INC_APRSTRANSMIT_H_
 
 //Includes
 #include <stdbool.h>

@@ -3,6 +3,12 @@
  *
  *  Created on: Jul 5, 2023
  *      Author: Kaveet
+ *
+ * This file contains the appropriate functions and definitons to create an APRS packet. Requires the caller to pass in a buffer and the latitude and longitude.
+ *
+ * There are various static functions defined in the C file to help create this packet.
+ *
+ * The APRS task should call this after it receives its GPS data. It will then use this packet to transmit through the VHF module.
  */
 
 #ifndef INC_RECOVERY_INC_APRSPACKET_H_
