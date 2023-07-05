@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 
-HAL_StatusTypeDef initialize_vhf(UART_HandleTypeDef huart, bool isHigh){
+HAL_StatusTypeDef initialize_vhf(UART_HandleTypeDef huart, bool isHigh, char * txFreq, char * rxFreq){
 
 	//Set the modes of the GPIO pins attached to the vhf module.
 	//Leave PTT floating, set appropriate power level and wake chip
@@ -19,10 +19,10 @@ HAL_StatusTypeDef initialize_vhf(UART_HandleTypeDef huart, bool isHigh){
 	wake_vhf();
 	HAL_Delay(1000);
 
-	return configure_dra818v(huart, false, false, false);
+	return configure_dra818v(huart, false, false, false, txFreq, rxFreq);
 }
 
-HAL_StatusTypeDef configure_dra818v(UART_HandleTypeDef huart, bool emphasis, bool lpf, bool hpf){
+HAL_StatusTypeDef configure_dra818v(UART_HandleTypeDef huart, bool emphasis, bool lpf, bool hpf, char * txFreq, char * rxFreq){
 
 	//Note: variable tracks failure so that false (0) maps to HAL_OK (also 0)
 	bool failedConfig = false;
@@ -46,7 +46,7 @@ HAL_StatusTypeDef configure_dra818v(UART_HandleTypeDef huart, bool emphasis, boo
 	HAL_Delay(1000);
 
 	//Now, set the parameters of the module
-	sprintf(transmitData, "AT+DMOSETGROUP=0,144.3900,144.3900,0000,0,0000\r\n");
+	sprintf(transmitData, "AT+DMOSETGROUP=0,%s,%s,0000,0,0000\r\n", txFreq, rxFreq);
 
 	HAL_UART_Transmit(&huart, (uint8_t*) transmitData, SET_PARAMETERS_TRANSMIT_LENGTH, HAL_MAX_DELAY);
 	HAL_UART_Receive(&huart, (uint8_t*) responseData, SET_PARAMETERS_RESPONSE_LENGTH, HAL_MAX_DELAY);

@@ -18,39 +18,17 @@
  *  	- AprsTransmit -> handles the transmission of the sine wave
  *  	- AprsPacket -> breaks the GPS data into appropriate packets
  */
-
-//Library includes
 #include "tx_api.h"
 
-#define APRS_FLAG 0x7e
-#define APRS_CONTROL_FIELD 0x03
-#define APRS_PROTOCOL_ID 0xF0
+#define APRS_PACKET_MAX_LENGTH 255
 
-#define APRS_SOURCE_CALLSIGN "J75Y"
-#define APRS_SOURCE_SSID 1
+#define APRS_PACKET_LENGTH 224
 
-#define APRS_SYMBOL "/C"
-#define APRS_DESTINATION_CALLSIGN "APRS"
-#define APRS_DESTINATION_SSID 0
+#define GPS_SLEEP_LENGTH 200000
 
-#define APRS_DIGI_PATH "WIDE2"
-#define APRS_DIGI_SSID 2
-
-#define APRS_COMMENT "Build Demonstration"
-
-#define APRS_CALLSIGN_LENGTH 6
-
-#define APRS_DT_POS_CHARACTER '!'
-#define APRS_SYM_TABLE_CHAR '1'
-#define APRS_SYM_CODE_CHAR 's'
-
-#define APRS_LATITUDE_LENGTH 9
-#define APRS_LONGITUDE_LENGTH 10
+#define APRS_BASE_SLEEP_LENGTH 1200000
 
 //Main thread entry
 void aprs_thread_entry(ULONG aprs_thread_input);
-
-//generates an aprs packet given the latitude and longitude
-void aprs_generate_packet(float lat, float lon);
 
 #endif /* INC_RECOVERY_INC_APRS_H_ */

@@ -179,6 +179,11 @@ bool get_gps_lock(GPS_HandleTypeDef* gps, GPS_Data* gps_data){
 
 	gps->is_pos_locked = false;
 
+	//ensure all valid data flags are false
+	for (GPS_MsgTypes msg_type = GPS_SIM; msg_type < GPS_NUM_MSG_TYPES; msg_type++){
+		gps->data[msg_type].is_valid_data = false;
+	}
+
 	//time trackers for any possible timeouts
 	uint32_t startTime = HAL_GetTick();
 	uint32_t currentTime = startTime;
@@ -208,5 +213,5 @@ bool get_gps_lock(GPS_HandleTypeDef* gps, GPS_Data* gps_data){
 
 //TODO: implement properly
 bool is_in_dominica(float latitude, float longitude){
-	return true;
+	return false;
 }
