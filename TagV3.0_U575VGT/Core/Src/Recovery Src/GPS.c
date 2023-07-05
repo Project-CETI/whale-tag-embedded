@@ -211,7 +211,6 @@ bool get_gps_lock(GPS_HandleTypeDef* gps, GPS_Data* gps_data){
 	return false;
 }
 
-//TODO: implement properly
 bool is_in_dominica(float latitude, float longitude){
-	return false;
+	return (latitude < DOMINICA_LAT_BOUNDARY);
 }
