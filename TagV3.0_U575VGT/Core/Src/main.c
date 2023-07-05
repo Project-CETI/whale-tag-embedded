@@ -167,54 +167,16 @@ int main(void)
   	//initialize_vhf(huart4, true);
   /* USER CODE END 2 */
 
-  //MX_ThreadX_Init();
+  MX_ThreadX_Init();
 
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
- /* HAL_GPIO_WritePin(VHF_PTT_GPIO_Port, VHF_PTT_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(APRS_PD_GPIO_Port, APRS_PD_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(APRS_H_L_GPIO_Port, APRS_H_L_Pin, GPIO_PIN_SET);*/
-  GPS_Data data;
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-	  /*uint8_t dummyTransmit[] = "test \r\n";
-	  uint8_t dummyResponse[5] = {0};
-	  volatile HAL_StatusTypeDef ret = HAL_UART_Transmit(&huart4, dummyTransmit, sizeof(dummyTransmit) - 1, HAL_MAX_DELAY);
-	  ret = HAL_UART_Receive(&huart4, dummyResponse, sizeof(dummyResponse), 500);
-
- 	  uint8_t handshake[] = "AT+DMOCONNECT \r\n";
-	  uint8_t handshakeResponse[15] = {0};
-	  ret = HAL_UART_Transmit(&huart4, handshake, sizeof(handshake) - 1, HAL_MAX_DELAY);
-	  ret = HAL_UART_Receive(&huart4, handshakeResponse, sizeof(handshakeResponse), 500);
-	  HAL_Delay(100);
-
-	  uint8_t setParameters[] = "AT+DMOCONNECT=0,144.3900,144.3900,000,0,000 \r\n";
-	  uint8_t setParametersResponse[15] = {0};
-
-	  ret = HAL_UART_Transmit(&huart4, setParameters, sizeof(setParameters) - 1, HAL_MAX_DELAY);
-	  ret = HAL_UART_Receive(&huart4, setParametersResponse, sizeof(setParametersResponse), 500);
-	  HAL_Delay(100);
-
-	  uint8_t setVolume[] = "AT+DMOSETVOLUME=4 \r\n";
-	  uint8_t setVolumeResponse[17] = {0};
-
-	  ret = HAL_UART_Transmit(&huart4, setVolume, sizeof(setVolume) - 1, HAL_MAX_DELAY);
-	  ret = HAL_UART_Receive(&huart4, setVolumeResponse, sizeof(setVolumeResponse), 500);
-	  HAL_Delay(100);
-
-	  uint8_t setFilter[] = "AT+SETFILTER=1,1,1 \r\n";
-	  uint8_t setFilterResponse[17] = {0};
-
-	  ret = HAL_UART_Transmit(&huart4, setFilter, sizeof(setFilter) - 1, HAL_MAX_DELAY);
-	  ret = HAL_UART_Receive(&huart4, setFilterResponse, sizeof(setFilterResponse), 500);
-	  HAL_Delay(100);*/
-
-
   }
   /* USER CODE END 3 */
 }

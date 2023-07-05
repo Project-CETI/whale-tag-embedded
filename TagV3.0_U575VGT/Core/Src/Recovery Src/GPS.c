@@ -35,7 +35,7 @@ bool read_gps_data(GPS_HandleTypeDef* gps){
 		gps->data[GPS_SIM].is_valid_data = true;
 		gps->data[GPS_SIM].latitude = GPS_SIM_LAT;
 		gps->data[GPS_SIM].longitude = GPS_SIM_LON;
-		gps->data[GPS_SIM].is_dominica = is_in_dominica(GPS_SIM_LAT);
+		gps->data[GPS_SIM].is_dominica = is_in_dominica(GPS_SIM_LAT, GPS_SIM_LON);
 		gps->data[GPS_SIM].timestamp[0] = 0;
 		gps->data[GPS_SIM].timestamp[1] = 0;
 		gps->data[GPS_SIM].timestamp[2] = 0;
@@ -93,7 +93,7 @@ static void parse_gps_output(GPS_HandleTypeDef* gps, uint8_t* buffer, uint8_t bu
 				gps->data[GPS_RMC].latitude = lat;
 				gps->data[GPS_RMC].longitude = lon;
 				gps->data[GPS_RMC].is_valid_data = true;
-				gps->data[GPS_RMC].is_dominica = is_in_dominica(lat);
+				gps->data[GPS_RMC].is_dominica = is_in_dominica(lat, lon);
 				gps->is_pos_locked = true;
 
 				//save the time data into our struct.
@@ -126,7 +126,7 @@ static void parse_gps_output(GPS_HandleTypeDef* gps, uint8_t* buffer, uint8_t bu
 				gps->data[GPS_GLL].latitude = lat;
 				gps->data[GPS_GLL].longitude = lon;
 				gps->data[GPS_GLL].is_valid_data = true;
-				gps->data[GPS_GLL].is_dominica = is_in_dominica(lat);
+				gps->data[GPS_GLL].is_dominica = is_in_dominica(lat, lon);
 				gps->is_pos_locked = true;
 
 				//save the time data into our struct.
@@ -158,7 +158,7 @@ static void parse_gps_output(GPS_HandleTypeDef* gps, uint8_t* buffer, uint8_t bu
 				gps->data[GPS_GGA].latitude = lat;
 				gps->data[GPS_GGA].longitude = lon;
 				gps->data[GPS_GGA].is_valid_data = true;
-				gps->data[GPS_GGA].is_dominica = is_in_dominica(lat);
+				gps->data[GPS_GGA].is_dominica = is_in_dominica(lat, lon);
 				gps->is_pos_locked = true;
 
 				//save the time data into our struct.
@@ -207,6 +207,6 @@ bool get_gps_lock(GPS_HandleTypeDef* gps, GPS_Data* gps_data){
 }
 
 //TODO: implement properly
-bool is_in_dominica(float latitude){
+bool is_in_dominica(float latitude, float longitude){
 	return true;
 }

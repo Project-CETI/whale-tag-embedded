@@ -6,11 +6,16 @@
  */
 
 #include "Recovery Inc/Aprs.h"
+#include "Recovery Inc/GPS.h"
 #include "main.h"
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
+
+//Extern variables for HAL handlers
+extern UART_HandleTypeDef huart4;
+extern UART_HandleTypeDef huart3;
 
 static void append_flag(uint8_t * buffer, uint8_t numFlags);
 static void append_callsign(uint8_t * buffer, char * callsign, uint8_t ssid);
@@ -20,6 +25,13 @@ static void append_frame_check(uint8_t * buffer, uint8_t buffer_length);
 
 void aprs_thread_entry(ULONG aprs_thread_input){
 
+	//Create the GPS handler and configure it
+	GPS_HandleTypeDef gps;
+	initialize_gps(&huart3, &gps);
+
+	//Initialize VHF module for transmission. Turn transmission off so we don't hog the frequency
+	HAL_StatusTypeDef vhf_init_ret = initialize_vhf(huart4, false);
+	set_ptt(false);
 
 	while(1){
 
