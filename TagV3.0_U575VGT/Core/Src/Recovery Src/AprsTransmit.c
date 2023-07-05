@@ -13,8 +13,8 @@
 static void calcSineValues();
 
 //Private variables
-static bool byteCompleteFlag;
-static bool is1200Hz = false;
+static bool byte_complete_flag;
+static bool is_1200_hz = false;
 
 //Extern variables
 extern DAC_HandleTypeDef hdac1;
@@ -37,13 +37,13 @@ bool aprs_transmit_send_data(uint8_t * packet_data, uint16_t packet_length){
 	for (int byte_index = 0; byte_index < packet_length; byte_index++){
 
 		//Set complete flag to false so we can poll it later
-		byteCompleteFlag = false;
+		byte_complete_flag = false;
 
 		//Create a timer to control the transmission of each bit. We pass in the current byte as an input to the timer so it can iterate over it bit by bit.
 		tx_timer_create(&bit_timer, "APRS Transmit Bit Timer", aprs_transmit_bit_timer_entry, packet_data[byte_index], APRS_TRANSMIT_BIT_TIME, APRS_TRANSMIT_BIT_TIME, TX_AUTO_ACTIVATE);
 
 		//Poll for completion of the byte
-		while (!byteCompleteFlag);
+		while (!byte_complete_flag);
 
 
 		//Delete the timer so we can recreate it later with the next byte as an input
@@ -56,7 +56,7 @@ bool aprs_transmit_send_data(uint8_t * packet_data, uint16_t packet_length){
 
 	//Reset the timer period for the next transmission
 	MX_TIM2_Fake_Init(APRS_TRANSMIT_PERIOD_2400HZ);
-	is1200Hz = false;
+	is_1200_hz = false;
 
 	return true;
 }
@@ -66,21 +66,21 @@ void aprs_transmit_bit_timer_entry(ULONG bit_timer_input){
 	//static variable to keep track of our bit index
 	static uint8_t bit_index = 0;
 	static uint8_t bit_stuff_counter = 0;
-	static bool isStuffedBit = false;
+	static bool is_stuffed_bit = false;
 
 	//Current byte we will iterate over
 	uint8_t current_byte = (uint8_t) bit_timer_input;
 
 	if (bit_stuff_counter >= 5){
-		isStuffedBit = true;
+		is_stuffed_bit = true;
 	}
 
 	//Check if the current bit is 0
-	if (!aprs_transmit_read_bit(current_byte, bit_index) || isStuffedBit){
+	if (!aprs_transmit_read_bit(current_byte, bit_index) || is_stuffed_bit){
 
 		//Since the bit is 0, switch the frequency
-		uint8_t newPeriod = (is1200Hz) ? (APRS_TRANSMIT_PERIOD_2400HZ) : (APRS_TRANSMIT_PERIOD_1200HZ);
-		is1200Hz = !is1200Hz;
+		uint8_t newPeriod = (is_1200_hz) ? (APRS_TRANSMIT_PERIOD_2400HZ) : (APRS_TRANSMIT_PERIOD_1200HZ);
+		is_1200_hz = !is_1200_hz;
 
 		//Use fake init function to re-initialize the timer with a new period
 		MX_TIM2_Fake_Init(newPeriod);
@@ -91,16 +91,16 @@ void aprs_transmit_bit_timer_entry(ULONG bit_timer_input){
 	}
 
 
-	if (!isStuffedBit){
+	if (!is_stuffed_bit){
 		//increment bit index
 		bit_index++;
 	}else {
-		isStuffedBit = false;
+		is_stuffed_bit = false;
 	}
 
 	//If we've iterated through all bits, set flag and reset index counter
 	if (bit_index >= BITS_PER_BYTE){
-		byteCompleteFlag = true;
+		byte_complete_flag = true;
 		bit_index = 0;
 	}
 }

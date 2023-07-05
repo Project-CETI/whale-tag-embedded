@@ -17,7 +17,7 @@
 extern UART_HandleTypeDef huart4;
 extern UART_HandleTypeDef huart3;
 
-static bool toggleFreq(bool is_gps_dominica, bool is_currently_dominica);
+static bool toggle_freq(bool is_gps_dominica, bool is_currently_dominica);
 
 void aprs_thread_entry(ULONG aprs_thread_input){
 
@@ -33,7 +33,7 @@ void aprs_thread_entry(ULONG aprs_thread_input){
 	set_ptt(false);
 
 	//We arent in dominica by default
-	bool isInDominica = false;
+	bool is_in_dominica = false;
 
 	//Main task loop
 	while(1){
@@ -42,21 +42,21 @@ void aprs_thread_entry(ULONG aprs_thread_input){
 		GPS_Data gps_data;
 
 		//Attempt to get a GPS lock
-		bool isLocked = get_gps_lock(&gps, &gps_data);
+		bool is_locked = get_gps_lock(&gps, &gps_data);
 
 		//The time we will eventually put this task to sleep for. We assign this assuming the GPS lock has failed (only sleep for a shorter, fixed period of time).
 		//If we did get a GPS lock, the sleepPeriod will correct itself by the end of the task (be appropriately assigned after APRS transmission)
-		uint32_t sleepPeriod = GPS_SLEEP_LENGTH;
+		uint32_t sleep_period = GPS_SLEEP_LENGTH;
 
 		//If we've locked onto a position, we can start creating an APRS packet.
-		if (isLocked){
+		if (is_locked){
 
 			aprs_generate_packet(packetBuffer, gps_data.latitude, gps_data.longitude);
 
 			//We first initialized the VHF module with our default frequencies. If we are in Dominica, re-initialize the VHF module to use the dominica frequencies.
 			//
 			//The function also handles switching back to the default frequency if we leave dominica
-			isInDominica = toggleFreq(gps_data.is_dominica, isInDominica);
+			is_in_dominica = toggle_freq(gps_data.is_dominica, is_in_dominica);
 
 			//Start transmission
 			set_ptt(true);
@@ -70,17 +70,17 @@ void aprs_thread_entry(ULONG aprs_thread_input){
 			set_ptt(false);
 
 			//Set the sleep period for a successful APRS transmission
-			sleepPeriod = APRS_BASE_SLEEP_LENGTH;
+			sleep_period = APRS_BASE_SLEEP_LENGTH;
 
 			//Add a random component to it so that we dont transmit at the same interval each time (to prevent bad timing drowning out other transmissions)
-			uint8_t randomNum = rand() % 30;
+			uint8_t random_num = rand() % 30;
 
 			//Add a random amount of seconds to the sleep, from 0 to 29
-			sleepPeriod += tx_s_to_ticks(randomNum);
+			sleep_period += tx_s_to_ticks(random_num);
 		}
 
 		//Go to sleep now
-		tx_thread_sleep(sleepPeriod);
+		tx_thread_sleep(sleep_period);
 	}
 }
 
@@ -91,7 +91,7 @@ void aprs_thread_entry(ULONG aprs_thread_input){
  *
  * Returns: the current state of our configuration (whether or not VHF is configured for dominica
  */
-static bool toggleFreq(bool is_gps_dominica, bool is_currently_dominica){
+static bool toggle_freq(bool is_gps_dominica, bool is_currently_dominica){
 
 	//If the GPS is in dominica, but we are not configured for it, switch to dominica
 	if (is_gps_dominica && !is_currently_dominica){

@@ -50,14 +50,11 @@
 /* USER CODE BEGIN PV */
 TX_THREAD aprs_thread;
 uint8_t aprs_thread_stack[THREAD_STACK_SIZE];
-extern UART_HandleTypeDef huart4;
-extern uint8_t transmits;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
 void test_thread_entry(ULONG thread_input);
-void timer_entry(ULONG timer_input);
 /* USER CODE END PFP */
 
 /**

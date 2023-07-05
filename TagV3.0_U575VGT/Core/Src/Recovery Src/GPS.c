@@ -28,7 +28,7 @@ HAL_StatusTypeDef initialize_gps(UART_HandleTypeDef* huart, GPS_HandleTypeDef* g
 
 bool read_gps_data(GPS_HandleTypeDef* gps){
 
-	uint8_t receiveBuffer[256] = {0};
+	uint8_t receive_buffer[256] = {0};
 
 	if (GPS_SIMULATION){
 
@@ -44,17 +44,17 @@ bool read_gps_data(GPS_HandleTypeDef* gps){
 
 		return true;
 	}
-	HAL_UART_Receive(gps->huart, receiveBuffer, 1, GPS_UART_TIMEOUT);
+	HAL_UART_Receive(gps->huart, receive_buffer, 1, GPS_UART_TIMEOUT);
 
-	if (receiveBuffer[0] == GPS_PACKET_START_CHAR){
+	if (receive_buffer[0] == GPS_PACKET_START_CHAR){
 
 		uint8_t read_index = 0;
 
-		while (receiveBuffer[read_index] != GPS_PACKET_END_CHAR){
+		while (receive_buffer[read_index] != GPS_PACKET_END_CHAR){
 			read_index++;
-			HAL_UART_Receive(gps->huart, &receiveBuffer[read_index], 1, GPS_UART_TIMEOUT);
+			HAL_UART_Receive(gps->huart, &receive_buffer[read_index], 1, GPS_UART_TIMEOUT);
 		}
-		parse_gps_output(gps, receiveBuffer, read_index + 1);
+		parse_gps_output(gps, receive_buffer, read_index + 1);
 
 		return true;
 	}
@@ -185,13 +185,13 @@ bool get_gps_lock(GPS_HandleTypeDef* gps, GPS_Data* gps_data){
 	}
 
 	//time trackers for any possible timeouts
-	uint32_t startTime = HAL_GetTick();
-	uint32_t currentTime = startTime;
+	uint32_t start_time = HAL_GetTick();
+	uint32_t current_time = start_time;
 
 	//Keep trying to read the GPS data until we get a lock, or we timeout
-	while (!gps->is_pos_locked && ((currentTime - startTime) < GPS_TRY_LOCK_TIMEOUT)){
+	while (!gps->is_pos_locked && ((current_time - start_time) < GPS_TRY_LOCK_TIMEOUT)){
 		read_gps_data(gps);
-		currentTime = HAL_GetTick();
+		current_time = HAL_GetTick();
 	}
 
 	//Populate the GPS data struct that we are officially returning to the caller. Prioritize message types in the order they appear in the enum definiton

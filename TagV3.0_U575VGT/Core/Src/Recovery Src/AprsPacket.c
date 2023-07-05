@@ -88,65 +88,65 @@ static void append_gps_data(uint8_t * buffer, float lat, float lon){
 	buffer[0] = APRS_DT_POS_CHARACTER;
 
 	//First, create the string containing the latitude and longitude data, then save it into our buffer
-	bool isNorth = true;
+	bool is_north = true;
 
 	//If we have a negative value, then the location is in the southern hemisphere.
 	//Recognize this and then just use the magnitude of the latitude for future calculations.
 	if (lat < 0){
-		isNorth = false;
-		isNorth *= -1;
+		is_north = false;
+		is_north *= -1;
 	}
 
 	//The coordinates we get from the GPS are in degrees and fractional degrees
 	//We need to extract the whole degrees from this, then the whole minutes and finally the fractional minutes
 
 	//The degrees are just the rounded-down integer
-	uint8_t latDegWhole = (uint8_t) lat;
+	uint8_t lat_deg_whole = (uint8_t) lat;
 
 	//Find the remainder (fractional degrees) and multiply it by 60 to get the minutes (fractional and whole)
-	float latMinutes = (lat - latDegWhole) * 60;
+	float lat_minutes = (lat - lat_deg_whole) * 60;
 
 	//Whole number minutes is just the fractional component.
-	uint8_t latMinutesWhole = (uint8_t) latMinutes;
+	uint8_t lat_minutes_whole = (uint8_t) lat_minutes;
 
 	//Find the remainder (fractional component) and save it to two decimal points (multiply by 100 and cast to int)
-	uint8_t latMinutesFrac = (latMinutes - latMinutesWhole) * 100;
+	uint8_t lat_minutes_frac = (lat_minutes - lat_minutes_whole) * 100;
 
 	//Find our direction indicator (N for North of S for south)
-	char latDirection = (isNorth) ? 'N' : 'S';
+	char lat_direction = (is_north) ? 'N' : 'S';
 
 	//Create our string. We use the format ddmm.hh(N/S), where "d" is degrees, "m" is minutes and "h" is fractional minutes.
 	//Store this in our buffer.
-	snprintf(&buffer[1], APRS_LATITUDE_LENGTH, "%02d%02d.%02d%c", latDegWhole, latMinutesWhole, latMinutesFrac, latDirection);
+	snprintf(&buffer[1], APRS_LATITUDE_LENGTH, "%02d%02d.%02d%c", lat_deg_whole, lat_minutes_whole, lat_minutes_frac, lat_direction);
 
 
 	//Right now we have the null-terminating character in the buffer "\0". Replace this with our latitude and longitude seperating symbol "1".
 	buffer[APRS_LATITUDE_LENGTH] = APRS_SYM_TABLE_CHAR;
 
 	//Now, repeat the process for longitude.
-	bool isEast = true;
+	bool is_east = true;
 
 	//If its less than 0, remember it as West, and then take the magnitude
 	if (lon < 0){
-		isEast = false;
+		is_east = false;
 		lon *= -1;
 	}
 
 	//Find whole number degrees
-	uint8_t lonDegWhole = (uint8_t) lon;
+	uint8_t lon_deg_whole = (uint8_t) lon;
 
 	//Find remainder (fractional degrees), convert to minutes
-	float lonMinutes = (lon - lonDegWhole) * 60;
+	float lon_minutes = (lon - lon_deg_whole) * 60;
 
 	//Find whole number and fractional minutes. Take two decimal places for the fractional minutes, just like before
-	uint8_t lonMinutesWhole = (uint8_t) lonMinutes;
-	uint8_t lonMinutesFractional = (lonMinutes - lonMinutesWhole) * 100;
+	uint8_t lon_minutes_whole = (uint8_t) lon_minutes;
+	uint8_t lon_minutes_fractional = (lon_minutes - lon_minutes_whole) * 100;
 
 	//Find direction character
-	char lonDirection = (isEast) ? 'E' : 'W';
+	char lon_direction = (is_east) ? 'E' : 'W';
 
 	//Store this in the buffer, in the format dddmm.hh(E/W)
-	snprintf(&buffer[APRS_LATITUDE_LENGTH + 1], APRS_LONGITUDE_LENGTH, "%03d%02d.%02d%c", lonDegWhole, lonMinutesWhole, lonMinutesFractional, lonDirection);
+	snprintf(&buffer[APRS_LATITUDE_LENGTH + 1], APRS_LONGITUDE_LENGTH, "%03d%02d.%02d%c", lon_deg_whole, lon_minutes_whole, lon_minutes_fractional, lon_direction);
 
 	//Appending payload character indicating the APRS symbol (using boat symbol). Replace the null-terminating character with it.
 	buffer[APRS_LATITUDE_LENGTH + APRS_LONGITUDE_LENGTH] = APRS_SYM_CODE_CHAR;
@@ -185,10 +185,10 @@ static void append_frame_check(uint8_t * buffer, uint8_t buffer_length){
 		}
 	}
 
-	uint8_t crcLo = (crc & 0xFF) ^ 0xFF;
-	uint8_t crcHi = (crc >> 8) ^ 0xFF;
+	uint8_t crc_lo = (crc & 0xFF) ^ 0xFF;
+	uint8_t crc_hi = (crc >> 8) ^ 0xFF;
 
-	buffer[buffer_length] = crcLo;
-	buffer[buffer_length + 1] = crcHi;
+	buffer[buffer_length] = crc_lo;
+	buffer[buffer_length + 1] = crc_hi;
 }
 
