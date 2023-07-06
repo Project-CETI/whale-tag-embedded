@@ -155,16 +155,16 @@ int main(void)
   MX_DAC1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  //ad7768_setup(&audio_adc, &hspi1, ADC_CS_GPIO_Port, ADC_CS_Pin);
-  //Keller_init(&depth_sensor, &hi2c2);
-  //LightSensor_init(&light_sensor, &hi2c2);
-  //ecg_init(&hi2c4, &ecg_sensor);
+  ad7768_setup(&audio_adc, &hspi1, ADC_CS_GPIO_Port, ADC_CS_Pin);
+  Keller_init(&depth_sensor, &hi2c2);
+  LightSensor_init(&light_sensor, &hi2c2);
+  ecg_init(&hi2c4, &ecg_sensor);
 
-  //AD7768_UT(&audio_adc);
-  //SDcard_UT();
-  //Keller_UT(&depth_sensor);
-  //Light_UT(&light_sensor);
-  //ECG_UT(&ecg_sensor);
+  AD7768_UT(&audio_adc);
+  SDcard_UT();
+  Keller_UT(&depth_sensor);
+  Light_UT(&light_sensor);
+  ECG_UT(&ecg_sensor);
   /* USER CODE END 2 */
 
   MX_ThreadX_Init();
