@@ -6,7 +6,7 @@
  *
  * This file contains useful structs and enums for defining new threads using threadX.
  *
- * To create a new thread, decalre it in the __TX_THREAD_LIST enum, and then declare the configuration information in the threadConfigList.
+ * To create a new thread, declare it in the __TX_THREAD_LIST enum, and then declare the configuration information in the threadConfigList.
  *
  * Avoid touching the other structures (e.g the thread array). The threadListInit() function and App_ThreadX_Init() (inside of app_threadx.h) handle all other creation and memory allocation.
  *
