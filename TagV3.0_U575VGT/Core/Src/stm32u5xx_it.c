@@ -22,6 +22,7 @@
 #include "stm32u5xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "Sensor Inc/ECG.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -55,13 +56,17 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
+extern DMA_NodeTypeDef Node_GPDMA1_Channel1;
+extern DMA_QListTypeDef List_GPDMA1_Channel1;
+extern DMA_HandleTypeDef handle_GPDMA1_Channel1;
 extern DMA_NodeTypeDef Node_GPDMA1_Channel0;
 extern DMA_QListTypeDef List_GPDMA1_Channel0;
 extern DMA_HandleTypeDef handle_GPDMA1_Channel0;
 extern SAI_HandleTypeDef hsai_BlockB1;
 extern SD_HandleTypeDef hsd1;
+extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim6;
-
+extern TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -165,6 +170,35 @@ void DebugMon_Handler(void)
 /******************************************************************************/
 
 /**
+  * @brief This function handles EXTI Line12 interrupt.
+  */
+void EXTI12_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI12_IRQn 0 */
+
+  /* USER CODE END EXTI12_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(IMU_INT_Pin);
+  /* USER CODE BEGIN EXTI12_IRQn 1 */
+
+  /* USER CODE END EXTI12_IRQn 1 */
+}
+
+/**
+  * @brief This function handles EXTI Line14 interrupt.
+  */
+void EXTI14_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI14_IRQn 0 */
+
+  /* USER CODE END EXTI14_IRQn 0 */
+  tx_event_flags_set(&ecg_event_flags_group, 0x1, TX_OR);
+  HAL_GPIO_EXTI_IRQHandler(ECG_NDRDY_Pin);
+  /* USER CODE BEGIN EXTI14_IRQn 1 */
+
+  /* USER CODE END EXTI14_IRQn 1 */
+}
+
+/**
   * @brief This function handles GPDMA1 Channel 0 global interrupt.
   */
 void GPDMA1_Channel0_IRQHandler(void)
@@ -176,6 +210,34 @@ void GPDMA1_Channel0_IRQHandler(void)
   /* USER CODE BEGIN GPDMA1_Channel0_IRQn 1 */
 
   /* USER CODE END GPDMA1_Channel0_IRQn 1 */
+}
+
+/**
+  * @brief This function handles GPDMA1 Channel 1 global interrupt.
+  */
+void GPDMA1_Channel1_IRQHandler(void)
+{
+  /* USER CODE BEGIN GPDMA1_Channel1_IRQn 0 */
+
+  /* USER CODE END GPDMA1_Channel1_IRQn 0 */
+  HAL_DMA_IRQHandler(&handle_GPDMA1_Channel1);
+  /* USER CODE BEGIN GPDMA1_Channel1_IRQn 1 */
+
+  /* USER CODE END GPDMA1_Channel1_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM2 global interrupt.
+  */
+void TIM2_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM2_IRQn 0 */
+
+  /* USER CODE END TIM2_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim2);
+  /* USER CODE BEGIN TIM2_IRQn 1 */
+
+  /* USER CODE END TIM2_IRQn 1 */
 }
 
 /**

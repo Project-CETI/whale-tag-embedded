@@ -19,13 +19,14 @@
 #define INC_SENSOR_INC_ECG_H_
 
 #include "main.h"
+#include "tx_api.h"
 
 #define ECG_ADC_I2C_ADDRESS 0b1000100
 
 //Internal V_reference on the ADC
 #define ECG_ADC_V_REF 2.048
 
-//Programable gain value
+//Programmable gain value
 #define ECG_ADC_GAIN 1
 
 //The full-scale range of the ADC
@@ -71,6 +72,9 @@ typedef struct __ECG_TypeDef {
 	float voltage;
 
 } ECG_HandleTypeDef;
+
+//Our ECG function that serves as the entry point for the thread. It manages the entire ECG.
+void ecg_thread_entry(ULONG thread_input);
 
 /*
  * Initializes the ECG ADC so we can begin sampling data and retrieving it.

@@ -6,7 +6,38 @@
  */
 
 #include "Sensor Inc/ECG.h"
+#include "main.h"
+#include "stm32u5xx_hal_cortex.h"
 
+extern I2C_HandleTypeDef hi2c4;
+
+TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
+
+void ecg_thread_entry(ULONG thread_input){
+
+	//Declare ecg handler and initialize chip
+	ECG_HandleTypeDef ecg;
+	ecg_init(&hi2c4, &ecg);
+
+	//Create our flag that indicates when data is ready
+	tx_event_flags_create(&ecg_event_flags_group, "ECG Event Flags");
+
+	//Enable our interrupt handler (signals when data is ready)
+	HAL_NVIC_EnableIRQ(EXTI14_IRQn);
+
+	while(1){
+
+		//holds event flags
+		ULONG actual_events;
+
+		//We've initialized the ECG to be in continuous conversion mode, and we have an interrupt line signalling when data is ready.
+		//Thus, wait for our flag to be set in the interrupt handler. This function call will block the entire task until we receive the data.
+		tx_event_flags_get(&ecg_event_flags_group, 0x1, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
+
+		//New data is ready, retrieve it
+		ecg_read_adc(&ecg);
+	}
+}
 HAL_StatusTypeDef ecg_init(I2C_HandleTypeDef* hi2c, ECG_HandleTypeDef* ecg){
 
 	ecg->i2c_handler = hi2c;
@@ -28,11 +59,6 @@ HAL_StatusTypeDef ecg_init(I2C_HandleTypeDef* hi2c, ECG_HandleTypeDef* ecg){
 
 HAL_StatusTypeDef ecg_read_adc(ECG_HandleTypeDef* ecg){
 
-	//Poll for data ready. Return timeout if we timed out
-	if (ecg_poll_data_ready(ecg) == HAL_TIMEOUT){
-		return HAL_TIMEOUT;
-	}
-
 	//Issue read command
 	uint8_t read_command = ECG_ADC_READ_DATA;
 	HAL_StatusTypeDef ret = HAL_I2C_Master_Transmit(ecg->i2c_handler, (ECG_ADC_I2C_ADDRESS << 1), &read_command, 1, HAL_MAX_DELAY);
@@ -42,11 +68,10 @@ HAL_StatusTypeDef ecg_read_adc(ECG_HandleTypeDef* ecg){
 		return ret;
 
 	//Read the data
-	uint8_t data[3] = {0};
-	ret = HAL_I2C_Master_Receive(ecg->i2c_handler, (ECG_ADC_I2C_ADDRESS << 1), data, 3, HAL_MAX_DELAY);
+	ret = HAL_I2C_Master_Receive(ecg->i2c_handler, (ECG_ADC_I2C_ADDRESS << 1), ecg->raw_data, 3, HAL_MAX_DELAY);
 
 	//We have 24 bits of data. Turn it into a signed 32 bit integer. Data is shifted out of ADC with the MSB first.
-	int32_t digitalReading = (data[0] << 16) | (data[1] << 8) | data[0];
+	int32_t digitalReading = (ecg->raw_data[0] << 16) | (ecg->raw_data[1] << 8) | ecg->raw_data[0];
 	ecg->voltage = digitalReading * ECG_ADC_LSB;
 
 	return ret;
