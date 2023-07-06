@@ -24,6 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdint.h>
+#include "Sensor Inc/BNO08x.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -68,7 +69,7 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
   ret = tx_byte_allocate(byte_pool, &pointer, THREAD_STACK_SIZE, TX_NO_WAIT);
   /* USER CODE END App_ThreadX_MEM_POOL */
   /* USER CODE BEGIN App_ThreadX_Init */
-  tx_thread_create(&test_thread, "Test_Thread", test_thread_entry, 0x1234, thread_stack, THREAD_STACK_SIZE, 3, 3, TX_NO_TIME_SLICE, TX_AUTO_START);
+  tx_thread_create(&test_thread, "Test_Thread", IMU_thread_entry, 0x1234, thread_stack, THREAD_STACK_SIZE, 3, 3, TX_NO_TIME_SLICE, TX_AUTO_START);
   /* USER CODE END App_ThreadX_Init */
 
   return ret;

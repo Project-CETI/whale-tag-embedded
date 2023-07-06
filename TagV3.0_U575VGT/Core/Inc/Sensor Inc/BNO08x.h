@@ -21,6 +21,7 @@
 //Includes
 #include "main.h"
 #include "stm32u575xx.h"
+#include "tx_api.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -85,9 +86,12 @@ typedef struct __IMU_Typedef{
 
 } IMU_HandleTypeDef;
 
+
 //Function prototypes
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu);
 HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu);
 
+//Main IMU thread to run on RTOS
+void IMU_thread_entry(ULONG thread_input);
 
 #endif /* INC_BNO08X_H_ */

@@ -7,13 +7,44 @@
  * 	Source file for the IMU drivers. See header file for more details
  */
 #include "BNO08x.h"
+#include "main.h"
+#include "stm32u5xx_hal_cortex.h"
 #include "stm32u5xx_hal_gpio.h"
 #include "stm32u5xx_hal_spi.h"
 #include <stdbool.h>
 
+extern SPI_HandleTypeDef hspi1;
+
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu);
 static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout);
 
+TX_EVENT_FLAGS_GROUP imu_event_flags_group;
+
+void IMU_thread_entry(ULONG thread_input){
+
+	//Create IMU handler and initialize
+	IMU_HandleTypeDef imu;
+	IMU_init(&hspi1, &imu);
+
+	//Create the events flag.
+	tx_event_flags_create(&imu_event_flags_group, "IMU Event Flags");
+
+	//Enable our interrupt handler that signals data is ready
+	HAL_NVIC_EnableIRQ(EXTI12_IRQn);
+
+	while(1) {
+
+		//variable that holds the results of the flag polling (returns which flags are set)
+		ULONG actual_events;
+
+		//Poll for data to be ready. Flag is set by our interrupt handler.
+		//Calling this function blocks and suspends the thread until the data becomes available.
+		tx_event_flags_get(&imu_event_flags_group, 0x1, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
+
+		//Get the data and store in our handler
+		IMU_get_data(&imu);
+	}
+}
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 
 	imu->hspi = hspi;
@@ -80,11 +111,6 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 
 	//receive data buffer
 	uint8_t receiveData[256] = {0};
-
-	//Poll for the data to be ready (observe interrupt line)
-	if (IMU_poll_new_data(imu, IMU_NEW_DATA_TIMEOUT_MS) == HAL_TIMEOUT){
-		IMU_init(imu->hspi, imu);
-	}
 
 	//Read the header in to a buffer
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);

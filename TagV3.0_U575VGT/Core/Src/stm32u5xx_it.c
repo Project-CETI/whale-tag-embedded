@@ -22,6 +22,7 @@
 #include "stm32u5xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "Sensor Inc/BNO08x.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -41,7 +42,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-
+extern TX_EVENT_FLAGS_GROUP imu_event_flags_group;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -176,6 +177,7 @@ void EXTI12_IRQHandler(void)
   /* USER CODE BEGIN EXTI12_IRQn 0 */
 
   /* USER CODE END EXTI12_IRQn 0 */
+  tx_event_flags_set(&imu_event_flags_group, 0x1, TX_OR);
   HAL_GPIO_EXTI_IRQHandler(IMU_INT_Pin);
   /* USER CODE BEGIN EXTI12_IRQn 1 */
 
