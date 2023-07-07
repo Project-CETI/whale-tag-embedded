@@ -311,6 +311,7 @@ PD14.GPIOParameters=GPIO_Label,GPIO_ModeDefaultEXTI
 PD14.GPIO_Label=ECG_NDRDY
 PD14.GPIO_ModeDefaultEXTI=GPIO_MODE_IT_FALLING
 PD14.Locked=true
+PD14.PinAttribute=Free
 PD14.Signal=GPXTI14
 PD15.GPIOParameters=GPIO_Label,PinAttribute
 PD15.GPIO_Label=ECG_NSDN

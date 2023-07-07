@@ -27,6 +27,7 @@
 #include "KellerDepth.h"
 #include "LightSensor.h"
 #include "ad7768.h"
+#include "BNO08x.h"
 #include "Sensor Inc/ECG.h"
 /* USER CODE END Includes */
 
@@ -81,6 +82,7 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 Keller_HandleTypedef depth_sensor;
 LightSensorHandleTypedef light_sensor;
 ad7768_dev audio_adc = {};
+IMU_HandleTypeDef imu;
 ECG_HandleTypeDef ecg_sensor;
 /* USER CODE END PV */
 
@@ -158,13 +160,16 @@ int main(void)
   ad7768_setup(&audio_adc, &hspi1, ADC_CS_GPIO_Port, ADC_CS_Pin);
   Keller_init(&depth_sensor, &hi2c2);
   LightSensor_init(&light_sensor, &hi2c2);
+  IMU_init(&hspi1, &imu);
   ecg_init(&hi2c4, &ecg_sensor);
 
   AD7768_UT(&audio_adc);
   SDcard_UT();
   Keller_UT(&depth_sensor);
   Light_UT(&light_sensor);
+  IMU_UT(&imu);
   ECG_UT(&ecg_sensor);
+
   /* USER CODE END 2 */
 
   MX_ThreadX_Init();
@@ -172,6 +177,7 @@ int main(void)
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   while (1)
   {
     /* USER CODE END WHILE */
