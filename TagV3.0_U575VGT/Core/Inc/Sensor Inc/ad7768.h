@@ -371,11 +371,7 @@ HAL_StatusTypeDef ad7768_get_ch_mode(ad7768_dev *dev,
 			   ad7768_ch_mode *mode);
 /* Initialize the device. */
 HAL_StatusTypeDef ad7768_setup(
-	ad7768_dev 			*dev,
-	SPI_HandleTypeDef 	*hspi,
-	GPIO_TypeDef 		*spi_cs_port,
-	uint16_t 			spi_cs_pin		
-);
+	ad7768_dev 			*dev);
 
 HAL_StatusTypeDef ad7768_sync(ad7768_dev *dev);
 

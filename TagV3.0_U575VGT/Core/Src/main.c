@@ -76,7 +76,37 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 /* USER CODE BEGIN PV */
 Keller_HandleTypedef depth_sensor;
 LightSensorHandleTypedef light_sensor;
-ad7768_dev adadc;
+ad7768_dev audio_adc = {
+    .spi_handler = &hspi1,
+		.spi_cs_port = ADC_CS_GPIO_Port,
+		.spi_cs_pin = ADC_CS_Pin,
+    .channel_standby = {
+        .ch[0] = AD7768_ENABLED,
+        .ch[1] = AD7768_ENABLED,
+        .ch[2] = AD7768_ENABLED,
+        .ch[3] = AD7768_STANDBY
+    },
+    .channel_mode[AD7768_MODE_A] = {.filter_type = AD7768_FILTER_SINC, .dec_rate = AD7768_DEC_X32},
+    .channel_mode[AD7768_MODE_B] = {.filter_type = AD7768_FILTER_WIDEBAND, .dec_rate = AD7768_DEC_X32},
+    .channel_mode_select = {
+        .ch[0] = AD7768_MODE_B,
+        .ch[1] = AD7768_MODE_B,
+        .ch[2] = AD7768_MODE_B,
+        .ch[3] = AD7768_MODE_A,
+    },
+    .power_mode = {
+        .sleep_mode = AD7768_ACTIVE,
+        .power_mode = AD7768_MEDIAN,
+        .lvds_enable = false,
+        .mclk_div = AD7768_MCLK_DIV_4,
+    },
+    .interface_config = {
+        .crc_select = AD7768_CRC_NONE,
+        .dclk_div = AD7768_DCLK_DIV_1,
+    },
+    .pin_spi_ctrl = AD7768_SPI_CTRL,
+};
+
 AudioManager audio;
 
 FX_FILE         fs;
@@ -168,15 +198,15 @@ int main(void)
   /* USER CODE BEGIN 2 */
   //Keller_init(&depth_sensor, &hi2c2);
   //LightSensor_init(&light_sensor, &hi2c2);
-  ad7768_setup(&adadc, &hspi1);
+  ad7768_setup(&audio_adc);
 
   TagConfig tag_config = {.audio_ch_enabled[0] = 1,
-  	  	  	  	  	  	  	  .audio_ch_enabled[1] = 0,
-							  .audio_ch_enabled[2] = 0,
+  	  	  	  	  	  	  	  .audio_ch_enabled[1] = 1,
+							  .audio_ch_enabled[2] = 1,
 							  .audio_ch_enabled[3] = 0,
-  	  	  	  	  	  	  	  .audio_ch_headers = 1,
-  	  	  	  	  	  	  	  .audio_depth = CFG_AUDIO_DEPTH_16_BIT,
-  	  	  	  	  	  	  	  .audio_rate = CFG_AUDIO_RATE_96_KHZ};
+  	  	  	  	  	  	  	  .audio_ch_headers = 0,
+							  .audio_rate = CFG_AUDIO_RATE_96_KHZ,
+  	  	  	  	  	  	  	  .audio_depth = CFG_AUDIO_DEPTH_16_BIT};
 
 
 
@@ -207,7 +237,7 @@ int main(void)
   HAL_SAI_RegisterCallback(&hsai_BlockB1, HAL_SAI_RX_HALFCOMPLETE_CB_ID, audio_SAI_RxHalfCpltCallback);
   HAL_SAI_RegisterCallback(&hsai_BlockB1, HAL_SAI_RX_COMPLETE_CB_ID, audio_SAI_RxCpltCallback);
 
-  audio_init(&audio, &adadc, &hsai_BlockB1, &tag_config, &audio_file);
+  audio_init(&audio, &audio_adc, &hsai_BlockB1, &tag_config, &audio_file);
 
   audio_record(&audio);
 
@@ -215,7 +245,6 @@ int main(void)
   //Keller_UT(&depth_sensor);
   //Light_UT(&light_sensor);
 
-  ad7768_setup(&audio_adc, &hspi1, ADC_CS_GPIO_Port, ADC_CS_Pin);
 //  Keller_init(&depth_sensor, &hi2c2);
 //  LightSensor_init(&light_sensor, &hi2c2);
 
@@ -223,8 +252,6 @@ int main(void)
 //  SDcard_UT();
 //  Keller_UT(&depth_sensor);
 //  Light_UT(&light_sensor);
-
-  /* USER CODE END 2 */
 
   /* USER CODE END 2 */
 
@@ -740,11 +767,11 @@ static void MX_SPI1_Init(void)
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi1.Init.CRCPolynomial = 0x7;
-  hspi1.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
+  hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
   hspi1.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
   hspi1.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
   hspi1.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
-  hspi1.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_08CYCLE;
+  hspi1.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
   hspi1.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
   hspi1.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
   hspi1.Init.IOSwap = SPI_IO_SWAP_DISABLE;
@@ -978,13 +1005,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, VHF_PTT_Pin|APRS_PD_Pin|APRS_H_L_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(ADC_CS_GPIO_Port, ADC_CS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, ADC_CS_Pin|IMU_CS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(IMU_CS_GPIO_Port, IMU_CS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : BMS_ALRT_Pin */
   GPIO_InitStruct.Pin = BMS_ALRT_Pin;
@@ -1012,12 +1036,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : ADC_CS_Pin */
-  GPIO_InitStruct.Pin = ADC_CS_Pin;
+  /*Configure GPIO pins : ADC_CS_Pin IMU_CS_Pin */
+  GPIO_InitStruct.Pin = ADC_CS_Pin|IMU_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(ADC_CS_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : IMU_WAKE_Pin */
   GPIO_InitStruct.Pin = IMU_WAKE_Pin;
@@ -1031,13 +1055,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(IMU_INT_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : IMU_CS_Pin */
-  GPIO_InitStruct.Pin = IMU_CS_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(IMU_CS_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : ECG_LOD__Pin ECG_LOD_D11_Pin ECG_NDRDY_Pin ECG_NSDN_Pin */
   GPIO_InitStruct.Pin = ECG_LOD__Pin|ECG_LOD_D11_Pin|ECG_NDRDY_Pin|ECG_NSDN_Pin;
