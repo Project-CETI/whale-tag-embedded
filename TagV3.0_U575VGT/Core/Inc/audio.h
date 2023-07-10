@@ -35,6 +35,7 @@ typedef struct audio_manager_s {
 // audio_configure()
 //setup file_x
 */
+HAL_StatusTypeDef audio_init(AudioManager *self, ad7768_dev *adc, SAI_HandleTypeDef *hsai, TagConfig *config, FX_FILE *file);
 
 /* Desc: set the audio sample rate */
 HAL_StatusTypeDef audio_set_sample_rate(AudioManager *self, TagConfigAudioSampleRate audio_rate);

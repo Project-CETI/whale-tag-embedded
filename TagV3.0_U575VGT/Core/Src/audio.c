@@ -25,6 +25,7 @@
 
 #include "audio.h"
 #include "util.h"
+#include "fx_api.h"
 
 #define AUDIO_CIRCULAR_BUFFER_SIZE_MAX (UINT16_MAX/2)
 #define AUDIO_CIRCULAR_BUFFER_SIZE  AUDIO_CIRCULAR_BUFFER_SIZE_MAX
@@ -36,12 +37,13 @@ static uint8_t audio_circular_buffer[2][AUDIO_CIRCULAR_BUFFER_SIZE];
 /* 
  * Desc: initialize and configure audio manager
  */
-HAL_StatusTypeDef audio_init(AudioManager *self, ad7768_dev *adc, SAI_HandleTypeDef *hsai, TagConfig *config){
+HAL_StatusTypeDef audio_init(AudioManager *self, ad7768_dev *adc, SAI_HandleTypeDef *hsai, TagConfig *config, FX_FILE *file){
     self->adc = adc;
     self->sai = hsai;
     if(config){
         audio_configure(self, config);
     }
+    self->file = file;
     return HAL_OK;
 }
 

@@ -71,8 +71,7 @@
 /* Override various options with default values already assigned in fx_api.h or fx_port.h.
   Please also refer to fx_port.h for descriptions on each of these options.  */
 
-/* Avoid doule definition warning, as ULONG64 typedef is already defined by ThreadX */
-#define ULONG64_DEFINED
+/* #define ULONG64_DEFINED */
 
 /* Direct read sector cache will be disabled if cache is disabled.  */
 
@@ -153,11 +152,11 @@
 
 /* Defined, local path logic is disabled.  */
 
-/* #define FX_NO_LOCAL_PATH */
+#define FX_NO_LOCAL_PATH
 
 /* Defined, FileX is built without update to the time parameters.  */
 
-/* #define FX_NO_TIMER */
+#define FX_NO_TIMER
 
 /* Defined, renaming inherits path information.  */
 
@@ -172,11 +171,11 @@
    uses, the macros are setup to utilize a ThreadX mutex for multiple thread
    access control into an open media.  */
 
-/* #define FX_SINGLE_THREAD */
+#define FX_SINGLE_THREAD
 
 /* Configure the FileX in Standalone mode */
 
-/* #define FX_STANDALONE_ENABLE */
+#define FX_STANDALONE_ENABLE
 
 /* Defines the number of seconds the time parameters are updated in FileX.  */
 
