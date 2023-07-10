@@ -5,6 +5,7 @@
  *      Author: Amjad Halis
  *      Sensor: DS2778
  *      Datasheet: analog.com/media/en/technical-documentation/data-sheets/DS2775-DS2778.pdf
+ *      Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/MAX17320.pdf
  */
 
 #ifndef BMS_H
@@ -65,5 +66,25 @@ typedef struct __BMS_TypeDef
 HAL_StatusTypeDef BMS_Init(BMS_HandleTypedef *BMS, I2C_HandleTypeDef *hi2c_device);
 HAL_StatusTypeDef BMS_Get_Batt_Data(BMS_HandleTypedef *BMS);
 HAL_StatusTypeDef BMS_Get_Temp(BMS_HandleTypedef *BMS);
+
+
+
+typedef enum{
+	MAX1730_CELL_BALANCE_DISABLED 	= 0b000,
+	MAX1730_CELL_BALANCE_0v0025 	= 0b001,
+	MAX1730_CELL_BALANCE_0v005 		= 0b010,
+	MAX1730_CELL_BALANCE_0v010 		= 0b011,
+	MAX1730_CELL_BALANCE_0v020 		= 0b100,
+	MAX1730_CELL_BALANCE_0v040 		= 0b101,
+	MAX1730_CELL_BALANCE_0v080 		= 0b110,
+	MAX1730_CELL_BALANCE_0v160 		= 0b111
+}MAX17320_CellBalancingTresholds;
+
+
+MAX17320_DeadTargetRatio_encode(dtr_percent) (((uint8_t) (((dtr_percent) - 75.0) / (11.72 / 15.0))) & 0x0F)
+MAX17320_DeadTargetRatio_decode(dtr_val) (75.0 + (dtr_val * (11.72 / 15.0)))
+
+
+#define MAX17320_N_AGE_FC_CFG_ADDRESS 0x1E2
 
 #endif /* BMS_H */
