@@ -279,6 +279,9 @@ typedef struct {
 	GPIO_TypeDef		*M3_GPIOx;
 	uint16_t			M3_GPIO_Pin;
 
+	GPIO_TypeDef        *spi_cs_port;
+	uint16_t			spi_cs_pin;
+
 	// To determine logic in sw based on pin/spi mode
 	ad7768_pin_spi_ctrl	pin_spi_ctrl;
 
@@ -367,8 +370,11 @@ HAL_StatusTypeDef ad7768_get_ch_mode(ad7768_dev *dev,
 			   ad7768_ch ch,
 			   ad7768_ch_mode *mode);
 /* Initialize the device. */
-HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev,
-		     SPI_HandleTypeDef *hspi
+HAL_StatusTypeDef ad7768_setup(
+	ad7768_dev 			*dev,
+	SPI_HandleTypeDef 	*hspi,
+	GPIO_TypeDef 		*spi_cs_port,
+	uint16_t 			spi_cs_pin		
 );
 
 HAL_StatusTypeDef ad7768_sync(ad7768_dev *dev);
