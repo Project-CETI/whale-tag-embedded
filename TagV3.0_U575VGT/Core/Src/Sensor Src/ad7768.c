@@ -240,7 +240,7 @@ HAL_StatusTypeDef ad7768_spi_write(ad7768_dev *dev,
     HAL_StatusTypeDef ret;
 	uint8_t buf[2] = {AD7768_SPI_WRITE(reg_addr), reg_data};
 	prv_ad7768_spi_select(dev);
-	ret = HAL_SPI_Transmit(dev->spi_handler, (uint8_t *)&buf, 1, ADC_TIMEOUT);
+	ret = HAL_SPI_Transmit(dev->spi_handler, (uint8_t *)&buf, 2, ADC_TIMEOUT);
 	prv_ad7768_spi_deselect(dev);
 	return ret;
 }
@@ -658,15 +658,13 @@ HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev){
 	// TODO: Change to output an error
 	// Bit 3 is CHIP_ERROR, Bit 2 is NO_CLOCK_ERROR, check both to see if there is an error
 	if(data != 0x00)
-		return HAL_ERROR;
+		//return HAL_ERROR;
 
     ret |= ad7768_get_revision_id(dev, &data);
 
     if(data != 0x06){
-        return HAL_ERROR;
+        //return HAL_ERROR;
     }
-
-	
 
 	ret |= ad7768_spi_write(dev, AD7768_REG_CH_STANDBY,    __reg_channelStandby_intoRaw(&dev->channel_standby));
 	ret |= ad7768_spi_write(dev, AD7768_REG_CH_MODE_A,     __reg_channelMode_intoRaw(&dev->channel_mode[AD7768_MODE_A]));
@@ -685,6 +683,7 @@ HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev){
 }
 
 HAL_StatusTypeDef ad7768_sync(ad7768_dev *dev){
+
 	HAL_StatusTypeDef ret = HAL_OK;
 
     ret |= ad7768_spi_write(dev, AD7768_REG_DATA_CTRL, __reg_dataControl_intoRaw(&(ad7768_Reg_DataControl){.spi_sync = 0}));

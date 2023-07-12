@@ -8,6 +8,9 @@
 #include "config.h"
 #include "app_filex.h"
 
+#define AUDIO_CIRCULAR_BUFFER_SIZE_MAX (UINT16_MAX/2)
+#define AUDIO_CIRCULAR_BUFFER_SIZE  AUDIO_CIRCULAR_BUFFER_SIZE_MAX
+
 typedef enum {
     AUDIO_BUF_STATE_EMPTY,
     AUDIO_BUF_STATE_HALF_FULL,
@@ -23,7 +26,7 @@ typedef struct audio_manager_s {
     AudioBufferState buffer_state;
     size_t sample_size;
     size_t channel_count;
-    uint8_t audio_buffer[512*2];
+    uint8_t audio_buffer[2][AUDIO_CIRCULAR_BUFFER_SIZE];
 
 
     /*FS/SD Card writing variables*/

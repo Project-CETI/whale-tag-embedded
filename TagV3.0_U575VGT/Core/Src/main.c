@@ -83,7 +83,7 @@ ad7768_dev audio_adc = {
     .channel_standby = {
         .ch[0] = AD7768_ENABLED,
         .ch[1] = AD7768_ENABLED,
-        .ch[2] = AD7768_ENABLED,
+        .ch[2] = AD7768_STANDBY,
         .ch[3] = AD7768_STANDBY
     },
     .channel_mode[AD7768_MODE_A] = {.filter_type = AD7768_FILTER_SINC, .dec_rate = AD7768_DEC_X32},
@@ -91,12 +91,12 @@ ad7768_dev audio_adc = {
     .channel_mode_select = {
         .ch[0] = AD7768_MODE_B,
         .ch[1] = AD7768_MODE_B,
-        .ch[2] = AD7768_MODE_B,
+        .ch[2] = AD7768_MODE_A,
         .ch[3] = AD7768_MODE_A,
     },
     .power_mode = {
         .sleep_mode = AD7768_ACTIVE,
-        .power_mode = AD7768_MEDIAN,
+        .power_mode = AD7768_FAST,
         .lvds_enable = false,
         .mclk_div = AD7768_MCLK_DIV_4,
     },
@@ -108,6 +108,9 @@ ad7768_dev audio_adc = {
 };
 
 AudioManager audio;
+
+extern uint8_t counter;
+extern uint8_t done;
 
 FX_FILE         fs;
 FX_FILE         audio_file = {};
@@ -140,15 +143,20 @@ static void MX_USART3_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 void audio_SAI_RxCpltCallback (SAI_HandleTypeDef * hsai){
+	counter++;
+	counter++;
 	audio.buffer_state = AUDIO_BUF_STATE_FULL;
 }
 
 void audio_SAI_RxHalfCpltCallback (SAI_HandleTypeDef * hsai){
+	counter++;
 	audio.buffer_state = AUDIO_BUF_STATE_HALF_FULL;
 }
 
 void audio_SDWriteComplete(FX_FILE *file){
     audio.buffer_state = AUDIO_BUF_STATE_EMPTY;
+    //done += 1;
+    //counter = 0;
 }
 /* USER CODE END 0 */
 
@@ -196,15 +204,16 @@ int main(void)
   MX_USART3_UART_Init();
   MX_FileX_Init();
   /* USER CODE BEGIN 2 */
+
   //Keller_init(&depth_sensor, &hi2c2);
   //LightSensor_init(&light_sensor, &hi2c2);
-  ad7768_setup(&audio_adc);
+
 
   TagConfig tag_config = {.audio_ch_enabled[0] = 1,
   	  	  	  	  	  	  	  .audio_ch_enabled[1] = 1,
 							  .audio_ch_enabled[2] = 1,
 							  .audio_ch_enabled[3] = 0,
-  	  	  	  	  	  	  	  .audio_ch_headers = 0,
+  	  	  	  	  	  	  	  .audio_ch_headers = 1,
 							  .audio_rate = CFG_AUDIO_RATE_96_KHZ,
   	  	  	  	  	  	  	  .audio_depth = CFG_AUDIO_DEPTH_16_BIT};
 
@@ -237,18 +246,24 @@ int main(void)
   HAL_SAI_RegisterCallback(&hsai_BlockB1, HAL_SAI_RX_HALFCOMPLETE_CB_ID, audio_SAI_RxHalfCpltCallback);
   HAL_SAI_RegisterCallback(&hsai_BlockB1, HAL_SAI_RX_COMPLETE_CB_ID, audio_SAI_RxCpltCallback);
 
+  ad7768_setup(&audio_adc);
+
   audio_init(&audio, &audio_adc, &hsai_BlockB1, &tag_config, &audio_file);
+
+  //HAL_Delay(1000);
 
   audio_record(&audio);
 
-  SDcard_UT();
+  //HAL_Delay(15000);
+
+  //SDcard_UT();
   //Keller_UT(&depth_sensor);
   //Light_UT(&light_sensor);
 
 //  Keller_init(&depth_sensor, &hi2c2);
 //  LightSensor_init(&light_sensor, &hi2c2);
 
-  AD7768_UT(&audio_adc);
+  //AD7768_UT(&audio_adc);
 //  SDcard_UT();
 //  Keller_UT(&depth_sensor);
 //  Light_UT(&light_sensor);
@@ -257,16 +272,16 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  uint32_t startTime = HAL_GetTick();
+  //uint32_t startTime = HAL_GetTick();
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 	  audio_tick(&audio);
-	  uint32_t currentTime = HAL_GetTick();
 
-	  if ((currentTime - startTime) > 100000){
+	  if (done == 10){
+		  HAL_SAI_DMAPause(&hsai_BlockB1);
 		  break;
 	  }
   }
@@ -695,7 +710,7 @@ static void MX_SAI1_Init(void)
   hsai_BlockB1.SlotInit.FirstBitOffset = 0;
   hsai_BlockB1.SlotInit.SlotSize = SAI_SLOTSIZE_DATASIZE;
   hsai_BlockB1.SlotInit.SlotNumber = 16;
-  hsai_BlockB1.SlotInit.SlotActive = 0x00000666;
+  hsai_BlockB1.SlotInit.SlotActive = 0x000000FF;
   if (HAL_SAI_Init(&hsai_BlockB1) != HAL_OK)
   {
     Error_Handler();
@@ -762,7 +777,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -771,7 +786,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
   hspi1.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
   hspi1.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
-  hspi1.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
+  hspi1.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_08CYCLE;
   hspi1.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
   hspi1.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
   hspi1.Init.IOSwap = SPI_IO_SWAP_DISABLE;
