@@ -575,7 +575,7 @@ void HAL_SD_MspInit(SD_HandleTypeDef* hsd)
     HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
     /* SDMMC1 interrupt Init */
-    HAL_NVIC_SetPriority(SDMMC1_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(SDMMC1_IRQn, 1, 0);
     HAL_NVIC_EnableIRQ(SDMMC1_IRQn);
   /* USER CODE BEGIN SDMMC1_MspInit 1 */
 
@@ -1056,7 +1056,7 @@ void HAL_SAI_MspInit(SAI_HandleTypeDef* hsai)
     }
 
     handle_GPDMA1_Channel0.Instance = GPDMA1_Channel0;
-    handle_GPDMA1_Channel0.InitLinkedList.Priority = DMA_HIGH_PRIORITY;
+    handle_GPDMA1_Channel0.InitLinkedList.Priority = DMA_LOW_PRIORITY_LOW_WEIGHT;
     handle_GPDMA1_Channel0.InitLinkedList.LinkStepMode = DMA_LSM_FULL_EXECUTION;
     handle_GPDMA1_Channel0.InitLinkedList.LinkAllocatedPort = DMA_LINK_ALLOCATED_PORT0;
     handle_GPDMA1_Channel0.InitLinkedList.TransferEventMode = DMA_TCEM_BLOCK_TRANSFER;

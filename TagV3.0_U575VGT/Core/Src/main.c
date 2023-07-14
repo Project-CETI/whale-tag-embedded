@@ -83,7 +83,7 @@ ad7768_dev audio_adc = {
     .channel_standby = {
         .ch[0] = AD7768_ENABLED,
         .ch[1] = AD7768_ENABLED,
-        .ch[2] = AD7768_STANDBY,
+        .ch[2] = AD7768_ENABLED,
         .ch[3] = AD7768_STANDBY
     },
     .channel_mode[AD7768_MODE_A] = {.filter_type = AD7768_FILTER_SINC, .dec_rate = AD7768_DEC_X32},
@@ -91,7 +91,7 @@ ad7768_dev audio_adc = {
     .channel_mode_select = {
         .ch[0] = AD7768_MODE_B,
         .ch[1] = AD7768_MODE_B,
-        .ch[2] = AD7768_MODE_A,
+        .ch[2] = AD7768_MODE_B,
         .ch[3] = AD7768_MODE_A,
     },
     .power_mode = {
@@ -112,10 +112,12 @@ AudioManager audio;
 extern uint8_t counter;
 extern uint8_t done;
 uint8_t bad = 0;
+uint8_t true_counter = 0;
 
 extern uint8_t writeFull;
 extern uint8_t writeHalf;
 
+extern uint8_t temp_counter;
 FX_FILE         fs;
 FX_FILE         audio_file = {};
 
@@ -147,32 +149,47 @@ static void MX_USART3_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 void audio_SAI_RxCpltCallback (SAI_HandleTypeDef * hsai){
-	counter++;
-	counter++;
 
-	if (audio.buffer_state == AUDIO_BUF_STATE_HALF_FULL){
-		bad++;
+	counter += 2;
+	memcpy(audio.temp_buffer[audio.temp_counter], audio.audio_buffer[1], AUDIO_CIRCULAR_BUFFER_SIZE);
+	counter -= 2;
+
+	audio.temp_counter++;
+
+	if (audio.temp_counter == 10){
+		audio.buffer_state = AUDIO_BUF_STATE_HALF_FULL;
 	}
 
-	audio.buffer_state = AUDIO_BUF_STATE_FULL;
+	if (audio.temp_counter == 20){
+		audio.buffer_state = AUDIO_BUF_STATE_FULL;
+		audio.temp_counter = 0;
+	}
 }
 
 void audio_SAI_RxHalfCpltCallback (SAI_HandleTypeDef * hsai){
+
 	counter++;
-	audio.buffer_state = AUDIO_BUF_STATE_HALF_FULL;
+	memcpy(audio.temp_buffer[audio.temp_counter], audio.audio_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE);
+	counter -= 1;
+
+	audio.temp_counter++;
+
+	if (audio.temp_counter == 10){
+		audio.buffer_state = AUDIO_BUF_STATE_HALF_FULL;
+	}
+
+	if (audio.temp_counter == 20){
+		audio.buffer_state = AUDIO_BUF_STATE_FULL;
+		audio.temp_counter = 0;
+	}
 }
 
 void audio_SDWriteComplete(FX_FILE *file){
 	//HAL_SAI_DMAResume(&hsai_BlockB1);
-	counter = 0;
-	audio.temp_counter = 0;
-	if (audio.buffer_state == AUDIO_BUF_STATE_FULL){
-		writeFull -= 10;
-	}
-	else if (audio.buffer_state == AUDIO_BUF_STATE_HALF_FULL){
-		writeHalf -= 10;
-	}
+	//audio.temp_counter = 0;
+	//done++;
 
+	temp_counter = 0;
     audio.buffer_state = AUDIO_BUF_STATE_EMPTY;
 
 }
@@ -239,7 +256,7 @@ int main(void)
 
 
     //create audio file
-  UINT fx_result;
+  volatile UINT fx_result;
   fx_result = fx_media_open(&sdio_disk, "", fx_stm32_sd_driver, (VOID *)FX_NULL, (VOID *) fx_sd_media_memory, sizeof(fx_sd_media_memory));
     if(fx_result != FX_SUCCESS){
         Error_Handler();
@@ -252,6 +269,12 @@ int main(void)
   }
 
   fx_result = fx_file_open(&sdio_disk, &audio_file, "audio_test.bin", FX_OPEN_FOR_WRITE);
+  if(fx_result != FX_SUCCESS){
+      Error_Handler();
+  }
+
+  //ULONG x = 0;
+  //fx_result = fx_file_extended_allocate(&audio_file, AUDIO_CIRCULAR_BUFFER_SIZE * 2000);
   if(fx_result != FX_SUCCESS){
       Error_Handler();
   }
@@ -298,7 +321,7 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	  audio_tick(&audio);
 
-	  if (done >= 10){
+	  if (done >= 3){
 		  break;
 	  }
   }
@@ -729,7 +752,7 @@ static void MX_SAI1_Init(void)
   hsai_BlockB1.SlotInit.FirstBitOffset = 0;
   hsai_BlockB1.SlotInit.SlotSize = SAI_SLOTSIZE_DATASIZE;
   hsai_BlockB1.SlotInit.SlotNumber = 16;
-  hsai_BlockB1.SlotInit.SlotActive = 0x000000FF;
+  hsai_BlockB1.SlotInit.SlotActive = 0x00000EEE;
   if (HAL_SAI_Init(&hsai_BlockB1) != HAL_OK)
   {
     Error_Handler();

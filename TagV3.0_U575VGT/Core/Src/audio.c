@@ -29,6 +29,9 @@
 
 extern uint8_t counter;
 extern uint8_t done;
+
+uint8_t temp_counter;
+
 bool tick = 0;
 uint8_t writeFull = 0;
 uint8_t writeHalf = 0;
@@ -103,7 +106,7 @@ HAL_StatusTypeDef audio_set_sample_rate(
 }
 
 HAL_StatusTypeDef audio_record(AudioManager *self){
-    HAL_SAI_Receive_DMA(self->sai, self->audio_buffer, AUDIO_CIRCULAR_BUFFER_SIZE * 2);
+    HAL_SAI_Receive_DMA(self->sai, self->audio_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 2);
     return HAL_OK;
 }
 
@@ -111,24 +114,28 @@ HAL_StatusTypeDef audio_tick(AudioManager *self){
 	tick = !tick;
     switch (self->buffer_state){
         case AUDIO_BUF_STATE_HALF_FULL:
-        	//HAL_SAI_DMAPause(self->sai);
-            fx_file_write(self->file, self->audio_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE);
-            writeHalf += 10;
-        	//memcpy(self->temp_buffer[self->temp_counter], self->audio_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE);
-        	//self->temp_counter++;
-        	//self->buffer_state = AUDIO_BUF_STATE_EMPTY;
-        	//counter -= 1;
+            //fx_file_write(self->file, self->audio_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE);
+
+        	//move to sram
+
+        	//if (self->temp_counter == 5){
+        		temp_counter++;
+        		fx_file_write(self->file, self->temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
+        	//}
+        	//HAL_SRAM_Write_8b(hramcfg_SRAM1, SRAM_Pointer, self->audio_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE);
             //ToDo: Error Handling
             break;
         case AUDIO_BUF_STATE_FULL:
-        	//HAL_SAI_DMAPause(self->sai);
-            fx_file_write(self->file, self->audio_buffer[1], AUDIO_CIRCULAR_BUFFER_SIZE);
-            writeFull += 10;
         	//memcpy(self->temp_buffer[self->temp_counter], self->audio_buffer[1], AUDIO_CIRCULAR_BUFFER_SIZE);
         	//self->temp_counter++;
-        	//self->buffer_state = AUDIO_BUF_STATE_EMPTY;
         	//counter -= 2;
-        	//done++;
+        	//self->buffer_state = AUDIO_BUF_STATE_EMPTY;
+
+        	//if (self->temp_counter == 5){
+        		temp_counter++;
+        		fx_file_write(self->file, self->temp_buffer[10], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
+        	//}
+            //fx_file_write(self->file, self->audio_buffer[10], AUDIO_CIRCULAR_BUFFER_SIZE);
             //ToDo: Error Handling
             break;
         case AUDIO_BUF_STATE_EMPTY:
@@ -138,8 +145,5 @@ HAL_StatusTypeDef audio_tick(AudioManager *self){
             
     }
 
-    if (self->temp_counter == 20){
-    	fx_file_write(self->file, self->audio_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 20);
-    }
     return HAL_OK;
 }
