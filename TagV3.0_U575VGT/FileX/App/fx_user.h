@@ -111,11 +111,11 @@
 /* Defines the size in bytes of the bit map used to update the secondary FAT sectors.
    The larger the value the less unnecessary secondary FAT sector writes.   */
 
-/* #define FX_FAT_MAP_SIZE         128 */
+#define FX_FAT_MAP_SIZE         10000
 
 /* Defined, data sector write requests are flushed immediately to the driver.  */
 
-/* #define FX_FAULT_TOLERANT */
+#define FX_FAULT_TOLERANT
 
 /* Define byte offset in boot sector where the cluster number of the Fault Tolerant Log file is.
    Note that this field (byte 116 to 119) is marked as reserved by FAT 12/16/32/exFAT specification. */
@@ -124,7 +124,7 @@
 
 /* Defined, data sector write requests are flushed immediately to the driver.  */
 
-/* #define FX_FAULT_TOLERANT_DATA */
+#define FX_FAULT_TOLERANT_DATA
 
 /* Defines the number of entries in the FAT cache.  */
 

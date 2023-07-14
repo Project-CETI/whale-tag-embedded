@@ -96,9 +96,9 @@ ad7768_dev audio_adc = {
     },
     .power_mode = {
         .sleep_mode = AD7768_ACTIVE,
-        .power_mode = AD7768_FAST,
+        .power_mode = AD7768_ECO,
         .lvds_enable = false,
-        .mclk_div = AD7768_MCLK_DIV_4,
+        .mclk_div = AD7768_MCLK_DIV_8,
     },
     .interface_config = {
         .crc_select = AD7768_CRC_NONE,
@@ -111,6 +111,10 @@ AudioManager audio;
 
 extern uint8_t counter;
 extern uint8_t done;
+uint8_t bad = 0;
+
+extern uint8_t writeFull;
+extern uint8_t writeHalf;
 
 FX_FILE         fs;
 FX_FILE         audio_file = {};
@@ -145,6 +149,11 @@ static void MX_USART3_UART_Init(void);
 void audio_SAI_RxCpltCallback (SAI_HandleTypeDef * hsai){
 	counter++;
 	counter++;
+
+	if (audio.buffer_state == AUDIO_BUF_STATE_HALF_FULL){
+		bad++;
+	}
+
 	audio.buffer_state = AUDIO_BUF_STATE_FULL;
 }
 
@@ -154,9 +163,18 @@ void audio_SAI_RxHalfCpltCallback (SAI_HandleTypeDef * hsai){
 }
 
 void audio_SDWriteComplete(FX_FILE *file){
+	//HAL_SAI_DMAResume(&hsai_BlockB1);
+	counter = 0;
+	audio.temp_counter = 0;
+	if (audio.buffer_state == AUDIO_BUF_STATE_FULL){
+		writeFull -= 10;
+	}
+	else if (audio.buffer_state == AUDIO_BUF_STATE_HALF_FULL){
+		writeHalf -= 10;
+	}
+
     audio.buffer_state = AUDIO_BUF_STATE_EMPTY;
-    //done += 1;
-    //counter = 0;
+
 }
 /* USER CODE END 0 */
 
@@ -280,11 +298,12 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	  audio_tick(&audio);
 
-	  if (done == 10){
-		  HAL_SAI_DMAPause(&hsai_BlockB1);
+	  if (done >= 10){
 		  break;
 	  }
   }
+
+  //fx_file_write(audio.file, audio.temp_buffer[1], AUDIO_CIRCULAR_BUFFER_SIZE);
 
   fx_file_close(&audio_file);
   fx_media_close(&sdio_disk);
@@ -741,7 +760,7 @@ static void MX_SDMMC1_SD_Init(void)
   hsd1.Init.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_ENABLE;
   hsd1.Init.BusWide = SDMMC_BUS_WIDE_4B;
   hsd1.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
-  hsd1.Init.ClockDiv = 0;
+  hsd1.Init.ClockDiv = 4;
   if (HAL_SD_Init(&hsd1) != HAL_OK)
   {
     Error_Handler();

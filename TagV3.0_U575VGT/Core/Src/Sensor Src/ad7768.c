@@ -658,12 +658,12 @@ HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev){
 	// TODO: Change to output an error
 	// Bit 3 is CHIP_ERROR, Bit 2 is NO_CLOCK_ERROR, check both to see if there is an error
 	if(data != 0x00)
-		//return HAL_ERROR;
+		return HAL_ERROR;
 
     ret |= ad7768_get_revision_id(dev, &data);
 
     if(data != 0x06){
-        //return HAL_ERROR;
+        return HAL_ERROR;
     }
 
 	ret |= ad7768_spi_write(dev, AD7768_REG_CH_STANDBY,    __reg_channelStandby_intoRaw(&dev->channel_standby));

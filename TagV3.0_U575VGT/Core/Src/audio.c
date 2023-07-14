@@ -27,6 +27,11 @@
 #include "util.h"
 #include "fx_api.h"
 
+extern uint8_t counter;
+extern uint8_t done;
+bool tick = 0;
+uint8_t writeFull = 0;
+uint8_t writeHalf = 0;
 /*******************************
  * PUBLIC FUNCTION DEFINITIONS *
  *******************************/
@@ -37,6 +42,7 @@ HAL_StatusTypeDef audio_init(AudioManager *self, ad7768_dev *adc, SAI_HandleType
     self->adc = adc;
     self->sai = hsai;
 
+    self->temp_counter = 0;
     if(config){
         //audio_configure(self, config);
     }
@@ -102,13 +108,27 @@ HAL_StatusTypeDef audio_record(AudioManager *self){
 }
 
 HAL_StatusTypeDef audio_tick(AudioManager *self){
+	tick = !tick;
     switch (self->buffer_state){
         case AUDIO_BUF_STATE_HALF_FULL:
+        	//HAL_SAI_DMAPause(self->sai);
             fx_file_write(self->file, self->audio_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE);
+            writeHalf += 10;
+        	//memcpy(self->temp_buffer[self->temp_counter], self->audio_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE);
+        	//self->temp_counter++;
+        	//self->buffer_state = AUDIO_BUF_STATE_EMPTY;
+        	//counter -= 1;
             //ToDo: Error Handling
             break;
         case AUDIO_BUF_STATE_FULL:
+        	//HAL_SAI_DMAPause(self->sai);
             fx_file_write(self->file, self->audio_buffer[1], AUDIO_CIRCULAR_BUFFER_SIZE);
+            writeFull += 10;
+        	//memcpy(self->temp_buffer[self->temp_counter], self->audio_buffer[1], AUDIO_CIRCULAR_BUFFER_SIZE);
+        	//self->temp_counter++;
+        	//self->buffer_state = AUDIO_BUF_STATE_EMPTY;
+        	//counter -= 2;
+        	//done++;
             //ToDo: Error Handling
             break;
         case AUDIO_BUF_STATE_EMPTY:
@@ -116,6 +136,10 @@ HAL_StatusTypeDef audio_tick(AudioManager *self){
         default:
             break;
             
+    }
+
+    if (self->temp_counter == 20){
+    	fx_file_write(self->file, self->audio_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 20);
     }
     return HAL_OK;
 }
