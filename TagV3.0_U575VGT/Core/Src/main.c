@@ -129,7 +129,6 @@ ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / siz
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_GPDMA1_Init(void);
-static void MX_I2C4_Init(void);
 static void MX_SDMMC1_SD_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_UART4_Init(void);
@@ -141,6 +140,7 @@ static void MX_I2C2_Init(void);
 static void MX_SAI1_Init(void);
 static void MX_I2C3_Init(void);
 static void MX_SPI2_Init(void);
+static void MX_I2C4_Init(void);
 static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
@@ -190,6 +190,7 @@ void audio_SDWriteComplete(FX_FILE *file){
 	//done++;
 
 	temp_counter = 0;
+	done++;
     audio.buffer_state = AUDIO_BUF_STATE_EMPTY;
 
 }
@@ -224,7 +225,6 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_GPDMA1_Init();
-  MX_I2C4_Init();
   MX_SDMMC1_SD_Init();
   MX_SPI1_Init();
   MX_UART4_Init();
@@ -236,8 +236,9 @@ int main(void)
   MX_SAI1_Init();
   MX_I2C3_Init();
   MX_SPI2_Init();
-  MX_USART3_UART_Init();
+  MX_I2C4_Init();
   MX_FileX_Init();
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
 
   //Keller_init(&depth_sensor, &hi2c2);
@@ -293,6 +294,9 @@ int main(void)
 
   //HAL_Delay(1000);
 
+  //dummy write
+  temp_counter++;
+  fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
   audio_record(&audio);
 
   //HAL_Delay(15000);
@@ -321,7 +325,7 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	  audio_tick(&audio);
 
-	  if (done >= 3){
+	  if (done >= 10){
 		  break;
 	  }
   }
