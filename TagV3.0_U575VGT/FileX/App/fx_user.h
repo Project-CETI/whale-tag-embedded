@@ -71,7 +71,8 @@
 /* Override various options with default values already assigned in fx_api.h or fx_port.h.
   Please also refer to fx_port.h for descriptions on each of these options.  */
 
-/* #define ULONG64_DEFINED */
+/* Avoid doule definition warning, as ULONG64 typedef is already defined by ThreadX */
+#define ULONG64_DEFINED
 
 /* Direct read sector cache will be disabled if cache is disabled.  */
 
@@ -82,7 +83,7 @@
    functions to the core functions that actually perform the work.
    Note: error checking is enabled by default.  */
 
-/* #define FX_DISABLE_ERROR_CHECKING */
+#define FX_DISABLE_ERROR_CHECKING
 
 /* Defined, FileX does not update already opened files.  */
 
@@ -111,7 +112,7 @@
 /* Defines the size in bytes of the bit map used to update the secondary FAT sectors.
    The larger the value the less unnecessary secondary FAT sector writes.   */
 
-#define FX_FAT_MAP_SIZE         10000
+#define FX_FAT_MAP_SIZE         256
 
 /* Defined, data sector write requests are flushed immediately to the driver.  */
 
@@ -152,11 +153,11 @@
 
 /* Defined, local path logic is disabled.  */
 
-#define FX_NO_LOCAL_PATH
+/* #define FX_NO_LOCAL_PATH */
 
 /* Defined, FileX is built without update to the time parameters.  */
 
-#define FX_NO_TIMER
+/* #define FX_NO_TIMER */
 
 /* Defined, renaming inherits path information.  */
 
@@ -171,21 +172,21 @@
    uses, the macros are setup to utilize a ThreadX mutex for multiple thread
    access control into an open media.  */
 
-#define FX_SINGLE_THREAD
+/* #define FX_SINGLE_THREAD */
 
 /* Configure the FileX in Standalone mode */
 
-#define FX_STANDALONE_ENABLE
+/* #define FX_STANDALONE_ENABLE */
 
 /* Defines the number of seconds the time parameters are updated in FileX.  */
 
-/* #define FX_UPDATE_RATE_IN_SECONDS         10 */
+#define FX_UPDATE_RATE_IN_SECONDS   1
 
 /* Defines the number of ThreadX timer ticks required to achieve the update rate specified by
    FX_UPDATE_RATE_IN_SECONDS defined previously. By default, the ThreadX timer tick is 10ms,
    so the default value for this constant is 1000.  */
 
-/* #define FX_UPDATE_RATE_IN_TICKS         1000 */
+#define FX_UPDATE_RATE_IN_TICKS     10000
 
 /* Determine if cache is disabled.  */
 

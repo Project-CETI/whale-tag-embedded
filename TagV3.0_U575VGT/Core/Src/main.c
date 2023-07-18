@@ -17,8 +17,8 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
+#include "app_threadx.h"
 #include "main.h"
-#include "app_filex.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -76,53 +76,7 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 /* USER CODE BEGIN PV */
 Keller_HandleTypedef depth_sensor;
 LightSensorHandleTypedef light_sensor;
-ad7768_dev audio_adc = {
-    .spi_handler = &hspi1,
-		.spi_cs_port = ADC_CS_GPIO_Port,
-		.spi_cs_pin = ADC_CS_Pin,
-    .channel_standby = {
-        .ch[0] = AD7768_ENABLED,
-        .ch[1] = AD7768_ENABLED,
-        .ch[2] = AD7768_ENABLED,
-        .ch[3] = AD7768_STANDBY
-    },
-    .channel_mode[AD7768_MODE_A] = {.filter_type = AD7768_FILTER_SINC, .dec_rate = AD7768_DEC_X32},
-    .channel_mode[AD7768_MODE_B] = {.filter_type = AD7768_FILTER_WIDEBAND, .dec_rate = AD7768_DEC_X32},
-    .channel_mode_select = {
-        .ch[0] = AD7768_MODE_B,
-        .ch[1] = AD7768_MODE_B,
-        .ch[2] = AD7768_MODE_B,
-        .ch[3] = AD7768_MODE_A,
-    },
-    .power_mode = {
-        .sleep_mode = AD7768_ACTIVE,
-        .power_mode = AD7768_ECO,
-        .lvds_enable = false,
-        .mclk_div = AD7768_MCLK_DIV_8,
-    },
-    .interface_config = {
-        .crc_select = AD7768_CRC_NONE,
-        .dclk_div = AD7768_DCLK_DIV_1,
-    },
-    .pin_spi_ctrl = AD7768_SPI_CTRL,
-};
-
 AudioManager audio;
-
-extern uint8_t counter;
-extern uint8_t done;
-uint8_t bad = 0;
-uint8_t true_counter = 0;
-
-extern uint8_t writeFull;
-extern uint8_t writeHalf;
-
-extern uint8_t temp_counter;
-FX_FILE         fs;
-FX_FILE         audio_file = {};
-
-FX_MEDIA        sdio_disk;
-ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -148,52 +102,6 @@ static void MX_USART3_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void audio_SAI_RxCpltCallback (SAI_HandleTypeDef * hsai){
-
-	counter += 2;
-	memcpy(audio.temp_buffer[audio.temp_counter], audio.audio_buffer[1], AUDIO_CIRCULAR_BUFFER_SIZE);
-	counter -= 2;
-
-	audio.temp_counter++;
-
-	if (audio.temp_counter == 10){
-		audio.buffer_state = AUDIO_BUF_STATE_HALF_FULL;
-	}
-
-	if (audio.temp_counter == 20){
-		audio.buffer_state = AUDIO_BUF_STATE_FULL;
-		audio.temp_counter = 0;
-	}
-}
-
-void audio_SAI_RxHalfCpltCallback (SAI_HandleTypeDef * hsai){
-
-	counter++;
-	memcpy(audio.temp_buffer[audio.temp_counter], audio.audio_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE);
-	counter -= 1;
-
-	audio.temp_counter++;
-
-	if (audio.temp_counter == 10){
-		audio.buffer_state = AUDIO_BUF_STATE_HALF_FULL;
-	}
-
-	if (audio.temp_counter == 20){
-		audio.buffer_state = AUDIO_BUF_STATE_FULL;
-		audio.temp_counter = 0;
-	}
-}
-
-void audio_SDWriteComplete(FX_FILE *file){
-	//HAL_SAI_DMAResume(&hsai_BlockB1);
-	//audio.temp_counter = 0;
-	//done++;
-
-	temp_counter = 0;
-	done++;
-    audio.buffer_state = AUDIO_BUF_STATE_EMPTY;
-
-}
 /* USER CODE END 0 */
 
 /**
@@ -237,67 +145,11 @@ int main(void)
   MX_I2C3_Init();
   MX_SPI2_Init();
   MX_I2C4_Init();
-  MX_FileX_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
 
   //Keller_init(&depth_sensor, &hi2c2);
   //LightSensor_init(&light_sensor, &hi2c2);
-
-
-  TagConfig tag_config = {.audio_ch_enabled[0] = 1,
-  	  	  	  	  	  	  	  .audio_ch_enabled[1] = 1,
-							  .audio_ch_enabled[2] = 1,
-							  .audio_ch_enabled[3] = 0,
-  	  	  	  	  	  	  	  .audio_ch_headers = 1,
-							  .audio_rate = CFG_AUDIO_RATE_96_KHZ,
-  	  	  	  	  	  	  	  .audio_depth = CFG_AUDIO_DEPTH_16_BIT};
-
-
-
-
-    //create audio file
-  volatile UINT fx_result;
-  fx_result = fx_media_open(&sdio_disk, "", fx_stm32_sd_driver, (VOID *)FX_NULL, (VOID *) fx_sd_media_memory, sizeof(fx_sd_media_memory));
-    if(fx_result != FX_SUCCESS){
-        Error_Handler();
-    }
-
-
-  fx_result = fx_file_create(&sdio_disk, "audio_test.bin");
-  if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
-      Error_Handler();
-  }
-
-  fx_result = fx_file_open(&sdio_disk, &audio_file, "audio_test.bin", FX_OPEN_FOR_WRITE);
-  if(fx_result != FX_SUCCESS){
-      Error_Handler();
-  }
-
-  //ULONG x = 0;
-  //fx_result = fx_file_extended_allocate(&audio_file, AUDIO_CIRCULAR_BUFFER_SIZE * 2000);
-  if(fx_result != FX_SUCCESS){
-      Error_Handler();
-  }
-
-  fx_result = fx_file_write_notify_set(&audio_file, audio_SDWriteComplete);
-  if(fx_result != FX_SUCCESS){
-      Error_Handler();
-  }
-
-  HAL_SAI_RegisterCallback(&hsai_BlockB1, HAL_SAI_RX_HALFCOMPLETE_CB_ID, audio_SAI_RxHalfCpltCallback);
-  HAL_SAI_RegisterCallback(&hsai_BlockB1, HAL_SAI_RX_COMPLETE_CB_ID, audio_SAI_RxCpltCallback);
-
-  ad7768_setup(&audio_adc);
-
-  audio_init(&audio, &audio_adc, &hsai_BlockB1, &tag_config, &audio_file);
-
-  //HAL_Delay(1000);
-
-  //dummy write
-  temp_counter++;
-  fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
-  audio_record(&audio);
 
   //HAL_Delay(15000);
 
@@ -315,25 +167,21 @@ int main(void)
 
   /* USER CODE END 2 */
 
+  MX_ThreadX_Init();
+
+  /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  //uint32_t startTime = HAL_GetTick();
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  audio_tick(&audio);
-
-	  if (done >= 10){
-		  break;
-	  }
   }
 
   //fx_file_write(audio.file, audio.temp_buffer[1], AUDIO_CIRCULAR_BUFFER_SIZE);
 
-  fx_file_close(&audio_file);
-  fx_media_close(&sdio_disk);
+
   /* USER CODE END 3 */
 }
 
@@ -505,7 +353,7 @@ static void MX_GPDMA1_Init(void)
   __HAL_RCC_GPDMA1_CLK_ENABLE();
 
   /* GPDMA1 interrupt Init */
-    HAL_NVIC_SetPriority(GPDMA1_Channel0_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(GPDMA1_Channel0_IRQn, 1, 0);
     HAL_NVIC_EnableIRQ(GPDMA1_Channel0_IRQn);
 
   /* USER CODE BEGIN GPDMA1_Init 1 */

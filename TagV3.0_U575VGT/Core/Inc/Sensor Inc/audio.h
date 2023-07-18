@@ -57,6 +57,8 @@ HAL_StatusTypeDef audio_record(AudioManager *self);
 // enable RAM->SRAM_ext DMA
 // enable SRAM_ext->SD Card
 
+
+void audio_thread_entry(ULONG thread_input);
 /* audio_halt()
 // stop circular buffer
 // write SRAM_ext to SD_Card
