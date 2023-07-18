@@ -28,6 +28,7 @@
 #include "fx_api.h"
 #include "tx_api.h"
 #include "app_filex.h"
+#include "app_threadx.h"
 
 extern uint8_t counter;
 extern uint8_t done;
@@ -37,6 +38,8 @@ uint8_t temp_counter;
 bool tick = 0;
 uint8_t writeFull = 0;
 uint8_t writeHalf = 0;
+bool yielding = 0;
+
 /*******************************
  * PUBLIC FUNCTION DEFINITIONS *
  *******************************/
@@ -61,7 +64,7 @@ ad7768_dev audio_adc = {
     },
     .power_mode = {
         .sleep_mode = AD7768_ACTIVE,
-        .power_mode = AD7768_ECO,
+        .power_mode = AD7768_MEDIAN,
         .lvds_enable = false,
         .mclk_div = AD7768_MCLK_DIV_8,
     },
@@ -93,7 +96,7 @@ FX_FILE         audio_file = {};
 extern FX_MEDIA        sdio_disk;
 extern ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
 
-
+extern TX_THREAD test_thread;
 TX_EVENT_FLAGS_GROUP audio_event_flags_group;
 
 void audio_SAI_RxCpltCallback (SAI_HandleTypeDef * hsai){
@@ -105,11 +108,13 @@ void audio_SAI_RxCpltCallback (SAI_HandleTypeDef * hsai){
 	audio.temp_counter++;
 
 	if (audio.temp_counter == 10){
+		audio.buffer_state = AUDIO_BUF_STATE_HALF_FULL;
 		tx_event_flags_set(&audio_event_flags_group, 0x1, TX_OR);
 	}
 
 	if (audio.temp_counter == 20){
-		//tx_event_flags_set(&audio_event_flags_group, 0x2, TX_OR);
+		tx_event_flags_set(&audio_event_flags_group, 0x2, TX_OR);
+		//audio.buffer_state = AUDIO_BUF_STATE_FULL;
 		audio.temp_counter = 0;
 	}
 }
@@ -123,11 +128,13 @@ void audio_SAI_RxHalfCpltCallback (SAI_HandleTypeDef * hsai){
 	audio.temp_counter++;
 
 	if (audio.temp_counter == 10){
+		audio.buffer_state = AUDIO_BUF_STATE_HALF_FULL;
 		tx_event_flags_set(&audio_event_flags_group, 0x1, TX_OR);
 	}
 
 	if (audio.temp_counter == 20){
-		//tx_event_flags_set(&audio_event_flags_group, 0x2, TX_OR);
+		//audio.buffer_state = AUDIO_BUF_STATE_FULL;
+		tx_event_flags_set(&audio_event_flags_group, 0x2, TX_OR);
 		audio.temp_counter = 0;
 	}
 }
@@ -153,9 +160,9 @@ void audio_thread_entry(ULONG thread_input){
 								  .audio_rate = CFG_AUDIO_RATE_96_KHZ,
 	  	  	  	  	  	  	  	  .audio_depth = CFG_AUDIO_DEPTH_16_BIT};
 
-	  UINT fx_result = FX_SUCCESS;
-	  ULONG acc_flag_pointer;
-	  fx_result = fx_media_open(&sdio_disk, "", fx_stm32_sd_driver, (VOID *)FX_NULL, (VOID *) fx_sd_media_memory, sizeof(fx_sd_media_memory));
+	  volatile UINT fx_result = FX_SUCCESS;
+	  ULONG acc_flag_pointer = 0;
+	  //fx_result = fx_media_open(&sdio_disk, "", fx_stm32_sd_driver, (VOID *)FX_NULL, (VOID *) fx_sd_media_memory, sizeof(fx_sd_media_memory));
 
 	    if(fx_result != FX_SUCCESS){
 	        Error_Handler();
@@ -172,7 +179,7 @@ void audio_thread_entry(ULONG thread_input){
 	  }
 
 	  //ULONG x = 0;
-	  fx_result = fx_file_extended_allocate(&audio_file, AUDIO_CIRCULAR_BUFFER_SIZE * 2000);
+	  //fx_result = fx_file_extended_allocate(&audio_file, AUDIO_CIRCULAR_BUFFER_SIZE * 2000);
 	  if(fx_result != FX_SUCCESS){
 	      Error_Handler();
 	  }
@@ -197,20 +204,30 @@ void audio_thread_entry(ULONG thread_input){
 	  temp_counter++;
 
 	  fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
+	  HAL_Delay(1000);
+	  temp_counter++;
+	  fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
 	  audio_record(&audio);
 
 	  while (1){
+
+		  yielding = true;
 		  tx_event_flags_get(&audio_event_flags_group, 0x1 | 0x2, TX_OR_CLEAR, &acc_flag_pointer, TX_WAIT_FOREVER);
+		  yielding = false;
 
 		  if (acc_flag_pointer & 0x1){
-      		temp_counter++;
+      		temp_counter = 1;
       		fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
 		  }
 
 		  if (acc_flag_pointer & 0x2){
-      		//temp_counter++;
-      		//fx_file_write(audio.file, audio.temp_buffer[10], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
+      		temp_counter = 1;
+      		fx_file_write(audio.file, audio.temp_buffer[10], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
 		  }
+
+		  //audio_tick(&audio);
+		  while (temp_counter != 0);
+
 	  }
 	  //fx_file_close(&audio_file);
 	  //fx_media_close(&sdio_disk);

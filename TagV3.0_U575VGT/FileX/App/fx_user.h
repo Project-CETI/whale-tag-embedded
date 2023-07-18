@@ -87,7 +87,7 @@
 
 /* Defined, FileX does not update already opened files.  */
 
-/* #define FX_DONT_UPDATE_OPEN_FILES */
+#define FX_DONT_UPDATE_OPEN_FILES
 
 /* Defined, enables 64-bits sector addresses used in I/O driver.  */
 
@@ -180,13 +180,13 @@
 
 /* Defines the number of seconds the time parameters are updated in FileX.  */
 
-#define FX_UPDATE_RATE_IN_SECONDS   1
+/* #define FX_UPDATE_RATE_IN_SECONDS         10 */
 
 /* Defines the number of ThreadX timer ticks required to achieve the update rate specified by
    FX_UPDATE_RATE_IN_SECONDS defined previously. By default, the ThreadX timer tick is 10ms,
    so the default value for this constant is 1000.  */
 
-#define FX_UPDATE_RATE_IN_TICKS     10000
+#define FX_UPDATE_RATE_IN_TICKS     100000
 
 /* Determine if cache is disabled.  */
 
@@ -223,16 +223,12 @@
 /* Define bitmap cache size for exFAT. Size should be minimum one sector size and maximum 4096. For applications using multiple media devices with varying sector size, the value should be set to the size of largest sector size.
 The FX_EXFAT_MAX_CACHE_SIZE is 2 power of FX_EXFAT_MAX_CACHE_SIZE_NB_BIT.  */
 
-/*
-#define FX_EXFAT_MAX_CACHE_SIZE            512
-*/
+#define FX_EXFAT_MAX_CACHE_SIZE            4096
 
 /* Define the size of fault tolerant cache, which is used when freeing FAT chain.
 	The FX_FAULT_TOLERANT_CACHE_SIZE is 2 power of FX_FAULT_TOLERANT_CACHE_SIZE_NB_SIZE.  */
 
-/*
-#define FX_FAULT_TOLERANT_CACHE_SIZE            1024
-*/
+#define FX_FAULT_TOLERANT_CACHE_SIZE            16384
 
 /* USER CODE BEGIN 2 */
 
