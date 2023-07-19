@@ -1,8 +1,21 @@
 #ifndef __AUDIO_INC_H__
 #define __AUDIO_INC_H__
 
+/*
+ * author: Kaveet
+ *
+ * This file is responsible for getting the Audio data from the ADC (ad7768) and writing to the SD card
+ *
+ * The audio data comes in through the SAI (Serial-Audio Interface) through DMA, and then is written to a temporary buffer. Once the temporary buffer fills, we write to the SD card
+ *
+ * Due to limitations by STM32, the DMA buffer is not large enough (They only allow 16-bit length values). This is why we introduced the larger temporary buffer, which is about 10x the size of the DMA buffer.
+ *
+ * SD card writes can take some time to setup, so limiting the number of writes (and increasing the quantity of each write) can help reduce the time servicing the audio task.
+ *
+ * For more of a breakdown, see hand-over documents.
+ * ADC Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/ad7768-7768-4.pdf
+ */
 #include <stdint.h>
-
 #include "main.h"
 #include "ad7768.h"
 #include "config.h"
@@ -26,16 +39,22 @@ typedef struct audio_manager_s {
     AudioBufferState buffer_state;
     size_t sample_size;
     size_t channel_count;
+
+    //DMA buffer
     uint8_t audio_buffer[2][AUDIO_CIRCULAR_BUFFER_SIZE];
 
+    //Temp buffer & its index tracker
     uint8_t temp_buffer[20][AUDIO_CIRCULAR_BUFFER_SIZE];
-
     uint8_t temp_counter;
 
+    //Flag to show SD card has been written to
     bool sd_write_complete;
+
     /*FS/SD Card writing variables*/
     FX_FILE *file;
+
 } AudioManager;
+
 
 /* audio_setup
 //attach adc, filex

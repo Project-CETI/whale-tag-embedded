@@ -35,8 +35,13 @@
 /*******************************
  * PUBLIC FUNCTION DEFINITIONS *
  *******************************/
-extern SPI_HandleTypeDef hspi1;
 
+//External HAL handlers for configuration
+extern SPI_HandleTypeDef hspi1;
+extern SAI_HandleTypeDef hsai_BlockB1;
+extern SD_HandleTypeDef hsd1;
+
+//Statically declare ADC at runtime
 ad7768_dev audio_adc = {
     .spi_handler = &hspi1,
 		.spi_cs_port = ADC_CS_GPIO_Port,
@@ -68,47 +73,48 @@ ad7768_dev audio_adc = {
     .pin_spi_ctrl = AD7768_SPI_CTRL,
 };
 
-extern uint8_t done;
-
+//Use the audio manager declared in Main since it uses too much memory for a ThreadX thread (nearly 700kB)
 extern AudioManager audio;
 
-extern SAI_HandleTypeDef hsai_BlockB1;
-
-extern SD_HandleTypeDef hsd1;
-
+//FileX variables
 FX_FILE         audio_file = {};
-
 extern FX_MEDIA        sdio_disk;
 extern ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
 
+//Event flags for signaling data ready
 TX_EVENT_FLAGS_GROUP audio_event_flags_group;
 
 void audio_SAI_RxCpltCallback (SAI_HandleTypeDef * hsai){
 
+	//Our DMA buffer is completely filled, move the upper half into the temporary buffer
 	memcpy(audio.temp_buffer[audio.temp_counter], audio.audio_buffer[1], AUDIO_CIRCULAR_BUFFER_SIZE);
-
 	audio.temp_counter++;
 
+	//Once the temporary buffer is half full, set the flag for the thread execution loop
 	if (audio.temp_counter == 10){
 		tx_event_flags_set(&audio_event_flags_group, 0x1, TX_OR);
 	}
 
+	//Same as above, but when it is full & reset our temp buffer index tracker
 	if (audio.temp_counter == 20){
 		tx_event_flags_set(&audio_event_flags_group, 0x2, TX_OR);
 		audio.temp_counter = 0;
 	}
 }
 
+
 void audio_SAI_RxHalfCpltCallback (SAI_HandleTypeDef * hsai){
 
+	//Our DMA buffer is half full, move the lower half into the temp buffer
 	memcpy(audio.temp_buffer[audio.temp_counter], audio.audio_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE);
-
 	audio.temp_counter++;
 
+	//Half full temp buffer, set flag for thread execution loop
 	if (audio.temp_counter == 10){
 		tx_event_flags_set(&audio_event_flags_group, 0x1, TX_OR);
 	}
 
+	//Full temp buffer, set flag & reset temp buffer index
 	if (audio.temp_counter == 20){
 		tx_event_flags_set(&audio_event_flags_group, 0x2, TX_OR);
 		audio.temp_counter = 0;
@@ -116,13 +122,14 @@ void audio_SAI_RxHalfCpltCallback (SAI_HandleTypeDef * hsai){
 }
 
 void audio_SDWriteComplete(FX_FILE *file){
-	done++;
 
+	//Set polling flag to indicate a completed SD card write
 	audio.sd_write_complete = true;
 }
 
 void audio_thread_entry(ULONG thread_input){
 
+	//Tag configuration (not implemented yet)
 	TagConfig tag_config = {.audio_ch_enabled[0] = 1,
 	  	  	  	  	  	  	  	  .audio_ch_enabled[1] = 1,
 								  .audio_ch_enabled[2] = 1,
@@ -130,71 +137,83 @@ void audio_thread_entry(ULONG thread_input){
 	  	  	  	  	  	  	  	  .audio_ch_headers = 1,
 								  .audio_rate = CFG_AUDIO_RATE_96_KHZ,
 	  	  	  	  	  	  	  	  .audio_depth = CFG_AUDIO_DEPTH_16_BIT};
-
-	  volatile UINT fx_result = FX_SUCCESS;
 	  ULONG acc_flag_pointer = 0;
 
+	  //Create our binary file for dumping audio data
+	  UINT fx_result = FX_SUCCESS;
 	  fx_result = fx_file_create(&sdio_disk, "audio_test.bin");
 	  if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
 	      Error_Handler();
 	  }
 
+	  //Open the file
 	  fx_result = fx_file_open(&sdio_disk, &audio_file, "audio_test.bin", FX_OPEN_FOR_WRITE);
 	  if(fx_result != FX_SUCCESS){
 	      Error_Handler();
 	  }
 
+	  //Set our "write complete" callback function
 	  fx_result = fx_file_write_notify_set(&audio_file, audio_SDWriteComplete);
 	  if(fx_result != FX_SUCCESS){
 	      Error_Handler();
 	  }
 
+	  //Set our DMA buffer callbacks for both half full and full
 	  HAL_SAI_RegisterCallback(&hsai_BlockB1, HAL_SAI_RX_HALFCOMPLETE_CB_ID, audio_SAI_RxHalfCpltCallback);
 	  HAL_SAI_RegisterCallback(&hsai_BlockB1, HAL_SAI_RX_COMPLETE_CB_ID, audio_SAI_RxCpltCallback);
 
+	  //Create our event flags group
 	  tx_event_flags_create(&audio_event_flags_group, "Audio Event Flags");
 
+	  //Setup the ADC and sync it
 	  ad7768_setup(&audio_adc);
 
+	  //Initialize our audio manager
 	  audio_init(&audio, &audio_adc, &hsai_BlockB1, &tag_config, &audio_file);
 
+	  //Dummy delay
 	  HAL_Delay(1000);
 
-	  //dummy write
+	  //The first write is usually the slowest, add in a dummy write to get it out of the way
 	  audio.sd_write_complete = false;
-
 	  fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
 
+	  //Poll for completion
 	  while (!audio.sd_write_complete);
 
+	  //Start gathering audio data through the SAI and DMA
 	  audio_record(&audio);
 
 	  while (1){
 
+		  //Wait for the temp buffer to be either half of fully full. This suspends the audio task and lets others run.
 		  tx_event_flags_get(&audio_event_flags_group, 0x1 | 0x2, TX_OR_CLEAR, &acc_flag_pointer, TX_WAIT_FOREVER);
 
+		  //If half full, write the bottom half
 		  if (acc_flag_pointer & 0x1){
       		audio.sd_write_complete = false;
       		fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
 		  }
 
+		  //If full, write the top half
 		  if (acc_flag_pointer & 0x2){
       		audio.sd_write_complete = false;
       		fx_file_write(audio.file, audio.temp_buffer[10], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
 		  }
 
+		  //Poll for completion, this blocks out other tasks but is *neccessary*
+		  //We block out the other tasks to prevent unneccessary context switches which would slow down the SD card writes significantly, to the point where we would lose data.
 		  while (!audio.sd_write_complete);
 
-		  if (done >= 4){
-			  break;
-		  }
 	  }
 
-	  fx_file_close(&audio_file);
-	  fx_media_close(&sdio_disk);
+	  //TODO: close file option
+	  //fx_file_close(&audio_file);
+	 // fx_media_close(&sdio_disk);
 }
 
 
+//TODO: Finsih audio initialization and configuration functions
 /* 
  * Desc: initialize and configure audio manager
  */
