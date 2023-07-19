@@ -176,7 +176,7 @@ int main(void)
   MX_SPI2_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
-  ad7768_setup(&audio_adc, &hspi1, ADC_CS_GPIO_Port, ADC_CS_Pin);
+  ad7768_setup(&audio_adc);
 //  Keller_init(&depth_sensor, &hi2c2);
 //  LightSensor_init(&light_sensor, &hi2c2);
 
