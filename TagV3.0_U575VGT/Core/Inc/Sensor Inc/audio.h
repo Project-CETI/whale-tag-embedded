@@ -31,6 +31,8 @@ typedef struct audio_manager_s {
     uint8_t temp_buffer[20][AUDIO_CIRCULAR_BUFFER_SIZE];
 
     uint8_t temp_counter;
+
+    bool sd_write_complete;
     /*FS/SD Card writing variables*/
     FX_FILE *file;
 } AudioManager;

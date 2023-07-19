@@ -30,19 +30,12 @@
 #include "app_filex.h"
 #include "app_threadx.h"
 
-extern uint8_t counter;
-extern uint8_t done;
-extern SPI_HandleTypeDef hspi1;
-uint8_t temp_counter;
-
-bool tick = 0;
-uint8_t writeFull = 0;
-uint8_t writeHalf = 0;
-bool yielding = 0;
+#include <stdbool.h>
 
 /*******************************
  * PUBLIC FUNCTION DEFINITIONS *
  *******************************/
+extern SPI_HandleTypeDef hspi1;
 
 ad7768_dev audio_adc = {
     .spi_handler = &hspi1,
@@ -75,79 +68,57 @@ ad7768_dev audio_adc = {
     .pin_spi_ctrl = AD7768_SPI_CTRL,
 };
 
+extern uint8_t done;
 
 extern AudioManager audio;
 
 extern SAI_HandleTypeDef hsai_BlockB1;
-extern uint8_t counter;
-extern uint8_t done;
-uint8_t bad = 0;
-uint8_t true_counter = 0;
-
-extern uint8_t writeFull;
-extern uint8_t writeHalf;
 
 extern SD_HandleTypeDef hsd1;
 
-extern uint8_t temp_counter;
-FX_FILE         fs;
 FX_FILE         audio_file = {};
 
 extern FX_MEDIA        sdio_disk;
 extern ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
 
-extern TX_THREAD test_thread;
 TX_EVENT_FLAGS_GROUP audio_event_flags_group;
 
 void audio_SAI_RxCpltCallback (SAI_HandleTypeDef * hsai){
 
-	counter += 2;
 	memcpy(audio.temp_buffer[audio.temp_counter], audio.audio_buffer[1], AUDIO_CIRCULAR_BUFFER_SIZE);
-	counter -= 2;
 
 	audio.temp_counter++;
 
 	if (audio.temp_counter == 10){
-		audio.buffer_state = AUDIO_BUF_STATE_HALF_FULL;
 		tx_event_flags_set(&audio_event_flags_group, 0x1, TX_OR);
 	}
 
 	if (audio.temp_counter == 20){
 		tx_event_flags_set(&audio_event_flags_group, 0x2, TX_OR);
-		//audio.buffer_state = AUDIO_BUF_STATE_FULL;
 		audio.temp_counter = 0;
 	}
 }
 
 void audio_SAI_RxHalfCpltCallback (SAI_HandleTypeDef * hsai){
 
-	counter++;
 	memcpy(audio.temp_buffer[audio.temp_counter], audio.audio_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE);
-	counter -= 1;
 
 	audio.temp_counter++;
 
 	if (audio.temp_counter == 10){
-		audio.buffer_state = AUDIO_BUF_STATE_HALF_FULL;
 		tx_event_flags_set(&audio_event_flags_group, 0x1, TX_OR);
 	}
 
 	if (audio.temp_counter == 20){
-		//audio.buffer_state = AUDIO_BUF_STATE_FULL;
 		tx_event_flags_set(&audio_event_flags_group, 0x2, TX_OR);
 		audio.temp_counter = 0;
 	}
 }
 
 void audio_SDWriteComplete(FX_FILE *file){
-	//HAL_SAI_DMAResume(&hsai_BlockB1);
-	//audio.temp_counter = 0;
-	//done++;
-
-	temp_counter = 0;
 	done++;
-    audio.buffer_state = AUDIO_BUF_STATE_EMPTY;
 
+	audio.sd_write_complete = true;
 }
 
 void audio_thread_entry(ULONG thread_input){
@@ -162,11 +133,6 @@ void audio_thread_entry(ULONG thread_input){
 
 	  volatile UINT fx_result = FX_SUCCESS;
 	  ULONG acc_flag_pointer = 0;
-	  //fx_result = fx_media_open(&sdio_disk, "", fx_stm32_sd_driver, (VOID *)FX_NULL, (VOID *) fx_sd_media_memory, sizeof(fx_sd_media_memory));
-
-	    if(fx_result != FX_SUCCESS){
-	        Error_Handler();
-	    }
 
 	  fx_result = fx_file_create(&sdio_disk, "audio_test.bin");
 	  if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
@@ -174,12 +140,6 @@ void audio_thread_entry(ULONG thread_input){
 	  }
 
 	  fx_result = fx_file_open(&sdio_disk, &audio_file, "audio_test.bin", FX_OPEN_FOR_WRITE);
-	  if(fx_result != FX_SUCCESS){
-	      Error_Handler();
-	  }
-
-	  //ULONG x = 0;
-	  //fx_result = fx_file_extended_allocate(&audio_file, AUDIO_CIRCULAR_BUFFER_SIZE * 2000);
 	  if(fx_result != FX_SUCCESS){
 	      Error_Handler();
 	  }
@@ -201,36 +161,37 @@ void audio_thread_entry(ULONG thread_input){
 	  HAL_Delay(1000);
 
 	  //dummy write
-	  temp_counter++;
+	  audio.sd_write_complete = false;
 
 	  fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
-	  HAL_Delay(1000);
-	  temp_counter++;
-	  fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
+
+	  while (!audio.sd_write_complete);
+
 	  audio_record(&audio);
 
 	  while (1){
 
-		  yielding = true;
 		  tx_event_flags_get(&audio_event_flags_group, 0x1 | 0x2, TX_OR_CLEAR, &acc_flag_pointer, TX_WAIT_FOREVER);
-		  yielding = false;
 
 		  if (acc_flag_pointer & 0x1){
-      		temp_counter = 1;
+      		audio.sd_write_complete = false;
       		fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
 		  }
 
 		  if (acc_flag_pointer & 0x2){
-      		temp_counter = 1;
+      		audio.sd_write_complete = false;
       		fx_file_write(audio.file, audio.temp_buffer[10], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
 		  }
 
-		  //audio_tick(&audio);
-		  while (temp_counter != 0);
+		  while (!audio.sd_write_complete);
 
+		  if (done >= 4){
+			  break;
+		  }
 	  }
-	  //fx_file_close(&audio_file);
-	  //fx_media_close(&sdio_disk);
+
+	  fx_file_close(&audio_file);
+	  fx_media_close(&sdio_disk);
 }
 
 
@@ -271,8 +232,8 @@ HAL_StatusTypeDef audio_configure(AudioManager *self, TagConfig *config){
             ad7768_set_ch_state(self->adc, (ad7768_ch)ch, AD7768_ACTIVE);
         }
     }
-    //self->sai->SlotInit.SlotActive = channel_bytemask;
-    //HAL_RESULT_PROPAGATE(HAL_SAI_Init(self->sai) != HAL_OK)
+    self->sai->SlotInit.SlotActive = channel_bytemask;
+    HAL_RESULT_PROPAGATE(HAL_SAI_Init(self->sai) != HAL_OK)
 
     HAL_RESULT_PROPAGATE(audio_set_sample_rate(self, config->audio_rate));
     return HAL_OK;
@@ -307,39 +268,21 @@ HAL_StatusTypeDef audio_record(AudioManager *self){
 }
 
 HAL_StatusTypeDef audio_tick(AudioManager *self){
-	tick = !tick;
     switch (self->buffer_state){
         case AUDIO_BUF_STATE_HALF_FULL:
-            //fx_file_write(self->file, self->audio_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE);
+        	fx_file_write(self->file, self->temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
 
-        	//move to sram
-
-        	//if (self->temp_counter == 5){
-        		temp_counter++;
-        		fx_file_write(self->file, self->temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
-        	//}
-        	//HAL_SRAM_Write_8b(hramcfg_SRAM1, SRAM_Pointer, self->audio_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE);
             //ToDo: Error Handling
             break;
         case AUDIO_BUF_STATE_FULL:
-        	//memcpy(self->temp_buffer[self->temp_counter], self->audio_buffer[1], AUDIO_CIRCULAR_BUFFER_SIZE);
-        	//self->temp_counter++;
-        	//counter -= 2;
-        	//self->buffer_state = AUDIO_BUF_STATE_EMPTY;
+        	fx_file_write(self->file, self->temp_buffer[10], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
 
-        	//if (self->temp_counter == 5){
-        		temp_counter++;
-        		fx_file_write(self->file, self->temp_buffer[10], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
-        	//}
-            //fx_file_write(self->file, self->audio_buffer[10], AUDIO_CIRCULAR_BUFFER_SIZE);
             //ToDo: Error Handling
             break;
         case AUDIO_BUF_STATE_EMPTY:
             break;
         default:
             break;
-            
     }
-
     return HAL_OK;
 }
