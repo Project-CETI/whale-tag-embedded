@@ -2,9 +2,7 @@
  * BNO08x.c
  *
  *  Created on: Feb 8, 2023
- *      Author: Amjad Halis, Kaveet Grewal
- *
- * 	Source file for the IMU drivers. See header file for more details
+ *      Author: Amjad Halis
  */
 #include "BNO08x.h"
 #include "main.h"
@@ -171,11 +169,4 @@ static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t time
 
 		uint32_t currentTime = HAL_GetTick();
 
-		//after the timeout, return HAL_TIMEOUT and let caller handle
-		if ((currentTime - startTime) > timeout){
-			return HAL_TIMEOUT;
-		}
-	}
 
-	return HAL_OK;
-}

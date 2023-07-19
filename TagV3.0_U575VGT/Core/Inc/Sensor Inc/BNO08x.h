@@ -2,17 +2,7 @@
  * BNO08x.h
  *
  *  Created on: Feb 8, 2023
- *      Author: Amjad Halis, Kaveet Grewal
- *      Sensor: BNO08x
- *      Datasheet(s): https://www.ceva-dsp.com/wp-content/uploads/2019/10/BNO080_085-Datasheet.pdf
- *      			  https://www.ceva-dsp.com/wp-content/uploads/2019/10/Sensor-Hub-Transport-Protocol.pdf
- *      			  https://www.ceva-dsp.com/wp-content/uploads/2019/10/SH-2-Reference-Manual.pdf
- *
- * 	This file handles the SPI interface between the STM board and the IMU (BNO08x).
- *
- * 	The STM configures the IMU by requesting it to send rotation reports every interval. The IMU fires and interrupt when it has data ready.
- *
- * 	The IMU follows the Sensor Hub Transfer Protocol (SHTP) on top of SPI. Documentation on it can be found at the links above.
+ *      Author: Amjad Halis
  */
 
 #ifndef INC_BNO08X_H_
