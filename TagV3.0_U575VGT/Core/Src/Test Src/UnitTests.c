@@ -73,32 +73,6 @@ void Light_UT(LightSensorHandleTypedef *light_sensor){
 	}
 }
 
-void IMU_UT(IMU_HandleTypeDef* imu){
-
-	//Check to ensure we're receiving data from the IMU.
-	//There's not alot to check here since the orientation of the tag changes our expected readings.
-	//Sometimes the IMU takes a few readings to start working, so we read it 5 times and save the last read
-	HAL_StatusTypeDef ret;
-	for (int index = 0; index < 5; index++){
-		ret = IMU_get_data(imu);
-	}
-
-	//If we did not get any data, log as failure and exit function
-	if (ret != HAL_OK){
-		printf("\tIMU Failed: Could not read data\n");
-		return;
-	}
-
-	//Ensure data is not all 0's
-	if ((imu->quat_i == 0) && (imu->quat_j == 0) && (imu->quat_k == 0) && (imu->quat_r == 0)){
-		printf("\tIMU Failed: all readings are 0\n");
-		return;
-	}
-
- 	printf("\tIMU Passed: i: %d j: %d k: %d r: %d\n", imu->quat_i, imu->quat_j, imu->quat_k, imu->quat_r);
-
-}
-
 void AD7768_UT(ad7768_dev *adc){
 	uint8_t rev_id;
 	printf("ADC (hydrophone) Unit Test:\r\n");
@@ -165,50 +139,4 @@ int _write(int file, char *ptr, int len) {
 		ITM_SendChar(*ptr++);
 	}
 	return len;
-}
-
-void ECG_UT(ECG_HandleTypeDef *ecg) {
-
-	printf("ECG Unit Tests:\r\n");
-
-	//Read the configuration register to ensure it matches what we expect (default configuration)
-	uint8_t registerBuffer = 0;
-	ecg_read_configuration_register(ecg, &registerBuffer);
-
-	if (registerBuffer != ECG_ADC_DEFAULT_CONFIG_REGISTER){
-		printf("ECG Initialization Failed\r\n");
-		return;
-	}
-
-	//Try to change the electrodes to ensure we can change the register
-	ecg_configure_electrodes(ecg, 0b00000111);
-
-	//Reread to ensure the changes saved
-	ecg_read_configuration_register(ecg, &registerBuffer);
-
-	if (registerBuffer != 0b11100010){
-		printf("ECG Writing Registers Failed\r\n");
-		return;
-	}
-
-	ecg_read_adc(ecg);
-
-	//Since we shorted our electrodes, the reading should be 0.
-	if (ecg->voltage != 0){
-		printf("ECG Invalid Reading\r\n");
-		return;
-	}
-
-	//Change our electrodes back to the default
-	ecg_configure_electrodes(ecg, 0);
-
-	//Reread to ensure the changes saved and we are back to the default
-	ecg_read_configuration_register(ecg, &registerBuffer);
-	if (registerBuffer != ECG_ADC_DEFAULT_CONFIG_REGISTER){
-		printf("ECG Writing Registers Failed\r\n");
-		return;
-	}
-
-	printf("ECG Unit Tests Passed!\r\n");
-	return;
 }

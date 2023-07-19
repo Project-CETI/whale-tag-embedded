@@ -55,8 +55,6 @@ void DebugMon_Handler(void);
 void EXTI12_IRQHandler(void);
 void EXTI14_IRQHandler(void);
 void GPDMA1_Channel0_IRQHandler(void);
-void GPDMA1_Channel1_IRQHandler(void);
-void TIM2_IRQHandler(void);
 void TIM6_IRQHandler(void);
 void SDMMC1_IRQHandler(void);
 void SAI1_IRQHandler(void);

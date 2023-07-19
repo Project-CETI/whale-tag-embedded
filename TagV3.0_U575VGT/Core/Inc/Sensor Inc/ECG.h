@@ -2,17 +2,7 @@
  * ECG.h
  *
  *  Created on: Feb. 9, 2023
- *      Author: Kaveet Grewal
- *
- *  The I2C driver for the ADS1219 ADC on the ECG board.
- *
- *  ADC datasheet: https://www.ti.com/lit/ds/symlink/ads1219.pdf?ts=1686494723332&ref_url=https%253A%252F%252Fwww.google.com%252F
- *
- *  The driver has an I2C address of 0b1000100 and contains two registers, configuration (0h) and status (1h).
- *
- *  There are three total channels/electrodes we can read the difference from. These can be configured by calling the appropriate function.
- *
- *  The ADC contains an open-drain pin, DRDY that signals when new data is ready. This pin is active low.
+ *      Author: amjad
  */
 
 #ifndef INC_SENSOR_INC_ECG_H_
@@ -109,7 +99,5 @@ HAL_StatusTypeDef ecg_configure_electrodes(ECG_HandleTypeDef* ecg, uint8_t elect
 //Polls the ECG data ready pin for new data. Will timeout if no new data.
 HAL_StatusTypeDef ecg_poll_data_ready(ECG_HandleTypeDef* ecg);
 
-//Resets the ADC.
-HAL_StatusTypeDef ecg_reset_adc(ECG_HandleTypeDef* ecg);
 
 #endif /* INC_SENSOR_INC_ECG_H_ */

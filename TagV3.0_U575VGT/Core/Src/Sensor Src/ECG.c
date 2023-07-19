@@ -2,7 +2,7 @@
  * ECG.c
  *
  *  Created on: Feb. 9, 2023
- *      Author: Kaveet Grewal
+ *      Author: amjad
  */
 
 #include "Sensor Inc/ECG.h"

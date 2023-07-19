@@ -61,8 +61,6 @@ void Error_Handler(void);
 #define BMS_ALRT_GPIO_Port GPIOC
 #define VHF_PTT_Pin GPIO_PIN_2
 #define VHF_PTT_GPIO_Port GPIOA
-#define APRS_DAC_Pin GPIO_PIN_4
-#define APRS_DAC_GPIO_Port GPIOA
 #define APRS_PD_Pin GPIO_PIN_5
 #define APRS_PD_GPIO_Port GPIOA
 #define APRS_H_L_Pin GPIO_PIN_6
@@ -75,7 +73,6 @@ void Error_Handler(void);
 #define IMU_WAKE_GPIO_Port GPIOE
 #define IMU_INT_Pin GPIO_PIN_12
 #define IMU_INT_GPIO_Port GPIOE
-#define IMU_INT_EXTI_IRQn EXTI12_IRQn
 #define IMU_CS_Pin GPIO_PIN_12
 #define IMU_CS_GPIO_Port GPIOB
 #define KELLER_EOC_Pin GPIO_PIN_13
