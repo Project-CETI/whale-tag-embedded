@@ -18,12 +18,12 @@
 
 #include "tx_api.h"
 #include "app_threadx.h"
+#include "Sensor Inc/audio.h"
 
 //Enum for all threads so we can easily keep track of the list + total number of threads.
 // If adding a new thread to the list, put it before the "NUM_THREADS" element, as it must always be the last element in the enum.
 typedef enum __TX_THREAD_LIST {
-	TEST_THREAD_1,
-	TEST_THREAD_2,
+	AUDIO_THREAD,
 	NUM_THREADS
 }Thread;
 
@@ -60,27 +60,16 @@ typedef struct __TX_THREAD_TypeDef {
 //Define the config for each struct here, in the same order the are listed in the Thread Enum above.
 static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 		{
-				//Test thread one
-				.thread_name = "Test Thread",
-				.thread_entry_function = test_thread_entry,
+				//Audio Thread
+				.thread_name = "Audio Thread",
+				.thread_entry_function = audio_thread_entry,
 				.thread_input = 0x1234,
 				.thread_stack_size = 1024,
 				.priority = 3,
 				.preempt_threshold = 3,
 				.timeslice = TX_NO_TIME_SLICE,
-				.start = TX_AUTO_START
+				.start = TX_DONT_START
 		},
-		{
-				//Test thread 2
-				.thread_name = "Test Thread2",
-				.thread_entry_function = test_thread_entry2,
-				.thread_input = 0x1234,
-				.thread_stack_size = 1024,
-				.priority = 3,
-				.preempt_threshold = 3,
-				.timeslice = TX_NO_TIME_SLICE,
-				.start = TX_AUTO_START
-		}
 };
 
 //An array to hold all the threads. We do NOT need to touch this at all the add new threads, only edit the config list (above).

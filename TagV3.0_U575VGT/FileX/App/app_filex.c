@@ -24,6 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "tx_api.h"
+#include "Lib Inc/threads.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -57,7 +58,7 @@ FX_MEDIA        sdio_disk;
 /* USER CODE BEGIN PV */
 extern SD_HandleTypeDef hsd1;
 extern TX_EVENT_FLAGS_GROUP audio_event_flags_group;
-extern TX_THREAD test_thread;
+extern Thread_HandleTypeDef threads[NUM_THREADS];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -148,7 +149,7 @@ UINT MX_FileX_Init(VOID *memory_ptr)
 
 /* USER CODE BEGIN fx_app_thread_entry 1*/
   //tx_event_flags_set(&audio_event_flags_group, 0x4, TX_OR);
-  tx_thread_resume(&test_thread);
+  tx_thread_resume(&threads[AUDIO_THREAD].thread);
 /* USER CODE END fx_app_thread_entry 1*/
   }
 
