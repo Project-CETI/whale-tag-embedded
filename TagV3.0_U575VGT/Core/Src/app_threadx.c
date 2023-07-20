@@ -45,7 +45,6 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-uint32_t test_thread_counter;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -113,28 +112,4 @@ void MX_ThreadX_Init(void)
 
 /* USER CODE BEGIN 1 */
 
-		test_thread_counter++;
-
-		tx_thread_sleep(1);
-
-		if (test_thread_counter > 5000){
-			test_thread_counter = 0;
-		}
-	}
-}
-
-void test_thread_entry2(ULONG thread_input){
-
-	/* Enter forever loop */
-	while (1){
-
-		test_thread_counter++;
-
-		tx_thread_sleep(1);
-
-		if (test_thread_counter > 5000){
-			test_thread_counter = 0;
-		}
-	}
-}
 /* USER CODE END 1 */
