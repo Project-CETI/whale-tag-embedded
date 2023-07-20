@@ -25,6 +25,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdint.h>
+#include "Sensor Inc/audio.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -34,6 +35,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -110,10 +112,6 @@ void MX_ThreadX_Init(void)
 }
 
 /* USER CODE BEGIN 1 */
-void test_thread_entry(ULONG thread_input){
-
-	/* Enter forever loop */
-	while (1){
 
 		test_thread_counter++;
 

@@ -240,7 +240,7 @@ HAL_StatusTypeDef ad7768_spi_write(ad7768_dev *dev,
     HAL_StatusTypeDef ret;
 	uint8_t buf[2] = {AD7768_SPI_WRITE(reg_addr), reg_data};
 	prv_ad7768_spi_select(dev);
-	ret = HAL_SPI_Transmit(dev->spi_handler, (uint8_t *)&buf, 1, ADC_TIMEOUT);
+	ret = HAL_SPI_Transmit(dev->spi_handler, (uint8_t *)&buf, 2, ADC_TIMEOUT);
 	prv_ad7768_spi_deselect(dev);
 	return ret;
 }
@@ -666,8 +666,6 @@ HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev){
         return HAL_ERROR;
     }
 
-	
-
 	ret |= ad7768_spi_write(dev, AD7768_REG_CH_STANDBY,    __reg_channelStandby_intoRaw(&dev->channel_standby));
 	ret |= ad7768_spi_write(dev, AD7768_REG_CH_MODE_A,     __reg_channelMode_intoRaw(&dev->channel_mode[AD7768_MODE_A]));
 	ret |= ad7768_spi_write(dev, AD7768_REG_CH_MODE_B,     __reg_channelMode_intoRaw(&dev->channel_mode[AD7768_MODE_B]));
@@ -685,6 +683,7 @@ HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev){
 }
 
 HAL_StatusTypeDef ad7768_sync(ad7768_dev *dev){
+
 	HAL_StatusTypeDef ret = HAL_OK;
 
     ret |= ad7768_spi_write(dev, AD7768_REG_DATA_CTRL, __reg_dataControl_intoRaw(&(ad7768_Reg_DataControl){.spi_sync = 0}));
