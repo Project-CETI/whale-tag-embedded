@@ -87,9 +87,7 @@ VOID tx_application_define(VOID *first_unused_memory)
   if (tx_byte_pool_create(&tx_app_byte_pool, "Tx App memory pool", tx_byte_pool_buffer, TX_APP_MEM_POOL_SIZE) != TX_SUCCESS)
   {
     /* USER CODE BEGIN TX_Byte_Pool_Error */
-	  while(1)
-	  {
-	  }
+
     /* USER CODE END TX_Byte_Pool_Error */
   }
   else
@@ -116,9 +114,7 @@ VOID tx_application_define(VOID *first_unused_memory)
   if (tx_byte_pool_create(&FILEX_MEM_POOL_VAR_NAME, "Fx App memory pool", fx_byte_pool_buffer, FX_APP_MEM_POOL_SIZE) != TX_SUCCESS)
   {
     /* USER CODE BEGIN FX_Byte_Pool_Error */
-	while (1)
-	{
-	}
+
     /* USER CODE END FX_Byte_Pool_Error */
   }
   else

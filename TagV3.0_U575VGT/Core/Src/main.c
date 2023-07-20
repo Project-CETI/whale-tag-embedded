@@ -27,6 +27,8 @@
 #include "KellerDepth.h"
 #include "LightSensor.h"
 #include "ad7768.h"
+#include "audio.h"
+#include "app_filex.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -74,44 +76,13 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 /* USER CODE BEGIN PV */
 Keller_HandleTypedef depth_sensor;
 LightSensorHandleTypedef light_sensor;
-
-ad7768_dev audio_adc = {
-    .spi_handler = &hspi1,
-		.spi_cs_port = ADC_CS_GPIO_Port,
-		.spi_cs_pin = ADC_CS_Pin,
-    .channel_standby = {
-        .ch[0] = AD7768_ENABLED,
-        .ch[1] = AD7768_ENABLED,
-        .ch[2] = AD7768_ENABLED,
-        .ch[3] = AD7768_STANDBY
-    },
-    .channel_mode[AD7768_MODE_A] = {.filter_type = AD7768_FILTER_SINC, .dec_rate = AD7768_DEC_X32},
-    .channel_mode[AD7768_MODE_B] = {.filter_type = AD7768_FILTER_WIDEBAND, .dec_rate = AD7768_DEC_X32},
-    .channel_mode_select = {
-        .ch[0] = AD7768_MODE_B,
-        .ch[1] = AD7768_MODE_B,
-        .ch[2] = AD7768_MODE_B,
-        .ch[3] = AD7768_MODE_A,
-    },
-    .power_mode = {
-        .sleep_mode = AD7768_ACTIVE,
-        .power_mode = AD7768_MEDIAN,
-        .lvds_enable = false,
-        .mclk_div = AD7768_MCLK_DIV_4,
-    },
-    .interface_config = {
-        .crc_select = AD7768_CRC_NONE,
-        .dclk_div = AD7768_DCLK_DIV_1,
-    },
-    .pin_spi_ctrl = AD7768_SPI_CTRL,
-};
+AudioManager audio;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_GPDMA1_Init(void);
-static void MX_I2C4_Init(void);
 static void MX_SDMMC1_SD_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_UART4_Init(void);
@@ -123,6 +94,7 @@ static void MX_I2C2_Init(void);
 static void MX_SAI1_Init(void);
 static void MX_I2C3_Init(void);
 static void MX_SPI2_Init(void);
+static void MX_I2C4_Init(void);
 static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
@@ -130,7 +102,6 @@ static void MX_USART3_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
 /* USER CODE END 0 */
 
 /**
@@ -162,7 +133,6 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_GPDMA1_Init();
-  MX_I2C4_Init();
   MX_SDMMC1_SD_Init();
   MX_SPI1_Init();
   MX_UART4_Init();
@@ -174,13 +144,23 @@ int main(void)
   MX_SAI1_Init();
   MX_I2C3_Init();
   MX_SPI2_Init();
+  MX_I2C4_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
-  ad7768_setup(&audio_adc, &hspi1, ADC_CS_GPIO_Port, ADC_CS_Pin);
+
+  //Keller_init(&depth_sensor, &hi2c2);
+  //LightSensor_init(&light_sensor, &hi2c2);
+
+  //HAL_Delay(15000);
+
+  //SDcard_UT();
+  //Keller_UT(&depth_sensor);
+  //Light_UT(&light_sensor);
+
 //  Keller_init(&depth_sensor, &hi2c2);
 //  LightSensor_init(&light_sensor, &hi2c2);
 
-  AD7768_UT(&audio_adc);
+  //AD7768_UT(&audio_adc);
 //  SDcard_UT();
 //  Keller_UT(&depth_sensor);
 //  Light_UT(&light_sensor);
@@ -197,6 +177,10 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
   }
+
+  //fx_file_write(audio.file, audio.temp_buffer[1], AUDIO_CIRCULAR_BUFFER_SIZE);
+
+
   /* USER CODE END 3 */
 }
 
@@ -368,7 +352,7 @@ static void MX_GPDMA1_Init(void)
   __HAL_RCC_GPDMA1_CLK_ENABLE();
 
   /* GPDMA1 interrupt Init */
-    HAL_NVIC_SetPriority(GPDMA1_Channel0_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(GPDMA1_Channel0_IRQn, 1, 0);
     HAL_NVIC_EnableIRQ(GPDMA1_Channel0_IRQn);
 
   /* USER CODE BEGIN GPDMA1_Init 1 */
@@ -619,7 +603,7 @@ static void MX_SAI1_Init(void)
   hsai_BlockB1.SlotInit.FirstBitOffset = 0;
   hsai_BlockB1.SlotInit.SlotSize = SAI_SLOTSIZE_DATASIZE;
   hsai_BlockB1.SlotInit.SlotNumber = 16;
-  hsai_BlockB1.SlotInit.SlotActive = 0x00000666;
+  hsai_BlockB1.SlotInit.SlotActive = 0x00000EEE;
   if (HAL_SAI_Init(&hsai_BlockB1) != HAL_OK)
   {
     Error_Handler();
@@ -647,10 +631,10 @@ static void MX_SDMMC1_SD_Init(void)
   /* USER CODE END SDMMC1_Init 1 */
   hsd1.Instance = SDMMC1;
   hsd1.Init.ClockEdge = SDMMC_CLOCK_EDGE_RISING;
-  hsd1.Init.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_ENABLE;
+  hsd1.Init.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_DISABLE;
   hsd1.Init.BusWide = SDMMC_BUS_WIDE_4B;
   hsd1.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
-  hsd1.Init.ClockDiv = 0;
+  hsd1.Init.ClockDiv = 2;
   if (HAL_SD_Init(&hsd1) != HAL_OK)
   {
     Error_Handler();
@@ -686,12 +670,12 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi1.Init.CRCPolynomial = 0x7;
-  hspi1.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
+  hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
   hspi1.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
   hspi1.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
   hspi1.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
@@ -929,13 +913,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, VHF_PTT_Pin|APRS_PD_Pin|APRS_H_L_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(ADC_CS_GPIO_Port, ADC_CS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, ADC_CS_Pin|IMU_CS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(IMU_CS_GPIO_Port, IMU_CS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : BMS_ALRT_Pin */
   GPIO_InitStruct.Pin = BMS_ALRT_Pin;
@@ -963,12 +944,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : ADC_CS_Pin */
-  GPIO_InitStruct.Pin = ADC_CS_Pin;
+  /*Configure GPIO pins : ADC_CS_Pin IMU_CS_Pin */
+  GPIO_InitStruct.Pin = ADC_CS_Pin|IMU_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(ADC_CS_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : IMU_WAKE_Pin */
   GPIO_InitStruct.Pin = IMU_WAKE_Pin;
@@ -983,18 +964,21 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(IMU_INT_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : IMU_CS_Pin */
-  GPIO_InitStruct.Pin = IMU_CS_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(IMU_CS_GPIO_Port, &GPIO_InitStruct);
-
   /*Configure GPIO pins : ECG_LOD__Pin ECG_LOD_D11_Pin ECG_NDRDY_Pin ECG_NSDN_Pin */
   GPIO_InitStruct.Pin = ECG_LOD__Pin|ECG_LOD_D11_Pin|ECG_NDRDY_Pin|ECG_NSDN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : ECG_NDRDY_Pin */
+  GPIO_InitStruct.Pin = ECG_NDRDY_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(ECG_NDRDY_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI12_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI12_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
