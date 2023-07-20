@@ -168,5 +168,10 @@ static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t time
 	while (HAL_GPIO_ReadPin(imu->int_port, imu->int_pin)){
 
 		uint32_t currentTime = HAL_GetTick();
+		if ((currentTime - startTime) > IMU_NEW_DATA_TIMEOUT_MS){
+			return HAL_TIMEOUT;
+		}
+	}
 
+}
 

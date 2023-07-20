@@ -19,11 +19,13 @@
 #include "tx_api.h"
 #include "app_threadx.h"
 #include "Sensor Inc/audio.h"
+#include "Sensor Inc/BNO08x.h"
 
 //Enum for all threads so we can easily keep track of the list + total number of threads.
 // If adding a new thread to the list, put it before the "NUM_THREADS" element, as it must always be the last element in the enum.
 typedef enum __TX_THREAD_LIST {
 	AUDIO_THREAD,
+	IMU_THREAD,
 	NUM_THREADS
 }Thread;
 
@@ -70,6 +72,17 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 				.timeslice = TX_NO_TIME_SLICE,
 				.start = TX_DONT_START
 		},
+		{
+				//IMU Thread
+				.thread_name = "IMU Thread",
+				.thread_entry_function = IMU_thread_entry,
+				.thread_input = 0x1234,
+				.thread_stack_size = 1024,
+				.priority = 5,
+				.preempt_threshold = 5,
+				.timeslice = TX_NO_TIME_SLICE,
+				.start = TX_DONT_START
+		}
 };
 
 //An array to hold all the threads. We do NOT need to touch this at all the add new threads, only edit the config list (above).
