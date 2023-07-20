@@ -370,8 +370,7 @@ HAL_StatusTypeDef ad7768_get_ch_mode(ad7768_dev *dev,
 			   ad7768_ch ch,
 			   ad7768_ch_mode *mode);
 /* Initialize the device. */
-HAL_StatusTypeDef ad7768_setup(
-	ad7768_dev 			*dev);
+HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev);
 
 HAL_StatusTypeDef ad7768_sync(ad7768_dev *dev);
 

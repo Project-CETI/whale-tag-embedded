@@ -1,0 +1,92 @@
+/*
+ * threads.h
+ *
+ *  Created on: Jul 6, 2023
+ *      Author: Kaveet
+ *
+ * This file contains useful structs and enums for defining new threads using threadX.
+ *
+ * To create a new thread, declare it in the __TX_THREAD_LIST enum, and then declare the configuration information in the threadConfigList.
+ *
+ * Avoid touching the other structures (e.g the thread array). The threadListInit() function and App_ThreadX_Init() (inside of app_threadx.h) handle all other creation and memory allocation.
+ *
+ * If creating a new thread causes memory allocation issues (tx_byte_allocate or tx_thread_create fail/hardfault), you may need to allocate more memory to ThreadX. This can be done inside of the IOC file.
+ */
+
+#ifndef INC_LIB_INC_THREADS_H_
+#define INC_LIB_INC_THREADS_H_
+
+#include "tx_api.h"
+#include "app_threadx.h"
+
+//Enum for all threads so we can easily keep track of the list + total number of threads.
+// If adding a new thread to the list, put it before the "NUM_THREADS" element, as it must always be the last element in the enum.
+typedef enum __TX_THREAD_LIST {
+	TEST_THREAD_1,
+	TEST_THREAD_2,
+	NUM_THREADS
+}Thread;
+
+//TX Thread configuration members that can be defined at runtime (constants).
+//We put these in a separate struct so they can be defined in the header file when adding new threads.
+typedef struct __TX_THREAD_Config_TypeDef{
+
+	char * thread_name;
+
+	VOID (*thread_entry_function)(ULONG);
+	ULONG thread_input;
+
+	ULONG thread_stack_size;
+
+	UINT priority;
+	UINT preempt_threshold;
+
+	ULONG timeslice;
+	UINT start;
+
+}Thread_ConfigTypeDef;
+
+//The main TX Thread handler. The "thread" and "thread_stack_start" element need to be defined during runtime, so we keep them in this struct and not the config struct.
+typedef struct __TX_THREAD_TypeDef {
+
+	TX_THREAD thread;
+
+	VOID * thread_stack_start;
+
+	Thread_ConfigTypeDef config;
+
+}Thread_HandleTypeDef;
+
+//Define the config for each struct here, in the same order the are listed in the Thread Enum above.
+static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
+		{
+				//Test thread one
+				.thread_name = "Test Thread",
+				.thread_entry_function = test_thread_entry,
+				.thread_input = 0x1234,
+				.thread_stack_size = 1024,
+				.priority = 3,
+				.preempt_threshold = 3,
+				.timeslice = TX_NO_TIME_SLICE,
+				.start = TX_AUTO_START
+		},
+		{
+				//Test thread 2
+				.thread_name = "Test Thread2",
+				.thread_entry_function = test_thread_entry2,
+				.thread_input = 0x1234,
+				.thread_stack_size = 1024,
+				.priority = 3,
+				.preempt_threshold = 3,
+				.timeslice = TX_NO_TIME_SLICE,
+				.start = TX_AUTO_START
+		}
+};
+
+//An array to hold all the threads. We do NOT need to touch this at all the add new threads, only edit the config list (above).
+extern Thread_HandleTypeDef threads[NUM_THREADS];
+
+//Function to be called BEFORE creating any TX threads. It initializes the stack pointers and populates the thread handler array.
+void threadListInit();
+
+#endif /* INC_LIB_INC_THREADS_H_ */
