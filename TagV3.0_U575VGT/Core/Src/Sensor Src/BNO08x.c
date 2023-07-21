@@ -39,7 +39,7 @@ void IMU_thread_entry(ULONG thread_input){
 
 		//Poll for data to be ready. Flag is set by our interrupt handler.
 		//Calling this function blocks and suspends the thread until the data becomes available.
-		tx_event_flags_get(&imu_event_flags_group, 0x1, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
+		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
 		imu_running = true;
 		//Get the data and store in our handler
@@ -116,7 +116,7 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 
 	//Read the header in to a buffer
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-	HAL_SPI_Receive(imu->hspi, receiveData, IMU_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
+	HAL_SPI_Receive(imu->hspi, receiveData, IMU_ROTATION_VECTOR_REPORT_LENGTH, 500);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
 	//Extract length from first 2 bytes

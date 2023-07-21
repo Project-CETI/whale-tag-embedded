@@ -100,12 +100,12 @@ void audio_SAI_RxCpltCallback (SAI_HandleTypeDef * hsai){
 
 	//Once the temporary buffer is half full, set the flag for the thread execution loop
 	if (audio.temp_counter == 10){
-		tx_event_flags_set(&audio_event_flags_group, 0x1, TX_OR);
+		tx_event_flags_set(&audio_event_flags_group, AUDIO_BUFFER_HALF_FULL_FLAG, TX_OR);
 	}
 
 	//Same as above, but when it is full & reset our temp buffer index tracker
 	if (audio.temp_counter == 20){
-		tx_event_flags_set(&audio_event_flags_group, 0x2, TX_OR);
+		tx_event_flags_set(&audio_event_flags_group, AUDIO_BUFFER_FULL_FLAG, TX_OR);
 		audio.temp_counter = 0;
 	}
 }
@@ -122,12 +122,12 @@ void audio_SAI_RxHalfCpltCallback (SAI_HandleTypeDef * hsai){
 
 	//Half full temp buffer, set flag for thread execution loop
 	if (audio.temp_counter == 10){
-		tx_event_flags_set(&audio_event_flags_group, 0x1, TX_OR);
+		tx_event_flags_set(&audio_event_flags_group, AUDIO_BUFFER_HALF_FULL_FLAG, TX_OR);
 	}
 
 	//Full temp buffer, set flag & reset temp buffer index
 	if (audio.temp_counter == 20){
-		tx_event_flags_set(&audio_event_flags_group, 0x2, TX_OR);
+		tx_event_flags_set(&audio_event_flags_group, AUDIO_BUFFER_FULL_FLAG, TX_OR);
 		audio.temp_counter = 0;
 	}
 }
@@ -200,18 +200,18 @@ void audio_thread_entry(ULONG thread_input){
 
 		  //Wait for the temp buffer to be either half of fully full. This suspends the audio task and lets others run.
 		  yielding = true;
-		  tx_event_flags_get(&audio_event_flags_group, 0x1 | 0x2, TX_OR_CLEAR, &acc_flag_pointer, TX_WAIT_FOREVER);
+		  tx_event_flags_get(&audio_event_flags_group, AUDIO_BUFFER_FULL_FLAG | AUDIO_BUFFER_HALF_FULL_FLAG, TX_OR_CLEAR, &acc_flag_pointer, TX_WAIT_FOREVER);
 		  yielding = false;
 
 		  //If half full, write the bottom half
-		  if (acc_flag_pointer & 0x1){
+		  if (acc_flag_pointer & AUDIO_BUFFER_HALF_FULL_FLAG){
       		audio.sd_write_complete = false;
       		sd_writing = true;
       		fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
 		  }
 
 		  //If full, write the top half
-		  if (acc_flag_pointer & 0x2){
+		  if (acc_flag_pointer & AUDIO_BUFFER_FULL_FLAG){
       		audio.sd_write_complete = false;
       		sd_writing = true;
       		fx_file_write(audio.file, audio.temp_buffer[10], AUDIO_CIRCULAR_BUFFER_SIZE * 10);

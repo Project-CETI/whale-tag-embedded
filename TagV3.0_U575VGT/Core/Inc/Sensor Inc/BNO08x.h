@@ -48,6 +48,9 @@
 #define IMU_NEW_DATA_TIMEOUT_MS 2000
 #define IMU_DUMMY_PACKET_TIMEOUT_MS 500
 
+//ThreadX flag bit for when IMU data is ready
+#define IMU_DATA_READY_FLAG 0x1
+
 //IMU typedef definition for useful variables
 typedef struct __IMU_Typedef{
 

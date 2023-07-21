@@ -41,6 +41,9 @@
 //Timeouts for polling data ready
 #define ECG_ADC_DATA_TIMEOUT 2000
 
+//ThreadX flag bit for when data is ready
+#define ECG_DATA_READY_FLAG 0x1
+
 //ECG configuration register has the following structure:
 // Bit 7-5: MUX Electrode Selection
 // Bit 4: Gain (0 = 1 or 1 = 4)
