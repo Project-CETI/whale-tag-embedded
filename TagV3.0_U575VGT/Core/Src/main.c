@@ -165,6 +165,8 @@ int main(void)
 //  Keller_UT(&depth_sensor);
 //  Light_UT(&light_sensor);
 
+  HAL_NVIC_DisableIRQ(EXTI12_IRQn);
+  HAL_NVIC_DisableIRQ(EXTI14_IRQn);
   /* USER CODE END 2 */
 
   MX_ThreadX_Init();
@@ -965,23 +967,17 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(IMU_INT_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : ECG_LOD__Pin ECG_LOD_D11_Pin ECG_NSDN_Pin */
-  GPIO_InitStruct.Pin = ECG_LOD__Pin|ECG_LOD_D11_Pin|ECG_NSDN_Pin;
+  /*Configure GPIO pins : ECG_LOD__Pin ECG_LOD_D11_Pin ECG_NDRDY_Pin ECG_NSDN_Pin */
+  GPIO_InitStruct.Pin = ECG_LOD__Pin|ECG_LOD_D11_Pin|ECG_NDRDY_Pin|ECG_NSDN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : ECG_NDRDY_Pin */
-  GPIO_InitStruct.Pin = ECG_NDRDY_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(ECG_NDRDY_GPIO_Port, &GPIO_InitStruct);
-
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI12_IRQn, 2, 0);
+  HAL_NVIC_SetPriority(EXTI12_IRQn, 3, 0);
   HAL_NVIC_EnableIRQ(EXTI12_IRQn);
 
-  HAL_NVIC_SetPriority(EXTI14_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(EXTI14_IRQn, 2, 0);
   HAL_NVIC_EnableIRQ(EXTI14_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */

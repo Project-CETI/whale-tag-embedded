@@ -2,16 +2,19 @@
  * ECG.c
  *
  *  Created on: Feb. 9, 2023
- *      Author: amjad
+ *      Author: Kaveet
  */
 
 #include "Sensor Inc/ECG.h"
 #include "main.h"
 #include "stm32u5xx_hal_cortex.h"
+#include <stdbool.h>
 
 extern I2C_HandleTypeDef hi2c4;
 
 TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
+
+bool ecg_running = 0;
 
 void ecg_thread_entry(ULONG thread_input){
 
@@ -34,8 +37,12 @@ void ecg_thread_entry(ULONG thread_input){
 		//Thus, wait for our flag to be set in the interrupt handler. This function call will block the entire task until we receive the data.
 		tx_event_flags_get(&ecg_event_flags_group, 0x1, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
+		ecg_running = true;
+
 		//New data is ready, retrieve it
 		ecg_read_adc(&ecg);
+
+		ecg_running = false;
 	}
 }
 HAL_StatusTypeDef ecg_init(I2C_HandleTypeDef* hi2c, ECG_HandleTypeDef* ecg){
@@ -71,6 +78,7 @@ HAL_StatusTypeDef ecg_read_adc(ECG_HandleTypeDef* ecg){
 	ret = HAL_I2C_Master_Receive(ecg->i2c_handler, (ECG_ADC_I2C_ADDRESS << 1), ecg->raw_data, 3, HAL_MAX_DELAY);
 
 	//We have 24 bits of data. Turn it into a signed 32 bit integer. Data is shifted out of ADC with the MSB first.
+	//TODO: Do 2's complement conversion (once we can test values)
 	int32_t digitalReading = (ecg->raw_data[0] << 16) | (ecg->raw_data[1] << 8) | ecg->raw_data[0];
 	ecg->voltage = digitalReading * ECG_ADC_LSB;
 

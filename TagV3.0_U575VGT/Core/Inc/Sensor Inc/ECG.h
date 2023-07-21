@@ -2,7 +2,7 @@
  * ECG.h
  *
  *  Created on: Feb. 9, 2023
- *      Author: amjad
+ *      Author: Kaveet
  */
 
 #ifndef INC_SENSOR_INC_ECG_H_
@@ -99,5 +99,7 @@ HAL_StatusTypeDef ecg_configure_electrodes(ECG_HandleTypeDef* ecg, uint8_t elect
 //Polls the ECG data ready pin for new data. Will timeout if no new data.
 HAL_StatusTypeDef ecg_poll_data_ready(ECG_HandleTypeDef* ecg);
 
+//Resets the ECG sensor (should be done before initialization)
+HAL_StatusTypeDef ecg_reset_adc(ECG_HandleTypeDef* ecg);
 
 #endif /* INC_SENSOR_INC_ECG_H_ */

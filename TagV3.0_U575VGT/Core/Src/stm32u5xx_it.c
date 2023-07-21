@@ -63,7 +63,7 @@ extern DMA_QListTypeDef List_GPDMA1_Channel0;
 extern DMA_HandleTypeDef handle_GPDMA1_Channel0;
 extern SD_HandleTypeDef hsd1;
 extern TIM_HandleTypeDef htim6;
-extern TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
+
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -188,7 +188,6 @@ void EXTI14_IRQHandler(void)
   /* USER CODE BEGIN EXTI14_IRQn 0 */
 
   /* USER CODE END EXTI14_IRQn 0 */
-  tx_event_flags_set(&ecg_event_flags_group, 0x1, TX_OR);
   HAL_GPIO_EXTI_IRQHandler(ECG_NDRDY_Pin);
   /* USER CODE BEGIN EXTI14_IRQn 1 */
 
