@@ -18,6 +18,8 @@ static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t time
 
 TX_EVENT_FLAGS_GROUP imu_event_flags_group;
 
+bool imu_running = false;
+
 void IMU_thread_entry(ULONG thread_input){
 
 	//Create IMU handler and initialize
@@ -39,8 +41,10 @@ void IMU_thread_entry(ULONG thread_input){
 		//Calling this function blocks and suspends the thread until the data becomes available.
 		tx_event_flags_get(&imu_event_flags_group, 0x1, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
+		imu_running = true;
 		//Get the data and store in our handler
 		IMU_get_data(&imu);
+		imu_running = false;
 	}
 }
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
