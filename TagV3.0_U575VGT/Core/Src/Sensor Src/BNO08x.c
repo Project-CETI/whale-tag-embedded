@@ -2,9 +2,13 @@
  * BNO08x.c
  *
  *  Created on: Feb 8, 2023
- *      Author: Amjad Halis
+ *      Author: Kaveet Grewal
+ *
+ * 	Source file for the IMU drivers. See header file for more details
  */
 #include "BNO08x.h"
+#include "fx_api.h"
+#include "app_filex.h"
 #include "main.h"
 #include "stm32u5xx_hal_cortex.h"
 #include "stm32u5xx_hal_gpio.h"
@@ -13,12 +17,24 @@
 
 extern SPI_HandleTypeDef hspi1;
 
+//FileX variables
+extern FX_MEDIA        sdio_disk;
+extern ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
+
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu);
 static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout);
 
 TX_EVENT_FLAGS_GROUP imu_event_flags_group;
 
 bool imu_running = false;
+
+bool imu_writing = false;
+
+void imu_SDWriteComplete(FX_FILE *file){
+
+	//Set polling flag to indicate a completed SD card write
+	imu_writing = false;
+}
 
 void IMU_thread_entry(ULONG thread_input){
 
@@ -29,22 +45,56 @@ void IMU_thread_entry(ULONG thread_input){
 	//Create the events flag.
 	tx_event_flags_create(&imu_event_flags_group, "IMU Event Flags");
 
+	FX_FILE imu_file = {};
+
+	//Create our binary file for dumping imu data
+	UINT fx_result = FX_SUCCESS;
+	fx_result = fx_file_create(&sdio_disk, "imu_test.bin");
+	if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
+	  Error_Handler();
+	}
+
+	//Open the file
+	fx_result = fx_file_open(&sdio_disk, &imu_file, "imu_test.bin", FX_OPEN_FOR_WRITE);
+	if(fx_result != FX_SUCCESS){
+	  Error_Handler();
+	}
+
+	//Set our "write complete" callback function
+	fx_result = fx_file_write_notify_set(&imu_file, imu_SDWriteComplete);
+	if(fx_result != FX_SUCCESS){
+	  Error_Handler();
+	}
+
 	//Enable our interrupt handler that signals data is ready
 	HAL_NVIC_EnableIRQ(EXTI12_IRQn);
 
 	while(1) {
 
-		//variable that holds the results of the flag polling (returns which flags are set)
-		ULONG actual_events;
+		//Array to hold enough sets of IMU data for our SD card write
+		IMU_Data imu_data[10] = {0};
 
-		//Poll for data to be ready. Flag is set by our interrupt handler.
-		//Calling this function blocks and suspends the thread until the data becomes available.
-		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
+		//Collect 10 pieces of IMU data
+		for (uint8_t index = 0; index < 10; index++){
+			//variable that holds the results of the flag polling (returns which flags are set)
+			ULONG actual_events;
 
-		imu_running = true;
-		//Get the data and store in our handler
-		IMU_get_data(&imu);
-		imu_running = false;
+			//Poll for data to be ready. Flag is set by our interrupt handler.
+			//Calling this function blocks and suspends the thread until the data becomes available.
+			tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
+
+			imu_running = true;
+			//Get the data and store in our handler
+			IMU_get_data(&imu);
+			imu_data[index] = imu.data;
+			imu_running = false;
+		}
+
+		imu_writing = true;
+		fx_file_write(&imu_file, imu_data, sizeof(IMU_Data) * 10);
+
+		while (imu_writing);
+
 	}
 }
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
@@ -129,11 +179,11 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 	 	if ((receiveData[4] == IMU_TIMESTAMP_REPORT_ID) && (receiveData[9] == IMU_ROTATION_VECTOR_REPORT_ID)){
 
 			//Save data parameters to our struct. We need to combine the MSB and LSB to get the correct 16bit value.
-			imu->quat_i = receiveData[14] << 8 | receiveData[13];
-			imu->quat_j = receiveData[16] << 8 | receiveData[15];
-			imu->quat_k = receiveData[18] << 8 | receiveData[17];
-			imu->quat_r = receiveData[20] << 8 | receiveData[19];
-			imu->accurary_rad = receiveData[22] << 8 | receiveData[21];
+			imu->data.quat_i = receiveData[14] << 8 | receiveData[13];
+			imu->data.quat_j = receiveData[16] << 8 | receiveData[15];
+			imu->data.quat_k = receiveData[18] << 8 | receiveData[17];
+			imu->data.quat_r = receiveData[20] << 8 | receiveData[19];
+			imu->data.accurary_rad = receiveData[22] << 8 | receiveData[21];
 
 			return HAL_OK;
 		}

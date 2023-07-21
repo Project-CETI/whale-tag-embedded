@@ -2,9 +2,18 @@
  * BNO08x.h
  *
  *  Created on: Feb 8, 2023
- *      Author: Amjad Halis
+ *      Author: Kaveet Grewal
+ *      Sensor: BNO08x
+ *      Datasheet(s): https://www.ceva-dsp.com/wp-content/uploads/2019/10/BNO080_085-Datasheet.pdf
+ *      			  https://www.ceva-dsp.com/wp-content/uploads/2019/10/Sensor-Hub-Transport-Protocol.pdf
+ *      			  https://www.ceva-dsp.com/wp-content/uploads/2019/10/SH-2-Reference-Manual.pdf
+ *
+ * 	This file handles the SPI interface between the STM board and the IMU (BNO08x).
+ *
+ * 	The STM configures the IMU by requesting it to send rotation reports every interval. The IMU fires and interrupt when it has data ready.
+ *
+ * 	The IMU follows the Sensor Hub Transfer Protocol (SHTP) on top of SPI. Documentation on it can be found at the links above.
  */
-
 #ifndef INC_BNO08X_H_
 #define INC_BNO08X_H_
 
@@ -51,6 +60,19 @@
 //ThreadX flag bit for when IMU data is ready
 #define IMU_DATA_READY_FLAG 0x1
 
+//IMU typedef definition for useful data variables
+typedef struct __IMU_Data_Typedef {
+
+	//Data variables - rotation unit quaternions
+	// real, i, j and k components
+	uint16_t quat_r;
+	uint16_t quat_i;
+	uint16_t quat_j;
+	uint16_t quat_k;
+	float accurary_rad;
+
+} IMU_Data;
+
 //IMU typedef definition for useful variables
 typedef struct __IMU_Typedef{
 
@@ -69,13 +91,8 @@ typedef struct __IMU_Typedef{
 	GPIO_TypeDef* wake_port;
 	uint16_t wake_pin;
 
-	//Data variables - rotation unit quaternions
-	// real, i, j and k components
-	uint16_t quat_r;
-	uint16_t quat_i;
-	uint16_t quat_j;
-	uint16_t quat_k;
-	float accurary_rad;
+	//Data struct
+	IMU_Data data;
 
 } IMU_HandleTypeDef;
 
