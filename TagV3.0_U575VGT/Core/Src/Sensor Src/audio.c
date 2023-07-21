@@ -84,10 +84,18 @@ extern ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZ
 //Event flags for signaling data ready
 TX_EVENT_FLAGS_GROUP audio_event_flags_group;
 
+//Testing variables (Remove once happy with firmware)
+uint8_t counter = 0;
+bool sd_writing = 0;
+bool yielding = 0;
+
 void audio_SAI_RxCpltCallback (SAI_HandleTypeDef * hsai){
 
 	//Our DMA buffer is completely filled, move the upper half into the temporary buffer
+	counter += 2;
 	memcpy(audio.temp_buffer[audio.temp_counter], audio.audio_buffer[1], AUDIO_CIRCULAR_BUFFER_SIZE);
+	counter -= 2;
+
 	audio.temp_counter++;
 
 	//Once the temporary buffer is half full, set the flag for the thread execution loop
@@ -106,7 +114,10 @@ void audio_SAI_RxCpltCallback (SAI_HandleTypeDef * hsai){
 void audio_SAI_RxHalfCpltCallback (SAI_HandleTypeDef * hsai){
 
 	//Our DMA buffer is half full, move the lower half into the temp buffer
+	counter += 1;
 	memcpy(audio.temp_buffer[audio.temp_counter], audio.audio_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE);
+	counter -= 1;
+
 	audio.temp_counter++;
 
 	//Half full temp buffer, set flag for thread execution loop
@@ -124,6 +135,7 @@ void audio_SAI_RxHalfCpltCallback (SAI_HandleTypeDef * hsai){
 void audio_SDWriteComplete(FX_FILE *file){
 
 	//Set polling flag to indicate a completed SD card write
+	sd_writing = false;
 	audio.sd_write_complete = true;
 }
 
@@ -187,17 +199,21 @@ void audio_thread_entry(ULONG thread_input){
 	  while (1){
 
 		  //Wait for the temp buffer to be either half of fully full. This suspends the audio task and lets others run.
+		  yielding = true;
 		  tx_event_flags_get(&audio_event_flags_group, 0x1 | 0x2, TX_OR_CLEAR, &acc_flag_pointer, TX_WAIT_FOREVER);
+		  yielding = false;
 
 		  //If half full, write the bottom half
 		  if (acc_flag_pointer & 0x1){
       		audio.sd_write_complete = false;
+      		sd_writing = true;
       		fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
 		  }
 
 		  //If full, write the top half
 		  if (acc_flag_pointer & 0x2){
       		audio.sd_write_complete = false;
+      		sd_writing = true;
       		fx_file_write(audio.file, audio.temp_buffer[10], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
 		  }
 

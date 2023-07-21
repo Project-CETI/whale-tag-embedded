@@ -149,7 +149,7 @@ UINT MX_FileX_Init(VOID *memory_ptr)
 
 /* USER CODE BEGIN fx_app_thread_entry 1*/
   //tx_event_flags_set(&audio_event_flags_group, 0x4, TX_OR);
-  //tx_thread_resume(&threads[AUDIO_THREAD].thread);
+  tx_thread_resume(&threads[AUDIO_THREAD].thread);
   tx_thread_resume(&threads[IMU_THREAD].thread);
 /* USER CODE END fx_app_thread_entry 1*/
   }
