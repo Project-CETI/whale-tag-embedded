@@ -24,6 +24,10 @@
 #define AUDIO_CIRCULAR_BUFFER_SIZE_MAX (UINT16_MAX/2)
 #define AUDIO_CIRCULAR_BUFFER_SIZE  (32256)
 
+//ThreadX flag bits to show when the buffer is half full or completely full
+#define AUDIO_BUFFER_HALF_FULL_FLAG 0x1
+#define AUDIO_BUFFER_FULL_FLAG 0x2
+
 typedef enum {
     AUDIO_BUF_STATE_EMPTY,
     AUDIO_BUF_STATE_HALF_FULL,

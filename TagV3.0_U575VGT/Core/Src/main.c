@@ -165,6 +165,8 @@ int main(void)
 //  Keller_UT(&depth_sensor);
 //  Light_UT(&light_sensor);
 
+  HAL_NVIC_DisableIRQ(EXTI12_IRQn);
+  HAL_NVIC_DisableIRQ(EXTI14_IRQn);
   /* USER CODE END 2 */
 
   MX_ThreadX_Init();
@@ -972,8 +974,11 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI12_IRQn, 2, 0);
+  HAL_NVIC_SetPriority(EXTI12_IRQn, 3, 0);
   HAL_NVIC_EnableIRQ(EXTI12_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI14_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(EXTI14_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */

@@ -22,6 +22,7 @@
 #include "stm32u5xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "Sensor Inc/ECG.h"
 #include "Sensor Inc/BNO08x.h"
 #include <stdbool.h>
 /* USER CODE END Includes */
@@ -44,6 +45,7 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
 extern TX_EVENT_FLAGS_GROUP imu_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -171,12 +173,26 @@ void DebugMon_Handler(void)
 void EXTI12_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI12_IRQn 0 */
-	tx_event_flags_set(&imu_event_flags_group, 0x1, TX_OR);
+	tx_event_flags_set(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR);
   /* USER CODE END EXTI12_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(IMU_INT_Pin);
   /* USER CODE BEGIN EXTI12_IRQn 1 */
 
   /* USER CODE END EXTI12_IRQn 1 */
+}
+
+/**
+  * @brief This function handles EXTI Line14 interrupt.
+  */
+void EXTI14_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI14_IRQn 0 */
+	tx_event_flags_set(&ecg_event_flags_group, ECG_DATA_READY_FLAG, TX_OR);
+  /* USER CODE END EXTI14_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(ECG_NDRDY_Pin);
+  /* USER CODE BEGIN EXTI14_IRQn 1 */
+
+  /* USER CODE END EXTI14_IRQn 1 */
 }
 
 /**

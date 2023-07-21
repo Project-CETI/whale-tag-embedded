@@ -24,6 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdint.h>
+#include "Sensor Inc/ECG.h"
 #include "Lib Inc/threads.h"
 #include "Sensor Inc/BNO08x.h"
 #include "Sensor Inc/audio.h"

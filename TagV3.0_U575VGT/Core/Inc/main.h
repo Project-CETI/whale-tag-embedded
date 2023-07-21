@@ -84,6 +84,7 @@ void Error_Handler(void);
 #define ECG_LOD_D11_GPIO_Port GPIOD
 #define ECG_NDRDY_Pin GPIO_PIN_14
 #define ECG_NDRDY_GPIO_Port GPIOD
+#define ECG_NDRDY_EXTI_IRQn EXTI14_IRQn
 #define ECG_NSDN_Pin GPIO_PIN_15
 #define ECG_NSDN_GPIO_Port GPIOD
 
