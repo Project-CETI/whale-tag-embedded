@@ -16,7 +16,7 @@ Thread_HandleTypeDef threads[NUM_THREADS];
 
 void threadListInit(){
 
-	for (uint8_t index = 0; index < NUM_THREADS; index++){
+	for (Thread index = 0; index < NUM_THREADS; index++){
 
 		//Attach our config info (the ones statically defined in the header file)
 		threads[index].config = threadConfigList[index];

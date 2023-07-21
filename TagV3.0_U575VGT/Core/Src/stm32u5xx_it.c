@@ -45,6 +45,7 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
 extern TX_EVENT_FLAGS_GROUP imu_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -186,7 +187,7 @@ void EXTI12_IRQHandler(void)
 void EXTI14_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI14_IRQn 0 */
-
+	tx_event_flags_set(&ecg_event_flags_group, 0x1, TX_OR);
   /* USER CODE END EXTI14_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(ECG_NDRDY_Pin);
   /* USER CODE BEGIN EXTI14_IRQn 1 */
