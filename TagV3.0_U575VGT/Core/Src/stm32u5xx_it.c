@@ -171,9 +171,7 @@ void DebugMon_Handler(void)
 void EXTI12_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI12_IRQn 0 */
-
-  tx_event_flags_set(&imu_event_flags_group, 0x1, TX_OR);
-
+	tx_event_flags_set(&imu_event_flags_group, 0x1, TX_OR);
   /* USER CODE END EXTI12_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(IMU_INT_Pin);
   /* USER CODE BEGIN EXTI12_IRQn 1 */
