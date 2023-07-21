@@ -65,7 +65,6 @@ UINT App_ThreadX_Init(VOID *memory_ptr);
 void MX_ThreadX_Init(void);
 
 /* USER CODE BEGIN EFP */
-
 /* USER CODE END EFP */
 
 /* USER CODE BEGIN 1 */

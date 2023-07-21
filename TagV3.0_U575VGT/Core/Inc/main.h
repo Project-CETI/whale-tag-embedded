@@ -73,6 +73,7 @@ void Error_Handler(void);
 #define IMU_WAKE_GPIO_Port GPIOE
 #define IMU_INT_Pin GPIO_PIN_12
 #define IMU_INT_GPIO_Port GPIOE
+#define IMU_INT_EXTI_IRQn EXTI12_IRQn
 #define IMU_CS_Pin GPIO_PIN_12
 #define IMU_CS_GPIO_Port GPIOB
 #define KELLER_EOC_Pin GPIO_PIN_13
