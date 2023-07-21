@@ -19,12 +19,13 @@
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
-#include <Lib Inc/threads.h>
 #include "app_threadx.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdint.h>
+#include "Lib Inc/threads.h"
+#include "Sensor Inc/BNO08x.h"
 #include "Sensor Inc/audio.h"
 /* USER CODE END Includes */
 
