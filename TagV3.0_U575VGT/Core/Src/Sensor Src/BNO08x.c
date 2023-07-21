@@ -150,11 +150,12 @@ static void IMU_read_startup_data(IMU_HandleTypeDef* imu){
 		//Poll for INT edge. If it never happens, then the IMU is done dumping data.
 		if (IMU_poll_new_data(imu, IMU_DUMMY_PACKET_TIMEOUT_MS) == HAL_TIMEOUT){
 			reading = false;
+			break;
 		}
 
 		//Read through dummy data
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-		HAL_SPI_Receive(imu->hspi, receiveData, 100, HAL_MAX_DELAY);
+		HAL_SPI_Receive(imu->hspi, receiveData, 100, 5000);
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 	}
 }
@@ -172,6 +173,8 @@ static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t time
 			return HAL_TIMEOUT;
 		}
 	}
+
+	return HAL_OK;
 
 }
 
