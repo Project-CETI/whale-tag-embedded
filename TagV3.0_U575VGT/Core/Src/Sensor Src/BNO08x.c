@@ -72,16 +72,17 @@ void IMU_thread_entry(ULONG thread_input){
 	}
 
 	//Dummy write to show the beggining of the file
+	imu_writing = true;
 	imu.data.quat_r = 0x0201;
 	imu.data.quat_i = 0x0403;
 	imu.data.quat_j = 0x0605;
 	imu.data.quat_k = 0x0807;
 	imu.data.accurary_rad = 0x0A09;
 	fx_file_write(&imu_file, &imu.data, sizeof(IMU_Data));
+	while (imu_writing);
 
 	//Enable our interrupt handler that signals data is ready
 	HAL_NVIC_EnableIRQ(EXTI12_IRQn);
-
 
 	while(1) {
 
