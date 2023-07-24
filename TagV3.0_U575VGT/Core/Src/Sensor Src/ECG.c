@@ -9,12 +9,23 @@
 #include "main.h"
 #include "stm32u5xx_hal_cortex.h"
 #include <stdbool.h>
+#include "app_filex.h"
 
 extern I2C_HandleTypeDef hi2c4;
+
+//FileX variables
+extern FX_MEDIA        sdio_disk;
+extern ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
 
 TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
 
 bool ecg_running = 0;
+bool ecg_writing = 0;
+uint8_t good_ecg_data = 0;
+void ecg_SDWriteComplete(FX_FILE *file){
+	//Indicate that we are no longer writing to the SD card
+	ecg_writing = false;
+}
 
 void ecg_thread_entry(ULONG thread_input){
 
@@ -25,24 +36,69 @@ void ecg_thread_entry(ULONG thread_input){
 	//Create our flag that indicates when data is ready
 	tx_event_flags_create(&ecg_event_flags_group, "ECG Event Flags");
 
+	FX_FILE ecg_file = {};
+
+	//Create our binary file for dumping ecg data
+	UINT fx_result = FX_SUCCESS;
+	fx_result = fx_file_create(&sdio_disk, "ecg_test.bin");
+	if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
+	  Error_Handler();
+	}
+
+	//Open the file
+	fx_result = fx_file_open(&sdio_disk, &ecg_file, "ecg_test.bin", FX_OPEN_FOR_WRITE);
+	if(fx_result != FX_SUCCESS){
+	  Error_Handler();
+	}
+
+	//Set our "write complete" callback function
+	fx_result = fx_file_write_notify_set(&ecg_file, ecg_SDWriteComplete);
+	if(fx_result != FX_SUCCESS){
+	  Error_Handler();
+	}
+
+	//Data array for holding multiple ECG samples (so we can collect them and write to the SD card in batches)
+	float ecg_data[ECG_NUM_SAMPLES] = {0};
+
+	//Do a dummy write for the beginning of the file
+	ecg_writing = true;
+	fx_file_write(&ecg_file, ecg_data, sizeof(float) * ECG_NUM_SAMPLES);
+	while (ecg_writing);
+
 	//Enable our interrupt handler (signals when data is ready)
 	HAL_NVIC_EnableIRQ(EXTI14_IRQn);
 
 	while(1){
 
-		//holds event flags
-		ULONG actual_events;
+		//Collect a batch of samples
+		for (uint16_t index = 0; index < ECG_NUM_SAMPLES; index++){
+			//holds event flags
+			ULONG actual_events;
 
-		//We've initialized the ECG to be in continuous conversion mode, and we have an interrupt line signalling when data is ready.
-		//Thus, wait for our flag to be set in the interrupt handler. This function call will block the entire task until we receive the data.
-		tx_event_flags_get(&ecg_event_flags_group, ECG_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
+			//We've initialized the ECG to be in continuous conversion mode, and we have an interrupt line signalling when data is ready.
+			//Thus, wait for our flag to be set in the interrupt handler. This function call will block the entire task until we receive the data.
+			tx_event_flags_get(&ecg_event_flags_group, ECG_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
-		ecg_running = true;
+			ecg_running = true;
 
-		//New data is ready, retrieve it
-		ecg_read_adc(&ecg);
+			//New data is ready, retrieve it
+			if (ecg_read_adc(&ecg) == HAL_OK){
+				good_ecg_data++;
+			}
 
-		ecg_running = false;
+			ecg_data[index] = ecg.voltage;
+
+			ecg_running = false;
+		}
+
+		//We've collected all the samples we need, write them to SD card
+		ecg_writing = true;
+		fx_file_write(&ecg_file, ecg_data, sizeof(float) * ECG_NUM_SAMPLES);
+
+		//Poll for completion
+		while (ecg_writing);
+
+		good_ecg_data = 0;
 	}
 }
 HAL_StatusTypeDef ecg_init(I2C_HandleTypeDef* hi2c, ECG_HandleTypeDef* ecg){

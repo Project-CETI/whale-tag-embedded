@@ -52,6 +52,10 @@
 // Bit 0: Vref (0 = internal/2.048V, 1 = external reference)
 #define ECG_ADC_DEFAULT_CONFIG_REGISTER 0b00000010
 
+
+//The number of ECG Samples to collect before writing to the SD card
+#define ECG_NUM_SAMPLES 100
+
 typedef struct __ECG_TypeDef {
 
 	I2C_HandleTypeDef *i2c_handler;
