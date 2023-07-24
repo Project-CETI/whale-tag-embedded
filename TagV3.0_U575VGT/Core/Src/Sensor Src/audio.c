@@ -228,10 +228,10 @@ void audio_thread_entry(ULONG thread_input){
 		  if (acc_flag_pointer & AUDIO_STOP_THREAD_FLAG){
 
 			  //Stop DMA buffer
-			  HAL_SAI_DMAPause(&audio.sai);
+			  HAL_SAI_DMAPause(audio.sai);
 
 			  //Close file
-			  fx_file_close(&audio.file);
+			  fx_file_close(audio.file);
 
 			  //Terminate thread so it needs to be fully reset to start again
 			  tx_thread_terminate(&threads[AUDIO_THREAD].thread);

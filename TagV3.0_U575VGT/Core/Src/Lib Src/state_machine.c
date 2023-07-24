@@ -37,12 +37,32 @@ void state_machine_thread_entry(ULONG thread_input){
 		enter_data_offload();
 	}
 
-	tx_thread_sleep(100000);
-	exit_data_capture();
 	//Enter main thread execution loop
-	//while (1){
+	while (1){
 
-	//}
+		ULONG actual_flags;
+		tx_event_flags_get(&state_machine_event_flags_group, ALL_STATE_FLAGS, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+
+		//Timeout event
+		if (actual_flags & STATE_TIMEOUT_FLAG){
+
+		}
+
+		//GPS geofencing flag
+		if (actual_flags & STATE_GPS_FLAG){
+
+		}
+
+		//BMS low battery flag
+		if (actual_flags & STATE_LOW_BATT_FLAG){
+
+		}
+
+		//USB detected flag
+		if (actual_flags & STATE_V_BUS_FLAG){
+
+		}
+	}
 }
 
 
