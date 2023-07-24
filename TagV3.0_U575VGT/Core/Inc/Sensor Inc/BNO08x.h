@@ -60,6 +60,9 @@
 //ThreadX flag bit for when IMU data is ready
 #define IMU_DATA_READY_FLAG 0x1
 
+//The number of IMU Samples to collect before writing to the SD card
+#define IMU_NUM_SAMPLES 10
+
 //IMU typedef definition for useful data variables
 typedef struct __IMU_Data_Typedef {
 
@@ -69,7 +72,7 @@ typedef struct __IMU_Data_Typedef {
 	uint16_t quat_i;
 	uint16_t quat_j;
 	uint16_t quat_k;
-	float accurary_rad;
+	uint16_t accurary_rad;
 
 } IMU_Data;
 

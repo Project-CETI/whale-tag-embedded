@@ -30,6 +30,8 @@ bool imu_running = false;
 
 bool imu_writing = false;
 
+uint8_t good_counter = 0;
+
 void imu_SDWriteComplete(FX_FILE *file){
 
 	//Set polling flag to indicate a completed SD card write
@@ -66,16 +68,25 @@ void IMU_thread_entry(ULONG thread_input){
 	  Error_Handler();
 	}
 
+	imu.data.quat_r = 0x0201;
+	imu.data.quat_i = 0x0403;
+	imu.data.quat_j = 0x0605;
+	imu.data.quat_k = 0x0807;
+	imu.data.accurary_rad = 0x0A09;
+
+	fx_file_write(&imu_file, &imu.data, sizeof(IMU_Data));
 	//Enable our interrupt handler that signals data is ready
 	HAL_NVIC_EnableIRQ(EXTI12_IRQn);
+
 
 	while(1) {
 
 		//Array to hold enough sets of IMU data for our SD card write
-		IMU_Data imu_data[10] = {0};
+		IMU_Data imu_data[IMU_NUM_SAMPLES] = {0};
 
 		//Collect 10 pieces of IMU data
-		for (uint8_t index = 0; index < 10; index++){
+		for (uint8_t index = 0; index < IMU_NUM_SAMPLES; index++){
+
 			//variable that holds the results of the flag polling (returns which flags are set)
 			ULONG actual_events;
 
@@ -83,18 +94,24 @@ void IMU_thread_entry(ULONG thread_input){
 			//Calling this function blocks and suspends the thread until the data becomes available.
 			tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
+			//Debug
 			imu_running = true;
+
 			//Get the data and store in our handler
 			IMU_get_data(&imu);
 			imu_data[index] = imu.data;
+
+			//Debug
 			imu_running = false;
 		}
 
 		imu_writing = true;
-		fx_file_write(&imu_file, imu_data, sizeof(IMU_Data) * 10);
+		fx_file_write(&imu_file, imu_data, sizeof(IMU_Data) * IMU_NUM_SAMPLES);
 
+		//Wait for the writing to complete before giving up control to prevent unnecessary context switches
 		while (imu_writing);
 
+		good_counter = 0;
 	}
 }
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
@@ -185,6 +202,7 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 			imu->data.quat_r = receiveData[20] << 8 | receiveData[19];
 			imu->data.accurary_rad = receiveData[22] << 8 | receiveData[21];
 
+			good_counter++;
 			return HAL_OK;
 		}
 	}
