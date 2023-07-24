@@ -21,10 +21,12 @@
 #include "Sensor Inc/audio.h"
 #include "Sensor Inc/BNO08x.h"
 #include "Sensor Inc/ECG.h"
+#include "Lib Inc/state_machine.h"
 
 //Enum for all threads so we can easily keep track of the list + total number of threads.
 // If adding a new thread to the list, put it before the "NUM_THREADS" element, as it must always be the last element in the enum.
 typedef enum __TX_THREAD_LIST {
+	STATE_MACHINE_THREAD,
 	AUDIO_THREAD,
 	IMU_THREAD,
 	ECG_THREAD,
@@ -63,6 +65,17 @@ typedef struct __TX_THREAD_TypeDef {
 
 //Define the config for each struct here, in the same order the are listed in the Thread Enum above.
 static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
+		{
+				//State Machine
+				.thread_name = "State Machine Thread",
+				.thread_entry_function = state_machine_thread_entry,
+				.thread_input = 0x1234,
+				.thread_stack_size = 1024,
+				.priority = 2,
+				.preempt_threshold = 2,
+				.timeslice = TX_NO_TIME_SLICE,
+				.start = TX_DONT_START
+		},
 		{
 				//Audio Thread
 				.thread_name = "Audio Thread",

@@ -29,7 +29,7 @@
 #include "tx_api.h"
 #include "app_filex.h"
 #include "app_threadx.h"
-
+#include "Lib Inc/threads.h"
 #include <stdbool.h>
 
 /*******************************
@@ -80,6 +80,9 @@ extern AudioManager audio;
 FX_FILE         audio_file = {};
 extern FX_MEDIA        sdio_disk;
 extern ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
+
+//Threads array
+extern Thread_HandleTypeDef threads[NUM_THREADS];
 
 //Event flags for signaling data ready
 TX_EVENT_FLAGS_GROUP audio_event_flags_group;
@@ -200,7 +203,7 @@ void audio_thread_entry(ULONG thread_input){
 
 		  //Wait for the temp buffer to be either half of fully full. This suspends the audio task and lets others run.
 		  yielding = true;
-		  tx_event_flags_get(&audio_event_flags_group, AUDIO_BUFFER_FULL_FLAG | AUDIO_BUFFER_HALF_FULL_FLAG, TX_OR_CLEAR, &acc_flag_pointer, TX_WAIT_FOREVER);
+		  tx_event_flags_get(&audio_event_flags_group, AUDIO_BUFFER_FULL_FLAG | AUDIO_BUFFER_HALF_FULL_FLAG | AUDIO_STOP_THREAD_FLAG, TX_OR_CLEAR, &acc_flag_pointer, TX_WAIT_FOREVER);
 		  yielding = false;
 
 		  //If half full, write the bottom half
@@ -220,6 +223,19 @@ void audio_thread_entry(ULONG thread_input){
 		  //Poll for completion, this blocks out other tasks but is *neccessary*
 		  //We block out the other tasks to prevent unneccessary context switches which would slow down the SD card writes significantly, to the point where we would lose data.
 		  while (!audio.sd_write_complete);
+
+		  //If we need to stop the thread, stop the data collection and suspend the thread
+		  if (acc_flag_pointer & AUDIO_STOP_THREAD_FLAG){
+
+			  //Stop DMA buffer
+			  HAL_SAI_DMAPause(&audio.sai);
+
+			  //Close file
+			  fx_file_close(&audio.file);
+
+			  //Terminate thread so it needs to be fully reset to start again
+			  tx_thread_terminate(&threads[AUDIO_THREAD].thread);
+		  }
 
 	  }
 
