@@ -9,9 +9,11 @@
 #include "main.h"
 #include "stm32u5xx_hal_cortex.h"
 #include <stdbool.h>
+#include "Lib Inc/threads.h"
 
 extern I2C_HandleTypeDef hi2c4;
 
+extern Thread_HandleTypeDef threads[NUM_THREADS];
 TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
 
 bool ecg_running = 0;
@@ -35,14 +37,27 @@ void ecg_thread_entry(ULONG thread_input){
 
 		//We've initialized the ECG to be in continuous conversion mode, and we have an interrupt line signalling when data is ready.
 		//Thus, wait for our flag to be set in the interrupt handler. This function call will block the entire task until we receive the data.
-		tx_event_flags_get(&ecg_event_flags_group, ECG_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
+		tx_event_flags_get(&ecg_event_flags_group, ECG_DATA_READY_FLAG | ECG_STOP_THREAD_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
-		ecg_running = true;
+		//Data ready
+		if (actual_events & ECG_DATA_READY_FLAG){
+			ecg_running = true;
 
-		//New data is ready, retrieve it
-		ecg_read_adc(&ecg);
+			//New data is ready, retrieve it
+			ecg_read_adc(&ecg);
 
-		ecg_running = false;
+			ecg_running = false;
+		}
+
+		//We received a "stop" command from the state machine, so cleanup and stop the thread
+		if (actual_events & ECG_STOP_THREAD_FLAG){
+
+			//Close the file
+			//fx_file_close(&audio.file);
+
+			//Terminate thread so it needs to be fully reset to start again
+			tx_thread_terminate(&threads[ECG_THREAD].thread);
+		}
 	}
 }
 HAL_StatusTypeDef ecg_init(I2C_HandleTypeDef* hi2c, ECG_HandleTypeDef* ecg){
