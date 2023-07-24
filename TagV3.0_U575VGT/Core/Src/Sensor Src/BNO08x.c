@@ -79,7 +79,6 @@ void IMU_thread_entry(ULONG thread_input){
 	//Enable our interrupt handler that signals data is ready
 	HAL_NVIC_EnableIRQ(EXTI12_IRQn);
 
-
 	while(1) {
 
 		//Array to hold enough sets of IMU data for our SD card write

@@ -148,6 +148,8 @@ UINT MX_FileX_Init(VOID *memory_ptr)
   }
 
 /* USER CODE BEGIN fx_app_thread_entry 1*/
+  //volatile UINT fx_result = fx_file_create(&sdio_disk, "test.bin");
+
   tx_thread_resume(&threads[AUDIO_THREAD].thread);
   tx_thread_resume(&threads[IMU_THREAD].thread);
   tx_thread_resume(&threads[ECG_THREAD].thread);
