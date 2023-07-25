@@ -25,6 +25,9 @@ extern Thread_HandleTypeDef threads[NUM_THREADS];
 
 void state_machine_thread_entry(ULONG thread_input){
 
+	//Event flags for triggering state changes
+	tx_event_flags_create(&state_machine_event_flags_group, "State Machine Event Flags");
+
 	//If simulating, set the simulation state defined in the header file, else, enter data capture as a default
 	State state = (IS_SIMULATING) ? SIMULATING_STATE : STATE_DATA_CAPTURE;
 

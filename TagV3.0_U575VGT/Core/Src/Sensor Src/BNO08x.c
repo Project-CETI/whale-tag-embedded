@@ -118,6 +118,9 @@ void IMU_thread_entry(ULONG thread_input){
 				//Close the file
 				fx_file_close(&imu_file);
 
+				//Disable our new data interrupt
+				HAL_NVIC_DisableIRQ(EXTI12_IRQn);
+
 				//Terminate thread so it needs to be fully reset to start again
 				tx_thread_terminate(&threads[IMU_THREAD].thread);
 			}

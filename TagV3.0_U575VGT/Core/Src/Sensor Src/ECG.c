@@ -98,9 +98,11 @@ void ecg_thread_entry(ULONG thread_input){
 
 			//We received a "stop" command from the state machine, so cleanup and stop the thread
 			if (actual_events & ECG_STOP_THREAD_FLAG){
-
 				//Close the file
 				fx_file_close(&ecg_file);
+
+				//Disable our interrupt handler
+				HAL_NVIC_DisableIRQ(EXTI14_IRQn);
 
 				//Terminate thread so it needs to be fully reset to start again
 				tx_thread_terminate(&threads[ECG_THREAD].thread);
