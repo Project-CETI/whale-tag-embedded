@@ -9,9 +9,12 @@
 #include "main.h"
 #include "stm32u5xx_hal_cortex.h"
 #include <stdbool.h>
+#include "Lib Inc/threads.h"
 #include "app_filex.h"
 
 extern I2C_HandleTypeDef hi2c4;
+
+extern Thread_HandleTypeDef threads[NUM_THREADS];
 
 //FileX variables
 extern FX_MEDIA        sdio_disk;
@@ -72,6 +75,7 @@ void ecg_thread_entry(ULONG thread_input){
 
 		//Collect a batch of samples
 		for (uint16_t index = 0; index < ECG_NUM_SAMPLES; index++){
+
 			//holds event flags
 			ULONG actual_events;
 
@@ -79,16 +83,30 @@ void ecg_thread_entry(ULONG thread_input){
 			//Thus, wait for our flag to be set in the interrupt handler. This function call will block the entire task until we receive the data.
 			tx_event_flags_get(&ecg_event_flags_group, ECG_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
-			ecg_running = true;
+			//Data ready
+			if (actual_events & ECG_DATA_READY_FLAG){
+				
+				//New data is ready, retrieve it
+				if (ecg_read_adc(&ecg) == HAL_OK){
+					good_ecg_data++;
+				}
 
-			//New data is ready, retrieve it
-			if (ecg_read_adc(&ecg) == HAL_OK){
-				good_ecg_data++;
+				ecg_data[index] = ecg.voltage;
+
+				ecg_running = false;
 			}
 
-			ecg_data[index] = ecg.voltage;
+			//We received a "stop" command from the state machine, so cleanup and stop the thread
+			if (actual_events & ECG_STOP_THREAD_FLAG){
+				//Close the file
+				fx_file_close(&ecg_file);
 
-			ecg_running = false;
+				//Disable our interrupt handler
+				HAL_NVIC_DisableIRQ(EXTI14_IRQn);
+
+				//Terminate thread so it needs to be fully reset to start again
+				tx_thread_terminate(&threads[ECG_THREAD].thread);
+			}
 		}
 
 		//We've collected all the samples we need, write them to SD card

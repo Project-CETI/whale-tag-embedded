@@ -60,6 +60,9 @@
 //ThreadX flag bit for when IMU data is ready
 #define IMU_DATA_READY_FLAG 0x1
 
+//ThreadX flag for stopping the IMU (exit data capture)
+#define IMU_STOP_THREAD_FLAG 0x2
+
 //The number of IMU Samples to collect before writing to the SD card
 #define IMU_NUM_SAMPLES 10
 

@@ -28,6 +28,9 @@
 #define AUDIO_BUFFER_HALF_FULL_FLAG 0x1
 #define AUDIO_BUFFER_FULL_FLAG 0x2
 
+//ThreadX flag to stop the audio sensor (exit data collection)
+#define AUDIO_STOP_THREAD_FLAG 0x4
+
 typedef enum {
     AUDIO_BUF_STATE_EMPTY,
     AUDIO_BUF_STATE_HALF_FULL,

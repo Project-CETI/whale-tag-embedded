@@ -14,12 +14,15 @@
 #include "stm32u5xx_hal_gpio.h"
 #include "stm32u5xx_hal_spi.h"
 #include <stdbool.h>
-
+#include "Lib Inc/threads.h"
 extern SPI_HandleTypeDef hspi1;
 
 //FileX variables
 extern FX_MEDIA        sdio_disk;
 extern ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
+
+//Threads array
+extern Thread_HandleTypeDef threads[NUM_THREADS];
 
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu);
 static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout);
@@ -92,19 +95,35 @@ void IMU_thread_entry(ULONG thread_input){
 			//variable that holds the results of the flag polling (returns which flags are set)
 			ULONG actual_events;
 
-			//Poll for data to be ready. Flag is set by our interrupt handler.
-			//Calling this function blocks and suspends the thread until the data becomes available.
-			tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
+			//Poll for data to be readyb or for a stop command. Flag is set by our interrupt handler.
+			//Calling this function blocks and suspends the thread until the data becomes available (or we were told to stop the thread).
+			tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG | IMU_STOP_THREAD_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
-			//Debug
-			imu_running = true;
+			//if we are ready to read IMU data
+			if (actual_events & IMU_DATA_READY_FLAG){
+				//Debug
+				imu_running = true;
 
-			//Get the data and store in our handler
-			IMU_get_data(&imu);
-			imu_data[index] = imu.data;
+				//Get the data and store in our handler
+				IMU_get_data(&imu);
+				imu_data[index] = imu.data;
 
-			//Debug
-			imu_running = false;
+				//Debug
+				imu_running = false;
+			}
+
+			//We received a "stop" command from the state machine, so cleanup and stop the thread
+			if (actual_events & IMU_STOP_THREAD_FLAG){
+
+				//Close the file
+				fx_file_close(&imu_file);
+
+				//Disable our new data interrupt
+				HAL_NVIC_DisableIRQ(EXTI12_IRQn);
+
+				//Terminate thread so it needs to be fully reset to start again
+				tx_thread_terminate(&threads[IMU_THREAD].thread);
+			}
 		}
 
 		imu_writing = true;
