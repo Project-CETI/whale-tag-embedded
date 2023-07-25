@@ -12,7 +12,6 @@
  *
  * Integration Manual: https://content.u-blox.com/sites/default/files/NEO-M9N_Integrationmanual_UBX-19014286.pdf
  * Interface Description: https://content.u-blox.com/sites/default/files/u-blox-M9-SPG-4.04_InterfaceDescription_UBX-21022436.pdf
- *
  */
 
 #ifndef INC_RECOVERY_INC_GPS_H_
@@ -34,6 +33,8 @@
 
 #define DEFAULT_LAT 15.31383
 #define DEFAULT_LON -61.30075
+
+#define DOMINICA_LAT_BOUNDARY 17.71468
 
 typedef enum __GPS_MESSAGE_TYPES {
 	GPS_SIM = 0,
