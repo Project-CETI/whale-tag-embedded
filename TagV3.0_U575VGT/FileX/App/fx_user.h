@@ -83,11 +83,11 @@
    functions to the core functions that actually perform the work.
    Note: error checking is enabled by default.  */
 
-/* #define FX_DISABLE_ERROR_CHECKING */
+#define FX_DISABLE_ERROR_CHECKING
 
 /* Defined, FileX does not update already opened files.  */
 
-/* #define FX_DONT_UPDATE_OPEN_FILES */
+#define FX_DONT_UPDATE_OPEN_FILES
 
 /* Defined, enables 64-bits sector addresses used in I/O driver.  */
 
@@ -112,11 +112,11 @@
 /* Defines the size in bytes of the bit map used to update the secondary FAT sectors.
    The larger the value the less unnecessary secondary FAT sector writes.   */
 
-/* #define FX_FAT_MAP_SIZE         128 */
+#define FX_FAT_MAP_SIZE         256
 
 /* Defined, data sector write requests are flushed immediately to the driver.  */
 
-/* #define FX_FAULT_TOLERANT */
+#define FX_FAULT_TOLERANT
 
 /* Define byte offset in boot sector where the cluster number of the Fault Tolerant Log file is.
    Note that this field (byte 116 to 119) is marked as reserved by FAT 12/16/32/exFAT specification. */
@@ -125,7 +125,7 @@
 
 /* Defined, data sector write requests are flushed immediately to the driver.  */
 
-/* #define FX_FAULT_TOLERANT_DATA */
+#define FX_FAULT_TOLERANT_DATA
 
 /* Defines the number of entries in the FAT cache.  */
 
@@ -223,16 +223,12 @@
 /* Define bitmap cache size for exFAT. Size should be minimum one sector size and maximum 4096. For applications using multiple media devices with varying sector size, the value should be set to the size of largest sector size.
 The FX_EXFAT_MAX_CACHE_SIZE is 2 power of FX_EXFAT_MAX_CACHE_SIZE_NB_BIT.  */
 
-/*
-#define FX_EXFAT_MAX_CACHE_SIZE            512
-*/
+#define FX_EXFAT_MAX_CACHE_SIZE            4096
 
 /* Define the size of fault tolerant cache, which is used when freeing FAT chain.
 	The FX_FAULT_TOLERANT_CACHE_SIZE is 2 power of FX_FAULT_TOLERANT_CACHE_SIZE_NB_SIZE.  */
 
-/*
-#define FX_FAULT_TOLERANT_CACHE_SIZE            1024
-*/
+#define FX_FAULT_TOLERANT_CACHE_SIZE            16384
 
 /* USER CODE BEGIN 2 */
 

@@ -75,6 +75,7 @@ void MX_TIM2_Fake_Init(uint8_t newPeriod);
 #define IMU_WAKE_GPIO_Port GPIOE
 #define IMU_INT_Pin GPIO_PIN_12
 #define IMU_INT_GPIO_Port GPIOE
+#define IMU_INT_EXTI_IRQn EXTI12_IRQn
 #define IMU_CS_Pin GPIO_PIN_12
 #define IMU_CS_GPIO_Port GPIOB
 #define KELLER_EOC_Pin GPIO_PIN_13
@@ -85,6 +86,7 @@ void MX_TIM2_Fake_Init(uint8_t newPeriod);
 #define ECG_LOD_D11_GPIO_Port GPIOD
 #define ECG_NDRDY_Pin GPIO_PIN_14
 #define ECG_NDRDY_GPIO_Port GPIOD
+#define ECG_NDRDY_EXTI_IRQn EXTI14_IRQn
 #define ECG_NSDN_Pin GPIO_PIN_15
 #define ECG_NSDN_GPIO_Port GPIOD
 
