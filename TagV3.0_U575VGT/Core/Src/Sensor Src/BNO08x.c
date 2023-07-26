@@ -186,7 +186,26 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 	transmitData[11] = IMU_REPORT_INTERVAL_2;
 	transmitData[12] = IMU_REPORT_INTERVAL_3; //MSBs
 
+	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
+
 	//Select CS by pulling low and write configuration to the IMU. Add delays to ensure good timing.
+	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
+	HAL_Delay(1);
+	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
+	HAL_Delay(1);
+	HAL_SPI_Transmit(hspi, transmitData, IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
+	HAL_Delay(1);
+	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+
+	//Wait for IMU to be ready (poll for falling edge)
+	if (IMU_poll_new_data(imu, HAL_MAX_DELAY) == HAL_TIMEOUT){
+		return;
+	}
+
+	//accelerometer
+	//transmitData[3] = 1;
+	transmitData[5] = 0x1;
+
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
 	HAL_Delay(1);
 	HAL_SPI_Transmit(hspi, transmitData, IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
@@ -204,12 +223,17 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 
 	//Read the header in to a buffer
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-	HAL_SPI_Receive(imu->hspi, receiveData, IMU_ROTATION_VECTOR_REPORT_LENGTH, 500);
+	HAL_SPI_Receive(imu->hspi, receiveData, 30, 500);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
 	//Extract length from first 2 bytes
 	uint32_t dataLength = ((receiveData[1] << 8) | receiveData[0]) & IMU_LENGTH_BIT_MASK;
+	//HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
+	//HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
+	//HAL_SPI_Receive(imu->hspi, &receiveData[9], dataLength - 9, 500);
+
+	//HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 	//Ensure this is the correct channel we're receiving data on and it matches expected length
 	if (receiveData[2] == IMU_DATA_CHANNEL && dataLength == IMU_ROTATION_VECTOR_REPORT_LENGTH){
 
@@ -226,6 +250,10 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 			good_counter++;
 			return HAL_OK;
 		}
+	}
+
+	if (receiveData[9] == 0x1){
+		return HAL_OK;
 	}
 
 	return HAL_ERROR;
