@@ -53,7 +53,7 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+void MX_TIM2_Fake_Init(uint8_t newPeriod);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -61,6 +61,8 @@ void Error_Handler(void);
 #define BMS_ALRT_GPIO_Port GPIOC
 #define VHF_PTT_Pin GPIO_PIN_2
 #define VHF_PTT_GPIO_Port GPIOA
+#define APRS_DAC_Pin GPIO_PIN_4
+#define APRS_DAC_GPIO_Port GPIOA
 #define APRS_PD_Pin GPIO_PIN_5
 #define APRS_PD_GPIO_Port GPIOA
 #define APRS_H_L_Pin GPIO_PIN_6

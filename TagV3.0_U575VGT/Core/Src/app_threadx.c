@@ -24,6 +24,11 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdint.h>
+#include <stdbool.h>
+#include "main.h"
+#include "Recovery Inc/AprsTransmit.h"
+#include "Recovery Inc/VHF.h"
+#include "Recovery Inc/Aprs.h"
 #include "Sensor Inc/ECG.h"
 #include "Lib Inc/threads.h"
 #include "Sensor Inc/BNO08x.h"
@@ -37,7 +42,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
