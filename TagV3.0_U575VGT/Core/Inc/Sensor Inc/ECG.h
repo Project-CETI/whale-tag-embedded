@@ -3,6 +3,17 @@
  *
  *  Created on: Feb. 9, 2023
  *      Author: Kaveet
+ *
+ *
+ *  The I2C driver for the ADS1219 ADC on the ECG board.
+ *
+ *  ADC datasheet: https://www.ti.com/lit/ds/symlink/ads1219.pdf?ts=1686494723332&ref_url=https%253A%252F%252Fwww.google.com%252F
+ *
+ *  The driver has an I2C address of 0b1000100 and contains two registers, configuration (0h) and status (1h).
+ *
+ *  There are three total channels/electrodes we can read the difference from. These can be configured by calling the appropriate function.
+ *
+ *  The ADC contains an open-drain pin, DRDY that signals when new data is ready. This pin is active low.
  */
 
 #ifndef INC_SENSOR_INC_ECG_H_
@@ -50,14 +61,14 @@
 //ECG configuration register has the following structure:
 // Bit 7-5: MUX Electrode Selection
 // Bit 4: Gain (0 = 1 or 1 = 4)
-// Bit 3-2: Data Rate
+// Bit 3-2: Data Rate (00 = 20hz, 01 = 90hz, 10 = 330hz, 11 = 1000hz)
 // Bit 1: Conversion mode (0 = single, 1 = continuous)
 // Bit 0: Vref (0 = internal/2.048V, 1 = external reference)
-#define ECG_ADC_DEFAULT_CONFIG_REGISTER 0b00000010
+#define ECG_ADC_DEFAULT_CONFIG_REGISTER 0b00001110
 
 
 //The number of ECG Samples to collect before writing to the SD card
-#define ECG_NUM_SAMPLES 100
+#define ECG_NUM_SAMPLES 1000
 
 typedef struct __ECG_TypeDef {
 

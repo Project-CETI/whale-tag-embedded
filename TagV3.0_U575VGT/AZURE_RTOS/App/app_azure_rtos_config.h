@@ -45,7 +45,7 @@ extern "C" {
 
 #define TX_APP_MEM_POOL_SIZE                     30*1024
 
-#define FX_APP_MEM_POOL_SIZE                     2048
+#define FX_APP_MEM_POOL_SIZE                     2500
 
 /* USER CODE BEGIN EC */
 

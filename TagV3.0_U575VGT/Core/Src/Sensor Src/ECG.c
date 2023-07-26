@@ -24,17 +24,14 @@ TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
 
 bool ecg_running = 0;
 bool ecg_writing = 0;
-uint8_t good_ecg_data = 0;
+uint16_t good_ecg_data = 0;
+
 void ecg_SDWriteComplete(FX_FILE *file){
 	//Indicate that we are no longer writing to the SD card
 	ecg_writing = false;
 }
 
 void ecg_thread_entry(ULONG thread_input){
-
-	//Declare ecg handler and initialize chip
-	ECG_HandleTypeDef ecg;
-	ecg_init(&hi2c4, &ecg);
 
 	//Create our flag that indicates when data is ready
 	tx_event_flags_create(&ecg_event_flags_group, "ECG Event Flags");
@@ -67,6 +64,10 @@ void ecg_thread_entry(ULONG thread_input){
 	ecg_writing = true;
 	fx_file_write(&ecg_file, ecg_data, sizeof(float) * ECG_NUM_SAMPLES);
 	while (ecg_writing);
+
+	//Declare ecg handler and initialize chip
+	ECG_HandleTypeDef ecg;
+	ecg_init(&hi2c4, &ecg);
 
 	//Enable our interrupt handler (signals when data is ready)
 	HAL_NVIC_EnableIRQ(EXTI14_IRQn);
