@@ -88,6 +88,7 @@ AudioManager audio;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_GPDMA1_Init(void);
+static void MX_I2C4_Init(void);
 static void MX_SDMMC1_SD_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_UART4_Init(void);
@@ -98,7 +99,6 @@ static void MX_I2C2_Init(void);
 static void MX_SAI1_Init(void);
 static void MX_I2C3_Init(void);
 static void MX_SPI2_Init(void);
-static void MX_I2C4_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_DAC1_Init(void);
 static void MX_TIM2_Init(void);
@@ -139,6 +139,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_GPDMA1_Init();
+  MX_I2C4_Init();
   MX_SDMMC1_SD_Init();
   MX_SPI1_Init();
   MX_UART4_Init();
@@ -149,7 +150,6 @@ int main(void)
   MX_SAI1_Init();
   MX_I2C3_Init();
   MX_SPI2_Init();
-  MX_I2C4_Init();
   MX_USART3_UART_Init();
   MX_DAC1_Init();
   MX_TIM2_Init();
@@ -362,7 +362,7 @@ static void MX_GPDMA1_Init(void)
   __HAL_RCC_GPDMA1_CLK_ENABLE();
 
   /* GPDMA1 interrupt Init */
-    HAL_NVIC_SetPriority(GPDMA1_Channel0_IRQn, 1, 0);
+    HAL_NVIC_SetPriority(GPDMA1_Channel0_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(GPDMA1_Channel0_IRQn);
     HAL_NVIC_SetPriority(GPDMA1_Channel1_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(GPDMA1_Channel1_IRQn);

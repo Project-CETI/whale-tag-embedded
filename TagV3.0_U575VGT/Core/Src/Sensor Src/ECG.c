@@ -83,6 +83,8 @@ void ecg_thread_entry(ULONG thread_input){
 			//Thus, wait for our flag to be set in the interrupt handler. This function call will block the entire task until we receive the data.
 			tx_event_flags_get(&ecg_event_flags_group, ECG_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
+			ecg_running = true;
+
 			//Data ready
 			if (actual_events & ECG_DATA_READY_FLAG){
 				

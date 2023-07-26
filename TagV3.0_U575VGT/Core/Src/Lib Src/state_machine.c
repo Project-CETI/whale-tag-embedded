@@ -75,7 +75,6 @@ void enter_data_capture(){
 	tx_thread_resume(&threads[AUDIO_THREAD].thread);
 	tx_thread_resume(&threads[IMU_THREAD].thread);
 	tx_thread_resume(&threads[ECG_THREAD].thread);
-
 }
 
 
@@ -85,17 +84,18 @@ void exit_data_capture(){
 	tx_event_flags_set(&audio_event_flags_group, AUDIO_STOP_THREAD_FLAG, TX_OR);
 	tx_event_flags_set(&imu_event_flags_group, IMU_STOP_THREAD_FLAG, TX_OR);
 	tx_event_flags_set(&ecg_event_flags_group, ECG_STOP_THREAD_FLAG, TX_OR);
-
 }
 
 
 void enter_recovery(){
-
+	//Start APRS thread
+	tx_thread_resume(&threads[APRS_THREAD].thread);
 }
 
 
 void exit_recovery(){
-
+	//Stop APRS thread
+	tx_thread_terminate(&threads[APRS_THREAD].thread);
 }
 
 
