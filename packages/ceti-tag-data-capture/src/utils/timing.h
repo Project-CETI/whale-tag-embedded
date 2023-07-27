@@ -17,6 +17,7 @@
 #include "../launcher.h" // for g_exit, the state machine data filepath, to get an initial RTC timestamp if needed
 #include <pigpio.h>
 #include <sys/time.h>
+#include <sys/timex.h>
 #include <pthread.h> // to set CPU affinity
 
 //-----------------------------------------------------------------------------
@@ -34,6 +35,7 @@ int resetRtcCount();
 unsigned int getTimeDeploy(void);
 long long get_global_time_us();
 long long get_global_time_ms();
+void sync_global_time_init(void);
 void* rtc_thread(void* paramPtr);
 
 //-----------------------------------------------------------------------------

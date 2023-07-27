@@ -125,6 +125,27 @@ int resetRtcCount() {
     return (0);
 }
 
+int setRtcCount(uint32_t seconds) {
+    int fd;
+
+    CETI_LOG("%s(): Executing", __FUNCTION__);
+
+    if ((fd = i2cOpen(1, ADDR_RTC, 0)) < 0) {
+        CETI_LOG("%s(): Failed to connect to the RTC", __FUNCTION__);
+        return (-1);
+    }
+
+    else {
+        i2cWriteByteData(fd, 0x00, (uint8_t)((seconds >> 0) & 0xFF));
+        i2cWriteByteData(fd, 0x01, (uint8_t)((seconds >> 8) & 0xFF));
+        i2cWriteByteData(fd, 0x02, (uint8_t)((seconds >> 16) & 0xFF));
+        i2cWriteByteData(fd, 0x03, (uint8_t)((seconds >> 24) & 0xFF));
+    }
+    i2cClose(fd);
+    return (0);
+}
+
+
 // Thread to update the latest RTC time, to use the I2C bus more sparingly
 //  instead of having all other threads that request RTC use the bus.
 void* rtc_thread(void* paramPtr) {
@@ -204,4 +225,38 @@ long long get_global_time_ms()
   return current_time_ms;
 }
 
+void sync_global_time_init(void)
+{
+  CETI_LOG("%s(): Executing", __FUNCTION__);
+  struct timex timex_info = { .modes = 0 };
+  int ntp_result = ntp_adjtime(&timex_info);
+  int ntp_synchronized = (ntp_result >= 0) && (ntp_result != TIME_ERROR);
 
+  if ( ntp_synchronized ) {
+ 
+    struct timeval current_timeval;
+    gettimeofday(&current_timeval, NULL);
+    setRtcCount(current_timeval.tv_sec);
+    CETI_LOG("%s(): RTC synchronized to system clock: %ld)", __FUNCTION__, current_timeval.tv_sec);
+  }
+  else {
+    CETI_LOG("%s(): Synchronizing system clock to RTC)", __FUNCTION__);
+    struct timeval current_timeval = { .tv_sec = getRtcCount() };
+    settimeofday(&current_timeval, NULL);
+  }
+}
+
+void sync_global_time(void)
+{
+  CETI_LOG("%s(): Executing", __FUNCTION__);
+  struct timex timex_info = { .modes = 0 };
+  int ntp_result = ntp_adjtime(&timex_info);
+  int ntp_synchronized = (ntp_result >= 0) && (ntp_result != TIME_ERROR);
+
+  if ( ntp_synchronized ) {
+    struct timeval current_timeval;
+    gettimeofday(&current_timeval, NULL);
+    setRtcCount(current_timeval.tv_sec);
+    CETI_LOG("%s(): RTC synchronized to system clock: %ld)", __FUNCTION__, current_timeval.tv_sec);
+  }
+}

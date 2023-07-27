@@ -245,5 +245,7 @@ int init_tag() {
   if(result < 0)
     CETI_LOG("init_tag(): XXX Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
 
+  sync_global_time_init();
+
   return result;
 }
