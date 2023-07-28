@@ -67,7 +67,11 @@
 #define IMU_STOP_THREAD_FLAG 0x2
 
 //The number of IMU Samples to collect before writing to the SD card
-#define IMU_NUM_SAMPLES 10
+#define IMU_NUM_SAMPLES 250
+
+//The useful number of data bytes for each kind of report (quaternion vs 3 axis measurement)
+#define IMU_QUAT_USEFUL_BYTES 10
+#define IMU_3_AXIS_USEFUL_BYTES 6
 
 //IMU typedef definition for useful data holding (of various types, like quaternion, accel, gyro, magnetometer
 typedef struct __IMU_Data_Typedef {

@@ -264,8 +264,11 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 	//Extract length from first 2 bytes
 	uint32_t dataLength = ((receiveData[1] << 8) | receiveData[0]) & IMU_LENGTH_BIT_MASK;
 
+	if (ret == HAL_TIMEOUT){
+		return HAL_TIMEOUT;
+	}
+
 	if (dataLength > 256 || dataLength <= 0){
-		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 		return HAL_ERROR;
 	}
 
@@ -274,59 +277,35 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 	tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-	HAL_SPI_Receive(imu->hspi, receiveData, dataLength, 10);
-
+	ret = HAL_SPI_Receive(imu->hspi, receiveData, dataLength, 10);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
+	if (ret == HAL_TIMEOUT){
+		return HAL_TIMEOUT;
+	}
+
+	if (dataLength != 19 && dataLength != 23){
+		HAL_Delay(1);
+	}
 	//Ensure this is the correct channel we're receiving data on and it has a timestamp
 	if (receiveData[2] == IMU_DATA_CHANNEL && receiveData[4] == IMU_TIMESTAMP_REPORT_ID){
 
-		//Check if this is the rotation quaternion report (matching ID and length)
-	 	if (receiveData[9] == IMU_ROTATION_VECTOR_REPORT_ID && dataLength == IMU_ROTATION_VECTOR_REPORT_LENGTH){
+		//if its a quaternion, copy over all the bytes, if not just copy the 3 axis bytes
+		uint8_t bytesToCopy = (receiveData[9] == IMU_ROTATION_VECTOR_REPORT_ID) ? IMU_QUAT_USEFUL_BYTES : IMU_3_AXIS_USEFUL_BYTES;
 
-	 		imu->data.data_header = IMU_ROTATION_VECTOR_REPORT_ID;
+		//Copy the data header and then the useful data to our data struct
+		imu->data.data_header = receiveData[9];
+		memcpy(imu->data.raw_data, &receiveData[13], bytesToCopy);
 
-	 		memcpy(imu->data.raw_data, &receiveData[13], 10);
-
-			good_counter++;
-			return HAL_OK;
+		if (bytesToCopy < IMU_QUAT_USEFUL_BYTES){
+			imu->data.raw_data[6] = 0;
+			imu->data.raw_data[7] = 0;
+			imu->data.raw_data[8] = 0;
+			imu->data.raw_data[9] = 0;
 		}
-	 	//Or if this is the accelerometer report
-	 	else if (receiveData[9] == IMU_ACCELEROMETER_REPORT_ID){
 
-	 		imu->data.data_header = IMU_ACCELEROMETER_REPORT_ID;
-	 		memcpy(imu->data.raw_data, &receiveData[13], 6);
-	 		imu->data.raw_data[6] = 0;
-	 		imu->data.raw_data[7] = 0;
-	 		imu->data.raw_data[8] = 0;
-	 		imu->data.raw_data[9] = 0;
-			good_counter++;
-			return HAL_OK;
-	 	}
-	 	//Or its the gyroscope report
-	 	else if (receiveData[9] == IMU_GYROSCOPE_REPORT_ID){
-
-	 		imu->data.data_header = IMU_GYROSCOPE_REPORT_ID;
-	 		memcpy(imu->data.raw_data, &receiveData[13], 6);
-	 		imu->data.raw_data[6] = 0;
-	 		imu->data.raw_data[7] = 0;
-	 		imu->data.raw_data[8] = 0;
-	 		imu->data.raw_data[9] = 0;
-			good_counter++;
-			return HAL_OK;
-	 	}
-	 	//Or the magnetometer report
-	 	if (receiveData[9] == IMU_MAGNETOMETER_REPORT_ID){
-
-	 		imu->data.data_header = IMU_MAGNETOMETER_REPORT_ID;
-			memcpy(imu->data.raw_data, &receiveData[13], 6);
-	 		imu->data.raw_data[6] = 0;
-	 		imu->data.raw_data[7] = 0;
-	 		imu->data.raw_data[8] = 0;
-	 		imu->data.raw_data[9] = 0;
-			good_counter++;
-			return HAL_OK;
-	 	}
+		good_counter++;
+		return HAL_OK;
 	}
 
 	return HAL_ERROR;
