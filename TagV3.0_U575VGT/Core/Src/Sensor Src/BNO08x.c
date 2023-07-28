@@ -81,8 +81,17 @@ void IMU_thread_entry(ULONG thread_input){
 
 	while(1) {
 
-		//Array to hold enough sets of IMU data for our SD card write
-		IMU_Data imu_data[IMU_NUM_SAMPLES] = {0};
+		//Call to get data, this handles filling up our IMU data buffer completely
+		IMU_get_data(&imu);
+		imu_writing = true;
+		fx_file_write(&imu_file, imu.data, sizeof(IMU_Data) * IMU_NUM_SAMPLES);
+
+		//Wait for the writing to complete before giving up control to prevent unnecessary context switches
+		while (imu_writing);
+
+		good_counter = 0;
+
+		/*
 
 		//Collect 10 pieces of IMU data
 		for (uint8_t index = 0; index < IMU_NUM_SAMPLES; index++){
@@ -123,15 +132,7 @@ void IMU_thread_entry(ULONG thread_input){
 				//Terminate thread so it needs to be fully reset to start again
 				tx_thread_terminate(&threads[IMU_THREAD].thread);
 			}
-		}
-
-		imu_writing = true;
-		fx_file_write(&imu_file, imu_data, sizeof(IMU_Data) * IMU_NUM_SAMPLES);
-
-		//Wait for the writing to complete before giving up control to prevent unnecessary context switches
-		while (imu_writing);
-
-		good_counter = 0;
+		}*/
 	}
 }
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
@@ -258,6 +259,8 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 
 	for (uint16_t index; index < IMU_NUM_SAMPLES; index++){
 
+		ULONG actual_events;
+
 		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
 		//Read the header in to a buffer
@@ -275,8 +278,6 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 		if (dataLength > 256 || dataLength <= 0){
 			return HAL_ERROR;
 		}
-
-		ULONG actual_events;
 
 		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
@@ -305,7 +306,9 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 
 				//Copy the data header and then the useful data to our data struct
 				imu->data[index].data_header = receiveData[parsedDataIndex];
-				memcpy(imu->data.raw_data, &receiveData[parsedDataIndex + 4], bytesToCopy);
+
+				//Useful data starts 4 indexes after the report ID (skip over un-needed data)
+				memcpy(imu->data[index].raw_data, &receiveData[parsedDataIndex + 4], bytesToCopy);
 
 				if (bytesToCopy < IMU_QUAT_USEFUL_BYTES){
 					imu->data[index].raw_data[6] = 0;
