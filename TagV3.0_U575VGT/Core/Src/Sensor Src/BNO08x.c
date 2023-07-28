@@ -34,6 +34,8 @@ bool imu_running = false;
 bool imu_writing = false;
 
 uint8_t good_counter = 0;
+uint8_t bad = 0;
+
 
 void imu_SDWriteComplete(FX_FILE *file){
 
@@ -71,13 +73,6 @@ void IMU_thread_entry(ULONG thread_input){
 	  Error_Handler();
 	}
 
-	//Dummy write to show the beggining of the file
-	imu_writing = true;
-	imu.data.quat_r = 0x0201;
-	imu.data.quat_i = 0x0403;
-	imu.data.quat_j = 0x0605;
-	imu.data.quat_k = 0x0807;
-	imu.data.accurary_rad = 0x0A09;
 	fx_file_write(&imu_file, &imu.data, sizeof(IMU_Data));
 	while (imu_writing);
 
@@ -105,8 +100,12 @@ void IMU_thread_entry(ULONG thread_input){
 				imu_running = true;
 
 				//Get the data and store in our handler
-				IMU_get_data(&imu);
-				imu_data[index] = imu.data;
+				if (IMU_get_data(&imu) == HAL_OK){
+					imu_data[index] = imu.data;
+				}else {
+					index--;
+					bad++;
+				}
 
 				//Debug
 				imu_running = false;
@@ -203,14 +202,50 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 	}
 
 	//accelerometer
-	//transmitData[3] = 1;
-	transmitData[5] = 0x1;
+	transmitData[5] = IMU_ACCELEROMETER_REPORT_ID;
+
+	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
+
+	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
+	HAL_Delay(1);
+	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
+	HAL_Delay(1);
+	HAL_SPI_Transmit(hspi, transmitData, IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
+	HAL_Delay(1);
+	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+
+	//Wait for IMU to be ready (poll for falling edge)
+	if (IMU_poll_new_data(imu, HAL_MAX_DELAY) == HAL_TIMEOUT){
+		return;
+	}
+
+	//magnetometer
+	transmitData[5] = IMU_MAGNETOMETER_REPORT_ID;
+
+	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
+
+	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
+	HAL_Delay(1);
+	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
+	HAL_Delay(1);
+	HAL_SPI_Transmit(hspi, transmitData, IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
+	HAL_Delay(1);
+	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+
+	//gyroscope
+	transmitData[5] = IMU_GYROSCOPE_REPORT_ID;
+
+	//Wait for IMU to be ready (poll for falling edge)
+	if (IMU_poll_new_data(imu, HAL_MAX_DELAY) == HAL_TIMEOUT){
+		return;
+	}
 
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
 	HAL_Delay(1);
 	HAL_SPI_Transmit(hspi, transmitData, IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+
 
 	//Deassert the WAKE pin since the chip is now awake and we are done configuring
 	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
@@ -223,37 +258,75 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 
 	//Read the header in to a buffer
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-	HAL_SPI_Receive(imu->hspi, receiveData, 30, 500);
+	HAL_StatusTypeDef ret = HAL_SPI_Receive(imu->hspi, receiveData, 4, 10);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
 	//Extract length from first 2 bytes
 	uint32_t dataLength = ((receiveData[1] << 8) | receiveData[0]) & IMU_LENGTH_BIT_MASK;
-	//HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
-	//HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-	//HAL_SPI_Receive(imu->hspi, &receiveData[9], dataLength - 9, 500);
+	if (dataLength > 256 || dataLength <= 0){
+		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+		return HAL_ERROR;
+	}
 
-	//HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
-	//Ensure this is the correct channel we're receiving data on and it matches expected length
-	if (receiveData[2] == IMU_DATA_CHANNEL && dataLength == IMU_ROTATION_VECTOR_REPORT_LENGTH){
+	ULONG actual_events;
 
-		//Ensure that this is the correct data (timestamp + rotation vector)
-	 	if ((receiveData[4] == IMU_TIMESTAMP_REPORT_ID) && (receiveData[9] == IMU_ROTATION_VECTOR_REPORT_ID)){
+	tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
-			//Save data parameters to our struct. We need to combine the MSB and LSB to get the correct 16bit value.
-			imu->data.quat_i = receiveData[14] << 8 | receiveData[13];
-			imu->data.quat_j = receiveData[16] << 8 | receiveData[15];
-			imu->data.quat_k = receiveData[18] << 8 | receiveData[17];
-			imu->data.quat_r = receiveData[20] << 8 | receiveData[19];
-			imu->data.accurary_rad = receiveData[22] << 8 | receiveData[21];
+	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
+	HAL_SPI_Receive(imu->hspi, receiveData, dataLength, 10);
+
+	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+
+	//Ensure this is the correct channel we're receiving data on and it has a timestamp
+	if (receiveData[2] == IMU_DATA_CHANNEL && receiveData[4] == IMU_TIMESTAMP_REPORT_ID){
+
+		//Check if this is the rotation quaternion report (matching ID and length)
+	 	if (receiveData[9] == IMU_ROTATION_VECTOR_REPORT_ID && dataLength == IMU_ROTATION_VECTOR_REPORT_LENGTH){
+
+	 		imu->data.data_header = IMU_ROTATION_VECTOR_REPORT_ID;
+
+	 		memcpy(imu->data.raw_data, &receiveData[13], 10);
 
 			good_counter++;
 			return HAL_OK;
 		}
-	}
+	 	//Or if this is the accelerometer report
+	 	else if (receiveData[9] == IMU_ACCELEROMETER_REPORT_ID){
 
-	if (receiveData[9] == 0x1){
-		return HAL_OK;
+	 		imu->data.data_header = IMU_ACCELEROMETER_REPORT_ID;
+	 		memcpy(imu->data.raw_data, &receiveData[13], 6);
+	 		imu->data.raw_data[6] = 0;
+	 		imu->data.raw_data[7] = 0;
+	 		imu->data.raw_data[8] = 0;
+	 		imu->data.raw_data[9] = 0;
+			good_counter++;
+			return HAL_OK;
+	 	}
+	 	//Or its the gyroscope report
+	 	else if (receiveData[9] == IMU_GYROSCOPE_REPORT_ID){
+
+	 		imu->data.data_header = IMU_GYROSCOPE_REPORT_ID;
+	 		memcpy(imu->data.raw_data, &receiveData[13], 6);
+	 		imu->data.raw_data[6] = 0;
+	 		imu->data.raw_data[7] = 0;
+	 		imu->data.raw_data[8] = 0;
+	 		imu->data.raw_data[9] = 0;
+			good_counter++;
+			return HAL_OK;
+	 	}
+	 	//Or the magnetometer report
+	 	if (receiveData[9] == IMU_MAGNETOMETER_REPORT_ID){
+
+	 		imu->data.data_header = IMU_MAGNETOMETER_REPORT_ID;
+			memcpy(imu->data.raw_data, &receiveData[13], 6);
+	 		imu->data.raw_data[6] = 0;
+	 		imu->data.raw_data[7] = 0;
+	 		imu->data.raw_data[8] = 0;
+	 		imu->data.raw_data[9] = 0;
+			good_counter++;
+			return HAL_OK;
+	 	}
 	}
 
 	return HAL_ERROR;
