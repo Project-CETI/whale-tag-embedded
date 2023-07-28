@@ -256,59 +256,81 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 	//receive data buffer
 	uint8_t receiveData[256] = {0};
 
-	//Read the header in to a buffer
-	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-	HAL_StatusTypeDef ret = HAL_SPI_Receive(imu->hspi, receiveData, 4, 10);
-	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+	for (uint16_t index; index < IMU_NUM_SAMPLES; index++){
 
-	//Extract length from first 2 bytes
-	uint32_t dataLength = ((receiveData[1] << 8) | receiveData[0]) & IMU_LENGTH_BIT_MASK;
+		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
-	if (ret == HAL_TIMEOUT){
-		return HAL_TIMEOUT;
-	}
+		//Read the header in to a buffer
+		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
+		HAL_StatusTypeDef ret = HAL_SPI_Receive(imu->hspi, receiveData, 4, 10);
+		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
-	if (dataLength > 256 || dataLength <= 0){
-		return HAL_ERROR;
-	}
+		//Extract length from first 2 bytes
+		uint32_t dataLength = ((receiveData[1] << 8) | receiveData[0]) & IMU_LENGTH_BIT_MASK;
 
-	ULONG actual_events;
-
-	tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
-
-	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-	ret = HAL_SPI_Receive(imu->hspi, receiveData, dataLength, 10);
-	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
-
-	if (ret == HAL_TIMEOUT){
-		return HAL_TIMEOUT;
-	}
-
-	if (dataLength != 19 && dataLength != 23){
-		HAL_Delay(1);
-	}
-	//Ensure this is the correct channel we're receiving data on and it has a timestamp
-	if (receiveData[2] == IMU_DATA_CHANNEL && receiveData[4] == IMU_TIMESTAMP_REPORT_ID){
-
-		//if its a quaternion, copy over all the bytes, if not just copy the 3 axis bytes
-		uint8_t bytesToCopy = (receiveData[9] == IMU_ROTATION_VECTOR_REPORT_ID) ? IMU_QUAT_USEFUL_BYTES : IMU_3_AXIS_USEFUL_BYTES;
-
-		//Copy the data header and then the useful data to our data struct
-		imu->data.data_header = receiveData[9];
-		memcpy(imu->data.raw_data, &receiveData[13], bytesToCopy);
-
-		if (bytesToCopy < IMU_QUAT_USEFUL_BYTES){
-			imu->data.raw_data[6] = 0;
-			imu->data.raw_data[7] = 0;
-			imu->data.raw_data[8] = 0;
-			imu->data.raw_data[9] = 0;
+		if (ret == HAL_TIMEOUT){
+			return HAL_TIMEOUT;
 		}
 
-		good_counter++;
-		return HAL_OK;
+		if (dataLength > 256 || dataLength <= 0){
+			return HAL_ERROR;
+		}
+
+		ULONG actual_events;
+
+		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
+
+		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
+		ret = HAL_SPI_Receive(imu->hspi, receiveData, dataLength, 10);
+		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+
+		if (ret == HAL_TIMEOUT){
+			return HAL_TIMEOUT;
+		}
+
+		if (dataLength != 19 && dataLength != 23){
+			HAL_Delay(1);
+		}
+
+		//Ensure this is the correct channel we're receiving data on and it has a timestamp
+		if (receiveData[2] == IMU_DATA_CHANNEL && receiveData[4] == IMU_TIMESTAMP_REPORT_ID){
+
+			//We may get more than one report at once, so use this to keep track of where we are in the data buffer.
+			//So far we've parsed the header and timestamp data, so start at index 9 (first report ID)
+			uint32_t parsedDataIndex = 9;
+			while (parsedDataIndex < dataLength){
+
+				//if its a quaternion, copy over all the bytes (10), if not just copy the 3 axis bytes (6)
+				uint8_t bytesToCopy = (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID) ? IMU_QUAT_USEFUL_BYTES : IMU_3_AXIS_USEFUL_BYTES;
+
+				//Copy the data header and then the useful data to our data struct
+				imu->data[index].data_header = receiveData[parsedDataIndex];
+				memcpy(imu->data.raw_data, &receiveData[parsedDataIndex + 4], bytesToCopy);
+
+				if (bytesToCopy < IMU_QUAT_USEFUL_BYTES){
+					imu->data[index].raw_data[6] = 0;
+					imu->data[index].raw_data[7] = 0;
+					imu->data[index].raw_data[8] = 0;
+					imu->data[index].raw_data[9] = 0;
+				}
+
+				good_counter++;
+				//increment forward to the next report
+				parsedDataIndex += bytesToCopy;
+
+				//Increment index so we can store the next spot
+				index++;
+
+				//If we filled the buffer, back out now (prevent overflow or hardfault)
+				if (index >= IMU_NUM_SAMPLES){
+					return HAL_OK;
+				}
+			}
+		}
 	}
 
-	return HAL_ERROR;
+
+	//return HAL_ERROR;
 }
 
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu){

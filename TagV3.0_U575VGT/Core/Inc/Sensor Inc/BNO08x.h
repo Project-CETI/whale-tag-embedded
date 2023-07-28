@@ -116,7 +116,7 @@ typedef struct __IMU_Typedef{
 	uint16_t wake_pin;
 
 	//Data struct
-	IMU_Data data;
+	IMU_Data data[IMU_NUM_SAMPLES];
 
 } IMU_HandleTypeDef;
 
