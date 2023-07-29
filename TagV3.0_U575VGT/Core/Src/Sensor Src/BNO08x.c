@@ -94,12 +94,13 @@ void IMU_thread_entry(ULONG thread_input){
 		while (imu_writing);
 
 		good_counter = 0;
+		/*DEBUG
 		quats = 0;
 		accels = 0;
 		magnets = 0;
 		gyros = 0;
 
-		/*
+		/*OLD CODE DEBUG
 
 		//Collect 10 pieces of IMU data
 		for (uint8_t index = 0; index < IMU_NUM_SAMPLES; index++){
@@ -194,67 +195,79 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 	transmitData[11] = IMU_REPORT_INTERVAL_2;
 	transmitData[12] = IMU_REPORT_INTERVAL_3; //MSBs
 
+	//Prep wake pin for another falling edge
 	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
 
 	//Select CS by pulling low and write configuration to the IMU. Add delays to ensure good timing.
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
 	HAL_Delay(1);
+
+	//Create another falling edge on the wake pin during our transfer to signal another transfer is coming
 	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
 	HAL_Delay(1);
+
+	//Transmit data and pull CS back up to high
 	HAL_SPI_Transmit(hspi, transmitData, IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
-	//Wait for IMU to be ready (poll for falling edge)
+	//Wait for IMU to be ready for next report (poll for falling edge)
 	if (IMU_poll_new_data(imu, HAL_MAX_DELAY) == HAL_TIMEOUT){
 		return;
 	}
 
 	//accelerometer
 	transmitData[5] = IMU_ACCELEROMETER_REPORT_ID;
-	transmitData[9] = 0xB0; //LSB
-	transmitData[10] = 0x04;
 
+	//Prep WAKE for another falling edge
 	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
 
+	//Pull CS low to start the transfer
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
 	HAL_Delay(1);
+
+	//Create falling edge on WAKE to signal another report is coming after this
 	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
 	HAL_Delay(1);
+
+	//Transfer the data and pull CS high
 	HAL_SPI_Transmit(hspi, transmitData, IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
-	//Wait for IMU to be ready (poll for falling edge)
+	//Wait for IMU to be ready for next report (poll for falling edge)
 	if (IMU_poll_new_data(imu, HAL_MAX_DELAY) == HAL_TIMEOUT){
 		return;
 	}
 
 	//magnetometer
 	transmitData[5] = IMU_MAGNETOMETER_REPORT_ID;
-	transmitData[9] = 0xB0; //LSB
-	transmitData[10] = 0x04;
 
+	//Prep WAKE for another falling edge
 	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
 
+	//Start transfer
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
 	HAL_Delay(1);
+
+	//Falling edge on WAKE to signal anotehr report is coming after this
 	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
 	HAL_Delay(1);
+
+	//Transfer the data and pull CS high
 	HAL_SPI_Transmit(hspi, transmitData, IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
-
-	//gyroscope
-	transmitData[5] = IMU_GYROSCOPE_REPORT_ID;
-	transmitData[9] = IMU_REPORT_INTERVAL_0; //LSB
-	transmitData[10] = IMU_REPORT_INTERVAL_1;
 
 	//Wait for IMU to be ready (poll for falling edge)
 	if (IMU_poll_new_data(imu, HAL_MAX_DELAY) == HAL_TIMEOUT){
 		return;
 	}
 
+	//gyroscope, this is the last report so no need for a falling edge on WAKE here
+	transmitData[5] = IMU_GYROSCOPE_REPORT_ID;
+
+	//Transfer the data
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
 	HAL_Delay(1);
 	HAL_SPI_Transmit(hspi, transmitData, IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
@@ -262,7 +275,7 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
 
-	//Deassert the WAKE pin since the chip is now awake and we are done configuring
+	//Deassert the WAKE pin since we are done configuring
 	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
 }
 
@@ -280,7 +293,7 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 
 		//Read the header in to a buffer
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-		HAL_StatusTypeDef ret = HAL_SPI_Receive(imu->hspi, receiveData, 4, 10);
+		HAL_StatusTypeDef ret = HAL_SPI_Receive(imu->hspi, receiveData, IMU_SHTP_HEADER_LENGTH, IMU_SPI_READ_TIMEOUT);
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
 		//Extract length from first 2 bytes
@@ -300,7 +313,7 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 
 		//Read the data (note that the SHTP header is resent with each read, so we still need to read the full length
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-		ret = HAL_SPI_Receive(imu->hspi, receiveData, dataLength, 10);
+		ret = HAL_SPI_Receive(imu->hspi, receiveData, dataLength, IMU_SPI_READ_TIMEOUT);
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
 		//If there is some issue, ignore the data
@@ -311,11 +324,6 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 
 			//Return to start of loop
 			continue;
-		}
-
-		//DEBUG
-		if (dataLength != 19 && dataLength != 23){
-			HAL_Delay(1);
 		}
 
 		//Ensure this is the correct channel we're receiving data on and it has a timestamp
@@ -329,18 +337,6 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 				//Ensure the data is somewhat valid (matches one of the report IDs)
 				if (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID || receiveData[parsedDataIndex] == IMU_ACCELEROMETER_REPORT_ID || receiveData[parsedDataIndex] == IMU_GYROSCOPE_REPORT_ID || receiveData[parsedDataIndex] == IMU_MAGNETOMETER_REPORT_ID){
 
-					if (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID){
-						quats++;
-					}
-					else if (receiveData[parsedDataIndex] == IMU_ACCELEROMETER_REPORT_ID){
-						accels++;
-					}
-					else if (receiveData[parsedDataIndex] == IMU_GYROSCOPE_REPORT_ID){
-						gyros++;
-					}
-					else if (receiveData[parsedDataIndex] == IMU_MAGNETOMETER_REPORT_ID){
-						magnets++;
-					}
 					//if its a quaternion, copy over all the bytes (10), if not just copy the 3 axis bytes (6)
 					uint8_t bytesToCopy = (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID) ? IMU_QUAT_USEFUL_BYTES : IMU_3_AXIS_USEFUL_BYTES;
 
@@ -350,6 +346,7 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 					//Useful data starts 4 indexes after the report ID (skip over un-needed data)
 					memcpy(imu->data[index].raw_data, &receiveData[parsedDataIndex + 4], bytesToCopy);
 
+					//If it was a 3-axis report, fill the last 4 bytes with 0's
 					if (bytesToCopy < IMU_QUAT_USEFUL_BYTES){
 						imu->data[index].raw_data[6] = 0;
 						imu->data[index].raw_data[7] = 0;
@@ -357,6 +354,7 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 						imu->data[index].raw_data[9] = 0;
 					}
 
+					//DEBUG
 					good_counter++;
 
 					//increment forward to the next report

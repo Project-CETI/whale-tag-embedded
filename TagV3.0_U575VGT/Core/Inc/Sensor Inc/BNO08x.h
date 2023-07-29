@@ -41,8 +41,8 @@
 //Report interval from MSByte to LSByte
 #define IMU_REPORT_INTERVAL_3 0x00
 #define IMU_REPORT_INTERVAL_2 0x00
-#define IMU_REPORT_INTERVAL_1 0x13
-#define IMU_REPORT_INTERVAL_0 0x88
+#define IMU_REPORT_INTERVAL_1 0x4E
+#define IMU_REPORT_INTERVAL_0 0x20
 
 //Bit mask for extracting length from the first two bytes of the header
 #define IMU_LENGTH_BIT_MASK 0x7FFF //neglects MSB
@@ -72,6 +72,9 @@
 //The useful number of data bytes for each kind of report (quaternion vs 3 axis measurement)
 #define IMU_QUAT_USEFUL_BYTES 10
 #define IMU_3_AXIS_USEFUL_BYTES 6
+
+//MS timeout for SPI reads
+#define IMU_SPI_READ_TIMEOUT 10
 
 //IMU typedef definition for useful data holding (of various types, like quaternion, accel, gyro, magnetometer
 typedef struct __IMU_Data_Typedef {
