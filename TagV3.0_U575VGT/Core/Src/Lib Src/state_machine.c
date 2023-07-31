@@ -75,6 +75,7 @@ void state_machine_thread_entry(ULONG thread_input){
 				}
 
 				enter_data_offload();
+				state = STATE_DATA_OFFLOAD;
 			}
 
 			if (actual_flags & STATE_USB_DISCONNECTED_FLAG){
@@ -116,6 +117,7 @@ void exit_recovery(){
 
 
 void enter_data_offload(){
+	//Data offloading is always running, so we dont need to stop or start any threads, just adjust our SD card clock divison to be a little slower
 	MX_SDMMC1_SD_Fake_Init(6);
 }
 
