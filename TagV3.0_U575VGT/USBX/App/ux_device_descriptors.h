@@ -218,11 +218,11 @@ uint16_t USBD_Get_Configuration_Number(uint8_t class_type, uint8_t interface_typ
 /* USER CODE END Private_defines */
 
 #define USBD_VID                                      1155
-#define USBD_PID                                      22304
+#define USBD_PID                                      22288
 #define USBD_LANGID_STRING                            1033
 #define USBD_MANUFACTURER_STRING                      "STMicroelectronics"
-#define USBD_PRODUCT_STRING                           "STM32 MSC SD Storage"
-#define USBD_SERIAL_NUMBER                            "MSC000000001"
+#define USBD_PRODUCT_STRING                           "STM32 USB Device"
+#define USBD_SERIAL_NUMBER                            "000000000001"
 
 #define USB_DESC_TYPE_INTERFACE                       0x04U
 #define USB_DESC_TYPE_ENDPOINT                        0x05U
