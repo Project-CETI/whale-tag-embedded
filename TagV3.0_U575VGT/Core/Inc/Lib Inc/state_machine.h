@@ -10,10 +10,10 @@
 
 #include "tx_api.h"
 
-#define IS_SIMULATING true
+#define IS_SIMULATING false
 
 //Should correspond with the state types enum below
-#define SIMULATING_STATE 2
+#define SIMULATING_STATE 0
 
 //Flags inside of our state machine event flags
 #define STATE_TIMEOUT_FLAG 0x1

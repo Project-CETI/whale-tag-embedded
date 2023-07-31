@@ -27,6 +27,7 @@
 #include "main.h"
 #include "stm32u5xx_hal_sd.h"
 #include "fx_stm32_sd_driver.h"
+#include "Lib Inc/state_machine.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -52,6 +53,7 @@
 /* USER CODE BEGIN PV */
 bool inserted = false;
 extern SD_HandleTypeDef hsd1;
+extern TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -75,6 +77,9 @@ VOID USBD_STORAGE_Activate(VOID *storage_instance)
 {
   /* USER CODE BEGIN USBD_STORAGE_Activate */
   UX_PARAMETER_NOT_USED(storage_instance);
+
+  //Signal our state machine that we're going to be in data offloading mode
+  tx_event_flags_set(&state_machine_event_flags_group, STATE_USB_CONNECTED_FLAG, TX_OR);
   inserted = true;
   /* USER CODE END USBD_STORAGE_Activate */
 
