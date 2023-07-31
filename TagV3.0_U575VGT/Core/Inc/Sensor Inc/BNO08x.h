@@ -32,13 +32,16 @@
 
 //REPORT IDs
 #define IMU_SET_FEATURE_REPORT_ID 0XFD //report ID for requesting sensor records/data
-#define IMU_ROTATION_VECTOR_REPORT_ID 0x05 //report ID for the quaternion rotation components
 #define IMU_TIMESTAMP_REPORT_ID 0xFB //report ID for timestamps that are put infront of the data
+#define IMU_ROTATION_VECTOR_REPORT_ID 0x05 //report ID for the quaternion rotation components
+#define IMU_ACCELEROMETER_REPORT_ID 0x01 //report ID for the accelerometer data
+#define IMU_GYROSCOPE_REPORT_ID 0x02 //report ID for the gyroscope data
+#define IMU_MAGNETOMETER_REPORT_ID 0x03 //report ID for the magnetometer data
 
 //Report interval from MSByte to LSByte
 #define IMU_REPORT_INTERVAL_3 0x00
-#define IMU_REPORT_INTERVAL_2 0x07
-#define IMU_REPORT_INTERVAL_1 0xA1
+#define IMU_REPORT_INTERVAL_2 0x00
+#define IMU_REPORT_INTERVAL_1 0x4E
 #define IMU_REPORT_INTERVAL_0 0x20
 
 //Bit mask for extracting length from the first two bytes of the header
@@ -64,19 +67,37 @@
 #define IMU_STOP_THREAD_FLAG 0x2
 
 //The number of IMU Samples to collect before writing to the SD card
-#define IMU_NUM_SAMPLES 10
+#define IMU_NUM_SAMPLES 250
 
-//IMU typedef definition for useful data variables
+//The useful number of data bytes for each kind of report (quaternion vs 3 axis measurement)
+#define IMU_QUAT_USEFUL_BYTES 10
+#define IMU_3_AXIS_USEFUL_BYTES 6
+
+//MS timeout for SPI reads
+#define IMU_SPI_READ_TIMEOUT 10
+
+//IMU typedef definition for useful data holding (of various types, like quaternion, accel, gyro, magnetometer
 typedef struct __IMU_Data_Typedef {
 
-	//Data variables - rotation unit quaternions
-	// real, i, j and k components
-	uint16_t quat_r;
-	uint16_t quat_i;
-	uint16_t quat_j;
-	uint16_t quat_k;
-	uint16_t accurary_rad;
+	//A header to signify which type of data this is (Matches the macro defined report IDs above)
+	uint8_t data_header;
 
+	/*
+	 * The data for the IMU is only stored and written to the SD card as raw data.
+	 *
+	 * This is because the IMU is not useful inside of the system/tag (we dont do anything inside the tag with it, compared to say the BMS data.)
+	 *
+	 * So, to save processing power, we just store the raw bytes and handle everything else is post processing.
+	 *
+	 * The data is stored as follows (from index 0 to 9):
+	 *
+	 * X_lsb, X_msb, Y_lsb, Y_msb, Z_lsb, Z_msb, Real_lsb, Real_msb, Accuracy_lsb, Accuracy_msb
+	 *
+	 * Where X Y and Z represent the axes for any of the given reports, and "Real" and "Accuracy" are used only by the quaternion report.
+	 *
+	 * E.g., X_lsb and X_msb represent the acceleration in the X direction if it is an accelerometer report.
+	 */
+	uint8_t raw_data[10];
 } IMU_Data;
 
 //IMU typedef definition for useful variables
@@ -98,7 +119,7 @@ typedef struct __IMU_Typedef{
 	uint16_t wake_pin;
 
 	//Data struct
-	IMU_Data data;
+	IMU_Data data[IMU_NUM_SAMPLES];
 
 } IMU_HandleTypeDef;
 
