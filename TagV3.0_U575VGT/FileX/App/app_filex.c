@@ -23,7 +23,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "tx_api.h"
+#include "Lib Inc/threads.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -33,9 +34,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* Main thread stack size */
-#define FX_APP_THREAD_STACK_SIZE         1024
+#define FX_APP_THREAD_STACK_SIZE         2048
 /* Main thread priority */
-#define FX_APP_THREAD_PRIO               10
+#define FX_APP_THREAD_PRIO               1
 /* USER CODE BEGIN PD */
 
 /* USER CODE END PD */
@@ -55,6 +56,8 @@ ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / siz
 FX_MEDIA        sdio_disk;
 
 /* USER CODE BEGIN PV */
+extern SD_HandleTypeDef hsd1;
+extern Thread_HandleTypeDef threads[NUM_THREADS];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -129,7 +132,7 @@ UINT MX_FileX_Init(VOID *memory_ptr)
   UINT sd_status = FX_SUCCESS;
 
 /* USER CODE BEGIN fx_app_thread_entry 0*/
-
+  //pCardInfo = &hsd1.SdCard;
 /* USER CODE END fx_app_thread_entry 0*/
 
 /* Open the SD disk driver */
@@ -139,12 +142,12 @@ UINT MX_FileX_Init(VOID *memory_ptr)
   if (sd_status != FX_SUCCESS)
   {
      /* USER CODE BEGIN SD DRIVER get info error */
-    while(1);
+
     /* USER CODE END SD DRIVER get info error */
   }
 
 /* USER CODE BEGIN fx_app_thread_entry 1*/
-
+  tx_thread_resume(&threads[STATE_MACHINE_THREAD].thread);
 /* USER CODE END fx_app_thread_entry 1*/
   }
 
