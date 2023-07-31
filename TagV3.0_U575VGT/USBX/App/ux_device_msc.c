@@ -91,7 +91,7 @@ VOID USBD_STORAGE_Deactivate(VOID *storage_instance)
 {
   /* USER CODE BEGIN USBD_STORAGE_Activate */
   UX_PARAMETER_NOT_USED(storage_instance);
-  inserted = true;
+  inserted = false;
   /* USER CODE END USBD_STORAGE_Activate */
 
   return;

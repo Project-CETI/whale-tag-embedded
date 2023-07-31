@@ -11,6 +11,8 @@
 #include "Sensor Inc/BNO08x.h"
 #include "Sensor Inc/ECG.h"
 #include "Lib Inc/threads.h"
+#include "app_usbx_device.h"
+#include "main.h"
 
 //Event flags for signaling changes in state
 TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
@@ -19,6 +21,7 @@ TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP audio_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP imu_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP usb_event_flags_group;
 
 //Threads array
 extern Thread_HandleTypeDef threads[NUM_THREADS];
@@ -62,7 +65,11 @@ void state_machine_thread_entry(ULONG thread_input){
 		}
 
 		//USB detected flag
-		if (actual_flags & STATE_V_BUS_FLAG){
+		if (actual_flags & STATE_USB_CONNECTED_FLAG){
+
+		}
+
+		if (actual_flags & STATE_USB_DISCONNECTED_FLAG){
 
 		}
 	}
@@ -100,7 +107,7 @@ void exit_recovery(){
 
 
 void enter_data_offload(){
-
+	MX_SDMMC1_SD_Fake_Init(6);
 }
 
 void exit_data_offload(){

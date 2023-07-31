@@ -48,7 +48,7 @@ extern "C" {
 #define UX_DEVICE_APP_THREAD_PRIO         10
 
 /* USER CODE BEGIN EC */
-
+#define USB_START_DATA_OFFLOAD_FLAG 0x1
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/

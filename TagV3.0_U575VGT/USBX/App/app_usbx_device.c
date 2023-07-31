@@ -25,6 +25,7 @@
 /* USER CODE BEGIN Includes */
 #include "ux_dcd_stm32.h"
 #include "main.h"
+#include "tx_api.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -51,6 +52,7 @@ static TX_THREAD ux_device_app_thread;
 
 /* USER CODE BEGIN PV */
 extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
+TX_EVENT_FLAGS_GROUP usb_event_flags_group;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -226,6 +228,7 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
   TX_PARAMETER_NOT_USED(thread_input);
 
   USBX_APP_Device_Init();
+
   /* USER CODE END app_ux_device_thread_entry */
 }
 
