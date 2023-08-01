@@ -97,9 +97,9 @@ VOID USBD_STORAGE_Deactivate(VOID *storage_instance)
   /* USER CODE BEGIN USBD_STORAGE_Activate */
   UX_PARAMETER_NOT_USED(storage_instance);
 
-  //Signal our state machine to exit data offloading mode
+  //Signal our state machine that we're going to be in data offloading mode
   tx_event_flags_set(&state_machine_event_flags_group, STATE_USB_DISCONNECTED_FLAG, TX_OR);
-  inserted = false;
+  inserted = true;
   /* USER CODE END USBD_STORAGE_Activate */
 
   return;
