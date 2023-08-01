@@ -58,7 +58,7 @@ void ecg_thread_entry(ULONG thread_input){
 	}
 
 	//Data array for holding multiple ECG samples (so we can collect them and write to the SD card in batches)
-	float ecg_data[ECG_NUM_SAMPLES] = {0};
+	ECG_Data ecg_data[ECG_NUM_SAMPLES] = {0};
 
 	//Do a dummy write for the beginning of the file
 	ecg_writing = true;
@@ -85,36 +85,20 @@ void ecg_thread_entry(ULONG thread_input){
 			tx_event_flags_get(&ecg_event_flags_group, ECG_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
 			ecg_running = true;
-
-			//Data ready
-			if (actual_events & ECG_DATA_READY_FLAG){
 				
-				//New data is ready, retrieve it
-				if (ecg_read_adc(&ecg) == HAL_OK){
-					good_ecg_data++;
-				}
-
-				ecg_data[index] = ecg.voltage;
-
-				ecg_running = false;
+			//New data is ready, retrieve it
+			if (ecg_read_adc(&ecg) == HAL_OK){
+				good_ecg_data++;
 			}
 
-			//We received a "stop" command from the state machine, so cleanup and stop the thread
-			if (actual_events & ECG_STOP_THREAD_FLAG){
-				//Close the file
-				fx_file_close(&ecg_file);
+			ecg_data[index] = ecg.data;
 
-				//Disable our interrupt handler
-				HAL_NVIC_DisableIRQ(EXTI14_IRQn);
-
-				//Terminate thread so it needs to be fully reset to start again
-				tx_thread_terminate(&threads[ECG_THREAD].thread);
-			}
+			ecg_running = false;
 		}
 
 		//We've collected all the samples we need, write them to SD card
 		ecg_writing = true;
-		fx_file_write(&ecg_file, ecg_data, sizeof(float) * ECG_NUM_SAMPLES);
+		fx_file_write(&ecg_file, ecg_data, sizeof(ECG_Data) * ECG_NUM_SAMPLES);
 
 		//Poll for completion
 		while (ecg_writing);
@@ -151,13 +135,8 @@ HAL_StatusTypeDef ecg_read_adc(ECG_HandleTypeDef* ecg){
 	if (ret != HAL_OK)
 		return ret;
 
-	//Read the data
-	ret = HAL_I2C_Master_Receive(ecg->i2c_handler, (ECG_ADC_I2C_ADDRESS << 1), ecg->raw_data, 3, HAL_MAX_DELAY);
-
-	//We have 24 bits of data. Turn it into a signed 32 bit integer. Data is shifted out of ADC with the MSB first.
-	//TODO: Do 2's complement conversion (once we can test values)
-	int32_t digitalReading = (ecg->raw_data[0] << 16) | (ecg->raw_data[1] << 8) | ecg->raw_data[0];
-	ecg->voltage = digitalReading * ECG_ADC_LSB;
+	//Read the data (no need to convert it, since we just write it to the buffer as raw data
+	ret = HAL_I2C_Master_Receive(ecg->i2c_handler, (ECG_ADC_I2C_ADDRESS << 1), ecg->data.raw_data, 3, HAL_MAX_DELAY);
 
 	return ret;
 }

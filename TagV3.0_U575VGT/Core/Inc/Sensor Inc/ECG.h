@@ -70,6 +70,14 @@
 //The number of ECG Samples to collect before writing to the SD card
 #define ECG_NUM_SAMPLES 1000
 
+//Struct for holding ECG data (data and timestamps)
+typedef struct __ECG_Data_Typedef {
+
+	//Raw data buffer for 24 bit data from ECG
+	uint8_t raw_data[3];
+}ECG_Data;
+
+//Struct for holding ECG variabels
 typedef struct __ECG_TypeDef {
 
 	I2C_HandleTypeDef *i2c_handler;
@@ -77,10 +85,8 @@ typedef struct __ECG_TypeDef {
 	GPIO_TypeDef* n_data_ready_port;
 	uint16_t n_data_ready_pin;
 
-	// Data buffers for I2C data
-	uint8_t raw_data[3];
-
-	float voltage;
+	//Struct to hold ECG data
+	ECG_Data data;
 
 } ECG_HandleTypeDef;
 
