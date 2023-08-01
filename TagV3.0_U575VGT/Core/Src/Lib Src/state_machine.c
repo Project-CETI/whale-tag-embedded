@@ -80,6 +80,12 @@ void state_machine_thread_entry(ULONG thread_input){
 
 			if (actual_flags & STATE_USB_DISCONNECTED_FLAG){
 
+				//USB was disconnected. Exit data offload and enter data capture mode.
+				exit_data_offload();
+
+				enter_data_capture();
+
+				state = STATE_DATA_CAPTURE;
 			}
 		}
 	}
@@ -98,15 +104,15 @@ void enter_data_capture(){
 void exit_data_capture(){
 
 	//Signal data collection threads to stop running
-	tx_thread_terminate(&threads[AUDIO_THREAD].thread);
-	tx_thread_terminate(&threads[IMU_THREAD].thread);
-	tx_thread_terminate(&threads[ECG_THREAD].thread);
+	tx_thread_suspend(&threads[AUDIO_THREAD].thread);
+	tx_thread_suspend(&threads[IMU_THREAD].thread);
+	tx_thread_suspend(&threads[ECG_THREAD].thread);
 }
 
 
 void enter_recovery(){
 	//Start APRS thread
-	tx_thread_resume(&threads[APRS_THREAD].thread);
+	tx_thread_reset(&threads[APRS_THREAD].thread);
 }
 
 
@@ -118,9 +124,10 @@ void exit_recovery(){
 
 void enter_data_offload(){
 	//Data offloading is always running, so we dont need to stop or start any threads, just adjust our SD card clock divison to be a little slower
-	MX_SDMMC1_SD_Fake_Init(6);
+	MX_SDMMC1_SD_Fake_Init(DATA_OFFLOADING_SD_CLK_DIV);
 }
 
 void exit_data_offload(){
-
+	//Data offloading is always running, so we dont need to stop or start any threads, just adjust our SD card back to the original clock divider
+	MX_SDMMC1_SD_Fake_Init(NORMAL_SD_CLK_DIV);
 }
