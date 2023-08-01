@@ -112,7 +112,7 @@ void exit_data_capture(){
 
 void enter_recovery(){
 	//Start APRS thread
-	tx_thread_reset(&threads[APRS_THREAD].thread);
+	tx_thread_resume(&threads[APRS_THREAD].thread);
 }
 
 
