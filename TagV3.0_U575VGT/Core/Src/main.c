@@ -934,7 +934,7 @@ static void MX_USB_OTG_FS_PCD_Init(void)
   hpcd_USB_OTG_FS.Init.Sof_enable = DISABLE;
   hpcd_USB_OTG_FS.Init.low_power_enable = DISABLE;
   hpcd_USB_OTG_FS.Init.lpm_enable = DISABLE;
-  hpcd_USB_OTG_FS.Init.battery_charging_enable = ENABLE;
+  hpcd_USB_OTG_FS.Init.battery_charging_enable = DISABLE;
   hpcd_USB_OTG_FS.Init.use_dedicated_ep1 = DISABLE;
   hpcd_USB_OTG_FS.Init.vbus_sensing_enable = ENABLE;
   if (HAL_PCD_Init(&hpcd_USB_OTG_FS) != HAL_OK)
@@ -1035,6 +1035,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+//Fake timer 2 init function so we can change the period value during runtime
 void MX_TIM2_Fake_Init(uint8_t newPeriod){
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
@@ -1064,6 +1065,33 @@ void MX_TIM2_Fake_Init(uint8_t newPeriod){
   {
 	Error_Handler();
   }
+}
+
+//Fake SD card initialization function so we can change the clock divison during runtime
+void MX_SDMMC1_SD_Fake_Init(uint8_t newClockDiv)
+{
+
+  /* USER CODE BEGIN SDMMC1_Init 0 */
+
+  /* USER CODE END SDMMC1_Init 0 */
+
+  /* USER CODE BEGIN SDMMC1_Init 1 */
+
+  /* USER CODE END SDMMC1_Init 1 */
+  hsd1.Instance = SDMMC1;
+  hsd1.Init.ClockEdge = SDMMC_CLOCK_EDGE_RISING;
+  hsd1.Init.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_DISABLE;
+  hsd1.Init.BusWide = SDMMC_BUS_WIDE_4B;
+  hsd1.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
+  hsd1.Init.ClockDiv = newClockDiv;
+  if (HAL_SD_Init(&hsd1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SDMMC1_Init 2 */
+
+  /* USER CODE END SDMMC1_Init 2 */
+
 }
 /* USER CODE END 4 */
 

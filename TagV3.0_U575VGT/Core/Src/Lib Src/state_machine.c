@@ -11,6 +11,8 @@
 #include "Sensor Inc/BNO08x.h"
 #include "Sensor Inc/ECG.h"
 #include "Lib Inc/threads.h"
+#include "app_usbx_device.h"
+#include "main.h"
 
 //Event flags for signaling changes in state
 TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
@@ -19,6 +21,7 @@ TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP audio_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP imu_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP usb_event_flags_group;
 
 //Threads array
 extern Thread_HandleTypeDef threads[NUM_THREADS];
@@ -40,30 +43,50 @@ void state_machine_thread_entry(ULONG thread_input){
 		enter_data_offload();
 	}
 
-	//Enter main thread execution loop
-	while (1){
+	//Enter main thread execution loop ONLY if we arent simulating
+	if (!IS_SIMULATING){
+		while (1){
 
-		ULONG actual_flags;
-		tx_event_flags_get(&state_machine_event_flags_group, ALL_STATE_FLAGS, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+			ULONG actual_flags;
+			tx_event_flags_get(&state_machine_event_flags_group, ALL_STATE_FLAGS, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 
-		//Timeout event
-		if (actual_flags & STATE_TIMEOUT_FLAG){
+			//Timeout event
+			if (actual_flags & STATE_TIMEOUT_FLAG){
 
-		}
+			}
 
-		//GPS geofencing flag
-		if (actual_flags & STATE_GPS_FLAG){
+			//GPS geofencing flag
+			if (actual_flags & STATE_GPS_FLAG){
 
-		}
+			}
 
-		//BMS low battery flag
-		if (actual_flags & STATE_LOW_BATT_FLAG){
+			//BMS low battery flag
+			if (actual_flags & STATE_LOW_BATT_FLAG){
 
-		}
+			}
 
-		//USB detected flag
-		if (actual_flags & STATE_V_BUS_FLAG){
+			//USB detected flag
+			if (actual_flags & STATE_USB_CONNECTED_FLAG){
+				if (state == STATE_DATA_CAPTURE){
+					exit_data_capture();
+				}
+				else if (state == STATE_RECOVERY){
+					exit_recovery();
+				}
 
+				enter_data_offload();
+				state = STATE_DATA_OFFLOAD;
+			}
+
+			if (actual_flags & STATE_USB_DISCONNECTED_FLAG){
+
+				//USB was disconnected. Exit data offload and enter data capture mode.
+				exit_data_offload();
+
+				enter_data_capture();
+
+				state = STATE_DATA_CAPTURE;
+			}
 		}
 	}
 }
@@ -81,15 +104,15 @@ void enter_data_capture(){
 void exit_data_capture(){
 
 	//Signal data collection threads to stop running
-	tx_event_flags_set(&audio_event_flags_group, AUDIO_STOP_THREAD_FLAG, TX_OR);
-	tx_event_flags_set(&imu_event_flags_group, IMU_STOP_THREAD_FLAG, TX_OR);
-	tx_event_flags_set(&ecg_event_flags_group, ECG_STOP_THREAD_FLAG, TX_OR);
+	tx_thread_suspend(&threads[AUDIO_THREAD].thread);
+	tx_thread_suspend(&threads[IMU_THREAD].thread);
+	tx_thread_suspend(&threads[ECG_THREAD].thread);
 }
 
 
 void enter_recovery(){
 	//Start APRS thread
-	tx_thread_resume(&threads[APRS_THREAD].thread);
+	tx_thread_reset(&threads[APRS_THREAD].thread);
 }
 
 
@@ -100,9 +123,11 @@ void exit_recovery(){
 
 
 void enter_data_offload(){
-
+	//Data offloading is always running, so we dont need to stop or start any threads, just adjust our SD card clock divison to be a little slower
+	MX_SDMMC1_SD_Fake_Init(DATA_OFFLOADING_SD_CLK_DIV);
 }
 
 void exit_data_offload(){
-
+	//Data offloading is always running, so we dont need to stop or start any threads, just adjust our SD card back to the original clock divider
+	MX_SDMMC1_SD_Fake_Init(NORMAL_SD_CLK_DIV);
 }

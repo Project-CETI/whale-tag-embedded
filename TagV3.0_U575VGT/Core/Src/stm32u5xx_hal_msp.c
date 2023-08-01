@@ -1069,6 +1069,9 @@ void HAL_PCD_MspInit(PCD_HandleTypeDef* hpcd)
     {
       HAL_PWREx_EnableVddUSB();
     }
+    /* USB_OTG_FS interrupt Init */
+    HAL_NVIC_SetPriority(OTG_FS_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(OTG_FS_IRQn);
   /* USER CODE BEGIN USB_OTG_FS_MspInit 1 */
 
   /* USER CODE END USB_OTG_FS_MspInit 1 */
@@ -1099,6 +1102,8 @@ void HAL_PCD_MspDeInit(PCD_HandleTypeDef* hpcd)
     */
     HAL_GPIO_DeInit(GPIOA, GPIO_PIN_9|GPIO_PIN_11|GPIO_PIN_12);
 
+    /* USB_OTG_FS interrupt DeInit */
+    HAL_NVIC_DisableIRQ(OTG_FS_IRQn);
   /* USER CODE BEGIN USB_OTG_FS_MspDeInit 1 */
 
   /* USER CODE END USB_OTG_FS_MspDeInit 1 */
