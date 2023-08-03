@@ -161,7 +161,7 @@ void audio_thread_entry(ULONG thread_input){
 	      Error_Handler();
 	  }
 
-	  //Open the file
+	  //Open the file (put a dummy close in front incase the file is already open)
 	  fx_result = fx_file_open(&sdio_disk, &audio_file, "audio_test.bin", FX_OPEN_FOR_WRITE);
 	  if(fx_result != FX_SUCCESS){
 	      Error_Handler();
@@ -234,6 +234,7 @@ void audio_thread_entry(ULONG thread_input){
 			  fx_file_close(audio.file);
 
 			  //Terminate thread so it needs to be fully reset to start again
+			  tx_event_flags_delete(&audio_event_flags_group);
 			  tx_thread_terminate(&threads[AUDIO_THREAD].thread);
 		  }
 
