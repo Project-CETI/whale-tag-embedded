@@ -238,10 +238,6 @@ void audio_thread_entry(ULONG thread_input){
 		  }
 
 	  }
-
-	  //TODO: close file option
-	  //fx_file_close(&audio_file);
-	 // fx_media_close(&sdio_disk);
 }
 
 

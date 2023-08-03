@@ -68,7 +68,7 @@ void state_machine_thread_entry(ULONG thread_input){
 			//USB detected flag
 			if (actual_flags & STATE_USB_CONNECTED_FLAG){
 				if (state == STATE_DATA_CAPTURE){
-					exit_data_capture();
+					hard_exit_data_capture();
 				}
 				else if (state == STATE_RECOVERY){
 					exit_recovery();
@@ -94,25 +94,43 @@ void state_machine_thread_entry(ULONG thread_input){
 
 void enter_data_capture(){
 
-	//Start data capture threads
+	static bool firstRun = true;
+
+	if (!firstRun){
+		//Our threads have been terminated, so we need to reset them first.
+		tx_thread_reset(&threads[AUDIO_THREAD].thread);
+		tx_thread_reset(&threads[IMU_THREAD].thread);
+		tx_thread_reset(&threads[ECG_THREAD].thread);
+	}
+
+	//Resume data capture threads (they will no longer be in a suspended state)
 	tx_thread_resume(&threads[AUDIO_THREAD].thread);
 	tx_thread_resume(&threads[IMU_THREAD].thread);
 	tx_thread_resume(&threads[ECG_THREAD].thread);
+
+	firstRun = false;
 }
 
 
-void exit_data_capture(){
+void hard_exit_data_capture(){
+
+	//Force data collection threads to stop running
+	tx_thread_terminate(&threads[AUDIO_THREAD].thread);
+	tx_thread_terminate(&threads[IMU_THREAD].thread);
+	tx_thread_terminate(&threads[ECG_THREAD].thread);
+}
+
+void soft_exit_data_capture(){
 
 	//Signal data collection threads to stop running
-	tx_thread_suspend(&threads[AUDIO_THREAD].thread);
-	tx_thread_suspend(&threads[IMU_THREAD].thread);
-	tx_thread_suspend(&threads[ECG_THREAD].thread);
+	tx_event_flags_set(&audio_event_flags_group, AUDIO_STOP_THREAD_FLAG, TX_OR);
+	tx_event_flags_set(&imu_event_flags_group, IMU_STOP_THREAD_FLAG, TX_OR);
+	tx_event_flags_set(&ecg_event_flags_group, ECG_STOP_THREAD_FLAG, TX_OR);
 }
-
 
 void enter_recovery(){
 	//Start APRS thread
-	tx_thread_resume(&threads[APRS_THREAD].thread);
+	tx_thread_reset(&threads[APRS_THREAD].thread);
 }
 
 

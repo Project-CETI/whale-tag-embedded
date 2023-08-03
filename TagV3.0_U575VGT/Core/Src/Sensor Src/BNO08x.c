@@ -15,6 +15,7 @@
 #include "stm32u5xx_hal_spi.h"
 #include <stdbool.h>
 #include "Lib Inc/threads.h"
+
 extern SPI_HandleTypeDef hspi1;
 
 //FileX variables
@@ -33,6 +34,7 @@ bool imu_running = false;
 
 bool imu_writing = false;
 
+//DEBUG
 uint8_t good_counter = 0;
 uint8_t bad = 0;
 
@@ -51,6 +53,7 @@ void IMU_thread_entry(ULONG thread_input){
 
 	//Create IMU handler and initialize
 	IMU_HandleTypeDef imu;
+
 	IMU_init(&hspi1, &imu);
 
 	//Create the events flag.
@@ -94,54 +97,22 @@ void IMU_thread_entry(ULONG thread_input){
 		while (imu_writing);
 
 		good_counter = 0;
-		/*DEBUG
-		quats = 0;
-		accels = 0;
-		magnets = 0;
-		gyros = 0;
 
-		/*OLD CODE DEBUG
+		//Check to see if there was a stop thread request. Put very little wait time so its essentially an instant check
+		ULONG actual_flags = 0;
+		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
 
-		//Collect 10 pieces of IMU data
-		for (uint8_t index = 0; index < IMU_NUM_SAMPLES; index++){
+		//If there was something set cleanup the thread
+		if (actual_flags & IMU_STOP_THREAD_FLAG){
 
-			//variable that holds the results of the flag polling (returns which flags are set)
-			ULONG actual_events;
+			//Close the file and suspend our interrupt
+			fx_file_close(&imu_file);
+			HAL_NVIC_DisableIRQ(EXTI12_IRQn);
 
-			//Poll for data to be readyb or for a stop command. Flag is set by our interrupt handler.
-			//Calling this function blocks and suspends the thread until the data becomes available (or we were told to stop the thread).
-			tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG | IMU_STOP_THREAD_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
-
-			//if we are ready to read IMU data
-			if (actual_events & IMU_DATA_READY_FLAG){
-				//Debug
-				imu_running = true;
-
-				//Get the data and store in our handler
-				if (IMU_get_data(&imu) == HAL_OK){
-					imu_data[index] = imu.data;
-				}else {
-					index--;
-					bad++;
-				}
-
-				//Debug
-				imu_running = false;
-			}
-
-			//We received a "stop" command from the state machine, so cleanup and stop the thread
-			if (actual_events & IMU_STOP_THREAD_FLAG){
-
-				//Close the file
-				fx_file_close(&imu_file);
-
-				//Disable our new data interrupt
-				HAL_NVIC_DisableIRQ(EXTI12_IRQn);
-
-				//Terminate thread so it needs to be fully reset to start again
-				tx_thread_terminate(&threads[IMU_THREAD].thread);
-			}
-		}*/
+			//Delete threadx event flags and terminate the thread
+			tx_event_flags_delete(&imu_event_flags_group);
+			tx_thread_terminate(&threads[IMU_THREAD].thread);
+		}
 	}
 }
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
