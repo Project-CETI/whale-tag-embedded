@@ -26,6 +26,7 @@ extern Thread_HandleTypeDef threads[NUM_THREADS];
 
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu);
 static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout);
+static void IMU_configure_reports(IMU_HandleTypeDef * imu, uint8_t reportID, bool isLastReport);
 
 TX_EVENT_FLAGS_GROUP imu_event_flags_group;
 
@@ -169,114 +170,11 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(imu->wake_port, imu->wake_pin, GPIO_PIN_RESET);
 
-	//Wait for IMU to be ready (poll for falling edge)
-	if (IMU_poll_new_data(imu, HAL_MAX_DELAY) == HAL_TIMEOUT){
-		return;
-	}
+	IMU_configure_reports(imu, IMU_ROTATION_VECTOR_REPORT_ID, false);
+	IMU_configure_reports(imu, IMU_ACCELEROMETER_REPORT_ID, false);
+	IMU_configure_reports(imu, IMU_GYROSCOPE_REPORT_ID, false);
+	IMU_configure_reports(imu, IMU_MAGNETOMETER_REPORT_ID, true);
 
-	//Need to setup the IMU to send the appropriate data to us. Transmit a "set feature" command to start receiving rotation data.
-	//All non-populated bytes are left as default 0.
-	uint8_t transmitData[256] = {0};
-
-	//Configure SHTP header (first 4 bytes)
-	transmitData[0] = IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH; //LSB
-	transmitData[1] = 0x00; //MSB
-	transmitData[2] = IMU_CONTROL_CHANNEL;
-
-	//Indicates we want to start receiving a report
-	transmitData[4] = IMU_SET_FEATURE_REPORT_ID;
-
-	//Indicates we want to receive rotation vector reports
-	transmitData[5] = IMU_ROTATION_VECTOR_REPORT_ID;
-
-	//Set how often we want to receive data
-	transmitData[9] = IMU_REPORT_INTERVAL_0; //LSB
-	transmitData[10] = IMU_REPORT_INTERVAL_1;
-	transmitData[11] = IMU_REPORT_INTERVAL_2;
-	transmitData[12] = IMU_REPORT_INTERVAL_3; //MSBs
-
-	//Prep wake pin for another falling edge
-	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
-
-	//Select CS by pulling low and write configuration to the IMU. Add delays to ensure good timing.
-	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-	HAL_Delay(1);
-
-	//Create another falling edge on the wake pin during our transfer to signal another transfer is coming
-	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
-	HAL_Delay(1);
-
-	//Transmit data and pull CS back up to high
-	HAL_SPI_Transmit(hspi, transmitData, IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
-	HAL_Delay(1);
-	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
-
-	//Wait for IMU to be ready for next report (poll for falling edge)
-	if (IMU_poll_new_data(imu, HAL_MAX_DELAY) == HAL_TIMEOUT){
-		return;
-	}
-
-	//accelerometer
-	transmitData[5] = IMU_ACCELEROMETER_REPORT_ID;
-
-	//Prep WAKE for another falling edge
-	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
-
-	//Pull CS low to start the transfer
-	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-	HAL_Delay(1);
-
-	//Create falling edge on WAKE to signal another report is coming after this
-	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
-	HAL_Delay(1);
-
-	//Transfer the data and pull CS high
-	HAL_SPI_Transmit(hspi, transmitData, IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
-	HAL_Delay(1);
-	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
-
-	//Wait for IMU to be ready for next report (poll for falling edge)
-	if (IMU_poll_new_data(imu, HAL_MAX_DELAY) == HAL_TIMEOUT){
-		return;
-	}
-
-	//magnetometer
-	transmitData[5] = IMU_MAGNETOMETER_REPORT_ID;
-
-	//Prep WAKE for another falling edge
-	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
-
-	//Start transfer
-	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-	HAL_Delay(1);
-
-	//Falling edge on WAKE to signal anotehr report is coming after this
-	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
-	HAL_Delay(1);
-
-	//Transfer the data and pull CS high
-	HAL_SPI_Transmit(hspi, transmitData, IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
-	HAL_Delay(1);
-	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
-
-	//Wait for IMU to be ready (poll for falling edge)
-	if (IMU_poll_new_data(imu, HAL_MAX_DELAY) == HAL_TIMEOUT){
-		return;
-	}
-
-	//gyroscope, this is the last report so no need for a falling edge on WAKE here
-	transmitData[5] = IMU_GYROSCOPE_REPORT_ID;
-
-	//Transfer the data
-	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-	HAL_Delay(1);
-	HAL_SPI_Transmit(hspi, transmitData, IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH, HAL_MAX_DELAY);
-	HAL_Delay(1);
-	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
-
-
-	//Deassert the WAKE pin since we are done configuring
-	HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
 }
 
 HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
@@ -425,6 +323,56 @@ static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t time
 	}
 
 	return HAL_OK;
-
 }
 
+static void IMU_configure_reports(IMU_HandleTypeDef * imu, uint8_t reportID, bool isLastReport){
+
+	//Need to setup the IMU to send the appropriate data to us. Transmit a "set feature" command to start receiving rotation data.
+	//All non-populated bytes are left as default 0.
+	uint8_t transmitData[256] = {0};
+
+	//Configure SHTP header (first 4 bytes)
+	transmitData[0] = IMU_CONFIGURE_REPORT_LENGTH; //LSB
+	transmitData[1] = 0x00; //MSB
+	transmitData[2] = IMU_CONTROL_CHANNEL;
+
+	//Indicates we want to start receiving a report
+	transmitData[4] = IMU_SET_FEATURE_REPORT_ID;
+
+	//Indicates we want to receive rotation vector reports
+	transmitData[5] = reportID;
+
+	//Set how often we want to receive data
+	transmitData[9] = IMU_REPORT_INTERVAL_0; //LSB
+	transmitData[10] = IMU_REPORT_INTERVAL_1;
+	transmitData[11] = IMU_REPORT_INTERVAL_2;
+	transmitData[12] = IMU_REPORT_INTERVAL_3; //MSBs
+
+	//Wait for IMU to be ready (poll for falling edge)
+	if (IMU_poll_new_data(imu, HAL_MAX_DELAY) == HAL_TIMEOUT){
+		return;
+	}
+
+	//Prep wake pin for another falling edge (if theres another report coming after this one)
+	if (!isLastReport){
+		HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
+	}
+
+	//Select CS by pulling low and write configuration to the IMU. Add delays to ensure good timing.
+	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
+	HAL_Delay(1);
+
+	//Create another falling edge on the wake pin during our transfer to signal another transfer is coming
+	if (!isLastReport){
+		HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
+		HAL_Delay(1);
+	}
+
+	//Transmit data and pull CS back up to high
+	HAL_SPI_Transmit(&hspi1, transmitData, IMU_CONFIGURE_REPORT_LENGTH, HAL_MAX_DELAY);
+	HAL_Delay(1);
+	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+
+	//If this is the last report, deassert the wake pin to show the end of configuration
+	HAL_GPIO_WritePin(imu->wake_port, imu->wake_pin, GPIO_PIN_SET);
+}
