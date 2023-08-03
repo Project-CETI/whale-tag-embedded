@@ -175,6 +175,8 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 	IMU_configure_reports(imu, IMU_GYROSCOPE_REPORT_ID, false);
 	IMU_configure_reports(imu, IMU_MAGNETOMETER_REPORT_ID, true);
 
+	//Deassert wait to signal the end of configuration
+	HAL_GPIO_WritePin(imu->wake_port, imu->wake_pin, GPIO_PIN_SET);
 }
 
 HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
@@ -372,7 +374,4 @@ static void IMU_configure_reports(IMU_HandleTypeDef * imu, uint8_t reportID, boo
 	HAL_SPI_Transmit(&hspi1, transmitData, IMU_CONFIGURE_REPORT_LENGTH, HAL_MAX_DELAY);
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
-
-	//If this is the last report, deassert the wake pin to show the end of configuration
-	HAL_GPIO_WritePin(imu->wake_port, imu->wake_pin, GPIO_PIN_SET);
 }
