@@ -102,12 +102,12 @@ void audio_SAI_RxCpltCallback (SAI_HandleTypeDef * hsai){
 	audio.temp_counter++;
 
 	//Once the temporary buffer is half full, set the flag for the thread execution loop
-	if (audio.temp_counter == 10){
+	if (audio.temp_counter == TEMP_BUF_HALF_BLOCK_LENGTH){
 		tx_event_flags_set(&audio_event_flags_group, AUDIO_BUFFER_HALF_FULL_FLAG, TX_OR);
 	}
 
 	//Same as above, but when it is full & reset our temp buffer index tracker
-	if (audio.temp_counter == 20){
+	if (audio.temp_counter == TEMP_BUF_BLOCK_LENGTH){
 		tx_event_flags_set(&audio_event_flags_group, AUDIO_BUFFER_FULL_FLAG, TX_OR);
 		audio.temp_counter = 0;
 	}
@@ -124,12 +124,12 @@ void audio_SAI_RxHalfCpltCallback (SAI_HandleTypeDef * hsai){
 	audio.temp_counter++;
 
 	//Half full temp buffer, set flag for thread execution loop
-	if (audio.temp_counter == 10){
+	if (audio.temp_counter == TEMP_BUF_HALF_BLOCK_LENGTH){
 		tx_event_flags_set(&audio_event_flags_group, AUDIO_BUFFER_HALF_FULL_FLAG, TX_OR);
 	}
 
 	//Full temp buffer, set flag & reset temp buffer index
-	if (audio.temp_counter == 20){
+	if (audio.temp_counter == TEMP_BUF_BLOCK_LENGTH){
 		tx_event_flags_set(&audio_event_flags_group, AUDIO_BUFFER_FULL_FLAG, TX_OR);
 		audio.temp_counter = 0;
 	}
@@ -210,14 +210,14 @@ void audio_thread_entry(ULONG thread_input){
 		  if (acc_flag_pointer & AUDIO_BUFFER_HALF_FULL_FLAG){
       		audio.sd_write_complete = false;
       		sd_writing = true;
-      		fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
+      		fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * TEMP_BUF_HALF_BLOCK_LENGTH);
 		  }
 
 		  //If full, write the top half
 		  if (acc_flag_pointer & AUDIO_BUFFER_FULL_FLAG){
       		audio.sd_write_complete = false;
       		sd_writing = true;
-      		fx_file_write(audio.file, audio.temp_buffer[10], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
+      		fx_file_write(audio.file, audio.temp_buffer[10], AUDIO_CIRCULAR_BUFFER_SIZE * TEMP_BUF_HALF_BLOCK_LENGTH);
 		  }
 
 		  //Poll for completion, this blocks out other tasks but is *neccessary*
@@ -321,12 +321,12 @@ HAL_StatusTypeDef audio_record(AudioManager *self){
 HAL_StatusTypeDef audio_tick(AudioManager *self){
     switch (self->buffer_state){
         case AUDIO_BUF_STATE_HALF_FULL:
-        	fx_file_write(self->file, self->temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
+        	fx_file_write(self->file, self->temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * TEMP_BUF_HALF_BLOCK_LENGTH);
 
             //ToDo: Error Handling
             break;
         case AUDIO_BUF_STATE_FULL:
-        	fx_file_write(self->file, self->temp_buffer[10], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
+        	fx_file_write(self->file, self->temp_buffer[10], AUDIO_CIRCULAR_BUFFER_SIZE * TEMP_BUF_HALF_BLOCK_LENGTH);
 
             //ToDo: Error Handling
             break;

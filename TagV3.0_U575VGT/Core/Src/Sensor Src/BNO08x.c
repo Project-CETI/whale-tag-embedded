@@ -300,12 +300,16 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 		uint32_t dataLength = ((receiveData[1] << 8) | receiveData[0]) & IMU_LENGTH_BIT_MASK;
 
 		//If there is some issue, ignore the data
-		if (ret == HAL_TIMEOUT || dataLength > 256 || dataLength <= 0){
+		if (ret == HAL_TIMEOUT || dataLength <= 0){
 			//Decrement index so we dont fill this part of the array
 			index--;
 
 			//Return to start of loop
 			continue;
+		}
+
+		if (dataLength > 256){
+			dataLength = 256;
 		}
 
 		//Now that we know the length, wait for the payload of data to be ready
