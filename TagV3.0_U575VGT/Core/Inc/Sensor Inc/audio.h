@@ -31,6 +31,12 @@
 //ThreadX flag to stop the audio sensor (exit data collection)
 #define AUDIO_STOP_THREAD_FLAG 0x4
 
+#define DMA_BUF_BLOCK_LENGTH 2
+
+#define TEMP_BUF_BLOCK_LENGTH 18
+
+#define TEMP_BUF_HALF_BLOCK_LENGTH ((TEMP_BUF_BLOCK_LENGTH) / 2)
+
 typedef enum {
     AUDIO_BUF_STATE_EMPTY,
     AUDIO_BUF_STATE_HALF_FULL,
@@ -48,10 +54,10 @@ typedef struct audio_manager_s {
     size_t channel_count;
 
     //DMA buffer
-    uint8_t audio_buffer[2][AUDIO_CIRCULAR_BUFFER_SIZE];
+    uint8_t audio_buffer[DMA_BUF_BLOCK_LENGTH][AUDIO_CIRCULAR_BUFFER_SIZE];
 
     //Temp buffer & its index tracker
-    uint8_t temp_buffer[20][AUDIO_CIRCULAR_BUFFER_SIZE];
+    uint8_t temp_buffer[TEMP_BUF_BLOCK_LENGTH][AUDIO_CIRCULAR_BUFFER_SIZE];
     uint8_t temp_counter;
 
     //Flag to show SD card has been written to
