@@ -54,22 +54,30 @@ void imu_thread_entry(ULONG thread_input){
 	//Enable our interrupt handler that signals data is ready
 	HAL_NVIC_EnableIRQ(EXTI12_IRQn);
 
+	//Allow the SD card writing thread to start
 	tx_thread_resume(&threads[IMU_SD_THREAD].thread);
 
 	while(1) {
 
-		//Call to get data, this handles filling up our IMU data buffer completely
+		//Wait for first half of the buffer to be ready for data
 		tx_mutex_get(&imu_first_half_mutex, TX_WAIT_FOREVER);
+
+		//Fill up the first half of the buffer (this function call fills up the IMU buffer on its own)
 		IMU_get_data(&imu, 0);
 
+		//Release the mutex to allow for SD card writing thread to run
 		tx_mutex_put(&imu_first_half_mutex);
 
+		//Acquire second half (so we can fill it up)
 		tx_mutex_get(&imu_second_half_mutex, TX_WAIT_FOREVER);
-		//Call to get data, this handles filling up our IMU data buffer completely
+
+		//Call to get data, this handles filling up the second half of the buffer completely
 		IMU_get_data(&imu, 1);
 
+		//Release mutex
 		tx_mutex_put(&imu_second_half_mutex);
 
+		//DEBUG
 		good_counter = 0;
 
 	}
@@ -216,7 +224,6 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 			index--;
 		}
 	}
-
 
 	return HAL_OK;
 }

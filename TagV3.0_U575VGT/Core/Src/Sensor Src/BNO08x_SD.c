@@ -62,24 +62,30 @@ void imu_sd_thread_entry(ULONG thread_input){
 
 	while (1){
 
+		//Wait for the Data collection thread to be done filling the first half of the buffer
 		tx_mutex_get(&imu_first_half_mutex, TX_WAIT_FOREVER);
 
+		//Write the first half to the SD card
 		imu_writing = 125; //DEBUG TO BE MORE VISIBLE ON CUBE MONITOR
 		fx_file_write(&imu_file, imu_data[0], sizeof(IMU_Data) * IMU_HALF_BUFFER_SIZE);
 
-		//Wait for the writing to complete before giving up control to prevent unnecessary context switches
+		//Wait for the writing to complete before continuing
 		while (imu_writing);
 
+		//Release mutex (allow for data thread to write to buffer)
 		tx_mutex_put(&imu_first_half_mutex);
 
+		//Wait for second half buffer
 		tx_mutex_get(&imu_second_half_mutex, TX_WAIT_FOREVER);
 
+		//Write second half to the SD card
 		imu_writing = 125; //DEBUG TO BE MORE VISIBLE ON CUBE MONITOR
 		fx_file_write(&imu_file, imu_data[1], sizeof(IMU_Data) * IMU_HALF_BUFFER_SIZE);
 
-		//Wait for the writing to complete before giving up control to prevent unnecessary context switches
+		//Wait for the writing to complete before continuing
 		while (imu_writing);
 
+		//Release second half mutex
 		tx_mutex_put(&imu_second_half_mutex);
 	}
 }
