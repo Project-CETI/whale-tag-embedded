@@ -66,8 +66,9 @@
 //ThreadX flag for stopping the IMU (exit data capture)
 #define IMU_STOP_THREAD_FLAG 0x2
 
-//The number of IMU Samples to collect before writing to the SD card
-#define IMU_NUM_SAMPLES 250
+//The number of IMU Samples to collect before writing to the SD card. This MUST be an even number.
+#define IMU_BUFFER_SIZE 250
+#define IMU_HALF_BUFFER_SIZE (IMU_BUFFER_SIZE / 2)
 
 //The useful number of data bytes for each kind of report (quaternion vs 3 axis measurement)
 #define IMU_QUAT_USEFUL_BYTES 10
@@ -118,17 +119,14 @@ typedef struct __IMU_Typedef{
 	GPIO_TypeDef* wake_port;
 	uint16_t wake_pin;
 
-	//Data struct
-	IMU_Data data[IMU_NUM_SAMPLES];
-
 } IMU_HandleTypeDef;
 
 
 //Function prototypes
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu);
-HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu);
+HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half);
 
 //Main IMU thread to run on RTOS
-void IMU_thread_entry(ULONG thread_input);
+void imu_thread_entry(ULONG thread_input);
 
 #endif /* INC_BNO08X_H_ */
