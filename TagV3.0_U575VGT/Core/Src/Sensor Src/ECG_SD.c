@@ -15,12 +15,12 @@
 extern FX_MEDIA        sdio_disk;
 extern ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
 
+//External variables to share with the ECG data thread
 extern TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
-
 extern TX_MUTEX ecg_first_half_mutex;
 extern TX_MUTEX ecg_second_half_mutex;
 
-//Array for holding ECG data. The buffer is split in half and shared with the ECG_SD thread.
+//Array for holding ECG data. The buffer is split in half and shared with the ECG thread.
 extern ECG_Data ecg_data[2][ECG_HALF_BUFFER_SIZE];
 
 //DEBUG
@@ -64,11 +64,11 @@ void ecg_sd_thread_entry(ULONG thread_input){
 		//Wait for first half buffer to fill up
 		tx_mutex_get(&ecg_first_half_mutex, TX_WAIT_FOREVER);
 
-		//We've collected all the samples we need, write them to SD card
+		//First half buffer is full, write to the SD card
 		ecg_writing = 250; //Set to 250 for easier validation in cube monitor (eventually make this true and false)
 		fx_file_write(&ecg_file, ecg_data[0], sizeof(ECG_Data) * ECG_HALF_BUFFER_SIZE);
 
-		//Poll for completion
+		//Poll for completion (other threads will still run)
 		while (ecg_writing);
 
 		//Release first half mutex (done writing)
@@ -77,7 +77,7 @@ void ecg_sd_thread_entry(ULONG thread_input){
 		//Wait for second half buffer to fill up
 		tx_mutex_get(&ecg_second_half_mutex, TX_WAIT_FOREVER);
 
-		//We've collected all the samples we need, write them to SD card
+		//Second half of the buffer is full, write to SD card
 		ecg_writing = 250; //Set to 250 for easier validation in cube monitor (eventually make this true and false)
 		fx_file_write(&ecg_file, ecg_data[1], sizeof(ECG_Data) * ECG_HALF_BUFFER_SIZE);
 
