@@ -335,7 +335,7 @@ static void IMU_configure_reports(IMU_HandleTypeDef * imu, uint8_t reportID, boo
 
 	//Need to setup the IMU to send the appropriate data to us. Transmit a "set feature" command to start receiving rotation data.
 	//All non-populated bytes are left as default 0.
-	uint8_t transmitData[256] = {0};
+	uint8_t transmitData[IMU_CONFIGURE_REPORT_LENGTH] = {0};
 
 	//Configure SHTP header (first 4 bytes)
 	transmitData[0] = IMU_CONFIGURE_REPORT_LENGTH; //LSB
