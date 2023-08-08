@@ -5,7 +5,7 @@
  *      Author: Kaveet
  *
  *
- *  The I2C driver for the ADS1219 ADC on the ECG board.
+ *  The I2C data collection driver for the ADS1219 ADC on the ECG board.
  *
  *  ADC datasheet: https://www.ti.com/lit/ds/symlink/ads1219.pdf?ts=1686494723332&ref_url=https%253A%252F%252Fwww.google.com%252F
  *
@@ -66,9 +66,11 @@
 // Bit 0: Vref (0 = internal/2.048V, 1 = external reference)
 #define ECG_ADC_DEFAULT_CONFIG_REGISTER 0b00001110
 
+//The number of ECG Samples to collect before writing to the SD card. This should ALWAYS be an even number.
+#define ECG_BUFFER_SIZE 1000
 
-//The number of ECG Samples to collect before writing to the SD card
-#define ECG_NUM_SAMPLES 1000
+//A half buffer size, since our buffer is split in half
+#define ECG_HALF_BUFFER_SIZE (ECG_BUFFER_SIZE / 2)
 
 //Struct for holding ECG data (data and timestamps)
 typedef struct __ECG_Data_Typedef {
