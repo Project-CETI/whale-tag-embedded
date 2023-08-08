@@ -48,7 +48,7 @@
 #define IMU_LENGTH_BIT_MASK 0x7FFF //neglects MSB
 
 //The length of data (including header) of the message to configure the rotation vector reports
-#define IMU_CONFIGURE_ROTATION_VECTOR_REPORT_LENGTH 21
+#define IMU_CONFIGURE_REPORT_LENGTH 21
 
 //The length of the rotation vector data received from the IMU
 #define IMU_ROTATION_VECTOR_REPORT_LENGTH 23
