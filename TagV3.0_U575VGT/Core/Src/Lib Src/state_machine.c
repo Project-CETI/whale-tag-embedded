@@ -58,6 +58,12 @@ void state_machine_thread_entry(ULONG thread_input){
 			//GPS geofencing flag
 			if (actual_flags & STATE_GPS_FLAG){
 
+				//We're outside of dominica, exit data capture and enter recovery
+				if (state == STATE_DATA_CAPTURE){
+					exit_data_capture();
+					enter_recovery();
+					state = STATE_RECOVERY;
+				}
 			}
 
 			//BMS low battery flag
@@ -98,6 +104,7 @@ void enter_data_capture(){
 	tx_thread_resume(&threads[AUDIO_THREAD].thread);
 	tx_thread_resume(&threads[IMU_THREAD].thread);
 	tx_thread_resume(&threads[ECG_THREAD].thread);
+	tx_thread_resume(&threads[GPS_THREAD].thread);
 }
 
 
@@ -107,6 +114,7 @@ void exit_data_capture(){
 	tx_thread_suspend(&threads[AUDIO_THREAD].thread);
 	tx_thread_suspend(&threads[IMU_THREAD].thread);
 	tx_thread_suspend(&threads[ECG_THREAD].thread);
+	tx_thread_suspend(&threads[GPS_THREAD].thread);
 }
 
 

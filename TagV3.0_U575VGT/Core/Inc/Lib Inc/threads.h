@@ -21,6 +21,7 @@
 #include "Sensor Inc/audio.h"
 #include "Sensor Inc/BNO08x.h"
 #include "Sensor Inc/ECG.h"
+#include "Sensor Inc/GpsGeofencing.h"
 #include "Lib Inc/state_machine.h"
 #include "Recovery Inc/Aprs.h"
 
@@ -32,6 +33,7 @@ typedef enum __TX_THREAD_LIST {
 	IMU_THREAD,
 	ECG_THREAD,
 	APRS_THREAD,
+	GPS_THREAD,
 	NUM_THREADS //DO NOT ADD THREAD ENUMS BELOW THIS
 }Thread;
 
@@ -112,15 +114,27 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 				.start = TX_DONT_START
 		},
 		{
-			//APRS Thread
-			.thread_name = "APRS Thread",
-			.thread_entry_function = aprs_thread_entry,
-			.thread_input = 0x1234,
-			.thread_stack_size = 2048,
-			.priority = 6,
-			.preempt_threshold = 6,
-			.timeslice = TX_NO_TIME_SLICE,
-			.start = TX_DONT_START
+				//APRS Thread
+				.thread_name = "APRS Thread",
+				.thread_entry_function = aprs_thread_entry,
+				.thread_input = 0x1234,
+				.thread_stack_size = 2048,
+				.priority = 6,
+				.preempt_threshold = 6,
+				.timeslice = TX_NO_TIME_SLICE,
+				.start = TX_DONT_START
+		},
+		{
+				//GPS Geofencing
+				.thread_name = "GPS Thread",
+				.thread_entry_function = gps_thread_entry,
+				.thread_input = 0x1234,
+				.thread_stack_size = 1024,
+				.priority = 7,
+				.preempt_threshold = 7,
+				.timeslice = TX_NO_TIME_SLICE,
+				.start = TX_DONT_START
+
 		}
 };
 
