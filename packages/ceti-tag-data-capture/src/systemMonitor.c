@@ -63,7 +63,7 @@ int init_systemMonitor()
   swap_total = get_swap_total();
   ram_total = get_ram_total();
 
-  CETI_LOG("init_systemMonitor(): Successfully initialized the system monitor thread");
+  CETI_LOG("Successfully initialized the system monitor thread");
 
   // Get the process ID of the program.
   cetiApp_pid = getpid();
@@ -93,13 +93,13 @@ void* systemMonitor_thread(void* paramPtr) {
       CPU_ZERO(&cpuset);
       CPU_SET(SYSTEMMONITOR_CPU, &cpuset);
       if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-        CETI_LOG("systemMonitor_thread(): Successfully set affinity to CPU %d", SYSTEMMONITOR_CPU);
+        CETI_LOG("Successfully set affinity to CPU %d", SYSTEMMONITOR_CPU);
       else
-        CETI_LOG("systemMonitor_thread(): XXX Failed to set affinity to CPU %d", SYSTEMMONITOR_CPU);
+        CETI_LOG("XXX Failed to set affinity to CPU %d", SYSTEMMONITOR_CPU);
     }
 
     // Main loop while application is running.
-    CETI_LOG("systemMonitor_thread(): Starting loop to periodically check system resources");
+    CETI_LOG("Starting loop to periodically check system resources");
     long long ram_free;
     long long swap_free;
     long long global_time_us;
@@ -146,7 +146,7 @@ void* systemMonitor_thread(void* paramPtr) {
       // Write system usage information to the data file.
       systemMonitor_data_file = fopen(SYSTEMMONITOR_DATA_FILEPATH, "at");
       if(systemMonitor_data_file == NULL)
-        CETI_LOG("systemMonitor_thread(): failed to open data output file: %s", SYSTEMMONITOR_DATA_FILEPATH);
+        CETI_LOG("failed to open data output file: %s", SYSTEMMONITOR_DATA_FILEPATH);
       else
       {
         // Write timing information.
@@ -192,7 +192,7 @@ void* systemMonitor_thread(void* paramPtr) {
         usleep(polling_sleep_duration_us);
     }
     g_systemMonitor_thread_is_running = 0;
-    CETI_LOG("systemMonitor_thread(): Done!");
+    CETI_LOG("Done!");
     return NULL;
 }
 

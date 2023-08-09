@@ -21,6 +21,7 @@ static double d_press_1, d_press_2, d_volt_1, d_volt_2;
 static int timeOut_minutes, timeout_seconds;
 // RTC counts
 static unsigned int start_rtc_count = 0;
+static unsigned int last_reset_rtc_count = 0;
 static int current_rtc_count = 0;
 // Output file
 int g_stateMachine_thread_is_running = 0;
@@ -33,7 +34,7 @@ static const char* stateMachine_data_file_headers[] = {
 static const int num_stateMachine_data_file_headers = 2;
 
 int init_stateMachine() {
-  CETI_LOG("init_stateMachine(): Successfully initialized the state machine [did nothing]");
+  CETI_LOG("Successfully initialized the state machine [did nothing]");
   // Open an output file to write data.
   if(init_data_file(stateMachine_data_file, STATEMACHINE_DATA_FILEPATH,
                      stateMachine_data_file_headers,  num_stateMachine_data_file_headers,
@@ -59,13 +60,13 @@ void* stateMachine_thread(void* paramPtr) {
       CPU_ZERO(&cpuset);
       CPU_SET(STATEMACHINE_CPU, &cpuset);
       if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-        CETI_LOG("stateMachine_thread(): Successfully set affinity to CPU %d", STATEMACHINE_CPU);
+        CETI_LOG("Successfully set affinity to CPU %d", STATEMACHINE_CPU);
       else
-        CETI_LOG("stateMachine_thread(): XXX Failed to set affinity to CPU %d", STATEMACHINE_CPU);
+        CETI_LOG("XXX Failed to set affinity to CPU %d", STATEMACHINE_CPU);
     }
 
     // Main loop while application is running.
-    CETI_LOG("stateMachine_thread(): Starting loop to periodically update state");
+    CETI_LOG("Starting loop to periodically update state");
     int state_to_process;
     long long global_time_us;
     long long polling_sleep_duration_us;
@@ -82,7 +83,7 @@ void* stateMachine_thread(void* paramPtr) {
       // Write state information to the data file.
       stateMachine_data_file = fopen(STATEMACHINE_DATA_FILEPATH, "at");
       if(stateMachine_data_file == NULL)
-        CETI_LOG("stateMachine_thread(): failed to open data output file: %s", STATEMACHINE_DATA_FILEPATH);
+        CETI_LOG("failed to open data output file: %s", STATEMACHINE_DATA_FILEPATH);
       else
       {
         // Write timing information.
@@ -107,7 +108,7 @@ void* stateMachine_thread(void* paramPtr) {
         usleep(polling_sleep_duration_us);
     }
     g_stateMachine_thread_is_running = 0;
-    CETI_LOG("stateMachine_thread(): Done!");
+    CETI_LOG("Done!");
     return NULL;
 }
 
@@ -124,10 +125,10 @@ int updateStateMachine() {
     // ---------------- Configuration ----------------
     case (ST_CONFIG):
         // Load the deployment configuration
-        CETI_LOG("updateState(): Configuring the deployment parameters from %s", CETI_CONFIG_FILE);
+        CETI_LOG("Configuring the deployment parameters from %s", CETI_CONFIG_FILE);
         ceti_config_file = fopen(CETI_CONFIG_FILE, "r");
         if (ceti_config_file == NULL) {
-            CETI_LOG("updateState(): XXXX Cannot open configuration file %s", CETI_CONFIG_FILE);
+            CETI_LOG("XXXX Cannot open configuration file %s", CETI_CONFIG_FILE);
             return (-1);
         }
         
@@ -192,7 +193,8 @@ int updateStateMachine() {
         start_audio_acq();
         #endif
         start_rtc_count = getTimeDeploy(); // new v0.5 gets start time from the csv
-        CETI_LOG("updateState(): Deploy Start: %u", start_rtc_count);
+        last_reset_rtc_count = getRtcCount(); //start_time since last restart (used to keep wifi-enabled)
+        CETI_LOG("Deploy Start: %u", start_rtc_count);
         recoveryOn();                // turn on Recovery Board
         presentState = ST_DEPLOY;    // underway!
         break;
@@ -214,9 +216,16 @@ int updateStateMachine() {
         }
         #endif
 
-        #if ENABLE_PRESSURE_SENSOR
-        if (g_latest_pressureTemperature_pressure_bar > d_press_2)
+        #if ENABLE_PRESSURETEMPERATURE_SENSOR
+        if ((g_latest_pressureTemperature_pressure_bar > d_press_2)
+            && (current_rtc_count - last_reset_rtc_count > (WIFI_GRACE_PERIOD_MIN * 60))
+        ){
+            //disable wifi
+            wifi_disable(); 
+            // usb_disable();
+            activity_led_disable();
             presentState = ST_REC_SUB; // 1st dive after deploy
+        }
         #endif
 
         break;
@@ -256,7 +265,7 @@ int updateStateMachine() {
         #if ENABLE_BATTERY_GAUGE
         if ((g_latest_battery_v1_v + g_latest_battery_v2_v < d_volt_1) ||
             (current_rtc_count - start_rtc_count > timeout_seconds)) {
-            //	burnTimeStart = current_rtc_count ;
+            	//burnTimeStart = current_rtc_count;
             burnwireOn();
             presentState = ST_BRN_ON;
             break;
@@ -343,7 +352,7 @@ int updateStateMachine() {
     case (ST_SHUTDOWN):
         //  Shut everything off in an orderly way if battery is critical to
         //  reduce file system corruption risk
-        CETI_LOG("updateState(): !!! Battery critical");
+        CETI_LOG("!!! Battery critical");
         burnwireOff();
         recoveryOff();
 
@@ -364,7 +373,7 @@ int updateStateMachine() {
 // Helper to convert a state ID to a printable string.
 const char* get_state_str(wt_state_t state) {
     if((state < ST_CONFIG) || (state > ST_UNKNOWN)) {
-        CETI_LOG("get_state_str(): presentState is out of bounds. Setting to ST_UNKNOWN. Current value: %d", presentState);
+        CETI_LOG("presentState is out of bounds. Setting to ST_UNKNOWN. Current value: %d", presentState);
         state = ST_UNKNOWN;
     }
     return state_str[state];

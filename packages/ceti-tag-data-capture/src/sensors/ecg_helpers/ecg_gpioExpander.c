@@ -25,7 +25,7 @@ int ecg_gpio_expander_setup(int i2c_bus)
   ecg_gpio_expander_i2c_device = i2cOpen(i2c_bus, ECG_GPIO_EXPANDER_I2C_ADDRESS, 0);
   if(ecg_gpio_expander_i2c_device < 0)
   {
-    CETI_LOG("ecg_gpio_expander_setup(): XXX Failed to connect to the GPIO expander: returned %d.", ecg_gpio_expander_i2c_device);
+    CETI_LOG("XXX Failed to connect to the GPIO expander: returned %d.", ecg_gpio_expander_i2c_device);
     switch(ecg_gpio_expander_i2c_device)
     {
       case(PI_BAD_I2C_BUS): CETI_LOG(" (PI_BAD_I2C_BUS)"); break;
@@ -38,7 +38,7 @@ int ecg_gpio_expander_setup(int i2c_bus)
     CETI_LOG("\n");
     return -1;
   }
-  CETI_LOG("ecg_gpio_expander_setup(): GPIO expander connected successfully!");
+  CETI_LOG("GPIO expander connected successfully!");
 
   // Note that all ports are inputs by default at power-on.
   // The below (untested) code should also set them all to inputs,
@@ -54,7 +54,7 @@ void ecg_gpio_expander_cleanup()
 {
   // Commenting the below since the launcher will call gpioTerminate()
   //  as part of the tag-wide cleanup.
-  //CETI_LOG("ecg_gpio_expander_cleanup(): Terminating the GPIO interface.\n");
+  //CETI_LOG("Terminating the GPIO interface.\n");
   //gpioTerminate();
 }
 
@@ -69,11 +69,11 @@ int ecg_gpio_expander_read()
   switch(result)
   {
     case(PI_BAD_HANDLE):
-      CETI_LOG("ecg_gpio_expander_read(): Failed to read (PI_BAD_HANDLE).\n");
+      CETI_LOG("Failed to read (PI_BAD_HANDLE).\n");
       result = -1;
       break;
     case(PI_I2C_READ_FAILED):
-      CETI_LOG("ecg_gpio_expander_read(): Failed to read (PI_I2C_READ_FAILED).\n");
+      CETI_LOG("Failed to read (PI_I2C_READ_FAILED).\n");
       result = -1;
       break;
     default: break;

@@ -13,10 +13,10 @@
 int init_burnwire() {
 
   if(burnwireOff() < 0) {
-    CETI_LOG("init_burnwire(): XXXX Failed to turn off the burnwire XXXX");
+    CETI_LOG("XXXX Failed to turn off the burnwire XXXX");
     return (-1);
   }
-  CETI_LOG("init_burnwire(): Successfully initialized the burnwire");
+  CETI_LOG("Successfully initialized the burnwire");
   return 0;
 }
 
@@ -30,7 +30,7 @@ int burnwireOn(void) {
 
     // Open a connection to the io expander
     if ( (fd = i2cOpen(1,ADDR_MAINTAG_IOX,0)) < 0 ) {
-        CETI_LOG("burnwireOn(): XXXX Failed to open I2C connection for IO Expander XXXX");
+        CETI_LOG("XXXX Failed to open I2C connection for IO Expander XXXX");
         return -1;
     }
     result = i2cReadByte(fd);
@@ -46,7 +46,7 @@ int burnwireOff(void) {
 
     // Open a connection to the io expander
     if ( (fd = i2cOpen(1,ADDR_MAINTAG_IOX,0)) < 0 ) {
-        CETI_LOG("burnwireOff(): XXXX Failed to open I2C connection for IO Expander XXXX");
+        CETI_LOG("XXXX Failed to open I2C connection for IO Expander XXXX");
         return -1;
     }
     result = i2cReadByte(fd);

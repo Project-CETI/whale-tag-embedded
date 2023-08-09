@@ -27,7 +27,7 @@ double g_latest_pressureTemperature_temperature_c = 0;
 //-----------------------------------------------------------------------------
 
 int init_pressureTemperature() {
-  CETI_LOG("init_pressureTemperature(): Successfully initialized the pressure/temperature sensor [did nothing]");
+  CETI_LOG("Successfully initialized the pressure/temperature sensor [did nothing]");
 
   // Open an output file to write data.
   if(init_data_file(pressureTemperature_data_file, PRESSURETEMPERATURE_DATA_FILEPATH,
@@ -54,13 +54,13 @@ void* pressureTemperature_thread(void* paramPtr) {
       CPU_ZERO(&cpuset);
       CPU_SET(PRESSURETEMPERATURE_CPU, &cpuset);
       if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-        CETI_LOG("pressureTemperature_thread(): Successfully set affinity to CPU %d", PRESSURETEMPERATURE_CPU);
+        CETI_LOG("Successfully set affinity to CPU %d", PRESSURETEMPERATURE_CPU);
       else
-        CETI_LOG("pressureTemperature_thread(): XXX Failed to set affinity to CPU %d", PRESSURETEMPERATURE_CPU);
+        CETI_LOG("XXX Failed to set affinity to CPU %d", PRESSURETEMPERATURE_CPU);
     }
 
     // Main loop while application is running.
-    CETI_LOG("pressureTemperature_thread(): Starting loop to periodically acquire data");
+    CETI_LOG("Starting loop to periodically acquire data");
     long long global_time_us;
     int rtc_count;
     long long polling_sleep_duration_us;
@@ -69,7 +69,7 @@ void* pressureTemperature_thread(void* paramPtr) {
       pressureTemperature_data_file = fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
       if(pressureTemperature_data_file == NULL)
       {
-        CETI_LOG("pressureTemperature_thread(): failed to open data output file: %s", PRESSURETEMPERATURE_DATA_FILEPATH);
+        CETI_LOG("failed to open data output file: %s", PRESSURETEMPERATURE_DATA_FILEPATH);
         // Sleep a bit before retrying.
         for(int i = 0; i < 10 && !g_exit; i++)
           usleep(100000);
@@ -85,7 +85,7 @@ void* pressureTemperature_thread(void* paramPtr) {
           strcat(pressureTemperature_data_file_notes, "ERROR | ");
         if(g_latest_pressureTemperature_pressure_bar < -100 || g_latest_pressureTemperature_temperature_c < -100) // it seems to return -228.63 for pressure and -117.10 for temperature when no sensor is connected
         {
-          CETI_LOG("pressureTemperature_thread(): XXX readings are likely invalid");
+          CETI_LOG("XXX readings are likely invalid");
           strcat(pressureTemperature_data_file_notes, "INVALID? | ");
         }
 
@@ -111,7 +111,7 @@ void* pressureTemperature_thread(void* paramPtr) {
       }
     }
     g_pressureTemperature_thread_is_running = 0;
-    CETI_LOG("pressureTemperature_thread(): Done!");
+    CETI_LOG("Done!");
     return NULL;
 }
 
@@ -126,7 +126,7 @@ int getPressureTemperature(double* pressure_bar, double* temperature_c) {
     char presSensData_byte[5];
 
     if ((fd = i2cOpen(1, ADDR_PRESSURETEMPERATURE, 0)) < 0) {
-        CETI_LOG("updatePressureTemperature(): XXXX Failed to connect to the pressure/temperature sensor XXXX");
+        CETI_LOG("XXXX Failed to connect to the pressure/temperature sensor XXXX");
         return (-1);
     }
 

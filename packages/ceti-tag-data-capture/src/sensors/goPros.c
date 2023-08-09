@@ -50,11 +50,11 @@ int init_goPros()
   usleep(5000000); // wait until python starts
   if(create_goPros_socket(GOPRO_PYTHON_PORT) < 0)
   {
-    CETI_LOG("init_goPros(): XXX ERROR: Socket creation or bind failed XXX");
+    CETI_LOG("XXX ERROR: Socket creation or bind failed XXX");
     gpioWrite(GOPRO_LED_GPIO_RED, PI_ON);
     return -1;
   }
-  CETI_LOG("init_goPros(): Successfully created the Python socket");
+  CETI_LOG("Successfully created the Python socket");
 
   // Open an output file to write data.
   if(init_data_file(goPros_data_file, GOPROS_DATA_FILEPATH,
@@ -82,9 +82,9 @@ void *goPros_thread(void *paramPtr)
     CPU_ZERO(&cpuset);
     CPU_SET(GOPROS_CPU, &cpuset);
     if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-      CETI_LOG("goPros_thread(): Successfully set affinity to CPU %d", GOPROS_CPU);
+      CETI_LOG("Successfully set affinity to CPU %d", GOPROS_CPU);
     else
-      CETI_LOG("goPros_thread(): XXX Failed to set affinity to CPU %d", GOPROS_CPU);
+      CETI_LOG("XXX Failed to set affinity to CPU %d", GOPROS_CPU);
   }
 
   // Initialize state for the Python socket.
@@ -92,7 +92,7 @@ void *goPros_thread(void *paramPtr)
   unsigned int goPros_python_client_length = sizeof(goPros_python_client);
 
   // Accept the Python connection request.
-  CETI_LOG("goPros_thread(): Waiting for Python client to accept connection");
+  CETI_LOG("Waiting for Python client to accept connection");
   while(client_accepted == 0 && !g_exit)
   {
     goPros_python_connected_socket = accept(goPros_python_socket, (struct sockaddr *)&goPros_python_client, &goPros_python_client_length);
@@ -100,11 +100,11 @@ void *goPros_thread(void *paramPtr)
     if(client_accepted == 0)
       usleep(200000);
   }
-  CETI_LOG("goPros_thread(): Accepted client connection from Python program (%s)", inet_ntoa(goPros_python_client.sin_addr));
+  CETI_LOG("Accepted client connection from Python program (%s)", inet_ntoa(goPros_python_client.sin_addr));
   bzero(goPros_python_buffer, GOPRO_PYTHON_BUFFERSIZE);
 
   // Main loop while application is running.
-  CETI_LOG("goPros_thread(): Starting loop to control GoPros when needed");
+  CETI_LOG("Starting loop to control GoPros when needed");
   g_goPros_thread_is_running = 1;
   int goPro_thread_polling_period_us = 10000;
   int goPro_command_success = 0;
@@ -166,12 +166,12 @@ void *goPros_thread(void *paramPtr)
       {
         if(!goPros_are_recording)
         {
-          CETI_LOG("goPros_thread(): Starting %d GoPros", NUM_GOPROS);
+          CETI_LOG("Starting %d GoPros", NUM_GOPROS);
           goPro_command_success = send_command_to_all_goPros(GOPRO_COMMAND_START);
         }
         else
         {
-          CETI_LOG("goPros_thread(): Stopping %d GoPros", NUM_GOPROS);
+          CETI_LOG("Stopping %d GoPros", NUM_GOPROS);
           goPro_command_success = send_command_to_all_goPros(GOPRO_COMMAND_STOP);
         }
         gpioWrite(GOPRO_LED_GPIO_RED, goPro_command_success ? PI_OFF : PI_ON);
@@ -191,7 +191,7 @@ void *goPros_thread(void *paramPtr)
   goPro_command_success = 0;
   for(int i = 0; i < 5 && !goPro_command_success; i++)
   {
-    CETI_LOG("goPros_thread(): Exiting thread; stopping %d GoPros", NUM_GOPROS);
+    CETI_LOG("Exiting thread; stopping %d GoPros", NUM_GOPROS);
     goPro_command_success = send_command_to_all_goPros(GOPRO_COMMAND_STOP);
   }
 
@@ -201,7 +201,7 @@ void *goPros_thread(void *paramPtr)
   gpioWrite(GOPRO_LED_GPIO_BLUE, PI_OFF);
   gpioWrite(GOPRO_LED_GPIO_RED,    PI_OFF);
   g_goPros_thread_is_running = 0;
-  CETI_LOG("goPros_thread(): Done!");
+  CETI_LOG("Done!");
   return NULL;
 }
 
@@ -221,7 +221,7 @@ int create_goPros_socket()
   if(bind(goPros_python_socket, (struct sockaddr *)&goPros_python_server, sizeof(goPros_python_server)) < 0)
     return -1;
 
-  CETI_LOG("create_goPros_socket(): Created socket and completed bind");
+  CETI_LOG("Created socket and completed bind");
 
   listen(goPros_python_socket, 3);
   return goPros_python_socket;
@@ -249,7 +249,7 @@ int send_command_to_all_goPros(int goPro_command)
     goPros_data_file = fopen(GOPROS_DATA_FILEPATH, "at");
     if(goPros_data_file == NULL)
     {
-      CETI_LOG("send_command_to_all_goPros(): failed to open data output file: %s", GOPROS_DATA_FILEPATH);
+      CETI_LOG("failed to open data output file: %s", GOPROS_DATA_FILEPATH);
       // Sleep a bit before retrying.
       for(int i = 0; i < 10 && !g_exit; i++)
         usleep(500000);
@@ -291,7 +291,7 @@ int send_command_to_all_goPros(int goPro_command)
           received_client_ack = 1;
           all_commands_succeeded &= goPro_python_message.success;
           time_message_ack_us = get_global_time_us();
-          CETI_LOG("send_command_to_all_goPros(): Sent command %d to GoPro %d", goPro_command, goPro_index);
+          CETI_LOG("Sent command %d to GoPro %d", goPro_command, goPro_index);
         }
       }
     }
