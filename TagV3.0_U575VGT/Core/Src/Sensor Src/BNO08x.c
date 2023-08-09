@@ -44,6 +44,7 @@ void imu_thread_entry(ULONG thread_input){
 
 	//Create IMU handler and initialize
 	IMU_HandleTypeDef imu;
+
 	IMU_init(&hspi1, &imu);
 
 	//Create the events flag.
@@ -79,7 +80,20 @@ void imu_thread_entry(ULONG thread_input){
 
 		//DEBUG
 		good_counter = 0;
+		
+		ULONG actual_flags;
 
+		//If there was something set cleanup the thread
+		if (actual_flags & IMU_STOP_THREAD_FLAG){
+
+			//Close the file and suspend our interrupt
+			fx_file_close(&imu_file);
+			HAL_NVIC_DisableIRQ(EXTI12_IRQn);
+
+			//Delete threadx event flags and terminate the thread
+			tx_event_flags_delete(&imu_event_flags_group);
+			tx_thread_terminate(&threads[IMU_THREAD].thread);
+		}
 	}
 }
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){

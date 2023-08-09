@@ -41,8 +41,11 @@ void state_machine_thread_entry(ULONG thread_input);
 //Starts the data capture threads (e.g., audio, imu, ecg, etc.)
 void enter_data_capture();
 
-//Signals data capture threads to exit (by publishing a flag)
-void exit_data_capture();
+//Suspends the threads with the intention that they may be resumed later
+void soft_exit_data_capture();
+
+//Signals the data collection thread to stop, which terminates the thread and stops collection entirely
+void hard_exit_data_capture();
 
 //Starts the recovery threads(e.g., aprs)
 void enter_recovery();
