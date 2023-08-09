@@ -8,8 +8,12 @@
  */
 
 #include "Sensor Inc/ECG_SD.h"
+#include "Lib Inc/threads.h"
 #include "app_filex.h"
 #include <stdbool.h>
+
+//Thread Array
+extern Thread_HandleTypeDef threads[NUM_THREADS];
 
 //FileX variables
 extern FX_MEDIA        sdio_disk;
@@ -86,6 +90,21 @@ void ecg_sd_thread_entry(ULONG thread_input){
 
 		//Release first half mutex (done writing)
 		tx_mutex_put(&ecg_second_half_mutex);
+
+		//Check to see if there was a stop thread request. Put very little wait time so its essentially an instant check.
+		ULONG actual_flags = 0;
+		tx_event_flags_get(&ecg_event_flags_group, ECG_STOP_SD_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
+
+		//If there was something set cleanup the thread
+		if (actual_flags & ECG_STOP_SD_THREAD_FLAG){
+
+			//Close the file
+			fx_file_close(&ecg_file);
+
+			//Delete event flags (since data collection and now this thread are deleted) and terminate the thread.
+			tx_event_flags_delete(&ecg_event_flags_group);
+			tx_thread_terminate(&threads[ECG_SD_THREAD].thread);
+		}
 	}
 }
 
