@@ -60,7 +60,7 @@ void state_machine_thread_entry(ULONG thread_input){
 
 				//We're outside of dominica, exit data capture and enter recovery
 				if (state == STATE_DATA_CAPTURE){
-					exit_data_capture();
+					hard_exit_data_capture();
 					enter_recovery();
 					state = STATE_RECOVERY;
 				}
