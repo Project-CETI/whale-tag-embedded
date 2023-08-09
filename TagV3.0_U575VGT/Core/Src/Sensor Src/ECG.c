@@ -109,6 +109,23 @@ void ecg_thread_entry(ULONG thread_input){
 		tx_mutex_put(&ecg_second_half_mutex);
 
 		good_ecg_data = 0;
+
+		//Check to see if there was a stop thread request. Put very little wait time so its essentially an instant check
+		ULONG actual_flags = 0;
+		tx_event_flags_get(&ecg_event_flags_group, ECG_STOP_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
+
+		//If there was something set cleanup the thread
+		if (actual_flags & ECG_STOP_THREAD_FLAG){
+
+			//Close the file and suspend our interrupt
+			fx_file_close(&ecg_file);
+			HAL_NVIC_DisableIRQ(EXTI14_IRQn);
+
+			//Delete threadx event flags and terminate the thread
+			tx_event_flags_delete(&ecg_event_flags_group);
+			tx_thread_terminate(&threads[ECG_THREAD].thread);
+		}
+
 	}
 }
 HAL_StatusTypeDef ecg_init(I2C_HandleTypeDef* hi2c, ECG_HandleTypeDef* ecg){
