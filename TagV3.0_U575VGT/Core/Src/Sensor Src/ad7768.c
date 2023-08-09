@@ -209,19 +209,19 @@ HAL_StatusTypeDef ad7768_spi_read(ad7768_dev *dev,
 			uint8_t reg_addr,
 			uint8_t *reg_data)
 {
-	uint16_t tx_buf = ((0x80 | reg_addr) << 8);
-	uint16_t rx_buf;
+	uint8_t tx_buf[2] = {AD7768_SPI_READ(reg_addr), 0};
+	uint8_t rx_buf[2];
 	HAL_StatusTypeDef ret;
 
 	prv_ad7768_spi_select(dev);
-	ret = HAL_SPI_TransmitReceive(dev->spi_handler, (uint8_t*)&tx_buf, (uint8_t*)&rx_buf, 1, ADC_TIMEOUT);
+	ret = HAL_SPI_Transmit(dev->spi_handler, (uint8_t*)tx_buf, 2, ADC_TIMEOUT);
     prv_ad7768_spi_deselect(dev);
     HAL_Delay(1); //guarentee > needs 100 ns wait
     prv_ad7768_spi_select(dev);
-    ret = HAL_SPI_TransmitReceive(dev->spi_handler, (uint8_t*)&tx_buf, (uint8_t*)&rx_buf, 1, ADC_TIMEOUT);
+    ret |= HAL_SPI_TransmitReceive(dev->spi_handler, (uint8_t*)&tx_buf, (uint8_t*)&rx_buf, 2, ADC_TIMEOUT);
     prv_ad7768_spi_deselect(dev);
 
-	*reg_data = (uint8_t)(rx_buf & 0x00FF);
+	*reg_data = rx_buf[1];
 
 	return ret;
 }
@@ -238,9 +238,9 @@ HAL_StatusTypeDef ad7768_spi_write(ad7768_dev *dev,
 			 uint8_t reg_data)
 {
     HAL_StatusTypeDef ret;
-	uint16_t buf = ((uint16_t)AD7768_SPI_WRITE(reg_addr) << 8) | reg_data;
+	uint8_t buf[2] = {AD7768_SPI_WRITE(reg_addr), reg_data};
 	prv_ad7768_spi_select(dev);
-	ret = HAL_SPI_Transmit(dev->spi_handler, (uint8_t *)&buf, 1, ADC_TIMEOUT);
+	ret = HAL_SPI_Transmit(dev->spi_handler, (uint8_t *)&buf, 2, ADC_TIMEOUT);
 	prv_ad7768_spi_deselect(dev);
 	return ret;
 }
@@ -298,9 +298,7 @@ HAL_StatusTypeDef ad7768_set_power_mode(ad7768_dev *dev,
 
 	if (dev->pin_spi_ctrl == AD7768_SPI_CTRL) {
 		dev->power_mode.power_mode = mode;
-		ret = ad7768_spi_write(dev,
-				      AD7768_REG_PWR_MODE,
-				      __reg_powerMode_intoRaw(&dev->power_mode));
+		ret = ad7768_spi_write(dev, AD7768_REG_PWR_MODE, __reg_powerMode_intoRaw(&dev->power_mode));
 	}
 	return ret;
 }
@@ -527,7 +525,7 @@ HAL_StatusTypeDef ad7768_get_ch_state(ad7768_dev *dev,
 {
 	*state = dev->channel_standby.ch[ch];
 
-	return 0;
+	return HAL_OK;
 }
 
 /**
@@ -577,7 +575,7 @@ HAL_StatusTypeDef ad7768_get_mode_config(ad7768_dev *dev,
 	*filt_type = dev->channel_mode[mode].filter_type;
 	*dec_rate = dev->channel_mode[mode].dec_rate;
 
-	return 0;
+	return HAL_OK;
 }
 
 /**
@@ -650,44 +648,12 @@ HAL_StatusTypeDef ad7768_softReset(ad7768_dev *dev)
  * 					   parameters.
  * @return 0 in case of success, negative error code otherwise.
  */
-HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev, SPI_HandleTypeDef *hspi, GPIO_TypeDef *spi_cs_port, uint16_t spi_cs_pin)
-{
+HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev){
 	HAL_StatusTypeDef ret = HAL_OK;
 	uint8_t data = 0;
 
-    *dev = (ad7768_dev){
-        .spi_handler = hspi,
-		.spi_cs_port = spi_cs_port,
-		.spi_cs_pin = spi_cs_pin,
-        .channel_standby = {
-            .ch[0] = AD7768_ENABLED,
-            .ch[1] = AD7768_ENABLED,
-            .ch[2] = AD7768_ENABLED,
-            .ch[3] = AD7768_STANDBY
-        },
-        .channel_mode[AD7768_MODE_A] = {.filter_type = AD7768_FILTER_SINC, .dec_rate = AD7768_DEC_X32},
-        .channel_mode[AD7768_MODE_B] = {.filter_type = AD7768_FILTER_WIDEBAND, .dec_rate = AD7768_DEC_X32},
-        .channel_mode_select = {
-            .ch[0] = AD7768_MODE_B,
-            .ch[1] = AD7768_MODE_B,
-            .ch[2] = AD7768_MODE_B,
-            .ch[3] = AD7768_MODE_A,
-	    },
-        .power_mode = {
-            .sleep_mode = AD7768_ACTIVE,
-            .power_mode = AD7768_MEDIAN,
-            .lvds_enable = false,
-            .mclk_div = AD7768_MCLK_DIV_4,
-        },
-        .interface_config = {
-            .crc_select = AD7768_CRC_NONE,
-            .dclk_div = AD7768_DCLK_DIV_1,
-        },
-        .pin_spi_ctrl = AD7768_SPI_CTRL,
-    };
-
-    ad7768_softReset(dev);
-    ret = ad7768_spi_read(dev, AD7768_REG_DEV_STATUS, &data); // Ensure the status register reads no error
+    ret = ad7768_softReset(dev);
+    ret |= ad7768_spi_read(dev, AD7768_REG_DEV_STATUS, &data); // Ensure the status register reads no error
 
 	// TODO: Change to output an error
 	// Bit 3 is CHIP_ERROR, Bit 2 is NO_CLOCK_ERROR, check both to see if there is an error
@@ -699,8 +665,6 @@ HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev, SPI_HandleTypeDef *hspi, GPIO_Ty
     if(data != 0x06){
         return HAL_ERROR;
     }
-
-	
 
 	ret |= ad7768_spi_write(dev, AD7768_REG_CH_STANDBY,    __reg_channelStandby_intoRaw(&dev->channel_standby));
 	ret |= ad7768_spi_write(dev, AD7768_REG_CH_MODE_A,     __reg_channelMode_intoRaw(&dev->channel_mode[AD7768_MODE_A]));
@@ -719,6 +683,7 @@ HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev, SPI_HandleTypeDef *hspi, GPIO_Ty
 }
 
 HAL_StatusTypeDef ad7768_sync(ad7768_dev *dev){
+
 	HAL_StatusTypeDef ret = HAL_OK;
 
     ret |= ad7768_spi_write(dev, AD7768_REG_DATA_CTRL, __reg_dataControl_intoRaw(&(ad7768_Reg_DataControl){.spi_sync = 0}));
