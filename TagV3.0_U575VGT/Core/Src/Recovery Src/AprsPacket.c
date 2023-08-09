@@ -35,7 +35,7 @@ void aprs_generate_packet(uint8_t * buffer, float lat, float lon){
 	buffer[172] = APRS_PROTOCOL_ID;
 
 	//Attach the payload (including other control characters)
-	append_gps_data(&buffer[173], 42.3636, -71.1259);
+	append_gps_data(&buffer[173], lat, lon);
 
 	//Attach other information (course, speed and the comment)
 	append_other_data(&buffer[193], 360, 0, APRS_COMMENT);
