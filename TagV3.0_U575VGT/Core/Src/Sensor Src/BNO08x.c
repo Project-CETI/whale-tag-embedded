@@ -83,15 +83,17 @@ void imu_thread_entry(ULONG thread_input){
 		
 		ULONG actual_flags;
 
-		//If there was something set cleanup the thread
-		if (actual_flags & IMU_STOP_THREAD_FLAG){
+		//Check to see if there was a stop flag raised
+		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
 
-			//Close the file and suspend our interrupt
-			fx_file_close(&imu_file);
+		//If there was something set cleanup the thread
+		if (actual_flags & IMU_STOP_DATA_THREAD_FLAG){
+
+			//Suspend our interrupt
 			HAL_NVIC_DisableIRQ(EXTI12_IRQn);
 
-			//Delete threadx event flags and terminate the thread
-			tx_event_flags_delete(&imu_event_flags_group);
+			//Signal our SD card thread to stop, and terminate this thread.
+			tx_event_flags_set(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR);
 			tx_thread_terminate(&threads[IMU_THREAD].thread);
 		}
 	}

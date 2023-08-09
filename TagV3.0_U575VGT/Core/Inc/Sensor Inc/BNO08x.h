@@ -64,7 +64,8 @@
 #define IMU_DATA_READY_FLAG 0x1
 
 //ThreadX flag for stopping the IMU (exit data capture)
-#define IMU_STOP_THREAD_FLAG 0x2
+#define IMU_STOP_DATA_THREAD_FLAG 0x2
+#define IMU_STOP_SD_THREAD_FLAG 0x4
 
 //The number of IMU Samples to collect before writing to the SD card. This MUST be an even number.
 #define IMU_BUFFER_SIZE 250

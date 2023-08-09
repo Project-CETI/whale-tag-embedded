@@ -8,7 +8,11 @@
  */
 
 #include "Sensor Inc/BNO08x_SD.h"
+#include "Lib Inc/threads.h"
 #include "app_filex.h"
+
+//Threads array
+extern Thread_HandleTypeDef threads[NUM_THREADS];
 
 //FileX variables
 extern FX_MEDIA        sdio_disk;
@@ -87,5 +91,25 @@ void imu_sd_thread_entry(ULONG thread_input){
 
 		//Release second half mutex
 		tx_mutex_put(&imu_second_half_mutex);
+
+		ULONG actual_flags;
+
+		//Check to see if a stop flag was raised
+		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
+
+		//If the stop flag was raised
+		if (actual_flags & IMU_STOP_SD_THREAD_FLAG){
+
+			//close the file
+			fx_file_close(&imu_file);
+
+			//Delete the event flag group
+			tx_event_flags_delete(&imu_event_flags_group);
+
+			//Terminate the thread
+			tx_thread_terminate(&threads[IMU_SD_THREAD].thread);
+		}
+
+
 	}
 }
