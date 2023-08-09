@@ -1,8 +1,11 @@
 //-----------------------------------------------------------------------------
 // Project:      CETI Tag Electronics
 // Version:      Refer to _versioning.h
-// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
-// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, 
+//               MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto, 
+//               Michael Salino-Hugg (msalinohugg@seas.harvard.edu), 
+//               [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
 #include "state_machine.h"
@@ -16,12 +19,14 @@
 static int presentState = ST_CONFIG;
 // Config file and associated parameters
 static FILE* ceti_config_file = NULL;
-static char cPress_1[16], cPress_2[16], cVolt_1[16], cVolt_2[16], cTimeOut[16];
+static char cPress_1[16], cPress_2[16], cVolt_1[16], cVolt_2[16], cTimeOut[16], cBurnTime[16];
 static double d_press_1, d_press_2, d_volt_1, d_volt_2;
 static int timeOut_minutes, timeout_seconds;
+static int burnInterval_seconds = 60*BURNWIRE_BURN_INTERVAL_DEFAULT_MIN;
 // RTC counts
 static unsigned int start_rtc_count = 0;
 static int current_rtc_count = 0;
+static uint32_t burnTimeStart = 0;
 // Output file
 int g_stateMachine_thread_is_running = 0;
 static FILE* stateMachine_data_file = NULL;
@@ -158,6 +163,11 @@ int updateStateMachine() {
                 pTemp = (line + 3);
                 strcpy(cTimeOut, pTemp);
             }
+            if (!strncmp(line, "BT=", 3)) {
+                pTemp = (line + 3);
+                strcpy(cBurnTime, pTemp);
+                burnInterval_seconds = atol(cBurnTime)*60; //overwrite default value
+            }
         }
 
         fclose(ceti_config_file);
@@ -207,7 +217,9 @@ int updateStateMachine() {
 
         #if ENABLE_BATTERY_GAUGE
         if ((g_latest_battery_v1_v + g_latest_battery_v2_v < d_volt_1) ||
-            (current_rtc_count - start_rtc_count > timeout_seconds)) {
+            (current_rtc_count - start_rtc_count > timeout_seconds)
+        ) {
+            burnTimeStart = current_rtc_count;
             burnwireOn();
             presentState = ST_BRN_ON;
             break;
@@ -229,8 +241,9 @@ int updateStateMachine() {
 
         #if ENABLE_BATTERY_GAUGE
         if ((g_latest_battery_v1_v + g_latest_battery_v2_v < d_volt_1) ||
-            (current_rtc_count - start_rtc_count > timeout_seconds)) {
-            // burnTimeStart = current_rtc_count ;
+            (current_rtc_count - start_rtc_count > timeout_seconds)
+        ) {
+            burnTimeStart = current_rtc_count;
             burnwireOn();
             presentState = ST_BRN_ON;
             break;
@@ -255,8 +268,9 @@ int updateStateMachine() {
 
         #if ENABLE_BATTERY_GAUGE
         if ((g_latest_battery_v1_v + g_latest_battery_v2_v < d_volt_1) ||
-            (current_rtc_count - start_rtc_count > timeout_seconds)) {
-            //	burnTimeStart = current_rtc_count ;
+            (current_rtc_count - start_rtc_count > timeout_seconds)
+        ) {
+            burnTimeStart = current_rtc_count;
             burnwireOn();
             presentState = ST_BRN_ON;
             break;
@@ -295,11 +309,11 @@ int updateStateMachine() {
         }
 
         // update 220109 to leave burnwire on without time limit
-        // Leave burn wire on for 45 minutes or until the battery is depleted
-        // else if (current_rtc_count - burnTimeStart > (60*45)) {
-        //	//burnwireOff();  //leaving it on no time limit -change 220109
-        //	nextState = ST_RETRIEVE;
-        //}
+        // Leave burn wire on for 20 minutes or until the battery is depleted
+        if (current_rtc_count - burnTimeStart > burnInterval_seconds) {
+        	burnwireOff();  //leaving it on no time limit -change 220109
+        	presentState = ST_RETRIEVE;
+        }
         #endif
 
         #if ENABLE_PRESSURETEMPERATURE_SENSOR
@@ -333,7 +347,7 @@ int updateStateMachine() {
 
         // low battery
         if (g_latest_battery_v1_v + g_latest_battery_v2_v < d_volt_1) {
-            burnwireOn(); // redundant, is already on
+            // burnwireOn();
             recoveryOn();
         }
         #endif

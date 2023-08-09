@@ -27,6 +27,11 @@
 #define ENABLE_GOPROS 0
 
 //-----------------------------------------------------------------------------
+// State Change Intervals
+//-----------------------------------------------------------------------------
+#define BURNWIRE_BURN_INTERVAL_DEFAULT_MIN 20 //time in minutes that the burnwire remains on
+
+//-----------------------------------------------------------------------------
 // Sampling and logging configuration.
 //-----------------------------------------------------------------------------
 #define BATTERY_SAMPLING_PERIOD_US 1000000
