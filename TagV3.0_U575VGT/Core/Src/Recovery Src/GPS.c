@@ -53,8 +53,13 @@ bool read_gps_data(GPS_HandleTypeDef* gps){
 		while (receive_buffer[read_index] != GPS_PACKET_END_CHAR){
 			read_index++;
 			volatile HAL_StatusTypeDef ret = HAL_UART_Receive(gps->huart, &receive_buffer[read_index], 1, 10);
+
 			if (ret != HAL_OK){
 				read_index--;
+			}
+
+			if (receive_buffer[read_index] == GPS_PACKET_START_CHAR){
+				read_index = 1;
 			}
 		}
 		parse_gps_output(gps, receive_buffer, read_index + 1);
