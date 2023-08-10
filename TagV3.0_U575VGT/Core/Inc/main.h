@@ -58,6 +58,8 @@ void MX_SDMMC1_SD_Fake_Init(uint8_t newClockDiv);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define BURNWIRE_ON_Pin GPIO_PIN_6
+#define BURNWIRE_ON_GPIO_Port GPIOE
 #define BMS_ALRT_Pin GPIO_PIN_2
 #define BMS_ALRT_GPIO_Port GPIOC
 #define VHF_PTT_Pin GPIO_PIN_2
