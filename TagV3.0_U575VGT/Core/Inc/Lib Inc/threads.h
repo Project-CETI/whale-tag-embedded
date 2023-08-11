@@ -21,6 +21,7 @@
 #include "Sensor Inc/audio.h"
 #include "Sensor Inc/BNO08x.h"
 #include "Sensor Inc/ECG.h"
+#include "Sensor Inc/ECG_SD.h"
 #include "Lib Inc/state_machine.h"
 #include "Recovery Inc/Aprs.h"
 
@@ -31,6 +32,7 @@ typedef enum __TX_THREAD_LIST {
 	AUDIO_THREAD,
 	IMU_THREAD,
 	ECG_THREAD,
+	ECG_SD_THREAD,
 	APRS_THREAD,
 	NUM_THREADS //DO NOT ADD THREAD ENUMS BELOW THIS
 }Thread;
@@ -108,6 +110,17 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 				.thread_stack_size = 6500,
 				.priority = 5,
 				.preempt_threshold = 5,
+				.timeslice = TX_NO_TIME_SLICE,
+				.start = TX_DONT_START
+		},
+		{
+				//ECG_SD Thread
+				.thread_name = "ECG SD Thread",
+				.thread_entry_function = ecg_sd_thread_entry,
+				.thread_input = 0x1234,
+				.thread_stack_size = 2048,
+				.priority = 6,
+				.preempt_threshold = 6,
 				.timeslice = TX_NO_TIME_SLICE,
 				.start = TX_DONT_START
 		},
