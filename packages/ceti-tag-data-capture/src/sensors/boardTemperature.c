@@ -22,7 +22,7 @@ static const int num_boardTemperature_data_file_headers = 1;
 static int boardTemperature_c;
 
 int init_boardTemperature() {
-  CETI_LOG("init_boardTemperature(): Successfully initialized the board temperature sensor [did nothing]");
+  CETI_LOG("Successfully initialized the board temperature sensor [did nothing]");
 
   // Open an output file to write data.
   if(init_data_file(boardTemperature_data_file, BOARDTEMPERATURE_DATA_FILEPATH,
@@ -49,13 +49,13 @@ void* boardTemperature_thread(void* paramPtr) {
       CPU_ZERO(&cpuset);
       CPU_SET(BOARDTEMPERATURE_CPU, &cpuset);
       if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-        CETI_LOG("boardTemperature_thread(): Successfully set affinity to CPU %d", BOARDTEMPERATURE_CPU);
+        CETI_LOG("Successfully set affinity to CPU %d", BOARDTEMPERATURE_CPU);
       else
-        CETI_LOG("boardTemperature_thread(): XXX Failed to set affinity to CPU %d", BOARDTEMPERATURE_CPU);
+        CETI_LOG("XXX Failed to set affinity to CPU %d", BOARDTEMPERATURE_CPU);
     }
 
     // Main loop while application is running.
-    CETI_LOG("boardTemperature_thread(): Starting loop to periodically acquire data");
+    CETI_LOG("Starting loop to periodically acquire data");
     long long global_time_us;
     int rtc_count;
     long long polling_sleep_duration_us;
@@ -64,7 +64,7 @@ void* boardTemperature_thread(void* paramPtr) {
       boardTemperature_data_file = fopen(BOARDTEMPERATURE_DATA_FILEPATH, "at");
       if(boardTemperature_data_file == NULL)
       {
-        CETI_LOG("boardTemperature_thread(): failed to open data output file: %s", BOARDTEMPERATURE_DATA_FILEPATH);
+        CETI_LOG("failed to open data output file: %s", BOARDTEMPERATURE_DATA_FILEPATH);
         // Sleep a bit before retrying.
         for(int i = 0; i < 10 && !g_exit; i++)
           usleep(100000);
@@ -78,7 +78,7 @@ void* boardTemperature_thread(void* paramPtr) {
           strcat(boardTemperature_data_file_notes, "ERROR | ");
         if(boardTemperature_c < -80) // it seems to return -83 when no sensor is connected
         {
-          CETI_LOG("boardTemperature_thread(): XXX readings are likely invalid");
+          CETI_LOG("XXX readings are likely invalid");
           strcat(boardTemperature_data_file_notes, "INVALID? | ");
         }
 
@@ -103,7 +103,7 @@ void* boardTemperature_thread(void* paramPtr) {
       }
     }
     g_boardTemperature_thread_is_running = 0;
-    CETI_LOG("boardTemperature_thread(): Done!");
+    CETI_LOG("Done!");
     return NULL;
 }
 
@@ -115,7 +115,7 @@ int getBoardTemperature(int *pBoardTemp) {
 
     int fd;
     if((fd=i2cOpen(1,ADDR_BOARDTEMPERATURE,0)) < 0) {
-        CETI_LOG("getBoardTemperature(): XXXX Failed to connect to the temperature sensor XXXX");
+        CETI_LOG("XXXX Failed to connect to the temperature sensor XXXX");
         return(-1);
     }
 

@@ -18,10 +18,10 @@ int init_fpga(void) {
   char fpgaCamResponse[16];
   if (!loadFpgaBitstream()) {
       cam(0x10, 0, 0, 0, 0, fpgaCamResponse);
-      CETI_LOG("init_fpga(): Successfully configured the FPGA, Ver: 0x%02X%02X ",
+      CETI_LOG("Successfully configured the FPGA, Ver: 0x%02X%02X ",
                fpgaCamResponse[4], fpgaCamResponse[5]);
   } else {
-      CETI_LOG("init_fpga(): XXXX FPGA initial configuration failed XXXX");
+      CETI_LOG("XXXX FPGA initial configuration failed XXXX");
       return (-1);
   }
   return 0;
@@ -50,7 +50,7 @@ int loadFpgaBitstream(void) {
     pConfig = malloc(BITSTREAM_SIZE_BYTES); // allocate memory for the
                                             // configuration bitstream
     if (pConfig == NULL) {
-        CETI_LOG("loadFpgaBitstream(): Failed to allocate memory for the configuration file");
+        CETI_LOG("Failed to allocate memory for the configuration file");
         return 1;
     }
 
@@ -58,7 +58,7 @@ int loadFpgaBitstream(void) {
     // ToDo: replace with mmap, do not hardcode bitstreamsize
     pConfigFile = fopen(FPGA_BITSTREAM, "rb");
     if (pConfigFile == NULL) {
-        CETI_LOG("loadFpgaBitstream():cannot open input file");
+        CETI_LOG("cannot open input file");
         return 1;
     }
     fread(pConfig, 1, BITSTREAM_SIZE_BYTES, pConfigFile);

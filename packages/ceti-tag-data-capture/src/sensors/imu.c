@@ -51,11 +51,11 @@ static long imu_reading_delay_us = 0; // delay from sensor reading to data trans
 
 int init_imu() {
   if(setupIMU() < 0) {
-    CETI_LOG("init_imu(): XXXX Failed to set up the IMU XXXX");
+    CETI_LOG("XXXX Failed to set up the IMU XXXX");
     return -1;
   }
 
-  CETI_LOG("init_imu(): Successfully initialized the IMU");
+  CETI_LOG("Successfully initialized the IMU");
 
   // Open an output file to write data.
   if(init_imu_data_file(1) < 0)
@@ -103,13 +103,13 @@ void* imu_thread(void* paramPtr) {
       CPU_ZERO(&cpuset);
       CPU_SET(IMU_CPU, &cpuset);
       if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-        CETI_LOG("imu_thread(): Successfully set affinity to CPU %d", IMU_CPU);
+        CETI_LOG("Successfully set affinity to CPU %d", IMU_CPU);
       else
-        CETI_LOG("imu_thread(): XXX Failed to set affinity to CPU %d", IMU_CPU);
+        CETI_LOG("XXX Failed to set affinity to CPU %d", IMU_CPU);
     }
 
     // Main loop while application is running.
-    CETI_LOG("imu_thread(): Starting loop to periodically acquire data");
+    CETI_LOG("Starting loop to periodically acquire data");
     int report_id_updated = -1;
     long imu_data_file_size_b = 0;
     long long global_time_us = get_global_time_us();
@@ -122,7 +122,7 @@ void* imu_thread(void* paramPtr) {
     {
       if(imu_data_file == NULL)
       {
-        CETI_LOG("imu_thread(): failed to open data output file: %s", imu_data_filepath);
+        CETI_LOG("failed to open data output file: %s", imu_data_filepath);
         // Sleep a bit before retrying.
         for(int i = 0; i < 10 && !g_exit; i++)
           usleep(100000);
@@ -230,7 +230,7 @@ void* imu_thread(void* paramPtr) {
         // Ignore the initial few seconds though, since sometimes it takes a little bit to get in sync.
         if(report_id_updated == -1 && !g_exit && get_global_time_us() - start_global_time_us > 10000000)
         {
-          CETI_LOG("imu_thread(): XXX Error reading from IMU. Waiting and then attempting to reconnect.");
+          CETI_LOG("XXX Error reading from IMU. Waiting and then attempting to reconnect.");
           usleep(5000000);
           setupIMU();
           start_global_time_us = get_global_time_us();
@@ -246,7 +246,7 @@ void* imu_thread(void* paramPtr) {
     if(imu_data_file != NULL)
       fclose(imu_data_file);
     g_imu_thread_is_running = 0;
-    CETI_LOG("imu_thread(): Done!");
+    CETI_LOG("Done!");
     return NULL;
 }
 
@@ -281,12 +281,12 @@ int setupIMU()
     // Open an I2C connection.
     int retval = bbI2COpen(IMU_BB_I2C_SDA, IMU_BB_I2C_SCL, 200000);
     if (retval < 0) {
-        CETI_LOG("setupIMU(): XXX Failed to connect to the IMU XXX\n");
+        CETI_LOG("XXX Failed to connect to the IMU XXX\n");
         imu_is_connected = 0;
         return -1;
     }
     imu_is_connected = 1;
-    CETI_LOG("setupIMU(): IMU connection opened\n");
+    CETI_LOG("IMU connection opened\n");
 
     // Reset the message counters for each channel.
     for(int channel_index = 0; channel_index < sizeof(imu_sequence_numbers)/sizeof(uint8_t); channel_index++)
@@ -349,7 +349,7 @@ int imu_enable_feature_report(int report_id, uint32_t report_interval_us)
   writeCmdBuf[27] = 0x00; // end
   int retval = bbI2CZip(IMU_BB_I2C_SDA, writeCmdBuf, 28, NULL, 0);
   if (retval < 0) {
-      CETI_LOG("imu_enable_feature_report(): XXX I2C write failed enabling report %d: %d", report_id, retval);
+      CETI_LOG("XXX I2C write failed enabling report %d: %d", report_id, retval);
       return -1;
   }
 
@@ -365,10 +365,10 @@ int imu_enable_feature_report(int report_id, uint32_t report_interval_us)
   readCmdBuf[8] = 0x00; // end
   retval = bbI2CZip(IMU_BB_I2C_SDA, readCmdBuf, 9, shtpHeader, 4);
   if (retval < 0) {
-      CETI_LOG("imu_enable_feature_report(): XXX I2C read failed enabling report %d: %d", report_id, retval);
+      CETI_LOG("XXX I2C read failed enabling report %d: %d", report_id, retval);
       return -1;
   }
-  CETI_LOG("imu_enable_feature_report(): Enabled report %d.  Header is 0x%02X  0x%02X  0x%02X  0x%02X",
+  CETI_LOG("Enabled report %d.  Header is 0x%02X  0x%02X  0x%02X  0x%02X",
          report_id, shtpHeader[0], shtpHeader[1], shtpHeader[2], shtpHeader[3]);
 
   return 0;
@@ -478,11 +478,11 @@ int imu_read_data()
 //    int fd = i2cOpen(BUS_IMU, ADDR_IMU, 0);
 //
 //    if (fd < 0) {
-//        CETI_LOG("getRotation(): XXX Failed to connect to the IMU\n");
+//        CETI_LOG("XXX Failed to connect to the IMU\n");
 //        return -1;
 //    }
 //
-//    CETI_LOG("getRotation(): IMU connection opened\n");
+//    CETI_LOG("IMU connection opened\n");
 //
 //    // Byte   0    1    2    3    4   5   6    7    8      9     10     11
 //    //       |     HEADER      |            TIME       |  ID    SEQ   STATUS....
@@ -499,7 +499,7 @@ int imu_read_data()
 //                // testing, should come back 0x05
 //                pRotation->reportID = pktBuff[9];
 //                pRotation->sequenceNum = pktBuff[10];
-//                CETI_LOG("getRotation(): report ID 0x%02X  sequ 0x%02X i "
+//                CETI_LOG("report ID 0x%02X  sequ 0x%02X i "
 //                       "%02X%02X j %02X%02X k %02X%02X r %02X%02X\n",
 //                       pktBuff[9], pktBuff[10], pktBuff[14], pktBuff[13],
 //                       pktBuff[16], pktBuff[15], pktBuff[18], pktBuff[17],
@@ -520,7 +520,7 @@ int imu_read_data()
 //    int fd;
 //    uint16_t numBytesAvail;
 //    if ((fd = i2cOpen(BUS_IMU, ADDR_IMU, 0)) < 0) {
-//        CETI_LOG("learnIMU(): Failed to connect to the IMU");
+//        CETI_LOG("Failed to connect to the IMU");
 //        fprintf(stderr, "learnIMU(): XXX Failed to connect to the IMU\n");
 //        return -1;
 //    }
