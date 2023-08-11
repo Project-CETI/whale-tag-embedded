@@ -98,7 +98,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 				.thread_name = "IMU Thread",
 				.thread_entry_function = imu_thread_entry,
 				.thread_input = 0x1234,
-				.thread_stack_size = 5000,
+				.thread_stack_size = 2048,
 				.priority = 4,
 				.preempt_threshold = 4,
 				.timeslice = TX_NO_TIME_SLICE,
@@ -115,13 +115,12 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 				.timeslice = TX_NO_TIME_SLICE,
 				.start = TX_DONT_START
 		},
-		{
 		[ECG_THREAD] = {
 				//ECG Thread
 				.thread_name = "ECG Thread",
 				.thread_entry_function = ecg_thread_entry,
 				.thread_input = 0x1234,
-				.thread_stack_size = 6500,
+				.thread_stack_size = 2048,
 				.priority = 5,
 				.preempt_threshold = 5,
 				.timeslice = TX_NO_TIME_SLICE,
