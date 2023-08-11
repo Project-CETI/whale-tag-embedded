@@ -20,8 +20,10 @@
 #include "app_threadx.h"
 #include "Sensor Inc/audio.h"
 #include "Sensor Inc/BNO08x.h"
+#include "Sensor Inc/BNO08x_SD.h"
 #include "Sensor Inc/ECG.h"
 #include "Sensor Inc/GpsGeofencing.h"
+#include "Sensor Inc/ECG_SD.h"
 #include "Lib Inc/state_machine.h"
 #include "Recovery Inc/Aprs.h"
 
@@ -31,7 +33,9 @@ typedef enum __TX_THREAD_LIST {
 	STATE_MACHINE_THREAD,
 	AUDIO_THREAD,
 	IMU_THREAD,
+	IMU_SD_THREAD,
 	ECG_THREAD,
+	ECG_SD_THREAD,
 	APRS_THREAD,
 	GPS_THREAD,
 	NUM_THREADS //DO NOT ADD THREAD ENUMS BELOW THIS
@@ -69,7 +73,7 @@ typedef struct __TX_THREAD_TypeDef {
 
 //Define the config for each struct here, in the same order the are listed in the Thread Enum above.
 static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
-		{
+		[STATE_MACHINE_THREAD] = {
 				//State Machine
 				.thread_name = "State Machine Thread",
 				.thread_entry_function = state_machine_thread_entry,
@@ -80,7 +84,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 				.timeslice = TX_NO_TIME_SLICE,
 				.start = TX_DONT_START
 		},
-		{
+		[AUDIO_THREAD] = {
 				//Audio Thread
 				.thread_name = "Audio Thread",
 				.thread_entry_function = audio_thread_entry,
@@ -91,32 +95,43 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 				.timeslice = TX_NO_TIME_SLICE,
 				.start = TX_DONT_START
 		},
-		{
+		[IMU_THREAD] = {
 				//IMU Thread
 				.thread_name = "IMU Thread",
-				.thread_entry_function = IMU_thread_entry,
+				.thread_entry_function = imu_thread_entry,
 				.thread_input = 0x1234,
-				.thread_stack_size = 5000,
+				.thread_stack_size = 2048,
 				.priority = 4,
 				.preempt_threshold = 4,
 				.timeslice = TX_NO_TIME_SLICE,
 				.start = TX_DONT_START
 		},
-		{
-				//ECG Thread
-				.thread_name = "ECG Thread",
-				.thread_entry_function = ecg_thread_entry,
+		[IMU_SD_THREAD] = {
+				//IMU SD Thread
+				.thread_name = "IMU SD Thread",
+				.thread_entry_function = imu_sd_thread_entry,
 				.thread_input = 0x1234,
-				.thread_stack_size = 6500,
+				.thread_stack_size = 2048,
 				.priority = 5,
 				.preempt_threshold = 5,
 				.timeslice = TX_NO_TIME_SLICE,
 				.start = TX_DONT_START
 		},
-		{
-				//APRS Thread
-				.thread_name = "APRS Thread",
-				.thread_entry_function = aprs_thread_entry,
+		[ECG_THREAD] = {
+				//ECG Thread
+				.thread_name = "ECG Thread",
+				.thread_entry_function = ecg_thread_entry,
+				.thread_input = 0x1234,
+				.thread_stack_size = 2048,
+				.priority = 5,
+				.preempt_threshold = 5,
+				.timeslice = TX_NO_TIME_SLICE,
+				.start = TX_DONT_START
+		},
+		[ECG_SD_THREAD] = {
+				//ECG_SD Thread
+				.thread_name = "ECG SD Thread",
+				.thread_entry_function = ecg_sd_thread_entry,
 				.thread_input = 0x1234,
 				.thread_stack_size = 2048,
 				.priority = 6,
@@ -124,7 +139,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 				.timeslice = TX_NO_TIME_SLICE,
 				.start = TX_DONT_START
 		},
-		{
+		[GPS_THREAD] = {
 				//GPS Geofencing
 				.thread_name = "GPS Thread",
 				.thread_entry_function = gps_thread_entry,
@@ -134,7 +149,17 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 				.preempt_threshold = 7,
 				.timeslice = TX_NO_TIME_SLICE,
 				.start = TX_DONT_START
-
+		},
+		[APRS_THREAD] = {
+			//APRS Thread
+			.thread_name = "APRS Thread",
+			.thread_entry_function = aprs_thread_entry,
+			.thread_input = 0x1234,
+			.thread_stack_size = 2048,
+			.priority = 6,
+			.preempt_threshold = 6,
+			.timeslice = TX_NO_TIME_SLICE,
+			.start = TX_DONT_START
 		}
 };
 
