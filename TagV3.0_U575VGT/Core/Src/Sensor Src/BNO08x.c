@@ -18,10 +18,6 @@
 
 extern SPI_HandleTypeDef hspi1;
 
-//FileX variables
-extern FX_MEDIA        sdio_disk;
-extern ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
-
 //Threads array
 extern Thread_HandleTypeDef threads[NUM_THREADS];
 
@@ -29,28 +25,22 @@ static void IMU_read_startup_data(IMU_HandleTypeDef* imu);
 static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout);
 static void IMU_configure_reports(IMU_HandleTypeDef * imu, uint8_t reportID, bool isLastReport);
 
+//ThreadX useful variables (defined globally because theyre shared with the SD card writing thread)
 TX_EVENT_FLAGS_GROUP imu_event_flags_group;
+TX_MUTEX imu_first_half_mutex;
+TX_MUTEX imu_second_half_mutex;
 
-bool imu_running = false;
-
-bool imu_writing = false;
+//Array for holding IMU data. The buffer is split in half and shared with the IMU thread.
+IMU_Data imu_data[2][IMU_HALF_BUFFER_SIZE] = {0};
 
 //DEBUG
+bool imu_running = false;
 uint8_t good_counter = 0;
 uint8_t bad = 0;
 
-uint8_t accels = 0;
-uint8_t gyros = 0;
-uint8_t magnets = 0;
-uint8_t quats = 0;
 
-void imu_SDWriteComplete(FX_FILE *file){
 
-	//Set polling flag to indicate a completed SD card write
-	imu_writing = false;
-}
-
-void IMU_thread_entry(ULONG thread_input){
+void imu_thread_entry(ULONG thread_input){
 
 	//Create IMU handler and initialize
 	IMU_HandleTypeDef imu;
@@ -59,59 +49,51 @@ void IMU_thread_entry(ULONG thread_input){
 
 	//Create the events flag.
 	tx_event_flags_create(&imu_event_flags_group, "IMU Event Flags");
-
-	FX_FILE imu_file = {};
-
-	//Create our binary file for dumping imu data
-	UINT fx_result = FX_SUCCESS;
-	fx_result = fx_file_create(&sdio_disk, "imu_test.bin");
-	if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
-	  Error_Handler();
-	}
-
-	//Open the file
-	fx_result = fx_file_open(&sdio_disk, &imu_file, "imu_test.bin", FX_OPEN_FOR_WRITE);
-	if(fx_result != FX_SUCCESS){
-	  Error_Handler();
-	}
-
-	//Set our "write complete" callback function
-	fx_result = fx_file_write_notify_set(&imu_file, imu_SDWriteComplete);
-	if(fx_result != FX_SUCCESS){
-	  Error_Handler();
-	}
-
-	fx_file_write(&imu_file, &imu.data, sizeof(IMU_Data));
-	while (imu_writing);
+	tx_mutex_create(&imu_first_half_mutex, "IMU First Half Mutex", TX_INHERIT);
+	tx_mutex_create(&imu_second_half_mutex, "IMU Second Half Mutex", TX_INHERIT);
 
 	//Enable our interrupt handler that signals data is ready
 	HAL_NVIC_EnableIRQ(EXTI12_IRQn);
 
+	//Allow the SD card writing thread to start
+	tx_thread_resume(&threads[IMU_SD_THREAD].thread);
+
 	while(1) {
 
-		//Call to get data, this handles filling up our IMU data buffer completely
-		IMU_get_data(&imu);
-		imu_writing = true;
-		fx_file_write(&imu_file, imu.data, sizeof(IMU_Data) * IMU_NUM_SAMPLES);
+		//Wait for first half of the buffer to be ready for data
+		tx_mutex_get(&imu_first_half_mutex, TX_WAIT_FOREVER);
 
-		//Wait for the writing to complete before giving up control to prevent unnecessary context switches
-		while (imu_writing);
+		//Fill up the first half of the buffer (this function call fills up the IMU buffer on its own)
+		IMU_get_data(&imu, 0);
 
+		//Release the mutex to allow for SD card writing thread to run
+		tx_mutex_put(&imu_first_half_mutex);
+
+		//Acquire second half (so we can fill it up)
+		tx_mutex_get(&imu_second_half_mutex, TX_WAIT_FOREVER);
+
+		//Call to get data, this handles filling up the second half of the buffer completely
+		IMU_get_data(&imu, 1);
+
+		//Release mutex
+		tx_mutex_put(&imu_second_half_mutex);
+
+		//DEBUG
 		good_counter = 0;
+		
+		ULONG actual_flags;
 
-		//Check to see if there was a stop thread request. Put very little wait time so its essentially an instant check
-		ULONG actual_flags = 0;
-		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
+		//Check to see if there was a stop flag raised
+		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
 
 		//If there was something set cleanup the thread
-		if (actual_flags & IMU_STOP_THREAD_FLAG){
+		if (actual_flags & IMU_STOP_DATA_THREAD_FLAG){
 
-			//Close the file and suspend our interrupt
-			fx_file_close(&imu_file);
+			//Suspend our interrupt
 			HAL_NVIC_DisableIRQ(EXTI12_IRQn);
 
-			//Delete threadx event flags and terminate the thread
-			tx_event_flags_delete(&imu_event_flags_group);
+			//Signal our SD card thread to stop, and terminate this thread.
+			tx_event_flags_set(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR);
 			tx_thread_terminate(&threads[IMU_THREAD].thread);
 		}
 	}
@@ -150,12 +132,12 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 	HAL_GPIO_WritePin(imu->wake_port, imu->wake_pin, GPIO_PIN_SET);
 }
 
-HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
+HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 
 	//receive data buffer
 	uint8_t receiveData[256] = {0};
 
-	for (uint16_t index; index < IMU_NUM_SAMPLES; index++){
+	for (uint16_t index; index < IMU_HALF_BUFFER_SIZE; index++){
 
 		ULONG actual_events;
 
@@ -216,17 +198,17 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 					uint8_t bytesToCopy = (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID) ? IMU_QUAT_USEFUL_BYTES : IMU_3_AXIS_USEFUL_BYTES;
 
 					//Copy the data header and then the useful data to our data struct
-					imu->data[index].data_header = receiveData[parsedDataIndex];
+					imu_data[buffer_half][index].data_header = receiveData[parsedDataIndex];
 
 					//Useful data starts 4 indexes after the report ID (skip over un-needed data)
-					memcpy(imu->data[index].raw_data, &receiveData[parsedDataIndex + 4], bytesToCopy);
+					memcpy(imu_data[buffer_half][index].raw_data, &receiveData[parsedDataIndex + 4], bytesToCopy);
 
 					//If it was a 3-axis report, fill the last 4 bytes with 0's
 					if (bytesToCopy < IMU_QUAT_USEFUL_BYTES){
-						imu->data[index].raw_data[6] = 0;
-						imu->data[index].raw_data[7] = 0;
-						imu->data[index].raw_data[8] = 0;
-						imu->data[index].raw_data[9] = 0;
+						imu_data[buffer_half][index].raw_data[6] = 0;
+						imu_data[buffer_half][index].raw_data[7] = 0;
+						imu_data[buffer_half][index].raw_data[8] = 0;
+						imu_data[buffer_half][index].raw_data[9] = 0;
 					}
 
 					//DEBUG
@@ -241,7 +223,7 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 					}
 
 					//If we filled the buffer, back out now (prevent overflow or hardfault)
-					if (index >= IMU_NUM_SAMPLES){
+					if (index >= IMU_HALF_BUFFER_SIZE){
 						return HAL_OK;
 					}
 				}
@@ -258,7 +240,6 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu){
 			index--;
 		}
 	}
-
 
 	return HAL_OK;
 }
