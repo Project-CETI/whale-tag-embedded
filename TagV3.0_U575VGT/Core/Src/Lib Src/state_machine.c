@@ -113,6 +113,8 @@ void hard_exit_data_capture(){
 	tx_event_flags_set(&audio_event_flags_group, AUDIO_STOP_THREAD_FLAG, TX_OR);
 	tx_event_flags_set(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR);
 	tx_event_flags_set(&ecg_event_flags_group, ECG_STOP_DATA_THREAD_FLAG, TX_OR);
+
+	tx_thread_terminate(&threads[GPS_THREAD].thread);
 }
 
 void enter_recovery(){
