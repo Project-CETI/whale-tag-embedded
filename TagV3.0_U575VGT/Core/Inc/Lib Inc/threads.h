@@ -26,6 +26,7 @@
 #include "Sensor Inc/ECG_SD.h"
 #include "Lib Inc/state_machine.h"
 #include "Recovery Inc/Aprs.h"
+#include "Recovery Inc/Burnwire.h"
 
 //Enum for all threads so we can easily keep track of the list + total number of threads.
 // If adding a new thread to the list, put it before the "NUM_THREADS" element, as it must always be the last element in the enum.
@@ -36,8 +37,9 @@ typedef enum __TX_THREAD_LIST {
 	IMU_SD_THREAD,
 	ECG_THREAD,
 	ECG_SD_THREAD,
-	APRS_THREAD,
 	GPS_THREAD,
+	APRS_THREAD,
+	BURNWIRE_THREAD,
 	NUM_THREADS //DO NOT ADD THREAD ENUMS BELOW THIS
 }Thread;
 
@@ -160,6 +162,17 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.preempt_threshold = 6,
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_DONT_START
+		},
+		[BURNWIRE_THREAD] = {
+				//Burnwire Thread
+				.thread_name = "Burnwire Thread",
+				.thread_entry_function = burnwire_thread_entry,
+				.thread_input = 0x1234,
+				.thread_stack_size = 1024,
+				.priority = 8,
+				.preempt_threshold = 8,
+				.timeslice = TX_NO_TIME_SLICE,
+				.start = TX_DONT_START
 		}
 };
 

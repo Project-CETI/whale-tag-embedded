@@ -967,6 +967,9 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(BURNWIRE_ON_GPIO_Port, BURNWIRE_ON_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, VHF_PTT_Pin|APRS_H_L_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
@@ -977,6 +980,13 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin : BURNWIRE_ON_Pin */
+  GPIO_InitStruct.Pin = BURNWIRE_ON_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(BURNWIRE_ON_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : BMS_ALRT_Pin */
   GPIO_InitStruct.Pin = BMS_ALRT_Pin;

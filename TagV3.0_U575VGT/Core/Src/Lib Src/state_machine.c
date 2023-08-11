@@ -83,6 +83,11 @@ void state_machine_thread_entry(ULONG thread_input){
 				enter_data_offload();
 				state = STATE_DATA_OFFLOAD;
 			}
+
+			//Tag detached (burnwire completed) flag
+			if (actual_flags & STATE_TAG_RELEASED){
+
+			}
 		}
 	}
 }
