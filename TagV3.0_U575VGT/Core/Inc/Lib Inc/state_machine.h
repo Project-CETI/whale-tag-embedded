@@ -11,7 +11,6 @@
 #include "tx_api.h"
 
 #define IS_SIMULATING false
-
 //Should correspond with the state types enum below
 #define SIMULATING_STATE 0
 
