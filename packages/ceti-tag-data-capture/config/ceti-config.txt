@@ -33,4 +33,11 @@ V2=6.2
 # Units are minutes, use integers only
 # (4 day) * (24 hr/day) * (60 min/hr) = 5760
 T0=5760
+#
+#------------------------------------------------------------------------------
+# Burn Interval (Minutes)
+# Time interval that the burnwire remains on for releasing tag from whale
+# Units are minutes, use integers only
+BT=20
+#
 #------------------------------------------------------------------------------
