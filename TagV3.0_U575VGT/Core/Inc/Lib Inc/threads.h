@@ -20,6 +20,7 @@
 #include "app_threadx.h"
 #include "Sensor Inc/audio.h"
 #include "Sensor Inc/BNO08x.h"
+#include "Sensor Inc/BNO08x_SD.h"
 #include "Sensor Inc/ECG.h"
 #include "Sensor Inc/ECG_SD.h"
 #include "Lib Inc/state_machine.h"
@@ -31,6 +32,7 @@ typedef enum __TX_THREAD_LIST {
 	STATE_MACHINE_THREAD,
 	AUDIO_THREAD,
 	IMU_THREAD,
+	IMU_SD_THREAD,
 	ECG_THREAD,
 	ECG_SD_THREAD,
 	APRS_THREAD,
@@ -94,11 +96,22 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 		[IMU_THREAD] = {
 				//IMU Thread
 				.thread_name = "IMU Thread",
-				.thread_entry_function = IMU_thread_entry,
+				.thread_entry_function = imu_thread_entry,
 				.thread_input = 0x1234,
-				.thread_stack_size = 5000,
+				.thread_stack_size = 2048,
 				.priority = 4,
 				.preempt_threshold = 4,
+				.timeslice = TX_NO_TIME_SLICE,
+				.start = TX_DONT_START
+		},
+		[IMU_SD_THREAD] = {
+				//IMU SD Thread
+				.thread_name = "IMU SD Thread",
+				.thread_entry_function = imu_sd_thread_entry,
+				.thread_input = 0x1234,
+				.thread_stack_size = 2048,
+				.priority = 5,
+				.preempt_threshold = 5,
 				.timeslice = TX_NO_TIME_SLICE,
 				.start = TX_DONT_START
 		},
@@ -107,7 +120,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 				.thread_name = "ECG Thread",
 				.thread_entry_function = ecg_thread_entry,
 				.thread_input = 0x1234,
-				.thread_stack_size = 6500,
+				.thread_stack_size = 2048,
 				.priority = 5,
 				.preempt_threshold = 5,
 				.timeslice = TX_NO_TIME_SLICE,
