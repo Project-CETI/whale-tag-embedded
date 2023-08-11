@@ -22,7 +22,7 @@ static const int num_recovery_data_file_headers = 1;
 static char gps_location[GPS_LOCATION_LENGTH];
 
 int init_recovery() {
-  CETI_LOG("init_recovery(): Successfully initialized the recovery board [did nothing]");
+  CETI_LOG("Successfully initialized the recovery board [did nothing]");
 
   // Open an output file to write data.
   if(init_data_file(recovery_data_file, RECOVERY_DATA_FILEPATH,
@@ -49,13 +49,13 @@ void* recovery_thread(void* paramPtr) {
       CPU_ZERO(&cpuset);
       CPU_SET(RECOVERY_CPU, &cpuset);
       if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-        CETI_LOG("recovery_thread(): Successfully set affinity to CPU %d", RECOVERY_CPU);
+        CETI_LOG("Successfully set affinity to CPU %d", RECOVERY_CPU);
       else
-        CETI_LOG("recovery_thread(): XXX Failed to set affinity to CPU %d", RECOVERY_CPU);
+        CETI_LOG("XXX Failed to set affinity to CPU %d", RECOVERY_CPU);
     }
 
     // Main loop while application is running.
-    CETI_LOG("recovery_thread(): Starting loop to periodically acquire data");
+    CETI_LOG("Starting loop to periodically acquire data");
     long long global_time_us;
     int rtc_count;
     long long polling_sleep_duration_us;
@@ -64,7 +64,7 @@ void* recovery_thread(void* paramPtr) {
       recovery_data_file = fopen(RECOVERY_DATA_FILEPATH, "at");
       if(recovery_data_file == NULL)
       {
-        CETI_LOG("recovery_thread(): failed to open data output file: %s", RECOVERY_DATA_FILEPATH);
+        CETI_LOG("failed to open data output file: %s", RECOVERY_DATA_FILEPATH);
         // Sleep a bit before retrying.
         for(int i = 0; i < 10 && !g_exit; i++)
           usleep(100000);
@@ -98,7 +98,7 @@ void* recovery_thread(void* paramPtr) {
       }
     }
     g_recovery_thread_is_running = 0;
-    CETI_LOG("recovery_thread(): Done!");
+    CETI_LOG("Done!");
     return NULL;
 }
 
@@ -120,11 +120,11 @@ int testRecoverySerial(void) {
     fd = serOpen("/dev/serial0",9600,0);
 
     if(fd < 0) {
-        CETI_LOG("testRecoverySerial(): Failed to open the serial port");
+        CETI_LOG("Failed to open the serial port");
         return (-1);
     }
     else {
-        CETI_LOG("testRecoverySerial(): Successfully opened the serial port");
+        CETI_LOG("Successfully opened the serial port");
     }
 
     for(i=0;i<128;i++) {
@@ -152,7 +152,7 @@ int recoveryOn(void) {
     int fd, result;
 
     if ( (fd = i2cOpen(1,ADDR_MAINTAG_IOX,0)) < 0 ) {
-        CETI_LOG("rcvryOn(): XXXX Failed to open I2C connection for IO Expander XXXX");
+        CETI_LOG("XXXX Failed to open I2C connection for IO Expander XXXX");
         return -1;
     }
     result = i2cReadByte(fd);
@@ -167,7 +167,7 @@ int recoveryOff(void) {
     int fd, result;
 
     if ( (fd = i2cOpen(1,ADDR_MAINTAG_IOX,0)) < 0 ) {
-        CETI_LOG("burnwireOn(): XXXX Failed to open I2C connection for IO Expander XXXX");
+        CETI_LOG("XXXX Failed to open I2C connection for IO Expander XXXX");
         return -1;
     }
     result = i2cReadByte(fd);
@@ -210,10 +210,10 @@ int getGpsLocation(char *gpsLocation) {
     if(fd <= PI_INIT_FAILED) {
         fd = serOpen("/dev/serial0",115200,0);
         if (fd < 0) {
-            CETI_LOG("getGpsLocation(): Failed to open the serial port");
+            CETI_LOG("Failed to open the serial port");
             return (-1);
         }
-        CETI_LOG("getGpsLocation(): Successfully opened the serial port");
+        CETI_LOG("Successfully opened the serial port");
     }
 
     // Check if any bytes are waiting in the UART buffer and store them temporarily.
@@ -253,7 +253,7 @@ int getGpsLocation(char *gpsLocation) {
         gpsLocation[strcspn(gpsLocation, "\r\n")] = 0;
     } else {  //No complete sentence was available on this cycle, try again next time through
         strcpy(gpsLocation,"No GPS update available");
-        CETI_LOG("getGpsLocation(): XXX No GPS update available");
+        CETI_LOG("XXX No GPS update available");
         return -1;
     }
 

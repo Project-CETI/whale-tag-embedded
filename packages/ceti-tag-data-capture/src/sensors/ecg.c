@@ -64,9 +64,9 @@ int init_ecg_electronics() {
   // Start continuous conversion (or a single reading).
   ecg_adc_start();
 
-  CETI_LOG("init_ecg(): Successfully initialized the ECG electronics");
-  CETI_LOG("init_ecg(): ECG LEDs are in use? %d", ECG_GPIO_EXPANDER_USE_LEDS);
-  CETI_LOG("init_ecg(): ECG data-ready pin: %d", ECG_ADC_DATA_READY_PIN);
+  CETI_LOG("Successfully initialized the ECG electronics");
+  CETI_LOG("ECG LEDs are in use? %d", ECG_GPIO_EXPANDER_USE_LEDS);
+  CETI_LOG("ECG data-ready pin: %d", ECG_ADC_DATA_READY_PIN);
   for(int i = 0; i < 5; i++)
   {
     ecg_gpio_expander_set_leds_green();
@@ -121,21 +121,21 @@ void* ecg_thread_getData(void* paramPtr)
     CPU_ZERO(&cpuset);
     CPU_SET(ECG_GETDATA_CPU, &cpuset);
     if(pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset) == 0)
-      CETI_LOG("ecg_thread_getData(): Successfully set affinity to CPU %d", ECG_GETDATA_CPU);
+      CETI_LOG("Successfully set affinity to CPU %d", ECG_GETDATA_CPU);
     else
-      CETI_LOG("ecg_thread_getData(): XXX Failed to set affinity to CPU %d", ECG_GETDATA_CPU);
+      CETI_LOG("XXX Failed to set affinity to CPU %d", ECG_GETDATA_CPU);
   }
   // Set the thread priority.
   struct sched_param sp;
   memset(&sp, 0, sizeof(sp));
   sp.sched_priority = sched_get_priority_max(SCHED_RR);
   if(pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
-    CETI_LOG("ecg_thread_getData(): Successfully set priority");
+    CETI_LOG("Successfully set priority");
   else
-    CETI_LOG("ecg_thread_getData(): XXX Failed to set priority");
+    CETI_LOG("XXX Failed to set priority");
 
   // Main loop while application is running.
-  CETI_LOG("ecg_thread_getData(): Starting loop to periodically acquire data");
+  CETI_LOG("Starting loop to periodically acquire data");
   g_ecg_thread_getData_is_running = 1;
 
   // Continuously poll the ADC and the leads-off detection output.
@@ -193,7 +193,7 @@ void* ecg_thread_getData(void* paramPtr)
       {
         is_invalid = 1;
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "ADC ERROR | ");
-        CETI_LOG("ecg_thread_getData(): XXX ADC encountered an error");
+        CETI_LOG("XXX ADC encountered an error");
       }
       if(ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == 0)
         consecutive_zero_ecg_count++;
@@ -203,7 +203,7 @@ void* ecg_thread_getData(void* paramPtr)
       {
         is_invalid = 1;
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "ADC ZEROS | ");
-        CETI_LOG("ecg_thread_getData(): ADC returned %ld zero readings in a row", consecutive_zero_ecg_count);
+        CETI_LOG("ADC returned %ld zero readings in a row", consecutive_zero_ecg_count);
       }
       // Check if there was an error communicating with the GPIO expander.
       if(leadsOff_readings_p[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_LEADSOFF_INVALID_PLACEHOLDER
@@ -211,14 +211,14 @@ void* ecg_thread_getData(void* paramPtr)
       {
         is_invalid = 1;
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "LO ERROR | ");
-        CETI_LOG("ecg_thread_getData(): XXX The GPIO expander encountered an error");
+        CETI_LOG("XXX The GPIO expander encountered an error");
       }
       // Check if it took longer than expected to receive the sample (from the ADC and the GPIO expander combined).
       if(instantaneous_sampling_period_us > ECG_SAMPLE_TIMEOUT_US && !first_sample)
       {
         is_invalid = 1;
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "TIMEOUT | ");
-        CETI_LOG("ecg_thread_getData(): XXX Reading a sample took %ld us", instantaneous_sampling_period_us);
+        CETI_LOG("XXX Reading a sample took %ld us", instantaneous_sampling_period_us);
       }
       first_sample = 0;
       // If the ADC or the GPIO expander had an error,
@@ -274,7 +274,7 @@ void* ecg_thread_getData(void* paramPtr)
 
   // Print the duration and the sampling rate.
   long long duration_ms = get_global_time_ms() - start_time_ms;
-  CETI_LOG("ecg_thread_getData(): Average rate %0.2f Hz (%lld samples in %lld ms)",
+  CETI_LOG("Average rate %0.2f Hz (%lld samples in %lld ms)",
             1000.0*(float)sample_index/(float)duration_ms,
             sample_index, duration_ms);
 
@@ -284,7 +284,7 @@ void* ecg_thread_getData(void* paramPtr)
   ecg_gpio_expander_cleanup();
 
   g_ecg_thread_getData_is_running = 0;
-  CETI_LOG("ecg_thread_getData(): Done!");
+  CETI_LOG("Done!");
   return NULL;
 }
 
@@ -305,21 +305,21 @@ void* ecg_thread_writeData(void* paramPtr)
     CPU_ZERO(&cpuset);
     CPU_SET(ECG_WRITEDATA_CPU, &cpuset);
     if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-      CETI_LOG("ecg_thread_writeData(): Successfully set affinity to CPU %d", ECG_WRITEDATA_CPU);
+      CETI_LOG("Successfully set affinity to CPU %d", ECG_WRITEDATA_CPU);
     else
-      CETI_LOG("ecg_thread_writeData(): XXX Failed to set affinity to CPU %d", ECG_WRITEDATA_CPU);
+      CETI_LOG("XXX Failed to set affinity to CPU %d", ECG_WRITEDATA_CPU);
   }
   // Set the thread to a high priority.
  struct sched_param sp;
  memset(&sp, 0, sizeof(sp));
  sp.sched_priority = sched_get_priority_max(SCHED_RR);
  if(pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
-   CETI_LOG("ecg_thread_writeData(): Successfully set priority");
+   CETI_LOG("Successfully set priority");
  else
-   CETI_LOG("ecg_thread_writeData(): XXX Failed to set priority");
+   CETI_LOG("XXX Failed to set priority");
 
   // Main loop while application is running.
-  CETI_LOG("ecg_thread_writeData(): Starting loop to write data as it is acquired");
+  CETI_LOG("Starting loop to write data as it is acquired");
   g_ecg_thread_writeData_is_running = 1;
 
   // Continuously wait for new data and then write it to the file.
@@ -334,7 +334,7 @@ void* ecg_thread_writeData(void* paramPtr)
     ecg_data_file = fopen(ecg_data_filepath, "at");
     if(ecg_data_file == NULL)
     {
-      CETI_LOG("ecg_thread_writeData(): failed to open data output file: %s", ecg_data_filepath);
+      CETI_LOG("failed to open data output file: %s", ecg_data_filepath);
       init_ecg_data_file(0);
     }
     else
@@ -385,7 +385,7 @@ void* ecg_thread_writeData(void* paramPtr)
 
   // Clean up.
   g_ecg_thread_writeData_is_running = 0;
-  CETI_LOG("ecg_thread_writeData(): Done!");
+  CETI_LOG("Done!");
   return NULL;
 }
 

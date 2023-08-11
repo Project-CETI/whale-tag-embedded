@@ -22,14 +22,14 @@ int init_timing() {
   updateRtcCount();
   if(latest_rtc_count == -1)
   {
-    CETI_LOG("init_timing(): XXX Failed to fetch a valid RTC count");
+    CETI_LOG("XXX Failed to fetch a valid RTC count");
     latest_rtc_count = -1;
     last_rtc_update_time_us = -1;
     return (-1);
   }
   #endif
 
-  CETI_LOG("init_timing(): Successfully initialized timing");
+  CETI_LOG("Successfully initialized timing");
   return 0;
 }
 
@@ -42,27 +42,22 @@ unsigned int getTimeDeploy(void) {
 
     char line[512];
 
-    char strTimeDeploy[16];
-
-    unsigned int timeDeploy;
-
     stateMachineCsvFile = fopen(STATEMACHINE_DATA_FILEPATH, "r");
     if (stateMachineCsvFile == NULL) {
-        CETI_LOG("getTimeDeploy():cannot open state machine csv output file: %s", STATEMACHINE_DATA_FILEPATH);
+        CETI_LOG("cannot open state machine csv output file: %s", STATEMACHINE_DATA_FILEPATH);
         return (-1);
     }
 
     fgets(line, 512, stateMachineCsvFile); // first line is always the header
     fgets(line, 512, stateMachineCsvFile); // first line of the actual data
 
+    fclose(stateMachineCsvFile);
     // parse out the RTC count, which is in the 2nd column of the CSV
     for(pTemp = line; *pTemp != ',' ; pTemp++);  //find first comma
-    strncpy(strTimeDeploy, pTemp+1, 10);         //copy the string
-    strTimeDeploy[10] = '\0';                    //append terminator
-    timeDeploy = strtoul(strTimeDeploy,NULL,0);  //convert to uint
+    pTemp++;
+    pTemp[10] = '\0';               //append terminator
+    return strtoul(pTemp, NULL, 0); //convert to uint
 
-    fclose(stateMachineCsvFile);
-    return (timeDeploy);
 }
 
 //-----------------------------------------------------------------------------
@@ -79,7 +74,7 @@ void updateRtcCount() {
     char rtcCountByte[4];
 
     if ((fd = i2cOpen(1, ADDR_RTC, 0)) < 0) {
-        CETI_LOG("getRtcCount(): Failed to connect to the RTC");
+        CETI_LOG("Failed to connect to the RTC");
         rtcCount = -1;
     }
 
@@ -108,10 +103,10 @@ void updateRtcCount() {
 int resetRtcCount() {
     int fd;
 
-    CETI_LOG("resetRtcCount(): Executing");
+    CETI_LOG("Executing");
 
     if ((fd = i2cOpen(1, ADDR_RTC, 0)) < 0) {
-        CETI_LOG("getRtcCount(): Failed to connect to the RTC");
+        CETI_LOG("Failed to connect to the RTC");
         return (-1);
     }
 
@@ -125,13 +120,13 @@ int resetRtcCount() {
     return (0);
 }
 
-int setRtcCount(uint32_t seconds) {
+static int rtc_set_count(time_t seconds) {
     int fd;
 
-    CETI_LOG("%s(): Executing", __FUNCTION__);
+    CETI_LOG("Executing");
 
     if ((fd = i2cOpen(1, ADDR_RTC, 0)) < 0) {
-        CETI_LOG("%s(): Failed to connect to the RTC", __FUNCTION__);
+        CETI_LOG("Failed to connect to the RTC");
         return (-1);
     }
 
@@ -161,16 +156,16 @@ void* rtc_thread(void* paramPtr) {
       CPU_ZERO(&cpuset);
       CPU_SET(RTC_CPU, &cpuset);
       if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-        CETI_LOG("rtc_thread(): Successfully set affinity to CPU %d", RTC_CPU);
+        CETI_LOG("Successfully set affinity to CPU %d", RTC_CPU);
       else
-        CETI_LOG("rtc_thread(): XXX Failed to set affinity to CPU %d", RTC_CPU);
+        CETI_LOG("XXX Failed to set affinity to CPU %d", RTC_CPU);
     }
 
     // Do an initial RTC update.
     updateRtcCount();
 
     // Main loop while application is running.
-    CETI_LOG("rtc_thread(): Starting loop to periodically acquire data");
+    CETI_LOG("Starting loop to periodically acquire data");
     int old_rtc_count = -1;
     long delay_duration_us = 0;
     int prev_num_updates_required = 0;
@@ -198,7 +193,7 @@ void* rtc_thread(void* paramPtr) {
       }
     }
     g_rtc_thread_is_running = 0;
-    CETI_LOG("rtc_thread(): Done!");
+    CETI_LOG("Done!");
     return NULL;
 }
 
@@ -227,7 +222,7 @@ long long get_global_time_ms()
 
 void sync_global_time_init(void)
 {
-  CETI_LOG("%s(): Executing", __FUNCTION__);
+  CETI_LOG("Executing");
   struct timex timex_info = { .modes = 0 };
   int ntp_result = ntp_adjtime(&timex_info);
   int ntp_synchronized = (ntp_result >= 0) && (ntp_result != TIME_ERROR);
@@ -236,11 +231,11 @@ void sync_global_time_init(void)
  
     struct timeval current_timeval;
     gettimeofday(&current_timeval, NULL);
-    setRtcCount(current_timeval.tv_sec);
-    CETI_LOG("%s(): RTC synchronized to system clock: %ld)", __FUNCTION__, current_timeval.tv_sec);
+    rtc_set_count(current_timeval.tv_sec);
+    CETI_LOG("RTC synchronized to system clock: %ld)", current_timeval.tv_sec);
   }
   else {
-    CETI_LOG("%s(): Synchronizing system clock to RTC)", __FUNCTION__);
+    CETI_LOG("Synchronizing system clock to RTC)");
     struct timeval current_timeval = { .tv_sec = getRtcCount() };
     settimeofday(&current_timeval, NULL);
   }
@@ -248,7 +243,7 @@ void sync_global_time_init(void)
 
 void sync_global_time(void)
 {
-  CETI_LOG("%s(): Executing", __FUNCTION__);
+  CETI_LOG("Executing");
   struct timex timex_info = { .modes = 0 };
   int ntp_result = ntp_adjtime(&timex_info);
   int ntp_synchronized = (ntp_result >= 0) && (ntp_result != TIME_ERROR);
@@ -256,7 +251,7 @@ void sync_global_time(void)
   if ( ntp_synchronized ) {
     struct timeval current_timeval;
     gettimeofday(&current_timeval, NULL);
-    setRtcCount(current_timeval.tv_sec);
-    CETI_LOG("%s(): RTC synchronized to system clock: %ld)", __FUNCTION__, current_timeval.tv_sec);
+    rtc_set_count(current_timeval.tv_sec);
+    CETI_LOG("RTC synchronized to system clock: %ld)", current_timeval.tv_sec);
   }
 }

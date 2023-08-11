@@ -16,6 +16,7 @@
 #include "launcher.h" // for g_exit, sampling rate, data filepath, and CPU affinity
 #include "utils/logging.h"
 #include "utils/timing.h"
+#include "utils/power.h"
 #include "battery.h"
 #include "recovery.h"
 #include "burnwire.h"
@@ -57,6 +58,8 @@ static const char state_str[][MAX_STATE_STRING_LEN] = {
     "SHUTDOWN",
     "ST_UNKNOWN"
 };
+
+#define WIFI_GRACE_PERIOD_MIN 10
 
 //-----------------------------------------------------------------------------
 // Global variables

@@ -28,7 +28,7 @@
 
 #if !ENABLE_FPGA
 int init_audio() {
-  CETI_LOG("init_audio(): XXXX FPGA is not selected for operation, so audio cannot be used");
+  CETI_LOG("XXXX FPGA is not selected for operation, so audio cannot be used");
   return (-1);
 }
 #else
@@ -57,9 +57,9 @@ int g_audio_thread_writeData_is_running = 0;
 int init_audio() {
   // Set the ADC Up with defaults (96 kHz)
   if (!setup_audio_96kHz())
-      CETI_LOG("init_audio(): Successfully set audio sampling rate to 96 kHz");
+      CETI_LOG("Successfully set audio sampling rate to 96 kHz");
   else {
-      CETI_LOG("init_audio(): XXXX Failed to set initial audio configuration - ADC register did not read back as expected");
+      CETI_LOG("XXXX Failed to set initial audio configuration - ADC register did not read back as expected");
       return (-1);
   }
   return 0;
@@ -189,7 +189,7 @@ void* audio_thread_spi(void* paramPtr) {
     int spi_fd = spiOpen(SPI_CE, SPI_CLK_RATE, 1);
 
     if (spi_fd < 0) {
-        CETI_LOG("audio_thread_spi(): pigpio SPI initialisation failed");
+        CETI_LOG("pigpio SPI initialisation failed");
         return NULL;
     }
 
@@ -203,18 +203,18 @@ void* audio_thread_spi(void* paramPtr) {
       CPU_ZERO(&cpuset);
       CPU_SET(AUDIO_SPI_CPU, &cpuset);
       if(pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset) == 0)
-        CETI_LOG("audio_thread_spi(): Successfully set affinity to CPU %d", AUDIO_SPI_CPU);
+        CETI_LOG("Successfully set affinity to CPU %d", AUDIO_SPI_CPU);
       else
-        CETI_LOG("audio_thread_spi(): XXX Failed to set affinity to CPU %d", AUDIO_SPI_CPU);
+        CETI_LOG("XXX Failed to set affinity to CPU %d", AUDIO_SPI_CPU);
     }
     // Set the thread priority.
     struct sched_param sp;
     memset(&sp, 0, sizeof(sp));
     sp.sched_priority = sched_get_priority_max(SCHED_RR);
     if(pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
-      CETI_LOG("audio_thread_spi(): Successfully set priority");
+      CETI_LOG("Successfully set priority");
     else
-      CETI_LOG("audio_thread_spi(): XXX Failed to set priority");
+      CETI_LOG("XXX Failed to set priority");
 
     // Initialize state.
     volatile int status;
@@ -223,7 +223,7 @@ void* audio_thread_spi(void* paramPtr) {
     status = prev_status;
 
     // Main loop to acquire audio data.
-    CETI_LOG("audio_thread_spi(): Starting loop to fetch data via SPI");
+    CETI_LOG("Starting loop to fetch data via SPI");
     g_audio_thread_spi_is_running = 1;
     while (!g_exit) {
 
@@ -264,7 +264,7 @@ void* audio_thread_spi(void* paramPtr) {
     }
     spiClose(spi_fd);
     g_audio_thread_spi_is_running = 0;
-    CETI_LOG("audio_thread_spi(): Done!");
+    CETI_LOG("Done!");
     return NULL;
 }
 
@@ -284,20 +284,20 @@ void* audio_thread_writeFlac(void* paramPtr) {
       CPU_ZERO(&cpuset);
       CPU_SET(AUDIO_WRITEDATA_CPU, &cpuset);
       if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-        CETI_LOG("audio_thread_writeData(): Successfully set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
+        CETI_LOG("Successfully set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
       else
-        CETI_LOG("audio_thread_writeData(): XXX Failed to set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
+        CETI_LOG("XXX Failed to set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
     }
     // Set the thread to a low priority.
     struct sched_param sp;
     memset(&sp, 0, sizeof(sp));
     sp.sched_priority = sched_get_priority_min(SCHED_RR);
     if(pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
-      CETI_LOG("audio_thread_writeFlac(): Successfully set priority");
+      CETI_LOG("Successfully set priority");
     else
-      CETI_LOG("audio_thread_writeFlac(): XXX Failed to set priority");
+      CETI_LOG("XXX Failed to set priority");
 
-    CETI_LOG("audio_thread_writeData(): Starting loop to periodically write data");
+    CETI_LOG("Starting loop to periodically write data");
     g_audio_thread_writeData_is_running = 1;
     // FLAC__bool ok = true;
     int pageIndex = 0;
@@ -326,7 +326,7 @@ void* audio_thread_writeFlac(void* paramPtr) {
     FLAC__stream_encoder_delete(flac_encoder);
     flac_encoder = 0;
     g_audio_thread_writeData_is_running = 0;
-    CETI_LOG("audio_thread_writeData(): Done!");
+    CETI_LOG("Done!");
     return NULL;
 }
 
@@ -338,7 +338,7 @@ void audio_createNewFlacFile() {
         FLAC__stream_encoder_delete(flac_encoder);
         flac_encoder = 0;
         if (!ok) {
-            CETI_LOG("audio_createNewFlacFile(): FLAC encoder failed to close for %s", audio_acqDataFileName);
+            CETI_LOG("FLAC encoder failed to close for %s", audio_acqDataFileName);
         }
     }
 
@@ -351,7 +351,7 @@ void audio_createNewFlacFile() {
 
     /* allocate the encoder */
     if ((flac_encoder = FLAC__stream_encoder_new()) == NULL) {
-        CETI_LOG("audio_createNewFlacFile(): XXXX ERROR: allocating FLAC encoder");
+        CETI_LOG("XXXX ERROR: allocating FLAC encoder");
         flac_encoder = 0;
         return;
     }
@@ -362,19 +362,19 @@ void audio_createNewFlacFile() {
     ok &= FLAC__stream_encoder_set_total_samples_estimate(flac_encoder, SAMPLES_PER_RAM_PAGE);
 
     if (!ok) {
-        CETI_LOG("audio_createNewFlacFile(): XXXX FLAC encoder failed to set parameters for %s", audio_acqDataFileName);
+        CETI_LOG("XXXX FLAC encoder failed to set parameters for %s", audio_acqDataFileName);
         flac_encoder = 0;
         return;
     }
 
     init_status = FLAC__stream_encoder_init_file(flac_encoder, audio_acqDataFileName, NULL, NULL);
     if (init_status != FLAC__STREAM_ENCODER_INIT_STATUS_OK) {
-        CETI_LOG("audio_createNewFlacFile(): XXXX ERROR: initializing encoder: %s", FLAC__StreamEncoderInitStatusString[init_status]);
+        CETI_LOG("XXXX ERROR: initializing encoder: %s", FLAC__StreamEncoderInitStatusString[init_status]);
         FLAC__stream_encoder_delete(flac_encoder);
         flac_encoder = 0;
         return;
     }
-    CETI_LOG("audio_createNewFlacFile(): Saving hydrophone data to %s", audio_acqDataFileName);
+    CETI_LOG("Saving hydrophone data to %s", audio_acqDataFileName);
 }
 
 static FILE *acqData = NULL; // file for audio recording
@@ -391,20 +391,20 @@ void* audio_thread_writeRaw(void* paramPtr) {
      CPU_ZERO(&cpuset);
      CPU_SET(AUDIO_WRITEDATA_CPU, &cpuset);
      if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-       CETI_LOG("audio_thread_writeRaw(): Successfully set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
+       CETI_LOG("Successfully set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
      else
-       CETI_LOG("audio_thread_writeRaw(): XXX Failed to set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
+       CETI_LOG("XXX Failed to set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
    }
    // Set the thread to a low priority.
    struct sched_param sp;
    memset(&sp, 0, sizeof(sp));
    sp.sched_priority = sched_get_priority_min(SCHED_RR);
    if(pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
-     CETI_LOG("audio_thread_writeRaw(): Successfully set priority");
+     CETI_LOG("Successfully set priority");
    else
-     CETI_LOG("audio_thread_writeRaw(): XXX Failed to set priority");
+     CETI_LOG("XXX Failed to set priority");
 
-   CETI_LOG("audio_thread_writeRaw(): Starting loop to periodically write data");
+   CETI_LOG("Starting loop to periodically write data");
    g_audio_thread_writeData_is_running = 1;
    int pageIndex = 0;
    while (!g_exit) {
@@ -423,7 +423,7 @@ void* audio_thread_writeRaw(void* paramPtr) {
        pageIndex = !pageIndex;
    }
    g_audio_thread_writeData_is_running = 0;
-   CETI_LOG("audio_thread_writeRaw(): Done!");
+   CETI_LOG("Done!");
    return NULL;
 }
 
@@ -443,7 +443,7 @@ void audio_createNewRawFile() {
         CETI_LOG("Failed to open %s", audio_acqDataFileName);
         return;
     }
-    CETI_LOG("audio_createNewRawFile(): Saving hydrophone data to %s", audio_acqDataFileName);
+    CETI_LOG("Saving hydrophone data to %s", audio_acqDataFileName);
 }
 
 

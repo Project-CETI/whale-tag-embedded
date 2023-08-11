@@ -28,8 +28,8 @@ int main(void) {
     init_logging();
 
     // Initialize components.
-    CETI_LOG("main(): -------------------------------------------------");
-    CETI_LOG("main(): Starting initialization");
+    CETI_LOG("-------------------------------------------------");
+    CETI_LOG("Starting initialization");
     init_tag(); // returns 0 if all components succeeded, < 0 if error(s)
 
     //-----------------------------------------------------------------------------
@@ -37,8 +37,8 @@ int main(void) {
     pthread_t thread_ids[50] = {0};
     int* threads_running[50];
     int num_threads = 0;
-    CETI_LOG("main(): -------------------------------------------------");
-    CETI_LOG("main(): Starting acquisition threads");
+    CETI_LOG("-------------------------------------------------");
+    CETI_LOG("Starting acquisition threads");
     // RTC
     #if ENABLE_RTC
     pthread_create(&thread_ids[num_threads], NULL, &rtc_thread, NULL);
@@ -129,19 +129,19 @@ int main(void) {
     #endif
 
     usleep(100000);
-    CETI_LOG("main(): Created %d threads", num_threads);
+    CETI_LOG("Created %d threads", num_threads);
 
     //-----------------------------------------------------------------------------
     // Run the application!
-    CETI_LOG("main(): -------------------------------------------------");
-    CETI_LOG("main(): Data acquisition is running!");
-    CETI_LOG("main(): -------------------------------------------------");
+    CETI_LOG("-------------------------------------------------");
+    CETI_LOG("Data acquisition is running!");
+    CETI_LOG("-------------------------------------------------");
     while (!g_exit) {
         // Let threads do their work.
         usleep(100000);
     }
-    CETI_LOG("main(): -------------------------------------------------");
-    CETI_LOG("main(): Data acquisition completed. Waiting for threads to stop.");
+    CETI_LOG("-------------------------------------------------");
+    CETI_LOG("Data acquisition completed. Waiting for threads to stop.");
 
     //-----------------------------------------------------------------------------
     // Give threads time to notice the g_exit flag and shut themselves down.
@@ -163,16 +163,16 @@ int main(void) {
     }
 
     // Forcefully cancel the threads.
-    CETI_LOG("main(): %d/%d threads stopped gracefully.", (int)(num_threads-num_threads_running), num_threads);
-    CETI_LOG("main(): Canceling threads");
+    CETI_LOG("%d/%d threads stopped gracefully.", (int)(num_threads-num_threads_running), num_threads);
+    CETI_LOG("Canceling threads");
     for(int thread_index = 0; thread_index < num_threads; thread_index++)
       pthread_cancel(thread_ids[thread_index]);
 
     // Tag-wide cleanup.
-    CETI_LOG("main(): Tag-wide cleanup");
+    CETI_LOG("Tag-wide cleanup");
     gpioTerminate();
 
-    CETI_LOG("main(): Done!");
+    CETI_LOG("Done!");
     return (0);
 }
 
@@ -184,10 +184,10 @@ int init_tag() {
 
   // Tag-wide initialization.
   if(gpioInitialise() < 0) {
-      CETI_LOG("main(): XXXX Failed to initialize pigpio XXXX");
+      CETI_LOG("XXXX Failed to initialize pigpio XXXX");
       return 1;
   } else {
-      CETI_LOG("main(): Successfully initialized pigpio");
+      CETI_LOG("Successfully initialized pigpio");
   }
   result += init_timing() == 0 ? 0 : -1;
   result += init_commands() == 0 ? 0 : -1;
@@ -243,7 +243,7 @@ int init_tag() {
   #endif
 
   if(result < 0)
-    CETI_LOG("init_tag(): XXX Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
+    CETI_LOG("XXX Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
 
   sync_global_time_init();
 

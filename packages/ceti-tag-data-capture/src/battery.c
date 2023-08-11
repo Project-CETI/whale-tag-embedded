@@ -30,14 +30,14 @@ double g_latest_battery_i_mA;
 int init_battery() {
   int fd;
   if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
-    CETI_LOG("init_battery(): XXXX Failed to connect to the battery gauge XXXX");
+    CETI_LOG("XXXX Failed to connect to the battery gauge XXXX");
     return (-1);
   }
   else {
     i2cWriteByteData(fd,BATT_CTL,BATT_CTL_VAL); //establish undervoltage cutoff
     i2cWriteByteData(fd,BATT_OVER_VOLTAGE,BATT_OV_VAL); //establish undervoltage cutoff
   }
-  CETI_LOG("init_battery(): Successfully initialized the battery gauge");
+  CETI_LOG("Successfully initialized the battery gauge");
 
   // Open an output file to write data.
   if(init_data_file(battery_data_file, BATTERY_DATA_FILEPATH,
@@ -64,13 +64,13 @@ void* battery_thread(void* paramPtr) {
       CPU_ZERO(&cpuset);
       CPU_SET(BATTERY_CPU, &cpuset);
       if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-        CETI_LOG("battery_thread(): Successfully set affinity to CPU %d", BATTERY_CPU);
+        CETI_LOG("Successfully set affinity to CPU %d", BATTERY_CPU);
       else
-        CETI_LOG("battery_thread(): XXX Failed to set affinity to CPU %d", BATTERY_CPU);
+        CETI_LOG("XXX Failed to set affinity to CPU %d", BATTERY_CPU);
     }
 
     // Main loop while application is running.
-    CETI_LOG("battery_thread(): Starting loop to periodically acquire data");
+    CETI_LOG("Starting loop to periodically acquire data");
     long long global_time_us;
     int rtc_count;
     long long polling_sleep_duration_us;
@@ -79,7 +79,7 @@ void* battery_thread(void* paramPtr) {
       battery_data_file = fopen(BATTERY_DATA_FILEPATH, "at");
       if(battery_data_file == NULL)
       {
-        CETI_LOG("battery_thread(): failed to open data output file: %s", BATTERY_DATA_FILEPATH);
+        CETI_LOG("failed to open data output file: %s", BATTERY_DATA_FILEPATH);
         // Sleep a bit before retrying.
         for(int i = 0; i < 10 && !g_exit; i++)
           usleep(100000);
@@ -94,7 +94,7 @@ void* battery_thread(void* paramPtr) {
           strcat(battery_data_file_notes, "ERROR | ");
         if(g_latest_battery_v1_v < 0 || g_latest_battery_v2_v < 0) // it seems to return -0.01 for voltages and -5.19 for current when no sensor is connected
         {
-          CETI_LOG("battery_thread(): XXX readings are likely invalid");
+          CETI_LOG("XXX readings are likely invalid");
           strcat(battery_data_file_notes, "INVALID? | ");
         }
 
@@ -121,7 +121,7 @@ void* battery_thread(void* paramPtr) {
       }
     }
     g_battery_thread_is_running = 0;
-    CETI_LOG("battery_thread(): Done!");
+    CETI_LOG("Done!");
     return NULL;
 }
 
@@ -135,7 +135,7 @@ int getBatteryData(double* battery_v1_v, double* battery_v2_v,
     signed short voltage, current;
 
     if ((fd = i2cOpen(1, ADDR_BATT_GAUGE, 0)) < 0) {
-        CETI_LOG("getBattStatus(): XXX Failed to connect to the fuel gauge");
+        CETI_LOG("XXX Failed to connect to the fuel gauge");
         return (-1);
     }
 
