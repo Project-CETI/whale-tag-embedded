@@ -50,7 +50,9 @@ int init_data_file(FILE* data_file, const char* data_filepath,
   else
     CETI_LOG("%s: Using the existing output data file: %s", log_tag, data_filepath);
   // Add notes for the first timestep to indicate that logging was restarted.
-  strcat(data_file_notes, "Restarted! | ");
+  if(data_file_notes){
+    strcat(data_file_notes, "Restarted! | ");
+  }
   // Close the file.
   fclose(data_file);
   return 0;
