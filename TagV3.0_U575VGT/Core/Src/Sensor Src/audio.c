@@ -217,7 +217,7 @@ void audio_thread_entry(ULONG thread_input){
 		  if (acc_flag_pointer & AUDIO_BUFFER_FULL_FLAG){
       		audio.sd_write_complete = false;
       		sd_writing = true;
-      		fx_file_write(audio.file, audio.temp_buffer[10], AUDIO_CIRCULAR_BUFFER_SIZE * TEMP_BUF_HALF_BLOCK_LENGTH);
+      		fx_file_write(audio.file, audio.temp_buffer[TEMP_BUF_HALF_BLOCK_LENGTH], AUDIO_CIRCULAR_BUFFER_SIZE * TEMP_BUF_HALF_BLOCK_LENGTH);
 		  }
 
 		  //Poll for completion, this blocks out other tasks but is *neccessary*

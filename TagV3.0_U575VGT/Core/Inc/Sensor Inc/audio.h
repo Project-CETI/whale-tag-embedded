@@ -31,8 +31,10 @@
 //ThreadX flag to stop the audio sensor (exit data collection)
 #define AUDIO_STOP_THREAD_FLAG 0x4
 
+//Do not change
 #define DMA_BUF_BLOCK_LENGTH 2
 
+//Number of blocks the temp buffer should use. This MUST be an even number.
 #define TEMP_BUF_BLOCK_LENGTH 18
 
 #define TEMP_BUF_HALF_BLOCK_LENGTH ((TEMP_BUF_BLOCK_LENGTH) / 2)
