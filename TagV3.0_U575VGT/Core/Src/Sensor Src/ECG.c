@@ -16,54 +16,27 @@ extern I2C_HandleTypeDef hi2c4;
 
 extern Thread_HandleTypeDef threads[NUM_THREADS];
 
-//FileX variables
-extern FX_MEDIA        sdio_disk;
-extern ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
-
+//Event flags (shared with ecg sd thread)
 TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
 
-bool ecg_running = 0;
-bool ecg_writing = 0;
-uint16_t good_ecg_data = 0;
+//Mutexes (shared with ecg sd thread)
+TX_MUTEX ecg_first_half_mutex;
+TX_MUTEX ecg_second_half_mutex;
 
-void ecg_SDWriteComplete(FX_FILE *file){
-	//Indicate that we are no longer writing to the SD card
-	ecg_writing = false;
-}
+//Array for holding ECG data. The buffer is split in half and shared with the ECG_SD thread.
+ECG_Data ecg_data[2][ECG_HALF_BUFFER_SIZE] = {0};
+
+bool ecg_running = 0;
+uint16_t good_ecg_data = 0;
 
 void ecg_thread_entry(ULONG thread_input){
 
 	//Create our flag that indicates when data is ready
 	tx_event_flags_create(&ecg_event_flags_group, "ECG Event Flags");
 
-	FX_FILE ecg_file = {};
-
-	//Create our binary file for dumping ecg data
-	UINT fx_result = FX_SUCCESS;
-	fx_result = fx_file_create(&sdio_disk, "ecg_test.bin");
-	if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
-	  Error_Handler();
-	}
-
-	//Open the file
-	fx_result = fx_file_open(&sdio_disk, &ecg_file, "ecg_test.bin", FX_OPEN_FOR_WRITE);
-	if(fx_result != FX_SUCCESS){
-	  Error_Handler();
-	}
-
-	//Set our "write complete" callback function
-	fx_result = fx_file_write_notify_set(&ecg_file, ecg_SDWriteComplete);
-	if(fx_result != FX_SUCCESS){
-	  Error_Handler();
-	}
-
-	//Data array for holding multiple ECG samples (so we can collect them and write to the SD card in batches)
-	ECG_Data ecg_data[ECG_NUM_SAMPLES] = {0};
-
-	//Do a dummy write for the beginning of the file
-	ecg_writing = true;
-	fx_file_write(&ecg_file, ecg_data, sizeof(float) * ECG_NUM_SAMPLES);
-	while (ecg_writing);
+	//Create mutexes
+	tx_mutex_create(&ecg_first_half_mutex, "ECG First Half Mutex", TX_INHERIT);
+	tx_mutex_create(&ecg_second_half_mutex, "ECG Second Half Mutex", TX_INHERIT);
 
 	//Declare ecg handler and initialize chip
 	ECG_HandleTypeDef ecg;
@@ -72,10 +45,16 @@ void ecg_thread_entry(ULONG thread_input){
 	//Enable our interrupt handler (signals when data is ready)
 	HAL_NVIC_EnableIRQ(EXTI14_IRQn);
 
+	//Start data collection thread since we're ready to collect data
+	tx_thread_resume(&threads[ECG_SD_THREAD].thread);
+
 	while(1){
 
+		//Acquire first half mutex to start collecting data
+		tx_mutex_get(&ecg_first_half_mutex, TX_WAIT_FOREVER);
+
 		//Collect a batch of samples
-		for (uint16_t index = 0; index < ECG_NUM_SAMPLES; index++){
+		for (uint16_t index = 0; index < ECG_HALF_BUFFER_SIZE; index++){
 
 			//holds event flags
 			ULONG actual_events;
@@ -91,33 +70,58 @@ void ecg_thread_entry(ULONG thread_input){
 				good_ecg_data++;
 			}
 
-			ecg_data[index] = ecg.data;
+			//Fill up the first half buffer
+			ecg_data[0][index] = ecg.data;
 
 			ecg_running = false;
 		}
 
-		//We've collected all the samples we need, write them to SD card
-		ecg_writing = true;
-		fx_file_write(&ecg_file, ecg_data, sizeof(ECG_Data) * ECG_NUM_SAMPLES);
+		//Release the first half mutex to signal the ECG_SD thread that it can start writing
+		tx_mutex_put(&ecg_first_half_mutex);
 
-		//Poll for completion
-		while (ecg_writing);
+		//Acquire the second half mutex to fill it up
+		tx_mutex_get(&ecg_second_half_mutex, TX_WAIT_FOREVER);
+
+		//Collect a batch of samples
+		for (uint16_t index = 0; index < ECG_HALF_BUFFER_SIZE; index++){
+
+			//holds event flags
+			ULONG actual_events;
+
+			//We've initialized the ECG to be in continuous conversion mode, and we have an interrupt line signalling when data is ready.
+			//Thus, wait for our flag to be set in the interrupt handler. This function call will block the entire task until we receive the data.
+			tx_event_flags_get(&ecg_event_flags_group, ECG_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
+
+			ecg_running = true;
+
+			//New data is ready, retrieve it
+			if (ecg_read_adc(&ecg) == HAL_OK){
+				good_ecg_data++;
+			}
+
+			//Fill up the second half buffer
+			ecg_data[1][index] = ecg.data;
+
+			ecg_running = false;
+		}
+
+		//Release second half mutex so the ECG_SD thread can write to it
+		tx_mutex_put(&ecg_second_half_mutex);
 
 		good_ecg_data = 0;
 
 		//Check to see if there was a stop thread request. Put very little wait time so its essentially an instant check
 		ULONG actual_flags = 0;
-		tx_event_flags_get(&ecg_event_flags_group, ECG_STOP_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
+		tx_event_flags_get(&ecg_event_flags_group, ECG_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
 
 		//If there was something set cleanup the thread
-		if (actual_flags & ECG_STOP_THREAD_FLAG){
+		if (actual_flags & ECG_STOP_DATA_THREAD_FLAG){
 
-			//Close the file and suspend our interrupt
-			fx_file_close(&ecg_file);
+			//Suspend our interrupt to stop new data from coming in
 			HAL_NVIC_DisableIRQ(EXTI14_IRQn);
 
-			//Delete threadx event flags and terminate the thread
-			tx_event_flags_delete(&ecg_event_flags_group);
+			//Signal SD card thread to stop, and terminate this thread
+			tx_event_flags_set(&ecg_event_flags_group, ECG_STOP_SD_THREAD_FLAG, TX_OR);
 			tx_thread_terminate(&threads[ECG_THREAD].thread);
 		}
 

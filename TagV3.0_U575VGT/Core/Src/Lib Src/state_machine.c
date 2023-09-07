@@ -58,6 +58,12 @@ void state_machine_thread_entry(ULONG thread_input){
 			//GPS geofencing flag
 			if (actual_flags & STATE_GPS_FLAG){
 
+				//We're outside of dominica, exit data capture and enter recovery
+				if (state == STATE_DATA_CAPTURE){
+					hard_exit_data_capture();
+					enter_recovery();
+					state = STATE_RECOVERY;
+				}
 			}
 
 			//BMS low battery flag
@@ -77,6 +83,11 @@ void state_machine_thread_entry(ULONG thread_input){
 				enter_data_offload();
 				state = STATE_DATA_OFFLOAD;
 			}
+
+			//Tag detached (burnwire completed) flag
+			if (actual_flags & STATE_TAG_RELEASED){
+
+			}
 		}
 	}
 }
@@ -88,7 +99,7 @@ void enter_data_capture(){
 	tx_thread_resume(&threads[AUDIO_THREAD].thread);
 	tx_thread_resume(&threads[IMU_THREAD].thread);
 	tx_thread_resume(&threads[ECG_THREAD].thread);
-
+	tx_thread_resume(&threads[GPS_THREAD].thread);
 }
 
 
@@ -98,14 +109,17 @@ void soft_exit_data_capture(){
 	tx_thread_suspend(&threads[AUDIO_THREAD].thread);
 	tx_thread_suspend(&threads[IMU_THREAD].thread);
 	tx_thread_suspend(&threads[ECG_THREAD].thread);
+	tx_thread_suspend(&threads[GPS_THREAD].thread);
 }
 
 void hard_exit_data_capture(){
 
 	//Signal data collection threads to stop running (and they should never run again)
 	tx_event_flags_set(&audio_event_flags_group, AUDIO_STOP_THREAD_FLAG, TX_OR);
-	tx_event_flags_set(&imu_event_flags_group, IMU_STOP_THREAD_FLAG, TX_OR);
-	tx_event_flags_set(&ecg_event_flags_group, ECG_STOP_THREAD_FLAG, TX_OR);
+	tx_event_flags_set(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR);
+	tx_event_flags_set(&ecg_event_flags_group, ECG_STOP_DATA_THREAD_FLAG, TX_OR);
+
+	tx_thread_terminate(&threads[GPS_THREAD].thread);
 }
 
 void enter_recovery(){
