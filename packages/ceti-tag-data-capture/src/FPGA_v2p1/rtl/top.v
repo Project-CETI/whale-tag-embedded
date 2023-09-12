@@ -8,6 +8,7 @@
 // 220524 Adjusted the UCF for new SCLK and MISO pinning for better clock location of the chip per new HW 
 // 220816 Swap TXD and RXD in the UCF to match Recovery Board HW
 // 221102 Start work on i2c power off transmission method. Companion Debian is version 2.1-4
+// 230905 Expose FIFO Overflow (latched version)to Pi HAT GPIO_12
 //
 //-----------------------------------------------------------------------------
 // Additional Information
@@ -144,6 +145,7 @@ assign HAT_GPIO_6 = ECG_DRDY;
 assign LED_1 = led_alive;            //GREEN
 assign LED_2 = spi_fifo_of_latched;  //RED
 assign LED_3 = spi_fifo_empty;       //AMBER
+assign HAT_GPIO_12 = spi_fifo_of_latched;  //new for SW detection of OF 230905
 
 //-----------------------------------------------------------------------------
 // IMU Some BNO08x IMU Controls 
