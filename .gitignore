@@ -6,6 +6,7 @@ RemoteSystemsTempFiles/
 [Rr]elease/
 [Tt]est/
 *.launch
+.vscode/
 
 #STM32 git ignore
 *.mxproject
