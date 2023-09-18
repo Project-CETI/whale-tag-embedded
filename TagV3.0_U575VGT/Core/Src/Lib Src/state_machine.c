@@ -50,21 +50,20 @@ void state_machine_thread_entry(ULONG thread_input){
 			ULONG actual_flags;
 			tx_event_flags_get(&state_machine_event_flags_group, ALL_STATE_FLAGS, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 
-			//RTC timeout flag
-			if (actual_flags & STATE_TIMEOUT_FLAG){
-				enter_recovery();
-				state = STATE_RECOVERY;
-			}
 
-			//GPS geofencing flag
-			if (actual_flags & STATE_GPS_FLAG){
+			//GPS geofencing flag or RTC timeout flag
+			if ((actual_flags & STATE_GPS_FLAG) || (actual_flags & STATE_TIMEOUT_FLAG)){
 
 				//We're outside of dominica, exit data capture and enter recovery
 				if (state == STATE_DATA_CAPTURE){
 					hard_exit_data_capture();
-					enter_recovery();
-					state = STATE_RECOVERY;
 				}
+				else if (state == STATE_DATA_OFFLOAD) {
+					exit_data_offload();
+				}
+
+				enter_recovery();
+				state = STATE_RECOVERY;
 			}
 
 			//BMS low battery flag
@@ -127,17 +126,19 @@ void hard_exit_data_capture(){
 
 void enter_recovery(){
 
-	//Start APRS thread
+	//Start APRS thread and start burnwire to release tag
 	tx_thread_reset(&threads[APRS_THREAD].thread);
 	tx_thread_resume(&threads[APRS_THREAD].thread);
+	tx_thread_resume(&threads[BURNWIRE_THREAD].thread);
 }
 
-
+/*
 void exit_recovery(){
 
 	//Stop APRS thread
 	tx_thread_terminate(&threads[APRS_THREAD].thread);
 }
+*/
 
 
 void enter_data_offload(){

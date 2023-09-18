@@ -24,6 +24,7 @@
 #include "Sensor Inc/ECG.h"
 #include "Sensor Inc/GpsGeofencing.h"
 #include "Sensor Inc/ECG_SD.h"
+#include "Sensor Inc/RTC.h"
 #include "Lib Inc/state_machine.h"
 #include "Recovery Inc/Aprs.h"
 #include "Recovery Inc/Burnwire.h"

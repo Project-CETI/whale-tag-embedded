@@ -15,11 +15,16 @@
 #include "stm32u5xx_hal_spi.h"
 #include <stdbool.h>
 #include "Lib Inc/threads.h"
+#include "Sensor Inc/GpsGeofencing.h"
 
 extern SPI_HandleTypeDef hspi1;
 
 //Threads array
 extern Thread_HandleTypeDef threads[NUM_THREADS];
+
+//GPS data
+extern GPS_HandleTypeDef gps;
+extern GPS_Data gps_data;
 
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu);
 static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout);
@@ -209,6 +214,16 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 						imu_data[buffer_half][index].raw_data[7] = 0;
 						imu_data[buffer_half][index].raw_data[8] = 0;
 						imu_data[buffer_half][index].raw_data[9] = 0;
+					}
+
+					//Get date and time from GPS if position locked
+					if (gps.is_pos_locked) {
+						imu_data[buffer_half][index].timestamp[0] = gps_data.timestamp[0];
+						imu_data[buffer_half][index].timestamp[1] = gps_data.timestamp[1];
+						imu_data[buffer_half][index].timestamp[2] = gps_data.timestamp[2];
+						imu_data[buffer_half][index].datestamp[0] = gps_data.datestamp[0];
+						imu_data[buffer_half][index].datestamp[1] = gps_data.datestamp[1];
+						imu_data[buffer_half][index].datestamp[2] = gps_data.datestamp[2];
 					}
 
 					//DEBUG

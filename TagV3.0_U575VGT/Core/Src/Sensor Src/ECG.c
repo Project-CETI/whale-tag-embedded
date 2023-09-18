@@ -6,6 +6,7 @@
  */
 
 #include "Sensor Inc/ECG.h"
+#include "Sensor Inc/GpsGeofencing.h"
 #include "main.h"
 #include "stm32u5xx_hal_cortex.h"
 #include <stdbool.h>
@@ -14,7 +15,12 @@
 
 extern I2C_HandleTypeDef hi2c4;
 
+//Threads array
 extern Thread_HandleTypeDef threads[NUM_THREADS];
+
+//GPS data
+extern GPS_HandleTypeDef gps;
+extern GPS_Data gps_data;
 
 //Event flags (shared with ecg sd thread)
 TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
@@ -70,6 +76,16 @@ void ecg_thread_entry(ULONG thread_input){
 				good_ecg_data++;
 			}
 
+			//Get date and time from GPS if position locked
+			if (gps.is_pos_locked) {
+				ecg.data.timestamp[0] = gps_data.timestamp[0];
+				ecg.data.timestamp[1] = gps_data.timestamp[1];
+				ecg.data.timestamp[2] = gps_data.timestamp[2];
+				ecg.data.datestamp[0] = gps_data.datestamp[0];
+				ecg.data.datestamp[1] = gps_data.datestamp[1];
+				ecg.data.datestamp[2] = gps_data.datestamp[2];
+			}
+
 			//Fill up the first half buffer
 			ecg_data[0][index] = ecg.data;
 
@@ -97,6 +113,16 @@ void ecg_thread_entry(ULONG thread_input){
 			//New data is ready, retrieve it
 			if (ecg_read_adc(&ecg) == HAL_OK){
 				good_ecg_data++;
+			}
+
+			//Get date and time from GPS if position locked
+			if (gps.is_pos_locked) {
+				ecg.data.timestamp[0] = gps_data.timestamp[0];
+				ecg.data.timestamp[1] = gps_data.timestamp[1];
+				ecg.data.timestamp[2] = gps_data.timestamp[2];
+				ecg.data.datestamp[0] = gps_data.datestamp[0];
+				ecg.data.datestamp[1] = gps_data.datestamp[1];
+				ecg.data.datestamp[2] = gps_data.datestamp[2];
 			}
 
 			//Fill up the second half buffer

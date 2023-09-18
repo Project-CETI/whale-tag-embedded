@@ -100,6 +100,10 @@ typedef struct __IMU_Data_Typedef {
 	 * E.g., X_lsb and X_msb represent the acceleration in the X direction if it is an accelerometer report.
 	 */
 	uint8_t raw_data[10];
+
+	//Date and time of data
+	uint16_t timestamp[3];
+	uint16_t datestamp[3];
 } IMU_Data;
 
 //IMU typedef definition for useful variables

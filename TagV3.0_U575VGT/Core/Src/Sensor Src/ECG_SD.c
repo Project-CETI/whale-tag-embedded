@@ -27,10 +27,11 @@ extern TX_MUTEX ecg_second_half_mutex;
 //Array for holding ECG data. The buffer is split in half and shared with the ECG thread.
 extern ECG_Data ecg_data[2][ECG_HALF_BUFFER_SIZE];
 
-//DEBUG
+//Status variable for SD card "write complete" (0 means writing completed)
 uint8_t ecg_writing = 0;
 
 void ecg_SDWriteComplete(FX_FILE *file){
+
 	//Indicate that we are no longer writing to the SD card
 	ecg_writing = 0;
 }

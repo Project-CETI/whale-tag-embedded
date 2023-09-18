@@ -76,6 +76,10 @@
 //Struct for holding ECG data (data and timestamps)
 typedef struct __ECG_Data_Typedef {
 
+	//Date and time of data
+	uint16_t timestamp[3];
+	uint16_t datestamp[3];
+
 	//Raw data buffer for 24 bit data from ECG
 	uint8_t raw_data[3];
 }ECG_Data;

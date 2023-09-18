@@ -6,59 +6,74 @@
  */
 
 #include "Sensor Inc/RTC.h"
+#include "Sensor Inc/GpsGeofencing.h"
 #include "Lib Inc/state_machine.h"
 #include "main.h"
 
 //External variables
 extern RTC_HandleTypeDef hrtc;
 extern TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
-extern UART_HandleTypeDef huart2;
+extern GPS_HandleTypeDef gps;
+extern GPS_Data gps_data;
 
 void RTC_thread_entry(ULONG thread_input) {
 
 	//Create variable to track time
 	RTC_TimeTypeDef sTime = {0};
 	RTC_DateTypeDef sDate = {0};
+	RTC_TimeTypeDef eTime = {0};
+	RTC_DateTypeDef eDate = {0};
+	bool rtc_setup = false;
 
-	//Initialize start time for RTC
-	sTime.Hours = 0;
-	sTime.Minutes = 0;
-    sTime.Seconds = 0;
-    sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
-    sTime.StoreOperation = RTC_STOREOPERATION_RESET;
+	//Initialize start date and time for RTC only if there is GPS lock
+	if (gps.is_pos_locked) {
+		RTC_Init(&sTime, &sDate);
+		rtc_setup = true;
+	}
 
-    //Set start time for RTC
-    if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD) != HAL_OK) {
-    	Error_Handler();
-    }
+	while (1 && rtc_setup) {
 
-    //Initialize start date for RTC
-    sDate.WeekDay = RTC_WEEKDAY_SUNDAY;
-    sDate.Month = RTC_MONTH_SEPTEMBER;
-    sDate.Date = 0x15;
-    sDate.Year = 0x23;
+		//Calibrate RTC with new GPS date and time every time interval
+		if (gps.is_pos_locked) {
+			RTC_Init(&eTime, &eDate);
+		}
 
-    //Set start date for RTC
-    if (HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD) != HAL_OK) {
-    	Error_Handler();
-    }
-
-	while (1) {
-
-		//Get time from RTC
+		//Get time from RTC (must query time THEN date to update registers)
 		HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
 		HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
 
-		if (sTime.Seconds > RTC_SHUTDOWN_LIMIT_SEC) {
-			tx_event_flags_set(&state_machine_event_flags_group, STATE_CRITICAL_LOW_BATTERY_FLAG, TX_OR);
+		//Check if max operating duration passed
+		if (abs(eTime.Seconds - sTime.Seconds) > RTC_SHUTDOWN_LIMIT_SEC && abs(eTime.Hours - sTime.Hours) > RTC_SHUTDOWN_LIMIT_HOUR) {
+			tx_event_flags_set(&state_machine_event_flags_group, STATE_TIMEOUT_FLAG, TX_OR);
 		}
-
-		uint8_t sec = sTime.Seconds;
-
-		HAL_UART_Transmit(&huart2, &sec, 1, HAL_MAX_DELAY);
 
 		//Sleep and repeat the process once woken up
 		tx_thread_sleep(RTC_SLEEP_TIME_TICKS);
 	}
 }
+
+void RTC_Init(RTC_TimeTypeDef *eTime, RTC_DateTypeDef *eDate) {
+
+	eTime->Hours = gps_data.timestamp[0];
+	eTime->Minutes = gps_data.timestamp[1];
+	eTime->Seconds = gps_data.timestamp[2];
+	eTime->DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+	eTime->StoreOperation = RTC_STOREOPERATION_RESET;
+
+	//Set start time for RTC
+	if (HAL_RTC_SetTime(&hrtc, &eTime, RTC_FORMAT_BCD) != HAL_OK) {
+		Error_Handler();
+	}
+
+	//Initialize start date for RTC
+	eDate->Month = gps_data.datestamp[1];
+	eDate->Date = gps_data.datestamp[2];
+	eDate->Year = gps_data.datestamp[0];
+
+	//Set start date for RTC
+	if (HAL_RTC_SetDate(&hrtc, &eDate, RTC_FORMAT_BCD) != HAL_OK) {
+		Error_Handler();
+	}
+}
+
 

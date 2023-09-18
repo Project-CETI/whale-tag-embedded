@@ -52,6 +52,7 @@ typedef struct __GPS_Data {
 	uint32_t quality;
 
 	uint16_t timestamp[3]; //0 is hour, 1 is minute, 2 is second
+	uint16_t datestamp[3]; //0 is year, 1 is month, 2 is day
 
 	bool is_dominica;
 

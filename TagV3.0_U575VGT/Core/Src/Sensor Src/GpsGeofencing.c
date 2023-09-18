@@ -13,17 +13,20 @@
 extern UART_HandleTypeDef huart3;
 extern TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
 
+GPS_HandleTypeDef gps;
+GPS_Data gps_data;
+
 void gps_thread_entry(ULONG thread_input){
 
 	//Initialize GPS struct
-	GPS_HandleTypeDef gps;
+	//GPS_HandleTypeDef gps;
 	initialize_gps(&huart3, &gps);
 
 	//Thread infinite loop entry
 	while (1){
 
 		//Create struct to hold gps data
-		GPS_Data gps_data;
+		//GPS_Data gps_data;
 
 		//Try to get a GPS lock
 		if (get_gps_lock(&gps, &gps_data)){
