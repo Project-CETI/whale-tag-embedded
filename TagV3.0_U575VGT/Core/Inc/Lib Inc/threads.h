@@ -40,6 +40,7 @@ typedef enum __TX_THREAD_LIST {
 	GPS_THREAD,
 	APRS_THREAD,
 	BURNWIRE_THREAD,
+	RTC_THREAD,
 	NUM_THREADS //DO NOT ADD THREAD ENUMS BELOW THIS
 }Thread;
 
@@ -171,6 +172,17 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 				.thread_stack_size = 1024,
 				.priority = 10,
 				.preempt_threshold = 10,
+				.timeslice = TX_NO_TIME_SLICE,
+				.start = TX_DONT_START
+		},
+		[RTC_THREAD] = {
+				// RTC Thread
+				.thread_name = "RTC Thread",
+				.thread_entry_function = RTC_thread_entry,
+				.thread_input = 0x1234,
+				.thread_stack_size = 2048,
+				.priority = 8,
+				.preempt_threshold = 8,
 				.timeslice = TX_NO_TIME_SLICE,
 				.start = TX_DONT_START
 		}
