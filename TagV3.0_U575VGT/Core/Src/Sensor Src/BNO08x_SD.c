@@ -27,6 +27,7 @@ extern TX_MUTEX imu_second_half_mutex;
 extern IMU_Data imu_data[2][IMU_HALF_BUFFER_SIZE];
 
 uint8_t imu_writing = 0;
+char buffer[30];
 
 //Callback for completed SD card write
 void imu_SDWriteComplete(FX_FILE *file){
