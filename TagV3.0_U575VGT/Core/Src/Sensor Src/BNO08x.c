@@ -16,6 +16,7 @@
 #include <stdbool.h>
 #include "Lib Inc/threads.h"
 #include "Sensor Inc/GpsGeofencing.h"
+#include "Sensor Inc/RTC.h"
 
 extern SPI_HandleTypeDef hspi1;
 
@@ -25,6 +26,10 @@ extern Thread_HandleTypeDef threads[NUM_THREADS];
 //GPS data
 extern GPS_HandleTypeDef gps;
 extern GPS_Data gps_data;
+
+//RTC data
+extern RTC_TimeTypeDef eTime;
+extern RTC_DateTypeDef eDate;
 
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu);
 static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout);
@@ -37,13 +42,6 @@ TX_MUTEX imu_second_half_mutex;
 
 //Array for holding IMU data. The buffer is split in half and shared with the IMU thread.
 IMU_Data imu_data[2][IMU_HALF_BUFFER_SIZE] = {0};
-
-//DEBUG
-bool imu_running = false;
-uint8_t good_counter = 0;
-uint8_t bad = 0;
-
-
 
 void imu_thread_entry(ULONG thread_input){
 
@@ -82,9 +80,6 @@ void imu_thread_entry(ULONG thread_input){
 
 		//Release mutex
 		tx_mutex_put(&imu_second_half_mutex);
-
-		//DEBUG
-		good_counter = 0;
 		
 		ULONG actual_flags;
 
@@ -139,10 +134,11 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 
 HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 
-	//receive data buffer
+	//Receive data buffer
 	uint8_t receiveData[256] = {0};
+	uint8_t sample_index = 0;
 
-	for (uint16_t index; index < IMU_HALF_BUFFER_SIZE; index++){
+	for (uint16_t index = 0; index < IMU_HALF_BUFFER_SIZE; index++){
 
 		ULONG actual_events;
 
@@ -173,7 +169,7 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 		//Now that we know the length, wait for the payload of data to be ready
 		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
-		//Read the data (note that the SHTP header is resent with each read, so we still need to read the full length
+		//Read the data (note that the SHTP header is present with each read, so we still need to read the full length
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
 		ret = HAL_SPI_Receive(imu->hspi, receiveData, dataLength, IMU_SPI_READ_TIMEOUT);
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
@@ -199,38 +195,55 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 				//Ensure the data is somewhat valid (matches one of the report IDs)
 				if (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID || receiveData[parsedDataIndex] == IMU_ACCELEROMETER_REPORT_ID || receiveData[parsedDataIndex] == IMU_GYROSCOPE_REPORT_ID || receiveData[parsedDataIndex] == IMU_MAGNETOMETER_REPORT_ID){
 
+					//Create data header if this is first report
+					if (sample_index == 0) {
+						imu_data[buffer_half][index].data_header.num_samples = SAMPLES_PER_FRAME;
+						imu_data[buffer_half][index].data_header.num_samples = BYTES_PER_FRAME;
+						if (gps.is_pos_locked) {
+							imu_data[buffer_half][index].data_header.timestamp[0] = gps_data.timestamp[0];
+							imu_data[buffer_half][index].data_header.timestamp[1] = gps_data.timestamp[1];
+							imu_data[buffer_half][index].data_header.timestamp[2] = gps_data.timestamp[2];
+							imu_data[buffer_half][index].data_header.datestamp[0] = gps_data.datestamp[0];
+							imu_data[buffer_half][index].data_header.datestamp[1] = gps_data.datestamp[1];
+							imu_data[buffer_half][index].data_header.datestamp[2] = gps_data.datestamp[2];
+						}
+						else {
+							imu_data[buffer_half][index].data_header.timestamp[0] = eTime.Hours;
+							imu_data[buffer_half][index].data_header.timestamp[1] = eTime.Minutes;
+							imu_data[buffer_half][index].data_header.timestamp[2] = eTime.Seconds;
+							imu_data[buffer_half][index].data_header.datestamp[0] = eDate.Year;
+							imu_data[buffer_half][index].data_header.datestamp[1] = eDate.Month;
+							imu_data[buffer_half][index].data_header.datestamp[2] = eDate.Date;
+						}
+					}
+
 					//if its a quaternion, copy over all the bytes (10), if not just copy the 3 axis bytes (6)
 					uint8_t bytesToCopy = (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID) ? IMU_QUAT_USEFUL_BYTES : IMU_3_AXIS_USEFUL_BYTES;
 
 					//Copy the data header and then the useful data to our data struct
-					imu_data[buffer_half][index].data_header = receiveData[parsedDataIndex];
+					imu_data[buffer_half][index].data_id = receiveData[parsedDataIndex];
 
 					//Useful data starts 4 indexes after the report ID (skip over un-needed data)
-					memcpy(imu_data[buffer_half][index].raw_data, &receiveData[parsedDataIndex + 4], bytesToCopy);
+					memcpy(imu_data[buffer_half][index].raw_data[sample_index], &receiveData[parsedDataIndex + 4], bytesToCopy);
 
 					//If it was a 3-axis report, fill the last 4 bytes with 0's
 					if (bytesToCopy < IMU_QUAT_USEFUL_BYTES){
-						imu_data[buffer_half][index].raw_data[6] = 0;
-						imu_data[buffer_half][index].raw_data[7] = 0;
-						imu_data[buffer_half][index].raw_data[8] = 0;
-						imu_data[buffer_half][index].raw_data[9] = 0;
+						imu_data[buffer_half][index].raw_data[sample_index][6] = 0;
+						imu_data[buffer_half][index].raw_data[sample_index][7] = 0;
+						imu_data[buffer_half][index].raw_data[sample_index][8] = 0;
+						imu_data[buffer_half][index].raw_data[sample_index][9] = 0;
 					}
-
-					//Get date and time from GPS if position locked
-					if (gps.is_pos_locked) {
-						imu_data[buffer_half][index].timestamp[0] = gps_data.timestamp[0];
-						imu_data[buffer_half][index].timestamp[1] = gps_data.timestamp[1];
-						imu_data[buffer_half][index].timestamp[2] = gps_data.timestamp[2];
-						imu_data[buffer_half][index].datestamp[0] = gps_data.datestamp[0];
-						imu_data[buffer_half][index].datestamp[1] = gps_data.datestamp[1];
-						imu_data[buffer_half][index].datestamp[2] = gps_data.datestamp[2];
-					}
-
-					//DEBUG
-					good_counter++;
 
 					//increment forward to the next report
 					parsedDataIndex += bytesToCopy + 4;
+
+					//Increment sample count for data header, reset after max number of samples per frame reached
+					if (sample_index < SAMPLES_PER_FRAME) {
+						sample_index++;
+					}
+					else {
+						sample_index = 0;
+					}
 
 					//Increment index so we can store the next spot if this read has another report after it
 					if (parsedDataIndex < dataLength){

@@ -18,6 +18,8 @@
 #define RTC_SLEEP_TIME_SEC 5
 #define RTC_SLEEP_TIME_TICKS tx_s_to_ticks(RTC_SLEEP_TIME_SEC)
 
+#define RTC_INIT_REFRESH_MINS 5
+
 void RTC_thread_entry(ULONG thread_input);
 
 

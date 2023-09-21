@@ -8,11 +8,17 @@
  */
 
 #include "Sensor Inc/BNO08x_SD.h"
+#include "Sensor Inc/RTC.h"
 #include "Lib Inc/threads.h"
 #include "app_filex.h"
+#include <stdio.h>
 
 //Threads array
 extern Thread_HandleTypeDef threads[NUM_THREADS];
+
+//RTC date and time
+extern RTC_TimeTypeDef eTime;
+extern RTC_DateTypeDef eDate;
 
 //FileX variables
 extern FX_MEDIA        sdio_disk;
@@ -42,13 +48,25 @@ void imu_sd_thread_entry(ULONG thread_input){
 
 	//Create our binary file for dumping imu data
 	UINT fx_result = FX_SUCCESS;
-	fx_result = fx_file_create(&sdio_disk, "imu_test.bin");
+
+	//Create file name from RTC date and time
+	char file_name[32];
+	sprintf(file_name, "%s%d%s%d%s%d%s%d%s", "imu_", eDate.Month, "-", eDate.Date, "-", eTime.Hours, "_", eTime.Minutes, ".bin");
+
+	//Create file
+	fx_result = fx_file_create(&sdio_disk, file_name);
+	//fx_result = fx_file_create(&sdio_disk, "imu_data.bin");
+
+	//Check for file creation errors
 	if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
 	  Error_Handler();
 	}
 
-	//Open the file
-	fx_result = fx_file_open(&sdio_disk, &imu_file, "imu_test.bin", FX_OPEN_FOR_WRITE);
+	//Open file with date and time stamp
+	fx_result = fx_file_open(&sdio_disk, &imu_file, file_name, FX_OPEN_FOR_WRITE);
+	//fx_result = fx_file_open(&sdio_disk, &imu_file, "imu_data.bin", FX_OPEN_FOR_WRITE);
+
+	//Check for file access errors
 	if(fx_result != FX_SUCCESS){
 	  Error_Handler();
 	}

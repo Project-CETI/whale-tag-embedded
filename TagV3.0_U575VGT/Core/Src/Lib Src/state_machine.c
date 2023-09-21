@@ -50,7 +50,6 @@ void state_machine_thread_entry(ULONG thread_input){
 			ULONG actual_flags;
 			tx_event_flags_get(&state_machine_event_flags_group, ALL_STATE_FLAGS, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 
-
 			//GPS geofencing flag or RTC timeout flag
 			if ((actual_flags & STATE_GPS_FLAG) || (actual_flags & STATE_TIMEOUT_FLAG)){
 

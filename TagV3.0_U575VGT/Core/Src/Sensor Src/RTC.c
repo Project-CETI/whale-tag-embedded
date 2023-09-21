@@ -16,25 +16,28 @@ extern TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
 extern GPS_HandleTypeDef gps;
 extern GPS_Data gps_data;
 
-void RTC_thread_entry(ULONG thread_input) {
+//Create RTC structs to track date and time
+RTC_TimeTypeDef sTime = {0};
+RTC_DateTypeDef sDate = {0};
+RTC_TimeTypeDef eTime = {0};
+RTC_DateTypeDef eDate = {0};
 
-	//Create variable to track time
-	RTC_TimeTypeDef sTime = {0};
-	RTC_DateTypeDef sDate = {0};
-	RTC_TimeTypeDef eTime = {0};
-	RTC_DateTypeDef eDate = {0};
-	bool rtc_setup = false;
+//Status for RTC initialization from GPS time
+bool rtc_setup = false;
+
+void RTC_thread_entry(ULONG thread_input) {
 
 	//Initialize start date and time for RTC only if there is GPS lock
 	if (gps.is_pos_locked) {
 		RTC_Init(&sTime, &sDate);
+		RTC_Init(&eTime, &eDate);
 		rtc_setup = true;
 	}
 
 	while (1 && rtc_setup) {
 
 		//Calibrate RTC with new GPS date and time every time interval
-		if (gps.is_pos_locked) {
+		if (gps.is_pos_locked && eTime.Minutes % RTC_INIT_REFRESH_MINS == 0) {
 			RTC_Init(&eTime, &eDate);
 		}
 
@@ -66,9 +69,9 @@ void RTC_Init(RTC_TimeTypeDef *eTime, RTC_DateTypeDef *eDate) {
 	}
 
 	//Initialize start date for RTC
+	eDate->Year = gps_data.datestamp[0];
 	eDate->Month = gps_data.datestamp[1];
 	eDate->Date = gps_data.datestamp[2];
-	eDate->Year = gps_data.datestamp[0];
 
 	//Set start date for RTC
 	if (HAL_RTC_SetDate(&hrtc, &eDate, RTC_FORMAT_BCD) != HAL_OK) {

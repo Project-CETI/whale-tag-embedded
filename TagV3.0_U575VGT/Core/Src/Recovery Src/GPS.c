@@ -36,9 +36,12 @@ bool read_gps_data(GPS_HandleTypeDef* gps){
 		gps->data[GPS_SIM].latitude = GPS_SIM_LAT;
 		gps->data[GPS_SIM].longitude = GPS_SIM_LON;
 		gps->data[GPS_SIM].is_dominica = is_in_dominica(GPS_SIM_LAT, GPS_SIM_LON);
-		gps->data[GPS_SIM].timestamp[0] = 0;
-		gps->data[GPS_SIM].timestamp[1] = 0;
-		gps->data[GPS_SIM].timestamp[2] = 0;
+		gps->data[GPS_SIM].timestamp[0] = 1;
+		gps->data[GPS_SIM].timestamp[1] = 2;
+		gps->data[GPS_SIM].timestamp[2] = 3;
+		gps->data[GPS_SIM].datestamp[0] = 23;
+		gps->data[GPS_SIM].datestamp[1] = 9;
+		gps->data[GPS_SIM].datestamp[2] = 21;
 
 		gps->is_pos_locked = true;
 

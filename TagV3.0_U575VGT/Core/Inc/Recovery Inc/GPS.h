@@ -27,7 +27,7 @@
 #define GPS_UART_TIMEOUT 5000
 #define GPS_TRY_LOCK_TIMEOUT 5000
 
-#define GPS_SIMULATION false
+#define GPS_SIMULATION true
 #define GPS_SIM_LAT 42.36326
 #define GPS_SIM_LON -71.12650
 
@@ -52,7 +52,7 @@ typedef struct __GPS_Data {
 	uint32_t quality;
 
 	uint16_t timestamp[3]; //0 is hour, 1 is minute, 2 is second
-	uint16_t datestamp[3]; //0 is year, 1 is month, 2 is day
+	uint16_t datestamp[3]; //0 is year, 1 is month, 2 is date
 
 	bool is_dominica;
 
