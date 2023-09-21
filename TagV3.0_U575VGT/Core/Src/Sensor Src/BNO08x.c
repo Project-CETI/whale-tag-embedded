@@ -21,6 +21,8 @@ extern SPI_HandleTypeDef hspi1;
 //Threads array
 extern Thread_HandleTypeDef threads[NUM_THREADS];
 
+extern UART_HandleTypeDef huart4;
+
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu);
 static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout);
 static void IMU_configure_reports(IMU_HandleTypeDef * imu, uint8_t reportID, bool isLastReport);
@@ -137,7 +139,7 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 	//receive data buffer
 	uint8_t receiveData[256] = {0};
 
-	for (uint16_t index; index < IMU_HALF_BUFFER_SIZE; index++){
+	for (uint16_t index = 0; index < IMU_HALF_BUFFER_SIZE; index++){
 
 		ULONG actual_events;
 
@@ -182,6 +184,8 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 			//Return to start of loop
 			continue;
 		}
+
+		HAL_UART_Transmit(&huart4, &receiveData, 20, HAL_MAX_DELAY);
 
 		//Ensure this is the correct channel we're receiving data on and it has a timestamp
 		if (receiveData[2] == IMU_DATA_CHANNEL && receiveData[4] == IMU_TIMESTAMP_REPORT_ID){
@@ -325,6 +329,8 @@ static void IMU_configure_reports(IMU_HandleTypeDef * imu, uint8_t reportID, boo
 		HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
 		HAL_Delay(1);
 	}
+
+	HAL_UART_Transmit(&huart4, &transmitData, 20, HAL_MAX_DELAY);
 
 	//Transmit data and pull CS back up to high
 	HAL_SPI_Transmit(&hspi1, transmitData, IMU_CONFIGURE_REPORT_LENGTH, HAL_MAX_DELAY);
