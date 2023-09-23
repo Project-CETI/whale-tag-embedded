@@ -88,6 +88,27 @@ do
 	  	echo "battery is OK"
 	fi
 
+# Check for overflow.  
+# If overflow has occurred, restart the main app to cleanly reset
+# The overflow flag is the Pi GPIO 12, read using pigpio utility
+# A note is made in the /data/fifo_status.txt file if there is an event
+
+	overflow=$(pigs r 12)
+
+	if [ $overflow -eq 1 ]
+	then
+		echo "FIFO overflow detected, restarting recorder"
+		echo "quit" > cetiCommand
+		cat cetiResponse
+		sudo touch /data/fifo_status.txt
+                echo date | sudo tee -a /data/fifo_status.txt
+		echo "fault detected\n" | sudo tee -a /data/fifo_status.txt
+		sleep 30
+		sudo /opt/ceti-tag-data-capture/bin/cetiTagApp & 
+	else
+		echo "FIFO is OK"
+	fi
+
 #loop timing
 	sleep 60
 done
