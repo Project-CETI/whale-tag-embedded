@@ -43,6 +43,9 @@ TX_MUTEX imu_second_half_mutex;
 //Array for holding IMU data. The buffer is split in half and shared with the IMU thread.
 IMU_Data imu_data[2][IMU_HALF_BUFFER_SIZE] = {0};
 
+//Counter variable for keeping track of current buffer size
+bool imu_buffer_status = false;
+
 void imu_thread_entry(ULONG thread_input){
 
 	//Create IMU handler and initialize

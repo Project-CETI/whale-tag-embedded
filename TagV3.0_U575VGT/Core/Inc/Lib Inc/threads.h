@@ -37,13 +37,14 @@ typedef enum __TX_THREAD_LIST {
 	AUDIO_THREAD,
 	IMU_THREAD,
 	DEPTH_THREAD,
-	IMU_SD_THREAD,
+	//IMU_SD_THREAD,
 	ECG_THREAD,
-	ECG_SD_THREAD,
+	//ECG_SD_THREAD,
 	GPS_THREAD,
 	APRS_THREAD,
 	BURNWIRE_THREAD,
 	RTC_THREAD,
+	DATA_LOG_THREAD,
 	NUM_THREADS //DO NOT ADD THREAD ENUMS BELOW THIS
 }Thread;
 
@@ -123,6 +124,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_DONT_START
 		},
+		/*
 		[IMU_SD_THREAD] = {
 			//IMU SD Thread
 			.thread_name = "IMU SD Thread",
@@ -133,7 +135,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.preempt_threshold = 5,
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_DONT_START
-		},
+		},*/
 		[ECG_THREAD] = {
 			//ECG Thread
 			.thread_name = "ECG Thread",
@@ -144,7 +146,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.preempt_threshold = 6,
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_DONT_START
-		},
+		},/*
 		[ECG_SD_THREAD] = {
 			//ECG_SD Thread
 			.thread_name = "ECG SD Thread",
@@ -155,7 +157,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.preempt_threshold = 7,
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_DONT_START
-		},
+		},*/
 		[GPS_THREAD] = {
 			//GPS Geofencing
 			.thread_name = "GPS Thread",
@@ -199,6 +201,17 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.preempt_threshold = 8,
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_AUTO_START
+		},
+		[RTC_THREAD] = {
+			// Data Log Thread
+			.thread_name = "Data Log Thread",
+			.thread_entry_function = sd_thread_entry,
+			.thread_input = 0x1234,
+			.thread_stack_size = 2048,
+			.priority = 5,
+			.preempt_threshold = 5,
+			.timeslice = TX_NO_TIME_SLICE,
+			.start = TX_DONT_START
 		}
 };
 
