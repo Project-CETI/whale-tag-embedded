@@ -18,6 +18,7 @@
         return false;\
     }
 
+/*
 void Keller_UT(Keller_HandleTypedef *keller_sensor){
 	Keller_get_data(keller_sensor);
 	printf("Keller Sensor Unit Test\r\n");
@@ -36,6 +37,7 @@ void Keller_UT(Keller_HandleTypedef *keller_sensor){
 		printf("\tTemperature Passed: %.2fC\r\n", keller_sensor->temperature);
 	}
 }
+*/
 
 void Light_UT(LightSensorHandleTypedef *light_sensor){
 	// ALS Integration Time is the measurement time for each ALS cycle

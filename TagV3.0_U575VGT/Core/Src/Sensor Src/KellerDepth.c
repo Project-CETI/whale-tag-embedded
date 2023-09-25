@@ -7,6 +7,17 @@
 
 #include "KellerDepth.h"
 #include "main.h"
+#include "BNO08x.h"
+#include "fx_api.h"
+#include "app_filex.h"
+#include "main.h"
+#include "stm32u5xx_hal_cortex.h"
+#include "stm32u5xx_hal_gpio.h"
+#include "stm32u5xx_hal_spi.h"
+#include <stdbool.h>
+#include "Lib Inc/threads.h"
+#include "Sensor Inc/GpsGeofencing.h"
+#include "Sensor Inc/RTC.h"
 
 extern I2C_HandleTypeDef hi2c2;
 
@@ -18,12 +29,12 @@ TX_MUTEX depth_second_half_mutex;
 //Array for holding IMU data. The buffer is split in half and shared with the IMU thread.
 DEPTH_Data depth_data[2][IMU_HALF_BUFFER_SIZE] = {0};
 
-void Keller_thread_entry(ULONG thread_input) {
+void keller_thread_entry(ULONG thread_input) {
 
 	//Create Keller handler and initialize
 	Keller_HandleTypedef depth;
 
-	Keller_init(&hi2c2, &depth);
+	keller_init(&hi2c2, &depth);
 
 	//Create the event flag
 	tx_event_flags_create(&depth_event_flags_group, "DEPTH Event Flags");
@@ -38,7 +49,7 @@ void Keller_thread_entry(ULONG thread_input) {
 		tx_mutex_get(&depth_first_half_mutex, TX_WAIT_FOREVER);
 
 		//Fill up the first half of the buffer (this function call fills up the IMU buffer on its own)
-		Keller_get_data(&depth, 0);
+		keller_get_data(&depth, 0);
 
 		//Release the mutex to allow for SD card writing thread to run
 		tx_mutex_put(&depth_first_half_mutex);
@@ -47,7 +58,7 @@ void Keller_thread_entry(ULONG thread_input) {
 		tx_mutex_get(&depth_second_half_mutex, TX_WAIT_FOREVER);
 
 		//Call to get data, this handles filling up the second half of the buffer completely
-		Keller_get_data(&imu, 1);
+		keller_get_data(&depth, 1);
 
 		//Release mutex
 		tx_mutex_put(&depth_second_half_mutex);
@@ -66,11 +77,11 @@ void Keller_thread_entry(ULONG thread_input) {
 	}
 }
 
-void Keller_init(Keller_HandleTypedef *keller_sensor, I2C_HandleTypeDef *hi2c_device) {
+void keller_init(Keller_HandleTypedef *keller_sensor, I2C_HandleTypeDef *hi2c_device) {
 	keller_sensor->i2c_handler = hi2c_device;
 }
 
-HAL_StatusTypeDef Keller_get_data(Keller_HandleTypedef *keller_sensor, uint8_t buffer_half) {
+HAL_StatusTypeDef keller_get_data(Keller_HandleTypedef* keller_sensor, uint8_t buffer_half) {
 
 	//Receive data buffer
 	uint8_t receiveData[256] = {0};
@@ -83,7 +94,7 @@ HAL_StatusTypeDef Keller_get_data(Keller_HandleTypedef *keller_sensor, uint8_t b
 		ULONG actual_events;
 
 		//Wait for data to be ready (suspends so other threads can run)
-		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
+		tx_event_flags_get(&depth_event_flags_group, DEPTH_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
 		uint8_t data_buf[1] = {KELLER_REQ};
 
@@ -102,7 +113,7 @@ HAL_StatusTypeDef Keller_get_data(Keller_HandleTypedef *keller_sensor, uint8_t b
 		// The easy solution is to wait for 8ms>, the faster solution is to read the Busy flag or (if MCU pin available) EOC pin
 		HAL_Delay(8);
 
-		ret = HAL_I2C_Master_Receive(keller_sensor->i2c_handler, KELLER_ADDR << 1, keller_sensor->raw_data, KELLER_DLEN, 100);
+		ret = HAL_I2C_Master_Receive(keller_sensor->i2c_handler, KELLER_ADDR << 1, receiveData, KELLER_DLEN, 100);
 
 		//If there is some issue, ignore the data
 		if (ret != HAL_OK) {
@@ -113,12 +124,12 @@ HAL_StatusTypeDef Keller_get_data(Keller_HandleTypedef *keller_sensor, uint8_t b
 			continue;
 		}
 
-		depth_data[buffer_half][index].status = keller_sensor->raw_data[0];
-		depth_data[buffer_half][index].raw_pressure = ((uint16_t)keller_sensor->raw_data[1] << 8) | keller_sensor->raw_data[2];
-		depth_data[buffer_half][index]->raw_temp = ((uint16_t)keller_sensor->raw_data[3] << 8) | keller_sensor->raw_data[4];
+		depth_data[buffer_half][index].status = receiveData[0];
+		depth_data[buffer_half][index].raw_pressure = ((uint16_t) receiveData[1] << 8) | receiveData[2];
+		depth_data[buffer_half][index].raw_temp = ((uint16_t) receiveData[3] << 8) | receiveData[4];
 
-		depth_data[buffer_half][index]->temperature = TO_DEGC(keller_sensor->raw_temp);
-		depth_data[buffer_half][index]->pressure = TO_BAR(keller_sensor->raw_pressure);
+		depth_data[buffer_half][index].temperature = TO_DEGC(depth_data[buffer_half][index].raw_temp);
+		depth_data[buffer_half][index].pressure = TO_BAR(depth_data[buffer_half][index].raw_pressure);
 
 		//Increment sample count for data header, reset after max number of samples per frame reached
 		if (sample_index < SAMPLES_PER_FRAME-1) {

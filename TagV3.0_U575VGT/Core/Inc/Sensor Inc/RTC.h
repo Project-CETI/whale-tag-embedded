@@ -11,6 +11,7 @@
 #include "Lib Inc/timing.h"
 #include "tx_api.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 #define RTC_SHUTDOWN_LIMIT_SEC 20
 #define RTC_SHUTDOWN_LIMIT_HOUR 1
@@ -19,8 +20,8 @@
 #define RTC_SLEEP_TIME_TICKS tx_s_to_ticks(RTC_SLEEP_TIME_SEC)
 
 #define RTC_INIT_REFRESH_MINS 5
+#define RTC_TIME_TOLERANCE_MINS 1
 
 void RTC_thread_entry(ULONG thread_input);
-
 
 #endif /* INC_SENSOR_INC_RTC_H_ */
