@@ -101,8 +101,8 @@ do
 		echo "quit" > cetiCommand
 		cat cetiResponse
 		sudo touch /data/fifo_status.txt
-                echo date | sudo tee -a /data/fifo_status.txt
-		echo "fault detected\n" | sudo tee -a /data/fifo_status.txt
+        date | sudo tee -a /data/fifo_status.txt
+		echo "fault detected" | sudo tee -a /data/fifo_status.txt
 		sleep 30
 		sudo /opt/ceti-tag-data-capture/bin/cetiTagApp & 
 	else
