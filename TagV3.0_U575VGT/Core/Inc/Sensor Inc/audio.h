@@ -39,6 +39,9 @@
 
 #define TEMP_BUF_HALF_BLOCK_LENGTH ((TEMP_BUF_BLOCK_LENGTH) / 2)
 
+//Time interval to create new logging file in minutes
+#define NEW_FILE_INTERVAL_MINS 5
+
 typedef enum {
     AUDIO_BUF_STATE_EMPTY,
     AUDIO_BUF_STATE_HALF_FULL,

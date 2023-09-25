@@ -35,6 +35,7 @@ typedef enum __TX_THREAD_LIST {
 	STATE_MACHINE_THREAD,
 	AUDIO_THREAD,
 	IMU_THREAD,
+	DEPTH_THREAD,
 	IMU_SD_THREAD,
 	ECG_THREAD,
 	ECG_SD_THREAD,
@@ -103,6 +104,17 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			//IMU Thread
 			.thread_name = "IMU Thread",
 			.thread_entry_function = imu_thread_entry,
+			.thread_input = 0x1234,
+			.thread_stack_size = 800,
+			.priority = 4,
+			.preempt_threshold = 4,
+			.timeslice = TX_NO_TIME_SLICE,
+			.start = TX_DONT_START
+		},
+		[DEPTH_THREAD] = {
+			//IMU Thread
+			.thread_name = "Depth Thread",
+			.thread_entry_function = keller_thread_entry,
 			.thread_input = 0x1234,
 			.thread_stack_size = 800,
 			.priority = 4,

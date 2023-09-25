@@ -38,6 +38,11 @@
 #define IMU_GYROSCOPE_REPORT_ID 0x02 //report ID for the gyroscope data
 #define IMU_MAGNETOMETER_REPORT_ID 0x03 //report ID for the magnetometer data
 
+//Sensor metadata
+#define ACC_META 0xE302
+#define GYRO_META 0xE306
+#define ROTATION_VECTOR_META 0xE30B
+
 //Report interval from MSByte to LSByte
 #define IMU_REPORT_INTERVAL_3 0x00
 #define IMU_REPORT_INTERVAL_2 0x00
@@ -75,32 +80,16 @@
 #define IMU_QUAT_USEFUL_BYTES 10
 #define IMU_3_AXIS_USEFUL_BYTES 6
 
-//Number of bytes for
+//Frame parameters
 #define SAMPLE_DATA_SIZE 10
 #define SAMPLES_PER_FRAME 15
-#define BYTES_PER_FRAME 165
+#define HEADER_ID 0x24
 
 //MS timeout for SPI reads
 #define IMU_SPI_READ_TIMEOUT 10
 
-typedef struct __IMU_Header_Typedef {
-	//Date and time of data
-	uint16_t timestamp[3];
-	uint16_t datestamp[3];
-
-	//Samples in frame
-	uint8_t num_samples;
-
-	//Bytes in frame
-	uint8_t num_bytes;
-
-} IMU_Header;
-
 //IMU typedef definition for useful data holding (of various types, like quaternion, accel, gyro, magnetometer
 typedef struct __IMU_Data_Typedef {
-
-	//Data header for keeping metadata (date, time, samples in frame, bytes in frame)
-	IMU_Header data_header;
 
 	//A header to signify which type of data this is (Matches the macro defined report IDs above)
 	uint8_t data_id;
@@ -120,11 +109,11 @@ typedef struct __IMU_Data_Typedef {
 	 *
 	 * E.g., X_lsb and X_msb represent the acceleration in the X direction if it is an accelerometer report.
 	 */
-	uint8_t raw_data[SAMPLES_PER_FRAME][SAMPLE_DATA_SIZE];
+	uint8_t raw_data[SAMPLE_DATA_SIZE];
 } IMU_Data;
 
 //IMU typedef definition for useful variables
-typedef struct __IMU_Typedef{
+typedef struct __IMU_Typedef {
 
 	//SPI handler for communication
 	SPI_HandleTypeDef* hspi;

@@ -45,28 +45,20 @@ void imu_SDWriteComplete(FX_FILE *file){
 void imu_sd_thread_entry(ULONG thread_input){
 
 	FX_FILE imu_file = {};
-
-	//Create our binary file for dumping imu data
 	UINT fx_result = FX_SUCCESS;
 
 	//Create file name from RTC date and time
 	char file_name[32];
-	sprintf(file_name, "%s%d%s%d%s%d%s%d%s", "imu_", eDate.Month, "-", eDate.Date, "-", eTime.Hours, "_", eTime.Minutes, ".bin");
+	sprintf(file_name, "%s%d%s%d%s%d%s%d%s", "imu-", eDate.Month, "-", eDate.Date, "-", eTime.Hours, "_", eTime.Minutes, ".bin");
 
-	//Create file
+	//Create our binary file for dumping imu data
 	fx_result = fx_file_create(&sdio_disk, file_name);
-	//fx_result = fx_file_create(&sdio_disk, "imu_data.bin");
-
-	//Check for file creation errors
 	if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
 	  Error_Handler();
 	}
 
-	//Open file with date and time stamp
+	//Open the file
 	fx_result = fx_file_open(&sdio_disk, &imu_file, file_name, FX_OPEN_FOR_WRITE);
-	//fx_result = fx_file_open(&sdio_disk, &imu_file, "imu_data.bin", FX_OPEN_FOR_WRITE);
-
-	//Check for file access errors
 	if(fx_result != FX_SUCCESS){
 	  Error_Handler();
 	}
@@ -110,9 +102,10 @@ void imu_sd_thread_entry(ULONG thread_input){
 		//Release second half mutex
 		tx_mutex_put(&imu_second_half_mutex);
 
-		ULONG actual_flags;
+
 
 		//Check to see if a stop flag was raised
+		ULONG actual_flags;
 		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
 
 		//If the stop flag was raised

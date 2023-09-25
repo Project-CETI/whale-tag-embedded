@@ -35,7 +35,7 @@ static void IMU_read_startup_data(IMU_HandleTypeDef* imu);
 static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout);
 static void IMU_configure_reports(IMU_HandleTypeDef * imu, uint8_t reportID, bool isLastReport);
 
-//ThreadX useful variables (defined globally because theyre shared with the SD card writing thread)
+//ThreadX useful variables (defined globally because they're shared with the SD card writing thread)
 TX_EVENT_FLAGS_GROUP imu_event_flags_group;
 TX_MUTEX imu_first_half_mutex;
 TX_MUTEX imu_second_half_mutex;
@@ -50,7 +50,7 @@ void imu_thread_entry(ULONG thread_input){
 
 	IMU_init(&hspi1, &imu);
 
-	//Create the events flag.
+	//Create the events flag
 	tx_event_flags_create(&imu_event_flags_group, "IMU Event Flags");
 	tx_mutex_create(&imu_first_half_mutex, "IMU First Half Mutex", TX_INHERIT);
 	tx_mutex_create(&imu_second_half_mutex, "IMU Second Half Mutex", TX_INHERIT);
@@ -81,9 +81,8 @@ void imu_thread_entry(ULONG thread_input){
 		//Release mutex
 		tx_mutex_put(&imu_second_half_mutex);
 		
-		ULONG actual_flags;
-
 		//Check to see if there was a stop flag raised
+		ULONG actual_flags;
 		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
 
 		//If there was something set cleanup the thread
@@ -136,6 +135,8 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 
 	//Receive data buffer
 	uint8_t receiveData[256] = {0};
+
+	//Index to keep track of number of samples per frame
 	uint8_t sample_index = 0;
 
 	for (uint16_t index = 0; index < IMU_HALF_BUFFER_SIZE; index++){
@@ -197,48 +198,54 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 
 					//Create data header if this is first report
 					if (sample_index == 0) {
-						imu_data[buffer_half][index].data_header.num_samples = SAMPLES_PER_FRAME;
-						imu_data[buffer_half][index].data_header.num_samples = BYTES_PER_FRAME;
+						imu_data[buffer_half][index].data_id = HEADER_ID;
 						if (gps.is_pos_locked) {
-							imu_data[buffer_half][index].data_header.timestamp[0] = gps_data.timestamp[0];
-							imu_data[buffer_half][index].data_header.timestamp[1] = gps_data.timestamp[1];
-							imu_data[buffer_half][index].data_header.timestamp[2] = gps_data.timestamp[2];
-							imu_data[buffer_half][index].data_header.datestamp[0] = gps_data.datestamp[0];
-							imu_data[buffer_half][index].data_header.datestamp[1] = gps_data.datestamp[1];
-							imu_data[buffer_half][index].data_header.datestamp[2] = gps_data.datestamp[2];
+							imu_data[buffer_half][index].raw_data[0] = gps_data.timestamp[0];
+							imu_data[buffer_half][index].raw_data[1] = gps_data.timestamp[1];
+							imu_data[buffer_half][index].raw_data[2] = gps_data.timestamp[2];
+							imu_data[buffer_half][index].raw_data[3] = gps_data.datestamp[0];
+							imu_data[buffer_half][index].raw_data[4] = gps_data.datestamp[1];
+							imu_data[buffer_half][index].raw_data[5] = gps_data.datestamp[2];
 						}
 						else {
-							imu_data[buffer_half][index].data_header.timestamp[0] = eTime.Hours;
-							imu_data[buffer_half][index].data_header.timestamp[1] = eTime.Minutes;
-							imu_data[buffer_half][index].data_header.timestamp[2] = eTime.Seconds;
-							imu_data[buffer_half][index].data_header.datestamp[0] = eDate.Year;
-							imu_data[buffer_half][index].data_header.datestamp[1] = eDate.Month;
-							imu_data[buffer_half][index].data_header.datestamp[2] = eDate.Date;
+							imu_data[buffer_half][index].raw_data[0] = eTime.Hours;
+							imu_data[buffer_half][index].raw_data[1] = eTime.Minutes;
+							imu_data[buffer_half][index].raw_data[2] = eTime.Seconds;
+							imu_data[buffer_half][index].raw_data[3] = eDate.Year;
+							imu_data[buffer_half][index].raw_data[4] = eDate.Month;
+							imu_data[buffer_half][index].raw_data[5] = eDate.Date;
 						}
+						imu_data[buffer_half][index].raw_data[6] = 0;
+						imu_data[buffer_half][index].raw_data[7] = 0;
+						imu_data[buffer_half][index].raw_data[8] = 0;
+						imu_data[buffer_half][index].raw_data[9] = 0;
+					}
+					else {
+						//if its a quaternion, copy over all the bytes (10), if not just copy the 3 axis bytes (6)
+						uint8_t bytesToCopy = (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID) ? IMU_QUAT_USEFUL_BYTES : IMU_3_AXIS_USEFUL_BYTES;
+
+						//Copy the data header and then the useful data to our data struct
+						imu_data[buffer_half][index].data_id = receiveData[parsedDataIndex];
+
+						//Useful data starts 4 indexes after the report ID (skip over un-needed data)
+						memcpy(imu_data[buffer_half][index].raw_data, &receiveData[parsedDataIndex + 4], bytesToCopy);
+
+						//If it was a 3-axis report, fill the last 4 bytes with 0's
+						if (bytesToCopy < IMU_QUAT_USEFUL_BYTES){
+							imu_data[buffer_half][index].raw_data[6] = 0;
+							imu_data[buffer_half][index].raw_data[7] = 0;
+							imu_data[buffer_half][index].raw_data[8] = 0;
+							imu_data[buffer_half][index].raw_data[9] = 0;
+						}
+
+						//increment forward to the next report
+						parsedDataIndex += bytesToCopy + 4;
 					}
 
-					//if its a quaternion, copy over all the bytes (10), if not just copy the 3 axis bytes (6)
-					uint8_t bytesToCopy = (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID) ? IMU_QUAT_USEFUL_BYTES : IMU_3_AXIS_USEFUL_BYTES;
 
-					//Copy the data header and then the useful data to our data struct
-					imu_data[buffer_half][index].data_id = receiveData[parsedDataIndex];
-
-					//Useful data starts 4 indexes after the report ID (skip over un-needed data)
-					memcpy(imu_data[buffer_half][index].raw_data[sample_index], &receiveData[parsedDataIndex + 4], bytesToCopy);
-
-					//If it was a 3-axis report, fill the last 4 bytes with 0's
-					if (bytesToCopy < IMU_QUAT_USEFUL_BYTES){
-						imu_data[buffer_half][index].raw_data[sample_index][6] = 0;
-						imu_data[buffer_half][index].raw_data[sample_index][7] = 0;
-						imu_data[buffer_half][index].raw_data[sample_index][8] = 0;
-						imu_data[buffer_half][index].raw_data[sample_index][9] = 0;
-					}
-
-					//increment forward to the next report
-					parsedDataIndex += bytesToCopy + 4;
 
 					//Increment sample count for data header, reset after max number of samples per frame reached
-					if (sample_index < SAMPLES_PER_FRAME) {
+					if (sample_index < SAMPLES_PER_FRAME-1) {
 						sample_index++;
 					}
 					else {

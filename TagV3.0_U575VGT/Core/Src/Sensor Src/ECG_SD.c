@@ -8,12 +8,20 @@
  */
 
 #include "Sensor Inc/ECG_SD.h"
+#include "Sensor Inc/RTC.h"
 #include "Lib Inc/threads.h"
 #include "app_filex.h"
 #include <stdbool.h>
+#include <stdio.h>
 
 //Thread Array
 extern Thread_HandleTypeDef threads[NUM_THREADS];
+
+//RTC date and time
+extern RTC_TimeTypeDef sTime;
+extern RTC_DateTypeDef sDate;
+extern RTC_TimeTypeDef eTime;
+extern RTC_DateTypeDef eDate;
 
 //FileX variables
 extern FX_MEDIA        sdio_disk;
@@ -27,11 +35,10 @@ extern TX_MUTEX ecg_second_half_mutex;
 //Array for holding ECG data. The buffer is split in half and shared with the ECG thread.
 extern ECG_Data ecg_data[2][ECG_HALF_BUFFER_SIZE];
 
-//Status variable for SD card "write complete" (0 means writing completed)
+//DEBUG
 uint8_t ecg_writing = 0;
 
 void ecg_SDWriteComplete(FX_FILE *file){
-
 	//Indicate that we are no longer writing to the SD card
 	ecg_writing = 0;
 }
@@ -39,16 +46,20 @@ void ecg_SDWriteComplete(FX_FILE *file){
 void ecg_sd_thread_entry(ULONG thread_input){
 
 	FX_FILE ecg_file = {};
+	UINT fx_result = FX_SUCCESS;
+
+	//Create file name from RTC date and time
+	char file_name[32];
+	sprintf(file_name, "%s%d%s%d%s%d%s%d%s", "ecg-", eDate.Month, "-", eDate.Date, "-", eTime.Hours, "_", eTime.Minutes, ".bin");
 
 	//Create our binary file for dumping ecg data
-	UINT fx_result = FX_SUCCESS;
-	fx_result = fx_file_create(&sdio_disk, "ecg_test.bin");
+	fx_result = fx_file_create(&sdio_disk, file_name);
 	if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
 	  Error_Handler();
 	}
 
 	//Open the file
-	fx_result = fx_file_open(&sdio_disk, &ecg_file, "ecg_test.bin", FX_OPEN_FOR_WRITE);
+	fx_result = fx_file_open(&sdio_disk, &ecg_file, file_name, FX_OPEN_FOR_WRITE);
 	if(fx_result != FX_SUCCESS){
 	  Error_Handler();
 	}
@@ -65,6 +76,26 @@ void ecg_sd_thread_entry(ULONG thread_input){
 	while (ecg_writing);
 
 	while (1){
+
+		//Calculate time difference between start and current minute
+		uint8_t time_diff_mins = abs(eTime.Minutes - sTime.Minutes);
+
+		//Change file to write every time interval (with +/-1 minute tolerance)
+		if (time_diff_mins % NEW_FILE_INTERVAL_MINS == 0 || time_diff_mins % NEW_FILE_INTERVAL_MINS == 1) {
+			sprintf(file_name, "%s%d%s%d%s%d%s%d%s", "ecg-", eDate.Month, "-", eDate.Date, "-", eTime.Hours, "_", eTime.Minutes, ".bin");
+
+			//Create our binary file for dumping ecg data
+			fx_result = fx_file_create(&sdio_disk, file_name);
+			if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
+			  Error_Handler();
+			}
+
+			//Open the file
+			fx_result = fx_file_open(&sdio_disk, &ecg_file, file_name, FX_OPEN_FOR_WRITE);
+			if(fx_result != FX_SUCCESS){
+			  Error_Handler();
+			}
+		}
 
 		//Wait for first half buffer to fill up
 		tx_mutex_get(&ecg_first_half_mutex, TX_WAIT_FOREVER);

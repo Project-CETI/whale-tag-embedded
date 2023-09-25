@@ -22,6 +22,8 @@
 #include "Sensor Inc/ECG.h"
 #include "tx_api.h"
 
+#define NEW_FILE_INTERVAL_MINS 5
+
 //Our thread entry for the ECG sd card writing thread
 void ecg_sd_thread_entry(ULONG thread_input);
 

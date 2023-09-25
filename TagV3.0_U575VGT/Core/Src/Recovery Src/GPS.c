@@ -107,11 +107,9 @@ static void parse_gps_output(GPS_HandleTypeDef* gps, uint8_t* buffer, uint8_t bu
 				gps->data[GPS_RMC].is_dominica = is_in_dominica(lat, lon);
 				gps->is_pos_locked = true;
 
-				//save the time and date data into our struct.
+				//save the time data into our struct.
 				uint16_t time_temp[3] = {frame.time.hours, frame.time.minutes, frame.time.seconds};
-				uint16_t date_temp[3] = {frame.date.year, frame.date.month, frame.date.day};
 				memcpy(gps->data[GPS_RMC].timestamp, time_temp, 3);
-				memcpy(gps->data[GPS_RMC].datestamp, date_temp, 3);
 			}
 		}
 

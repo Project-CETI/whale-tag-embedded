@@ -79,4 +79,3 @@ void RTC_Init(RTC_TimeTypeDef *eTime, RTC_DateTypeDef *eDate) {
 	}
 }
 
-
