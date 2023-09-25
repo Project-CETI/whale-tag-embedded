@@ -5,7 +5,6 @@
  *      Author: amjad
  */
 
-
 #include "Sensor Inc/BNO08x.h"
 #include "Sensor Inc/ECG.h"
 #include "Sensor Inc/KellerDepth.h"
@@ -35,11 +34,8 @@ extern TX_MUTEX imu_second_half_mutex;
 //Arrays for holding sensor data. The buffer is split in half and shared with the IMU thread.
 extern IMU_Data imu_data[2][IMU_HALF_BUFFER_SIZE];
 
-//Counter variables to indicate current buffer sizes
-extern imu_buffer_size = 0;
-
 //Status variable to indicate thread is writing to SD card
-bool sd_writing = false;
+uint8_t sd_writing = false;
 
 //Callback for completed SD card write
 void SDWriteComplete_Callback(FX_FILE *file){
@@ -49,8 +45,10 @@ void SDWriteComplete_Callback(FX_FILE *file){
 }
 
 void sd_thread_entry(ULONG thread_input) {
+
 	FX_FILE imu_file = {};
 	FX_FILE depth_file = {};
+	UINT fx_result = FX_SUCCESS;
 
 	char file_name = "data.bin";
 
@@ -111,7 +109,8 @@ void sd_thread_entry(ULONG thread_input) {
 		//Check to see if a stop flag was raised
 		ULONG actual_flags;
 		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
-
+		//tx_event_flags_get(&imu_event_flags_group, DEPTH_STOP_SD_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
+		tx_event_flags_get(&imu_event_flags_group, ECG_STOP_SD_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
 
 		//If the stop flag was raised
 		if (actual_flags & IMU_STOP_SD_THREAD_FLAG){
@@ -123,11 +122,7 @@ void sd_thread_entry(ULONG thread_input) {
 			tx_event_flags_delete(&imu_event_flags_group);
 
 			//Terminate the thread
-			tx_thread_terminate(&threads[IMU_SD_THREAD].thread);
+			tx_thread_terminate(&threads[DATA_LOG_THREAD].thread);
 		}
 	}
 }
-
-
-
-

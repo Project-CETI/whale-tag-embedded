@@ -97,7 +97,7 @@ TX_EVENT_FLAGS_GROUP audio_event_flags_group;
 
 //Testing variables (Remove once happy with firmware)
 uint8_t counter = 0;
-bool sd_writing = 0;
+bool audio_writing = 0;
 bool yielding = 0;
 
 void audio_SAI_RxCpltCallback (SAI_HandleTypeDef * hsai){
@@ -146,7 +146,7 @@ void audio_SAI_RxHalfCpltCallback (SAI_HandleTypeDef * hsai){
 void audio_SDWriteComplete(FX_FILE *file){
 
 	//Set polling flag to indicate a completed SD card write
-	sd_writing = false;
+	audio_writing = false;
 	audio.sd_write_complete = true;
 }
 
@@ -242,14 +242,14 @@ void audio_thread_entry(ULONG thread_input){
 		  //If half full, write the bottom half
 		  if (acc_flag_pointer & AUDIO_BUFFER_HALF_FULL_FLAG){
       		audio.sd_write_complete = false;
-      		sd_writing = true;
+      		audio_writing = true;
       		fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * TEMP_BUF_HALF_BLOCK_LENGTH);
 		  }
 
 		  //If full, write the top half
 		  if (acc_flag_pointer & AUDIO_BUFFER_FULL_FLAG){
       		audio.sd_write_complete = false;
-      		sd_writing = true;
+      		audio_writing = true;
       		fx_file_write(audio.file, audio.temp_buffer[TEMP_BUF_HALF_BLOCK_LENGTH], AUDIO_CIRCULAR_BUFFER_SIZE * TEMP_BUF_HALF_BLOCK_LENGTH);
 		  }
 

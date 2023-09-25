@@ -46,7 +46,7 @@ void ecg_thread_entry(ULONG thread_input){
 	HAL_NVIC_EnableIRQ(EXTI14_IRQn);
 
 	//Start data collection thread since we're ready to collect data
-	tx_thread_resume(&threads[ECG_SD_THREAD].thread);
+	tx_thread_resume(&threads[DATA_LOG_THREAD].thread);
 
 	while(1){
 

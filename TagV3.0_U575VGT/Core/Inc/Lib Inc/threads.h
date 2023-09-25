@@ -18,6 +18,7 @@
 
 #include "tx_api.h"
 #include "app_threadx.h"
+#include "Sensor Inc/DataLogging.h"
 #include "Sensor Inc/audio.h"
 #include "Sensor Inc/BNO08x.h"
 #include "Sensor Inc/BNO08x_SD.h"
@@ -37,9 +38,7 @@ typedef enum __TX_THREAD_LIST {
 	AUDIO_THREAD,
 	IMU_THREAD,
 	DEPTH_THREAD,
-	//IMU_SD_THREAD,
 	ECG_THREAD,
-	//ECG_SD_THREAD,
 	GPS_THREAD,
 	APRS_THREAD,
 	BURNWIRE_THREAD,

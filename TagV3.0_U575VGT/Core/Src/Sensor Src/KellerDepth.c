@@ -42,7 +42,7 @@ void keller_thread_entry(ULONG thread_input) {
 	tx_mutex_create(&depth_second_half_mutex, "DEPTH Second Half Mutex", TX_INHERIT);
 
 	//Allow the SD card writing thread to start
-	tx_thread_resume(&threads[IMU_SD_THREAD].thread);
+	tx_thread_resume(&threads[DATA_LOG_THREAD].thread);
 
 	while (1) {
 		//Wait for first half of the buffer to be ready for data

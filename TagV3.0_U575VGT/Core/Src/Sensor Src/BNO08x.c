@@ -62,7 +62,7 @@ void imu_thread_entry(ULONG thread_input){
 	HAL_NVIC_EnableIRQ(EXTI12_IRQn);
 
 	//Allow the SD card writing thread to start
-	tx_thread_resume(&threads[IMU_SD_THREAD].thread);
+	tx_thread_resume(&threads[DATA_LOG_THREAD].thread);
 
 	while(1) {
 
