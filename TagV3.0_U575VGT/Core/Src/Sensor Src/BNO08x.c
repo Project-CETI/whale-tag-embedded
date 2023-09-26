@@ -15,27 +15,19 @@
 #include "stm32u5xx_hal_spi.h"
 #include <stdbool.h>
 #include "Lib Inc/threads.h"
-#include "Sensor Inc/GpsGeofencing.h"
-#include "Sensor Inc/RTC.h"
 
 extern SPI_HandleTypeDef hspi1;
 
 //Threads array
 extern Thread_HandleTypeDef threads[NUM_THREADS];
 
-//GPS data
-extern GPS_HandleTypeDef gps;
-extern GPS_Data gps_data;
-
-//RTC data
-extern RTC_TimeTypeDef eTime;
-extern RTC_DateTypeDef eDate;
+extern UART_HandleTypeDef huart4;
 
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu);
 static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout);
 static void IMU_configure_reports(IMU_HandleTypeDef * imu, uint8_t reportID, bool isLastReport);
 
-//ThreadX useful variables (defined globally because they're shared with the SD card writing thread)
+//ThreadX useful variables (defined globally because theyre shared with the SD card writing thread)
 TX_EVENT_FLAGS_GROUP imu_event_flags_group;
 TX_MUTEX imu_first_half_mutex;
 TX_MUTEX imu_second_half_mutex;
@@ -43,8 +35,12 @@ TX_MUTEX imu_second_half_mutex;
 //Array for holding IMU data. The buffer is split in half and shared with the IMU thread.
 IMU_Data imu_data[2][IMU_HALF_BUFFER_SIZE] = {0};
 
-//Counter variable for keeping track of current buffer size
-bool imu_buffer_status = false;
+//DEBUG
+bool imu_running = false;
+uint8_t good_counter = 0;
+uint8_t bad = 0;
+
+
 
 void imu_thread_entry(ULONG thread_input){
 
@@ -53,7 +49,7 @@ void imu_thread_entry(ULONG thread_input){
 
 	IMU_init(&hspi1, &imu);
 
-	//Create the events flag
+	//Create the events flag.
 	tx_event_flags_create(&imu_event_flags_group, "IMU Event Flags");
 	tx_mutex_create(&imu_first_half_mutex, "IMU First Half Mutex", TX_INHERIT);
 	tx_mutex_create(&imu_second_half_mutex, "IMU Second Half Mutex", TX_INHERIT);
@@ -62,7 +58,7 @@ void imu_thread_entry(ULONG thread_input){
 	HAL_NVIC_EnableIRQ(EXTI12_IRQn);
 
 	//Allow the SD card writing thread to start
-	tx_thread_resume(&threads[DATA_LOG_THREAD].thread);
+	tx_thread_resume(&threads[IMU_SD_THREAD].thread);
 
 	while(1) {
 
@@ -83,9 +79,13 @@ void imu_thread_entry(ULONG thread_input){
 
 		//Release mutex
 		tx_mutex_put(&imu_second_half_mutex);
+
+		//DEBUG
+		good_counter = 0;
 		
-		//Check to see if there was a stop flag raised
 		ULONG actual_flags;
+
+		//Check to see if there was a stop flag raised
 		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
 
 		//If there was something set cleanup the thread
@@ -136,11 +136,8 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 
 HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 
-	//Receive data buffer
+	//receive data buffer
 	uint8_t receiveData[256] = {0};
-
-	//Index to keep track of number of samples per frame
-	uint8_t sample_index = 0;
 
 	for (uint16_t index = 0; index < IMU_HALF_BUFFER_SIZE; index++){
 
@@ -173,7 +170,7 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 		//Now that we know the length, wait for the payload of data to be ready
 		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
-		//Read the data (note that the SHTP header is present with each read, so we still need to read the full length
+		//Read the data (note that the SHTP header is resent with each read, so we still need to read the full length
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
 		ret = HAL_SPI_Receive(imu->hspi, receiveData, dataLength, IMU_SPI_READ_TIMEOUT);
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
@@ -188,6 +185,8 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 			continue;
 		}
 
+		HAL_UART_Transmit(&huart4, &receiveData, 20, HAL_MAX_DELAY);
+
 		//Ensure this is the correct channel we're receiving data on and it has a timestamp
 		if (receiveData[2] == IMU_DATA_CHANNEL && receiveData[4] == IMU_TIMESTAMP_REPORT_ID){
 
@@ -199,61 +198,28 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 				//Ensure the data is somewhat valid (matches one of the report IDs)
 				if (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID || receiveData[parsedDataIndex] == IMU_ACCELEROMETER_REPORT_ID || receiveData[parsedDataIndex] == IMU_GYROSCOPE_REPORT_ID || receiveData[parsedDataIndex] == IMU_MAGNETOMETER_REPORT_ID){
 
-					//Create data header if this is first report
-					if (sample_index == 0) {
-						imu_data[buffer_half][index].data_id = HEADER_ID;
-						if (gps.is_pos_locked) {
-							imu_data[buffer_half][index].raw_data[0] = gps_data.timestamp[0];
-							imu_data[buffer_half][index].raw_data[1] = gps_data.timestamp[1];
-							imu_data[buffer_half][index].raw_data[2] = gps_data.timestamp[2];
-							imu_data[buffer_half][index].raw_data[3] = gps_data.datestamp[0];
-							imu_data[buffer_half][index].raw_data[4] = gps_data.datestamp[1];
-							imu_data[buffer_half][index].raw_data[5] = gps_data.datestamp[2];
-						}
-						else {
-							imu_data[buffer_half][index].raw_data[0] = eTime.Hours;
-							imu_data[buffer_half][index].raw_data[1] = eTime.Minutes;
-							imu_data[buffer_half][index].raw_data[2] = eTime.Seconds;
-							imu_data[buffer_half][index].raw_data[3] = eDate.Year;
-							imu_data[buffer_half][index].raw_data[4] = eDate.Month;
-							imu_data[buffer_half][index].raw_data[5] = eDate.Date;
-						}
+					//if its a quaternion, copy over all the bytes (10), if not just copy the 3 axis bytes (6)
+					uint8_t bytesToCopy = (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID) ? IMU_QUAT_USEFUL_BYTES : IMU_3_AXIS_USEFUL_BYTES;
+
+					//Copy the data header and then the useful data to our data struct
+					imu_data[buffer_half][index].data_header = receiveData[parsedDataIndex];
+
+					//Useful data starts 4 indexes after the report ID (skip over un-needed data)
+					memcpy(imu_data[buffer_half][index].raw_data, &receiveData[parsedDataIndex + 4], bytesToCopy);
+
+					//If it was a 3-axis report, fill the last 4 bytes with 0's
+					if (bytesToCopy < IMU_QUAT_USEFUL_BYTES){
 						imu_data[buffer_half][index].raw_data[6] = 0;
 						imu_data[buffer_half][index].raw_data[7] = 0;
 						imu_data[buffer_half][index].raw_data[8] = 0;
 						imu_data[buffer_half][index].raw_data[9] = 0;
 					}
-					else {
-						//if its a quaternion, copy over all the bytes (10), if not just copy the 3 axis bytes (6)
-						uint8_t bytesToCopy = (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID) ? IMU_QUAT_USEFUL_BYTES : IMU_3_AXIS_USEFUL_BYTES;
 
-						//Copy the data header and then the useful data to our data struct
-						imu_data[buffer_half][index].data_id = receiveData[parsedDataIndex];
+					//DEBUG
+					good_counter++;
 
-						//Useful data starts 4 indexes after the report ID (skip over un-needed data)
-						memcpy(imu_data[buffer_half][index].raw_data, &receiveData[parsedDataIndex + 4], bytesToCopy);
-
-						//If it was a 3-axis report, fill the last 4 bytes with 0's
-						if (bytesToCopy < IMU_QUAT_USEFUL_BYTES){
-							imu_data[buffer_half][index].raw_data[6] = 0;
-							imu_data[buffer_half][index].raw_data[7] = 0;
-							imu_data[buffer_half][index].raw_data[8] = 0;
-							imu_data[buffer_half][index].raw_data[9] = 0;
-						}
-
-						//increment forward to the next report
-						parsedDataIndex += bytesToCopy + 4;
-					}
-
-
-
-					//Increment sample count for data header, reset after max number of samples per frame reached
-					if (sample_index < SAMPLES_PER_FRAME-1) {
-						sample_index++;
-					}
-					else {
-						sample_index = 0;
-					}
+					//increment forward to the next report
+					parsedDataIndex += bytesToCopy + 4;
 
 					//Increment index so we can store the next spot if this read has another report after it
 					if (parsedDataIndex < dataLength){
@@ -363,6 +329,8 @@ static void IMU_configure_reports(IMU_HandleTypeDef * imu, uint8_t reportID, boo
 		HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
 		HAL_Delay(1);
 	}
+
+	HAL_UART_Transmit(&huart4, &transmitData, 20, HAL_MAX_DELAY);
 
 	//Transmit data and pull CS back up to high
 	HAL_SPI_Transmit(&hspi1, transmitData, IMU_CONFIGURE_REPORT_LENGTH, HAL_MAX_DELAY);

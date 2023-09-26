@@ -16,10 +16,8 @@ extern I2C_HandleTypeDef hi2c4;
 
 extern Thread_HandleTypeDef threads[NUM_THREADS];
 
-//Event flags (shared with ecg sd thread)
+//ThreadX useful variables (defined globally because they're shared with the SD card writing thread)
 TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
-
-//Mutexes (shared with ecg sd thread)
 TX_MUTEX ecg_first_half_mutex;
 TX_MUTEX ecg_second_half_mutex;
 
