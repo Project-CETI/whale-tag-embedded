@@ -31,6 +31,10 @@
 #define nRCVRY_SWARM_nEN 0x02
 #define nRCVRY_VHF_nEN 0x04
 
+typedef enum recovery_power_level_e {
+	RECOVERY_POWER_LOW,
+	RECOVERY_POWER_HIGH,
+}RecoveryPowerLevel;
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
@@ -39,6 +43,7 @@ extern int g_recovery_thread_is_running;
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
+int recovery_setCriticalVoltage(float voltage);
 int init_recovery();
 int testRecoverySerial(void);
 int getGpsLocation(char* gpsLocation);
