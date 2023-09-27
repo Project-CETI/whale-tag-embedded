@@ -72,6 +72,9 @@
 #define IMU_STOP_DATA_THREAD_FLAG 0x2
 #define IMU_STOP_SD_THREAD_FLAG 0x4
 
+//ThreadX flag for when thread is done collecting data
+#define IMU_HALF_BUFFER_FLAG 0x8
+
 //The number of IMU Samples to collect before writing to the SD card. This MUST be an even number.
 #define IMU_BUFFER_SIZE 250
 #define IMU_HALF_BUFFER_SIZE (IMU_BUFFER_SIZE / 2)
@@ -80,13 +83,12 @@
 #define IMU_QUAT_USEFUL_BYTES 10
 #define IMU_3_AXIS_USEFUL_BYTES 6
 
-//Frame parameters
-#define SAMPLE_DATA_SIZE 10
-#define SAMPLES_PER_FRAME 15
-#define HEADER_ID 0x24
-
 //MS timeout for SPI reads
 #define IMU_SPI_READ_TIMEOUT 10
+
+#define IMU_SLEEP_TIME_SEC 1
+#define IMU_SLEEP_TIME_TICKS tx_s_to_ticks(IMU_SLEEP_TIME_SEC)
+
 
 //IMU typedef definition for useful data holding (of various types, like quaternion, accel, gyro, magnetometer
 typedef struct __IMU_Data_Typedef {
@@ -109,7 +111,7 @@ typedef struct __IMU_Data_Typedef {
 	 *
 	 * E.g., X_lsb and X_msb represent the acceleration in the X direction if it is an accelerometer report.
 	 */
-	uint8_t raw_data[SAMPLE_DATA_SIZE];
+	uint8_t raw_data[10];
 } IMU_Data;
 
 //IMU typedef definition for useful variables

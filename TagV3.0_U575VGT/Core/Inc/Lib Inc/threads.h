@@ -21,10 +21,8 @@
 #include "Sensor Inc/DataLogging.h"
 #include "Sensor Inc/audio.h"
 #include "Sensor Inc/BNO08x.h"
-#include "Sensor Inc/BNO08x_SD.h"
 #include "Sensor Inc/ECG.h"
 #include "Sensor Inc/GpsGeofencing.h"
-#include "Sensor Inc/ECG_SD.h"
 #include "Sensor Inc/RTC.h"
 #include "Sensor Inc/KellerDepth.h"
 #include "Lib Inc/state_machine.h"
@@ -115,26 +113,14 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 		[DEPTH_THREAD] = {
 			//IMU Thread
 			.thread_name = "Depth Thread",
-			.thread_entry_function = keller_thread_entry,
+			.thread_entry_function = depth_thread_entry,
 			.thread_input = 0x1234,
 			.thread_stack_size = 800,
-			.priority = 4,
-			.preempt_threshold = 4,
-			.timeslice = TX_NO_TIME_SLICE,
-			.start = TX_DONT_START
-		},
-		/*
-		[IMU_SD_THREAD] = {
-			//IMU SD Thread
-			.thread_name = "IMU SD Thread",
-			.thread_entry_function = imu_sd_thread_entry,
-			.thread_input = 0x1234,
-			.thread_stack_size = 2048,
 			.priority = 5,
 			.preempt_threshold = 5,
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_DONT_START
-		},*/
+		},
 		[ECG_THREAD] = {
 			//ECG Thread
 			.thread_name = "ECG Thread",
@@ -145,18 +131,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.preempt_threshold = 6,
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_DONT_START
-		},/*
-		[ECG_SD_THREAD] = {
-			//ECG_SD Thread
-			.thread_name = "ECG SD Thread",
-			.thread_entry_function = ecg_sd_thread_entry,
-			.thread_input = 0x1234,
-			.thread_stack_size = 2048,
-			.priority = 7,
-			.preempt_threshold = 7,
-			.timeslice = TX_NO_TIME_SLICE,
-			.start = TX_DONT_START
-		},*/
+		},
 		[GPS_THREAD] = {
 			//GPS Geofencing
 			.thread_name = "GPS Thread",
@@ -195,20 +170,20 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.thread_name = "RTC Thread",
 			.thread_entry_function = RTC_thread_entry,
 			.thread_input = 0x1234,
-			.thread_stack_size = 2048,
+			.thread_stack_size = 800,
 			.priority = 8,
 			.preempt_threshold = 8,
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_AUTO_START
 		},
-		[RTC_THREAD] = {
+		[DATA_LOG_THREAD] = {
 			// Data Log Thread
 			.thread_name = "Data Log Thread",
 			.thread_entry_function = sd_thread_entry,
 			.thread_input = 0x1234,
 			.thread_stack_size = 2048,
-			.priority = 5,
-			.preempt_threshold = 5,
+			.priority = 7,
+			.preempt_threshold = 7,
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_DONT_START
 		}

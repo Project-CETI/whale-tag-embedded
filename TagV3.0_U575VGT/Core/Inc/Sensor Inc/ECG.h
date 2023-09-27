@@ -59,6 +59,9 @@
 #define ECG_STOP_DATA_THREAD_FLAG 0x2
 #define ECG_STOP_SD_THREAD_FLAG 0x4
 
+//ThreadX flag for when thread is done collecting data
+#define ECG_HALF_BUFFER_FLAG 0x8
+
 //ECG configuration register has the following structure:
 // Bit 7-5: MUX Electrode Selection
 // Bit 4: Gain (0 = 1 or 1 = 4)
@@ -68,7 +71,7 @@
 #define ECG_ADC_DEFAULT_CONFIG_REGISTER 0b00001110
 
 //The number of ECG Samples to collect before writing to the SD card. This should ALWAYS be an even number.
-#define ECG_BUFFER_SIZE 1000
+#define ECG_BUFFER_SIZE 250
 
 //A half buffer size, since our buffer is split in half
 #define ECG_HALF_BUFFER_SIZE (ECG_BUFFER_SIZE / 2)
@@ -106,6 +109,7 @@ void ecg_thread_entry(ULONG thread_input);
  * 			-ecg: an ECG handler to store data
  */
 HAL_StatusTypeDef ecg_init(I2C_HandleTypeDef* hi2c, ECG_HandleTypeDef* ecg);
+HAL_StatusTypeDef ecg_get_data(ECG_HandleTypeDef* ecg, uint8_t buffer_half);
 
 //Read the ADC for the newest data and stores it in the ECG struct
 HAL_StatusTypeDef ecg_read_adc(ECG_HandleTypeDef* ecg);

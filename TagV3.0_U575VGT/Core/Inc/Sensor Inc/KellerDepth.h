@@ -31,7 +31,7 @@
 #define TO_BAR(RAW_IN)	(float)((RAW_IN - 16384) * (P_MAX - P_MIN) / 32768 + P_MIN)
 
 //ThreadX flag bit for when DEPTH data is ready
-#define DEPTH_DATA_READY_FLAG 0x1
+//#define DEPTH_DATA_READY_FLAG 0x1
 
 //ThreadX flag for stopping the DEPTH (exit data capture)
 #define DEPTH_STOP_DATA_THREAD_FLAG 0x2
@@ -78,10 +78,10 @@ typedef struct __Keller_Depth_TypeDef
 } Keller_HandleTypedef;
 
 //Function prototypes
-void keller_init(Keller_HandleTypedef *keller_sensor, I2C_HandleTypeDef *hi2c_device);
-HAL_StatusTypeDef keller_get_data(Keller_HandleTypedef *keller_sensor, uint8_t buffer_half);
+void depth_init(I2C_HandleTypeDef *hi2c_device, Keller_HandleTypedef *keller_sensor);
+HAL_StatusTypeDef depth_get_data(Keller_HandleTypedef *keller_sensor, uint8_t buffer_half);
 
 //Main Depth thread
-void keller_thread_entry(ULONG thread_input);
+void depth_thread_entry(ULONG thread_input);
 
 #endif /* KELLERDEPTH_H */

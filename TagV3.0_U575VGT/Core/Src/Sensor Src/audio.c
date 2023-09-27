@@ -30,9 +30,7 @@
 #include "app_filex.h"
 #include "app_threadx.h"
 #include "Lib Inc/threads.h"
-#include "Sensor Inc/RTC.h"
 #include <stdbool.h>
-#include <stdio.h>
 
 /*******************************
  * PUBLIC FUNCTION DEFINITIONS *
@@ -85,12 +83,6 @@ extern ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZ
 
 //Threads array
 extern Thread_HandleTypeDef threads[NUM_THREADS];
-
-//RTC date and time
-extern RTC_TimeTypeDef sTime;
-extern RTC_DateTypeDef sDate;
-extern RTC_TimeTypeDef eTime;
-extern RTC_DateTypeDef eDate;
 
 //Event flags for signaling data ready
 TX_EVENT_FLAGS_GROUP audio_event_flags_group;
@@ -162,20 +154,15 @@ void audio_thread_entry(ULONG thread_input){
 	  	  	  	  	  	  	  	  .audio_depth = CFG_AUDIO_DEPTH_16_BIT};
 	  ULONG acc_flag_pointer = 0;
 
-	  UINT fx_result = FX_SUCCESS;
-
-	  //Create file name from RTC date and time
-	  char file_name[32];
-	  sprintf(file_name, "%s%d%s%d%s%d%s%d%s", "ecg-", eDate.Month, "-", eDate.Date, "-", eTime.Hours, "_", eTime.Minutes, ".bin");
-
 	  //Create our binary file for dumping audio data
-	  fx_result = fx_file_create(&sdio_disk, file_name);
+	  UINT fx_result = FX_SUCCESS;
+	  fx_result = fx_file_create(&sdio_disk, "audio_test.bin");
 	  if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
 	      Error_Handler();
 	  }
 
 	  //Open the file (put a dummy close in front incase the file is already open)
-	  fx_result = fx_file_open(&sdio_disk, &audio_file, file_name, FX_OPEN_FOR_WRITE);
+	  fx_result = fx_file_open(&sdio_disk, &audio_file, "audio_test.bin", FX_OPEN_FOR_WRITE);
 	  if(fx_result != FX_SUCCESS){
 	      Error_Handler();
 	  }
@@ -213,26 +200,6 @@ void audio_thread_entry(ULONG thread_input){
 	  audio_record(&audio);
 
 	  while (1){
-
-		  //Calculate time difference between start and current minute
-		  uint8_t time_diff_mins = abs(eTime.Minutes - sTime.Minutes);
-
-		  //Change file to write every time interval (with +/-1 minute tolerance)
-		  if (time_diff_mins % NEW_FILE_INTERVAL_MINS == 0 || time_diff_mins % NEW_FILE_INTERVAL_MINS == 1) {
-			sprintf(file_name, "%s%d%s%d%s%d%s%d%s", "audio-", eDate.Month, "-", eDate.Date, "-", eTime.Hours, "_", eTime.Minutes, ".bin");
-
-			//Create our binary file for dumping ecg data
-			fx_result = fx_file_create(&sdio_disk, file_name);
-			if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
-			  Error_Handler();
-			}
-
-			//Open the file
-			fx_result = fx_file_open(&sdio_disk, &audio_file, file_name, FX_OPEN_FOR_WRITE);
-			if(fx_result != FX_SUCCESS){
-			  Error_Handler();
-			}
-		}
 
 		  //Wait for the temp buffer to be either half of fully full. This suspends the audio task and lets others run.
 		  yielding = true;

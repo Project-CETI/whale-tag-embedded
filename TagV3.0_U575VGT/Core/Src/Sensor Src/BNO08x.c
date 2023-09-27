@@ -6,7 +6,7 @@
  *
  * 	Source file for the IMU drivers. See header file for more details
  */
-#include "BNO08x.h"
+#include "Sensor Inc/BNO08x.h"
 #include "fx_api.h"
 #include "app_filex.h"
 #include "main.h"
@@ -17,11 +17,7 @@
 #include "Lib Inc/threads.h"
 
 extern SPI_HandleTypeDef hspi1;
-
-//Threads array
 extern Thread_HandleTypeDef threads[NUM_THREADS];
-
-extern UART_HandleTypeDef huart4;
 
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu);
 static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout);
@@ -49,7 +45,7 @@ void imu_thread_entry(ULONG thread_input){
 
 	IMU_init(&hspi1, &imu);
 
-	//Create the events flag.
+	//Create the events flag
 	tx_event_flags_create(&imu_event_flags_group, "IMU Event Flags");
 	tx_mutex_create(&imu_first_half_mutex, "IMU First Half Mutex", TX_INHERIT);
 	tx_mutex_create(&imu_second_half_mutex, "IMU Second Half Mutex", TX_INHERIT);
@@ -58,7 +54,7 @@ void imu_thread_entry(ULONG thread_input){
 	HAL_NVIC_EnableIRQ(EXTI12_IRQn);
 
 	//Allow the SD card writing thread to start
-	tx_thread_resume(&threads[IMU_SD_THREAD].thread);
+	tx_thread_resume(&threads[ECG_THREAD].thread);
 
 	while(1) {
 
@@ -73,6 +69,7 @@ void imu_thread_entry(ULONG thread_input){
 
 		//Acquire second half (so we can fill it up)
 		tx_mutex_get(&imu_second_half_mutex, TX_WAIT_FOREVER);
+		tx_event_flags_set(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR);
 
 		//Call to get data, this handles filling up the second half of the buffer completely
 		IMU_get_data(&imu, 1);
@@ -83,9 +80,8 @@ void imu_thread_entry(ULONG thread_input){
 		//DEBUG
 		good_counter = 0;
 		
-		ULONG actual_flags;
-
 		//Check to see if there was a stop flag raised
+		ULONG actual_flags;
 		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
 
 		//If there was something set cleanup the thread
@@ -185,8 +181,6 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 			continue;
 		}
 
-		HAL_UART_Transmit(&huart4, &receiveData, 20, HAL_MAX_DELAY);
-
 		//Ensure this is the correct channel we're receiving data on and it has a timestamp
 		if (receiveData[2] == IMU_DATA_CHANNEL && receiveData[4] == IMU_TIMESTAMP_REPORT_ID){
 
@@ -202,7 +196,7 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 					uint8_t bytesToCopy = (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID) ? IMU_QUAT_USEFUL_BYTES : IMU_3_AXIS_USEFUL_BYTES;
 
 					//Copy the data header and then the useful data to our data struct
-					imu_data[buffer_half][index].data_header = receiveData[parsedDataIndex];
+					imu_data[buffer_half][index].data_id = receiveData[parsedDataIndex];
 
 					//Useful data starts 4 indexes after the report ID (skip over un-needed data)
 					memcpy(imu_data[buffer_half][index].raw_data, &receiveData[parsedDataIndex + 4], bytesToCopy);
@@ -329,8 +323,6 @@ static void IMU_configure_reports(IMU_HandleTypeDef * imu, uint8_t reportID, boo
 		HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
 		HAL_Delay(1);
 	}
-
-	HAL_UART_Transmit(&huart4, &transmitData, 20, HAL_MAX_DELAY);
 
 	//Transmit data and pull CS back up to high
 	HAL_SPI_Transmit(&hspi1, transmitData, IMU_CONFIGURE_REPORT_LENGTH, HAL_MAX_DELAY);

@@ -7,12 +7,16 @@
 
 #include "Sensor Inc/RTC.h"
 #include "Sensor Inc/GpsGeofencing.h"
+#include "Sensor Inc/DataLogging.h"
 #include "Lib Inc/state_machine.h"
 #include "main.h"
 
 //External variables
 extern RTC_HandleTypeDef hrtc;
 extern TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP data_log_event_flags_group;
+
+//GPS structs to check for GPS lock
 extern GPS_HandleTypeDef gps;
 extern GPS_Data gps_data;
 
@@ -27,15 +31,18 @@ bool rtc_init = false;
 
 void RTC_thread_entry(ULONG thread_input) {
 
-	//Initialize start date and time for RTC only if there is GPS lock
-	if (gps.is_pos_locked) {
-		RTC_Init(&sTime, &sDate, true);
-		RTC_Init(&eTime, &eDate, true);
-		rtc_init = true;
-	}
+	bool first_pass = true;
 
-	//Get updated date and time only if there is GPS lock
-	while (1 && rtc_init) {
+	while (1) {
+
+		//Initialize start date and time for RTC only if there is GPS lock
+		if (gps.is_pos_locked && !rtc_init) {
+			RTC_Init(&sTime, &sDate, true);
+			RTC_Init(&eTime, &eDate, true);
+			rtc_init = true;
+		}
+
+		ULONG actual_flags;
 
 		//Calibrate RTC with new GPS date and time every time interval
 		if (gps.is_pos_locked && eTime.Minutes % RTC_INIT_REFRESH_MINS == RTC_TIME_TOLERANCE_MINS) {
@@ -52,7 +59,13 @@ void RTC_thread_entry(ULONG thread_input) {
 		}
 
 		//Sleep and repeat the process once woken up
-		tx_thread_sleep(RTC_SLEEP_TIME_TICKS);
+		//tx_thread_sleep(RTC_SLEEP_TIME_TICKS);
+		if (!first_pass) {
+			tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		}
+		else {
+			first_pass = false;
+		}
 	}
 }
 

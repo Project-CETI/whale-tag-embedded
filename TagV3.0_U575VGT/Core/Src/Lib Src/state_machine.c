@@ -9,6 +9,7 @@
 #include "Lib Inc/state_machine.h"
 #include "Sensor Inc/audio.h"
 #include "Sensor Inc/BNO08x.h"
+#include "Sensor Inc/KellerDepth.h"
 #include "Sensor Inc/ECG.h"
 #include "Lib Inc/threads.h"
 #include "app_usbx_device.h"
@@ -20,6 +21,7 @@ TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
 //External event flags for the other sensors. Use these to signal them to whenever they get the chance
 extern TX_EVENT_FLAGS_GROUP audio_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP imu_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP depth_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP usb_event_flags_group;
 
@@ -98,8 +100,9 @@ void enter_data_capture(){
 	//Resume data capture threads (they will no longer be in a suspended state)
 	tx_thread_resume(&threads[AUDIO_THREAD].thread);
 	tx_thread_resume(&threads[IMU_THREAD].thread);
-	tx_thread_resume(&threads[ECG_THREAD].thread);
-	tx_thread_resume(&threads[GPS_THREAD].thread);
+	//tx_thread_resume(&threads[ECG_THREAD].thread);
+	//tx_thread_resume(&threads[DEPTH_THREAD].thread);
+	//tx_thread_resume(&threads[GPS_THREAD].thread);
 }
 
 
@@ -109,6 +112,7 @@ void soft_exit_data_capture(){
 	tx_thread_suspend(&threads[AUDIO_THREAD].thread);
 	tx_thread_suspend(&threads[IMU_THREAD].thread);
 	tx_thread_suspend(&threads[ECG_THREAD].thread);
+	tx_thread_suspend(&threads[DEPTH_THREAD].thread);
 	tx_thread_suspend(&threads[GPS_THREAD].thread);
 }
 
@@ -117,6 +121,7 @@ void hard_exit_data_capture(){
 	//Signal data collection threads to stop running (and they should never run again)
 	tx_event_flags_set(&audio_event_flags_group, AUDIO_STOP_THREAD_FLAG, TX_OR);
 	tx_event_flags_set(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR);
+	tx_event_flags_set(&depth_event_flags_group, DEPTH_STOP_DATA_THREAD_FLAG, TX_OR);
 	tx_event_flags_set(&ecg_event_flags_group, ECG_STOP_DATA_THREAD_FLAG, TX_OR);
 
 	tx_thread_terminate(&threads[GPS_THREAD].thread);
