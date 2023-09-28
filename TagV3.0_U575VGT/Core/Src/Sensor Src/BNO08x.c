@@ -7,6 +7,9 @@
  * 	Source file for the IMU drivers. See header file for more details
  */
 #include "Sensor Inc/BNO08x.h"
+#include "Sensor Inc/KellerDepth.h"
+#include "Sensor Inc/ECG.h"
+#include "Sensor Inc/DataLogging.h"
 #include "fx_api.h"
 #include "app_filex.h"
 #include "main.h"
@@ -18,6 +21,10 @@
 
 extern SPI_HandleTypeDef hspi1;
 extern Thread_HandleTypeDef threads[NUM_THREADS];
+
+extern TX_EVENT_FLAGS_GROUP depth_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP data_log_event_flags_group;
 
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu);
 static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout);
@@ -54,9 +61,11 @@ void imu_thread_entry(ULONG thread_input){
 	HAL_NVIC_EnableIRQ(EXTI12_IRQn);
 
 	//Allow the SD card writing thread to start
-	tx_thread_resume(&threads[ECG_THREAD].thread);
+	tx_thread_resume(&threads[DEPTH_THREAD].thread);
 
 	while(1) {
+
+		ULONG actual_flags;
 
 		//Wait for first half of the buffer to be ready for data
 		tx_mutex_get(&imu_first_half_mutex, TX_WAIT_FOREVER);
@@ -67,9 +76,13 @@ void imu_thread_entry(ULONG thread_input){
 		//Release the mutex to allow for SD card writing thread to run
 		tx_mutex_put(&imu_first_half_mutex);
 
+		tx_event_flags_set(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR);
+		tx_event_flags_get(&depth_event_flags_group, DEPTH_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		tx_event_flags_get(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+
 		//Acquire second half (so we can fill it up)
 		tx_mutex_get(&imu_second_half_mutex, TX_WAIT_FOREVER);
-		tx_event_flags_set(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR);
 
 		//Call to get data, this handles filling up the second half of the buffer completely
 		IMU_get_data(&imu, 1);
@@ -81,7 +94,6 @@ void imu_thread_entry(ULONG thread_input){
 		good_counter = 0;
 		
 		//Check to see if there was a stop flag raised
-		ULONG actual_flags;
 		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
 
 		//If there was something set cleanup the thread
@@ -94,6 +106,11 @@ void imu_thread_entry(ULONG thread_input){
 			tx_event_flags_set(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR);
 			tx_thread_terminate(&threads[IMU_THREAD].thread);
 		}
+
+		tx_event_flags_set(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR);
+		tx_event_flags_get(&depth_event_flags_group, DEPTH_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		tx_event_flags_get(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 	}
 }
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
@@ -237,6 +254,7 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 			//Dont increment index
 			index--;
 		}
+		HAL_Delay(50);
 	}
 
 	return HAL_OK;

@@ -7,6 +7,7 @@
 
 #include "Sensor Inc/ECG.h"
 #include "Sensor Inc/BNO08x.h"
+#include "Sensor Inc/DataLogging.h"
 #include "main.h"
 #include "stm32u5xx_hal_cortex.h"
 #include <stdbool.h>
@@ -17,6 +18,7 @@ extern I2C_HandleTypeDef hi2c4;
 extern Thread_HandleTypeDef threads[NUM_THREADS];
 
 extern TX_EVENT_FLAGS_GROUP imu_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP data_log_event_flags_group;
 
 //ThreadX useful variables (defined globally because they're shared with the SD card writing thread)
 TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
@@ -60,9 +62,12 @@ void ecg_thread_entry(ULONG thread_input){
 		//Release the first half mutex to signal the ECG_SD thread that it can start writing
 		tx_mutex_put(&ecg_first_half_mutex);
 
-		//Acquire the second half mutex to fill it up
-		tx_mutex_get(&ecg_second_half_mutex, TX_WAIT_FOREVER);
 		tx_event_flags_set(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG, TX_OR);
+		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+
+		//Acquire the second half mutex to fill it up
+		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		tx_mutex_get(&ecg_second_half_mutex, TX_WAIT_FOREVER);
 
 		//Call to get data, this handles filling up the second half of the buffer completely
 		ecg_get_data(&ecg, 1);
@@ -70,10 +75,12 @@ void ecg_thread_entry(ULONG thread_input){
 		//Release second half mutex so the ECG_SD thread can write to it
 		tx_mutex_put(&ecg_second_half_mutex);
 
+		tx_event_flags_set(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG, TX_OR);
+		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+
 		good_ecg_data = 0;
 
 		//Check to see if there was a stop thread request. Put very little wait time so its essentially an instant check
-
 		tx_event_flags_get(&ecg_event_flags_group, ECG_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
 
 		//If there was something set cleanup the thread
@@ -86,7 +93,6 @@ void ecg_thread_entry(ULONG thread_input){
 			tx_event_flags_set(&ecg_event_flags_group, ECG_STOP_SD_THREAD_FLAG, TX_OR);
 			tx_thread_terminate(&threads[ECG_THREAD].thread);
 		}
-
 	}
 }
 HAL_StatusTypeDef ecg_init(I2C_HandleTypeDef* hi2c, ECG_HandleTypeDef* ecg){

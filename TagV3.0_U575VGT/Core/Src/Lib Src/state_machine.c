@@ -98,7 +98,7 @@ void state_machine_thread_entry(ULONG thread_input){
 void enter_data_capture(){
 
 	//Resume data capture threads (they will no longer be in a suspended state)
-	tx_thread_resume(&threads[AUDIO_THREAD].thread);
+	//tx_thread_resume(&threads[AUDIO_THREAD].thread);
 	tx_thread_resume(&threads[IMU_THREAD].thread);
 	//tx_thread_resume(&threads[ECG_THREAD].thread);
 	//tx_thread_resume(&threads[DEPTH_THREAD].thread);

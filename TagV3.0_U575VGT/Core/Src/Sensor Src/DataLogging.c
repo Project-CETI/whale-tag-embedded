@@ -73,12 +73,6 @@ void sd_thread_entry(ULONG thread_input) {
 	header.key_value = KEY_VALUE;
 	header.samples_count = SAMPLES_PER_FRAME;
 	header.bytes_count = BYTES_PER_FRAME;
-	header.datestamp[0] = eDate.Year;
-	header.datestamp[1] = eDate.Month;
-	header.datestamp[2] = eDate.Date;
-	header.timestamp[0] = eTime.Hours;
-	header.timestamp[1] = eTime.Minutes;
-	header.timestamp[2] = eTime.Seconds;
 
 	//Create our binary file for dumping sensor data
 	char *file_name = "data.bin";
@@ -111,44 +105,51 @@ void sd_thread_entry(ULONG thread_input) {
 
 		ULONG actual_flags;
 
+		//Update header date and time
+		header.datestamp[0] = eDate.Year;
+		header.datestamp[1] = eDate.Month;
+		header.datestamp[2] = eDate.Date;
+		header.timestamp[0] = eTime.Hours;
+		header.timestamp[1] = eTime.Minutes;
+		header.timestamp[2] = eTime.Seconds;
+
 		//Wait for the sensor threads to be done filling the first half of buffer
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_mutex_get(&imu_first_half_mutex, TX_WAIT_FOREVER);
 		sd_writing = true;
 		fx_file_write(&data_file, &header, sizeof(Header_Data));
 		fx_file_write(&data_file, imu_data[0], sizeof(IMU_Data) * IMU_HALF_BUFFER_SIZE);
+		while (sd_writing);
 		tx_mutex_put(&imu_first_half_mutex);
 
 		tx_mutex_get(&depth_first_half_mutex, TX_WAIT_FOREVER);
 		fx_file_write(&data_file, depth_data[0], sizeof(DEPTH_Data) * DEPTH_HALF_BUFFER_SIZE);
+		while (sd_writing);
 		tx_mutex_put(&depth_first_half_mutex);
 
-		tx_event_flags_get(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_mutex_get(&ecg_first_half_mutex, TX_WAIT_FOREVER);
 		fx_file_write(&data_file, ecg_data[0], sizeof(ECG_Data) * ECG_HALF_BUFFER_SIZE);
+		while (sd_writing);
 		tx_mutex_put(&ecg_first_half_mutex);
 
-		//Wait for the writing to complete before continuing
-		while (sd_writing);
+		tx_event_flags_set(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR);
 
-		//Wait for the sensor threads to be done filling the second half of the buffer
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_mutex_get(&imu_second_half_mutex, TX_WAIT_FOREVER);
 		sd_writing = true;
 		fx_file_write(&data_file, imu_data[1], sizeof(IMU_Data) * IMU_HALF_BUFFER_SIZE);
+		while (sd_writing);
 		tx_mutex_put(&imu_second_half_mutex);
 
 		tx_mutex_get(&depth_second_half_mutex, TX_WAIT_FOREVER);
 		fx_file_write(&data_file, depth_data[1], sizeof(DEPTH_Data) * DEPTH_HALF_BUFFER_SIZE);
+		while (sd_writing);
 		tx_mutex_put(&depth_second_half_mutex);
 
-		tx_event_flags_get(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_mutex_get(&ecg_second_half_mutex, TX_WAIT_FOREVER);
 		fx_file_write(&data_file, ecg_data[1], sizeof(ECG_Data) * ECG_HALF_BUFFER_SIZE);
-		tx_mutex_put(&ecg_second_half_mutex);
-
-		//Wait for the writing to complete before continuing
 		while (sd_writing);
+		tx_mutex_put(&ecg_second_half_mutex);
 
 		//Check to see if a stop flag was raised
 		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);

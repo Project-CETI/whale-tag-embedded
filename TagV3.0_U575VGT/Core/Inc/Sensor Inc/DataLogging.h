@@ -15,7 +15,7 @@
 #define DATA_LOG_SLEEP_TIME_TICKS tx_s_to_ticks(DATA_LOG_SLEEP_TIME_SEC)
 
 //ThreadX flag for when thread is done writing frame to SD
-#define DATA_LOG_COMPLETE_FLAG 0x1
+#define DATA_LOG_COMPLETE_FLAG 0x8
 
 //Frame header parameters
 #define KEY_VALUE 0x24
@@ -34,10 +34,10 @@ typedef struct __Header_Typedef {
 	uint8_t bytes_count;
 
 	//Date of samples
-	uint8_t datestamp[3];
+	uint8_t datestamp[4];
 
 	//Time of first IMU sample
-	uint8_t timestamp[3];
+	uint8_t timestamp[4];
 
 } Header_Data;
 

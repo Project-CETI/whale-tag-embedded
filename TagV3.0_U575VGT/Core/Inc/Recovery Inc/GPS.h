@@ -27,7 +27,7 @@
 #define GPS_UART_TIMEOUT 5000
 #define GPS_TRY_LOCK_TIMEOUT 5000
 
-#define GPS_SIMULATION true
+#define GPS_SIMULATION false
 #define GPS_SIM_LAT 42.36326
 #define GPS_SIM_LON -71.12650
 

@@ -37,6 +37,9 @@
 #define DEPTH_STOP_DATA_THREAD_FLAG 0x2
 #define DEPTH_STOP_SD_THREAD_FLAG 0x4
 
+//ThreadX flag for when thread is done collecting data
+#define DEPTH_HALF_BUFFER_FLAG 0x8
+
 //The number of DEPTH Samples to collect before writing to the SD card. This MUST be an even number.
 #define DEPTH_BUFFER_SIZE 250
 #define DEPTH_HALF_BUFFER_SIZE (DEPTH_BUFFER_SIZE / 2)
