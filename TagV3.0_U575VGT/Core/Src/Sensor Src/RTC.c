@@ -16,6 +16,8 @@ extern RTC_HandleTypeDef hrtc;
 extern TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP data_log_event_flags_group;
 
+extern State state;
+
 //GPS structs to check for GPS lock
 extern GPS_HandleTypeDef gps;
 extern GPS_Data gps_data;
@@ -27,9 +29,9 @@ RTC_TimeTypeDef eTime = {0};
 RTC_DateTypeDef eDate = {0};
 
 //Status of RTC time initialization
-bool rtc_init = false;
+bool rtc_setup = false;
 
-void RTC_thread_entry(ULONG thread_input) {
+void rtc_thread_entry(ULONG thread_input) {
 
 	bool first_pass = true;
 
@@ -37,16 +39,16 @@ void RTC_thread_entry(ULONG thread_input) {
 
 		//Initialize start date and time for RTC only if there is GPS lock
 		if (gps.is_pos_locked && !rtc_init) {
-			RTC_Init(&sTime, &sDate, true);
-			RTC_Init(&eTime, &eDate, true);
-			rtc_init = true;
+			rtc_init(&sTime, &sDate, true);
+			rtc_init(&eTime, &eDate, true);
+			rtc_setup = true;
 		}
 
 		ULONG actual_flags;
 
 		//Calibrate RTC with new GPS date and time every time interval
 		if (gps.is_pos_locked && eTime.Minutes % RTC_INIT_REFRESH_MINS == RTC_TIME_TOLERANCE_MINS) {
-			RTC_Init(&eTime, &eDate, true);
+			rtc_init(&eTime, &eDate, true);
 		}
 
 		//Get time from RTC (must query time THEN date to update registers)
@@ -59,17 +61,16 @@ void RTC_thread_entry(ULONG thread_input) {
 		}
 
 		//Sleep and repeat the process once woken up
-		//tx_thread_sleep(RTC_SLEEP_TIME_TICKS);
-		if (!first_pass) {
+		if (!first_pass && state == STATE_DATA_CAPTURE) {
 			tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		}
-		else {
+		else if (state == STATE_DATA_CAPTURE){
 			first_pass = false;
 		}
 	}
 }
 
-void RTC_Init(RTC_TimeTypeDef *eTime, RTC_DateTypeDef *eDate, bool gps_lock) {
+void rtc_Init(RTC_TimeTypeDef *eTime, RTC_DateTypeDef *eDate, bool gps_lock) {
 
 	//Initialize start time for RTC
 	if (gps_lock) {

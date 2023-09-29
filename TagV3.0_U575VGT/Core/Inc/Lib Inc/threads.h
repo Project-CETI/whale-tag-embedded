@@ -42,6 +42,7 @@ typedef enum __TX_THREAD_LIST {
 	BURNWIRE_THREAD,
 	RTC_THREAD,
 	DATA_LOG_THREAD,
+	//BMS_THREAD,
 	NUM_THREADS //DO NOT ADD THREAD ENUMS BELOW THIS
 }Thread;
 
@@ -168,7 +169,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 		[RTC_THREAD] = {
 			// RTC Thread
 			.thread_name = "RTC Thread",
-			.thread_entry_function = RTC_thread_entry,
+			.thread_entry_function = rtc_thread_entry,
 			.thread_input = 0x1234,
 			.thread_stack_size = 800,
 			.priority = 8,
@@ -186,7 +187,18 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.preempt_threshold = 7,
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_DONT_START
-		}
+		},/*
+		[BMS_THREAD] = {
+			// BMS Thread
+			.thread_name = "BMS Thread",
+			.thread_entry_function = bms_thread_entry,
+			.thread_input = 0x1234,
+			.thread_stack_size = 800,
+			.priority = 8,
+			.preempt_threshold = 8,
+			.timeslice = TX_NO_TIME_SLICE,
+			.start = TX_AUTO_START
+		},*/
 };
 
 //An array to hold all the threads. We do NOT need to touch this at all the add new threads, only edit the config list (above).

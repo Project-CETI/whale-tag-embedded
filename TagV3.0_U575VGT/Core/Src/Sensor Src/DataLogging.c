@@ -157,7 +157,7 @@ void sd_thread_entry(ULONG thread_input) {
 		tx_event_flags_get(&ecg_event_flags_group, ECG_STOP_SD_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
 
 		//If the stop flag was raised
-		if (actual_flags & IMU_STOP_SD_THREAD_FLAG){
+		if ((actual_flags & IMU_STOP_SD_THREAD_FLAG) && (actual_flags & DEPTH_STOP_SD_THREAD_FLAG) && (actual_flags & ECG_STOP_SD_THREAD_FLAG)){
 
 			//close the file
 			fx_file_close(&data_file);

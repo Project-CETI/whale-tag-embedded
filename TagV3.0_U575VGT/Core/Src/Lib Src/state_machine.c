@@ -28,21 +28,29 @@ extern TX_EVENT_FLAGS_GROUP usb_event_flags_group;
 //Threads array
 extern Thread_HandleTypeDef threads[NUM_THREADS];
 
+//State variable
+State state = 0;
+
 void state_machine_thread_entry(ULONG thread_input){
 
 	//Event flags for triggering state changes
 	tx_event_flags_create(&state_machine_event_flags_group, "State Machine Event Flags");
 
 	//If simulating, set the simulation state defined in the header file, else, enter data capture as a default
-	State state = (IS_SIMULATING) ? SIMULATING_STATE : STATE_DATA_CAPTURE;
+	state = (IS_SIMULATING) ? SIMULATING_STATE : STATE_DATA_CAPTURE;
 
 	//Check the initial state and start in the appropriate state
 	if (state == STATE_DATA_CAPTURE){
 		enter_data_capture();
-	} else if (state == STATE_RECOVERY){
+	}
+	else if (state == STATE_RECOVERY){
 		enter_recovery();
-	} else if (state == STATE_DATA_OFFLOAD){
+	}
+	else if (state == STATE_DATA_OFFLOAD){
 		enter_data_offload();
+	}
+	else if (state == STATE_FISHTRACKER) {
+		enter_fishtracker();
 	}
 
 	//Enter main thread execution loop ONLY if we arent simulating
@@ -52,16 +60,11 @@ void state_machine_thread_entry(ULONG thread_input){
 			ULONG actual_flags;
 			tx_event_flags_get(&state_machine_event_flags_group, ALL_STATE_FLAGS, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 
-			//Timeout event
-			if (actual_flags & STATE_TIMEOUT_FLAG){
+			//RTC timeout flag or GPS geofencing flag (outside of Dominica)
+			if ((actual_flags & STATE_TIMEOUT_FLAG) || (actual_flags & STATE_GPS_FLAG)){
 
-			}
-
-			//GPS geofencing flag
-			if (actual_flags & STATE_GPS_FLAG){
-
-				//We're outside of dominica, exit data capture and enter recovery
-				if (state == STATE_DATA_CAPTURE){
+				//Exit data capture and enter recovery
+				if (state == STATE_DATA_CAPTURE) {
 					hard_exit_data_capture();
 					enter_recovery();
 					state = STATE_RECOVERY;
@@ -71,10 +74,27 @@ void state_machine_thread_entry(ULONG thread_input){
 			//BMS low battery flag
 			if (actual_flags & STATE_LOW_BATT_FLAG){
 
+				//RTC timed out for data collection, exit data capture and enter recovery
+				if (state == STATE_DATA_CAPTURE) {
+					hard_exit_data_capture();
+					enter_recovery();
+					state = STATE_RECOVERY;
+				}
+			}
+
+			//BMS critical battery flag
+			if (actual_flags & STATE_CRIT_BATT_FLAG) {
+
+				//RTC timed out for data collection, exit data capture and enter recovery
+				if (state == STATE_RECOVERY) {
+					exit_recovery();
+					state = STATE_FISHTRACKER;
+				}
 			}
 
 			//USB detected flag
 			if (actual_flags & STATE_USB_CONNECTED_FLAG){
+
 				if (state == STATE_DATA_CAPTURE){
 					soft_exit_data_capture();
 				}
@@ -86,10 +106,12 @@ void state_machine_thread_entry(ULONG thread_input){
 				state = STATE_DATA_OFFLOAD;
 			}
 
+			/*
 			//Tag detached (burnwire completed) flag
 			if (actual_flags & STATE_TAG_RELEASED){
-
+				//turn on fishtracker?
 			}
+			*/
 		}
 	}
 }
@@ -98,11 +120,10 @@ void state_machine_thread_entry(ULONG thread_input){
 void enter_data_capture(){
 
 	//Resume data capture threads (they will no longer be in a suspended state)
-	//tx_thread_resume(&threads[AUDIO_THREAD].thread);
+	tx_thread_resume(&threads[AUDIO_THREAD].thread);
 	tx_thread_resume(&threads[IMU_THREAD].thread);
-	//tx_thread_resume(&threads[ECG_THREAD].thread);
-	//tx_thread_resume(&threads[DEPTH_THREAD].thread);
-	//tx_thread_resume(&threads[GPS_THREAD].thread);
+	tx_thread_resume(&threads[GPS_THREAD].thread);
+	//tx_thread_resume(&threads[BMS_THREAD].thread);
 }
 
 
@@ -114,6 +135,7 @@ void soft_exit_data_capture(){
 	tx_thread_suspend(&threads[ECG_THREAD].thread);
 	tx_thread_suspend(&threads[DEPTH_THREAD].thread);
 	tx_thread_suspend(&threads[GPS_THREAD].thread);
+	tx_thread_suspend(&threads[DATA_LOG_THREAD].thread);
 }
 
 void hard_exit_data_capture(){
@@ -123,22 +145,7 @@ void hard_exit_data_capture(){
 	tx_event_flags_set(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR);
 	tx_event_flags_set(&depth_event_flags_group, DEPTH_STOP_DATA_THREAD_FLAG, TX_OR);
 	tx_event_flags_set(&ecg_event_flags_group, ECG_STOP_DATA_THREAD_FLAG, TX_OR);
-
-	tx_thread_terminate(&threads[GPS_THREAD].thread);
 }
-
-void enter_recovery(){
-	//Start APRS thread
-	tx_thread_reset(&threads[APRS_THREAD].thread);
-	tx_thread_resume(&threads[APRS_THREAD].thread);
-}
-
-
-void exit_recovery(){
-	//Stop APRS thread
-	tx_thread_terminate(&threads[APRS_THREAD].thread);
-}
-
 
 void enter_data_offload(){
 	//Data offloading is always running, so we dont need to stop or start any threads, just adjust our SD card clock divison to be a little slower
@@ -149,3 +156,21 @@ void exit_data_offload(){
 	//Data offloading is always running, so we dont need to stop or start any threads, just adjust our SD card back to the original clock divider
 	MX_SDMMC1_SD_Fake_Init(NORMAL_SD_CLK_DIV);
 }
+
+void enter_recovery(){
+	//Start APRS thread
+	tx_thread_reset(&threads[APRS_THREAD].thread);
+	tx_thread_resume(&threads[APRS_THREAD].thread);
+
+	//Start Burnwire thread to release tag
+	tx_thread_resume(&threads[BURNWIRE_THREAD].thread);
+}
+
+void exit_recovery(){
+	//Stop APRS, BMS, GPS thread
+	tx_thread_terminate(&threads[APRS_THREAD].thread);
+	tx_thread_terminate(&threads[GPS_THREAD].thread);
+	//tx_thread_terminate(&threads[BMS_THREAD].thread);
+}
+
+
