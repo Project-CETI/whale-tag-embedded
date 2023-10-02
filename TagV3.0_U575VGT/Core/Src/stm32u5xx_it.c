@@ -179,7 +179,7 @@ void DebugMon_Handler(void)
 void EXTI12_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI12_IRQn 0 */
-	tx_event_flags_set(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR);
+  tx_event_flags_set(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR);
   /* USER CODE END EXTI12_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(IMU_INT_Pin);
   /* USER CODE BEGIN EXTI12_IRQn 1 */
@@ -193,7 +193,7 @@ void EXTI12_IRQHandler(void)
 void EXTI14_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI14_IRQn 0 */
-	tx_event_flags_set(&ecg_event_flags_group, ECG_DATA_READY_FLAG, TX_OR);
+  tx_event_flags_set(&ecg_event_flags_group, ECG_DATA_READY_FLAG, TX_OR);
   /* USER CODE END EXTI14_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(ECG_NDRDY_Pin);
   /* USER CODE BEGIN EXTI14_IRQn 1 */

@@ -38,17 +38,20 @@ void rtc_thread_entry(ULONG thread_input) {
 	while (1) {
 
 		//Initialize start date and time for RTC only if there is GPS lock
-		if (gps.is_pos_locked && !rtc_init) {
-			rtc_init(&sTime, &sDate, true);
-			rtc_init(&eTime, &eDate, true);
+		if (gps.is_pos_locked && !rtc_setup) {
+			RTC_Init(&sTime, &sDate);
+			RTC_Init(&eTime, &eDate);
 			rtc_setup = true;
+		}
+		else {
+			RTC_Init(&sTime, &sDate, false);
 		}
 
 		ULONG actual_flags;
 
 		//Calibrate RTC with new GPS date and time every time interval
 		if (gps.is_pos_locked && eTime.Minutes % RTC_INIT_REFRESH_MINS == RTC_TIME_TOLERANCE_MINS) {
-			rtc_init(&eTime, &eDate, true);
+			RTC_Init(&eTime, &eDate, true);
 		}
 
 		//Get time from RTC (must query time THEN date to update registers)
@@ -70,23 +73,14 @@ void rtc_thread_entry(ULONG thread_input) {
 	}
 }
 
-void rtc_Init(RTC_TimeTypeDef *eTime, RTC_DateTypeDef *eDate, bool gps_lock) {
+void RTC_Init(RTC_TimeTypeDef *eTime, RTC_DateTypeDef *eDate) {
 
 	//Initialize start time for RTC
-	if (gps_lock) {
-		eTime->Hours = gps_data.timestamp[0];
-		eTime->Minutes = gps_data.timestamp[1];
-		eTime->Seconds = gps_data.timestamp[2];
-		eTime->DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
-		eTime->StoreOperation = RTC_STOREOPERATION_RESET;
-	}
-	else {
-		eTime->Hours = 0;
-		eTime->Minutes = 0;
-		eTime->Seconds = 0;
-		eTime->DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
-		eTime->StoreOperation = RTC_STOREOPERATION_RESET;
-	}
+	eTime->Hours = gps_data.timestamp[0];
+	eTime->Minutes = gps_data.timestamp[1];
+	eTime->Seconds = gps_data.timestamp[2];
+	eTime->DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+	eTime->StoreOperation = RTC_STOREOPERATION_RESET;
 
 	//Set start time for RTC
 	if (HAL_RTC_SetTime(&hrtc, &eTime, RTC_FORMAT_BCD) != HAL_OK) {
@@ -94,16 +88,9 @@ void rtc_Init(RTC_TimeTypeDef *eTime, RTC_DateTypeDef *eDate, bool gps_lock) {
 	}
 
 	//Initialize start date for RTC
-	if (gps_lock) {
-		eDate->Year = gps_data.datestamp[0];
-		eDate->Month = gps_data.datestamp[1];
-		eDate->Date = gps_data.datestamp[2];
-	}
-	else {
-		eDate->Year = 23;
-		eDate->Month = 1;
-		eDate->Date = 1;
-	}
+	eDate->Year = gps_data.datestamp[0];
+	eDate->Month = gps_data.datestamp[1];
+	eDate->Date = gps_data.datestamp[2];
 
 	//Set start date for RTC
 	if (HAL_RTC_SetDate(&hrtc, &eDate, RTC_FORMAT_BCD) != HAL_OK) {

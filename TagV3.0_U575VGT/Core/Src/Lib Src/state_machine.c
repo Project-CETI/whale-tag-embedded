@@ -49,9 +49,6 @@ void state_machine_thread_entry(ULONG thread_input){
 	else if (state == STATE_DATA_OFFLOAD){
 		enter_data_offload();
 	}
-	else if (state == STATE_FISHTRACKER) {
-		enter_fishtracker();
-	}
 
 	//Enter main thread execution loop ONLY if we arent simulating
 	if (!IS_SIMULATING){
@@ -120,9 +117,9 @@ void state_machine_thread_entry(ULONG thread_input){
 void enter_data_capture(){
 
 	//Resume data capture threads (they will no longer be in a suspended state)
-	tx_thread_resume(&threads[AUDIO_THREAD].thread);
+	//tx_thread_resume(&threads[AUDIO_THREAD].thread);
 	tx_thread_resume(&threads[IMU_THREAD].thread);
-	tx_thread_resume(&threads[GPS_THREAD].thread);
+	//tx_thread_resume(&threads[GPS_THREAD].thread);
 	//tx_thread_resume(&threads[BMS_THREAD].thread);
 }
 
@@ -171,6 +168,7 @@ void exit_recovery(){
 	tx_thread_terminate(&threads[APRS_THREAD].thread);
 	tx_thread_terminate(&threads[GPS_THREAD].thread);
 	//tx_thread_terminate(&threads[BMS_THREAD].thread);
+	//start fishtracker thread?
 }
 
 

@@ -22,6 +22,6 @@
 #define RTC_INIT_REFRESH_MINS 5
 #define RTC_TIME_TOLERANCE_MINS 1
 
-void RTC_thread_entry(ULONG thread_input);
+void rtc_thread_entry(ULONG thread_input);
 
 #endif /* INC_SENSOR_INC_RTC_H_ */

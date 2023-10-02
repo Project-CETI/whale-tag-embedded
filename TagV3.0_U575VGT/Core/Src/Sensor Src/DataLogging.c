@@ -21,7 +21,13 @@ extern Thread_HandleTypeDef threads[NUM_THREADS];
 //RTC date and time
 extern RTC_TimeTypeDef eTime;
 extern RTC_DateTypeDef eDate;
-extern bool rtc_init;
+
+//GPS data
+extern GPS_HandleTypeDef gps;
+extern GPS_Data gps_data;
+
+//Sample counters for sensors
+extern uint8_t imu_sample_counter;
 
 //FileX variables
 extern FX_MEDIA        sdio_disk;
@@ -112,6 +118,16 @@ void sd_thread_entry(ULONG thread_input) {
 		header.timestamp[0] = eTime.Hours;
 		header.timestamp[1] = eTime.Minutes;
 		header.timestamp[2] = eTime.Seconds;
+
+		//Save GPS coordinates of tag if GPS locked
+		if (gps.is_pos_locked) {
+			header.latitude = gps_data.latitude;
+			header.longitude = gps_data.longitude;
+		}
+		else {
+			header.latitude = 0;
+			header.longitude = 0;
+		}
 
 		//Wait for the sensor threads to be done filling the first half of buffer
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);

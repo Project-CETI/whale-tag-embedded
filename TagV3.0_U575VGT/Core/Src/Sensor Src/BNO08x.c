@@ -38,13 +38,6 @@ TX_MUTEX imu_second_half_mutex;
 //Array for holding IMU data. The buffer is split in half and shared with the IMU thread.
 IMU_Data imu_data[2][IMU_HALF_BUFFER_SIZE] = {0};
 
-//DEBUG
-bool imu_running = false;
-uint8_t good_counter = 0;
-uint8_t bad = 0;
-
-
-
 void imu_thread_entry(ULONG thread_input){
 
 	//Create IMU handler and initialize
@@ -89,9 +82,6 @@ void imu_thread_entry(ULONG thread_input){
 
 		//Release mutex
 		tx_mutex_put(&imu_second_half_mutex);
-
-		//DEBUG
-		good_counter = 0;
 		
 		//Check to see if there was a stop flag raised
 		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
@@ -113,6 +103,7 @@ void imu_thread_entry(ULONG thread_input){
 		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 	}
 }
+
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 
 	imu->hspi = hspi;
@@ -226,9 +217,6 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 						imu_data[buffer_half][index].raw_data[9] = 0;
 					}
 
-					//DEBUG
-					good_counter++;
-
 					//increment forward to the next report
 					parsedDataIndex += bytesToCopy + 4;
 
@@ -254,7 +242,6 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 			//Dont increment index
 			index--;
 		}
-		HAL_Delay(50);
 	}
 
 	return HAL_OK;

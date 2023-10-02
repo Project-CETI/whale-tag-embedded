@@ -13,6 +13,7 @@
 extern UART_HandleTypeDef huart3;
 extern TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
 
+//GPS data
 GPS_HandleTypeDef gps;
 GPS_Data gps_data;
 

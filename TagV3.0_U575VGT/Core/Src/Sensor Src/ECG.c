@@ -28,9 +28,6 @@ TX_MUTEX ecg_second_half_mutex;
 //Array for holding ECG data. The buffer is split in half and shared with the ECG_SD thread.
 ECG_Data ecg_data[2][ECG_HALF_BUFFER_SIZE] = {0};
 
-bool ecg_running = 0;
-uint16_t good_ecg_data = 0;
-
 void ecg_thread_entry(ULONG thread_input){
 
 	//Declare ecg handler and initialize chip
@@ -78,8 +75,6 @@ void ecg_thread_entry(ULONG thread_input){
 		tx_event_flags_set(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG, TX_OR);
 		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 
-		good_ecg_data = 0;
-
 		//Check to see if there was a stop thread request. Put very little wait time so its essentially an instant check
 		tx_event_flags_get(&ecg_event_flags_group, ECG_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
 
@@ -125,17 +120,18 @@ HAL_StatusTypeDef ecg_get_data(ECG_HandleTypeDef* ecg, uint8_t buffer_half) {
 		//Thus, wait for our flag to be set in the interrupt handler. This function call will block the entire task until we receive the data.
 		tx_event_flags_get(&ecg_event_flags_group, ECG_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
-		ecg_running = true;
+		//Wait for new data, retrieve it
+		while (ecg_read_adc(ecg) != HAL_OK)
 
-		//New data is ready, retrieve it
+		/*
 		if (ecg_read_adc(ecg) == HAL_OK){
 			good_ecg_data++;
 		}
+		*/
 
 		//Fill up the first half buffer
 		ecg_data[buffer_half][index] = ecg->data;
 
-		ecg_running = false;
 	}
 
 	//If we filled the buffer, back out now (prevent overflow or hardfault)

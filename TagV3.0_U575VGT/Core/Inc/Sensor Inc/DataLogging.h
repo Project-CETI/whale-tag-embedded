@@ -19,8 +19,9 @@
 
 //Frame header parameters
 #define KEY_VALUE 0x24
-#define SAMPLES_PER_FRAME 15
-#define BYTES_PER_FRAME (12*SAMPLES_PER_FRAME)
+#define SAMPLES_PER_FRAME (IMU_BUFFER_SIZE + DEPTH_BUFFER_SIZE + ECG_BUFFER_SIZE)
+#define BYTES_PER_HEADER  (sizeof(Header_Data))
+#define BYTES_PER_FRAME (BYTES_PER_HEADER + sizeof(IMU_Data) * IMU_BUFFER_SIZE + sizeof(DEPTH_Data) * DEPTH_BUFFER_SIZE + sizeof(ECG_Data) * ECG_BUFFER_SIZE)
 
 typedef struct __Header_Typedef {
 
@@ -31,13 +32,16 @@ typedef struct __Header_Typedef {
 	uint8_t samples_count;
 
 	//Number of bytes per frame
-	uint8_t bytes_count;
+	uint16_t bytes_count;
 
 	//Date of samples
-	uint8_t datestamp[4];
+	uint8_t datestamp[3];
 
 	//Time of first IMU sample
-	uint8_t timestamp[4];
+	uint8_t timestamp[3];
+
+	float latitude;
+	float longitude;
 
 } Header_Data;
 
