@@ -26,9 +26,12 @@ extern TX_EVENT_FLAGS_GROUP depth_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP data_log_event_flags_group;
 
+extern UART_HandleTypeDef huart4;
+
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu);
 static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout);
 static void IMU_configure_reports(IMU_HandleTypeDef * imu, uint8_t reportID, bool isLastReport);
+static void IMU_disable_calibrations(IMU_HandleTypeDef * imu, bool isLastReport);
 
 //ThreadX useful variables (defined globally because theyre shared with the SD card writing thread)
 TX_EVENT_FLAGS_GROUP imu_event_flags_group;
@@ -54,10 +57,13 @@ void imu_thread_entry(ULONG thread_input){
 	HAL_NVIC_EnableIRQ(EXTI12_IRQn);
 
 	//Allow the SD card writing thread to start
-	tx_thread_resume(&threads[DEPTH_THREAD].thread);
+	//tx_thread_resume(&threads[DEPTH_THREAD].thread);
 
 	while(1) {
+		IMU_get_data(&imu, 0);
+		HAL_Delay(50);
 
+		/*
 		ULONG actual_flags;
 
 		//Wait for first half of the buffer to be ready for data
@@ -101,7 +107,9 @@ void imu_thread_entry(ULONG thread_input){
 		tx_event_flags_get(&depth_event_flags_group, DEPTH_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_event_flags_get(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		*/
 	}
+
 }
 
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
@@ -129,19 +137,60 @@ void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu){
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(imu->wake_port, imu->wake_pin, GPIO_PIN_RESET);
 
-	IMU_configure_reports(imu, IMU_ROTATION_VECTOR_REPORT_ID, false);
-	IMU_configure_reports(imu, IMU_ACCELEROMETER_REPORT_ID, false);
-	IMU_configure_reports(imu, IMU_GYROSCOPE_REPORT_ID, false);
-	IMU_configure_reports(imu, IMU_MAGNETOMETER_REPORT_ID, true);
+	//IMU_disable_calibrations(imu, false);
+	IMU_configure_reports(imu, IMU_ROTATION_VECTOR_REPORT_ID, true);
+	//IMU_configure_reports(imu, IMU_ACCELEROMETER_REPORT_ID, false);
+	//IMU_configure_reports(imu, IMU_GYROSCOPE_REPORT_ID, true);
+	//IMU_configure_reports(imu, IMU_MAGNETOMETER_REPORT_ID, true);
 
 	//Deassert wait to signal the end of configuration
 	HAL_GPIO_WritePin(imu->wake_port, imu->wake_pin, GPIO_PIN_SET);
 }
 
+HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half) {
+
+	uint8_t receiveData[256] = {0};
+	ULONG actual_events;
+
+	tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
+
+	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
+	HAL_StatusTypeDef ret = HAL_SPI_Receive(imu->hspi, receiveData, IMU_SHTP_HEADER_LENGTH, IMU_SPI_READ_TIMEOUT);
+	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+
+	uint32_t dataLength = ((receiveData[1] << 8) | receiveData[0]) & IMU_LENGTH_BIT_MASK;
+
+	if (ret == HAL_TIMEOUT || dataLength <= 0){
+		return HAL_ERROR;
+	}
+
+	if (dataLength > 256){
+		dataLength = 256;
+	}
+
+	tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
+
+	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
+	ret = HAL_SPI_Receive(imu->hspi, receiveData, dataLength, IMU_SPI_READ_TIMEOUT);
+	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+
+	if (ret == HAL_TIMEOUT){
+		return HAL_ERROR;
+	}
+
+	if (receiveData[2] == IMU_DATA_CHANNEL && receiveData[4] == IMU_TIMESTAMP_REPORT_ID && (receiveData[9] == 5 || receiveData[9] == 3 || receiveData[9] == 2 || receiveData[9] == 1)) {
+		HAL_UART_Transmit(&huart4, &receiveData[0], 256, HAL_MAX_DELAY);
+	}
+
+	return HAL_OK;
+}
+
+/*
 HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 
 	//receive data buffer
 	uint8_t receiveData[256] = {0};
+
 
 	for (uint16_t index = 0; index < IMU_HALF_BUFFER_SIZE; index++){
 
@@ -150,7 +199,7 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 		//Wait for data to be ready (suspends so other threads can run)
 		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
-		//Read the header in to a buffer
+		//Read the header into a buffer
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
 		HAL_StatusTypeDef ret = HAL_SPI_Receive(imu->hspi, receiveData, IMU_SHTP_HEADER_LENGTH, IMU_SPI_READ_TIMEOUT);
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
@@ -170,6 +219,8 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 		if (dataLength > 256){
 			dataLength = 256;
 		}
+
+		//if (dataLength == 0) restart imu
 
 		//Now that we know the length, wait for the payload of data to be ready
 		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
@@ -246,6 +297,7 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 
 	return HAL_OK;
 }
+*/
 
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu){
 
@@ -305,8 +357,8 @@ static void IMU_configure_reports(IMU_HandleTypeDef * imu, uint8_t reportID, boo
 
 	//Set how often we want to receive data
 	transmitData[9] = IMU_REPORT_INTERVAL_0; //LSB
-	transmitData[10] = IMU_REPORT_INTERVAL_1;
-	transmitData[11] = IMU_REPORT_INTERVAL_2;
+	transmitData[10] = 0xA1;//IMU_REPORT_INTERVAL_1;
+	transmitData[11] = 0x07;//IMU_REPORT_INTERVAL_2;
 	transmitData[12] = IMU_REPORT_INTERVAL_3; //MSBs
 
 	//Wait for IMU to be ready (poll for falling edge)
@@ -334,3 +386,49 @@ static void IMU_configure_reports(IMU_HandleTypeDef * imu, uint8_t reportID, boo
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 }
+
+static void IMU_disable_calibrations(IMU_HandleTypeDef * imu, bool isLastReport){
+
+	uint8_t transmitData[16] = {0};
+
+	//Configure SHTP header (first 4 bytes)
+	transmitData[0] = 16; //LSB
+	transmitData[1] = 0; //MSB
+	transmitData[2] = 2;
+
+	transmitData[4] = 0xF2;
+	transmitData[5] = 0;
+	transmitData[6] = 0x07;
+	transmitData[7] = 1;
+	transmitData[8] = 0;
+	transmitData[9] = 1;
+	transmitData[10] = 0;
+	transmitData[11] = 1;
+	transmitData[12] = 1;
+
+	//Wait for IMU to be ready (poll for falling edge)
+	if (IMU_poll_new_data(imu, HAL_MAX_DELAY) == HAL_TIMEOUT){
+		return;
+	}
+
+	//Prep wake pin for another falling edge (if theres another report coming after this one)
+	if (!isLastReport){
+		HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
+	}
+
+	//Select CS by pulling low and write configuration to the IMU. Add delays to ensure good timing.
+	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
+	HAL_Delay(1);
+
+	//Create another falling edge on the wake pin during our transfer to signal another transfer is coming
+	if (!isLastReport){
+		HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
+		HAL_Delay(1);
+	}
+
+	//Transmit data and pull CS back up to high
+	HAL_SPI_Transmit(&hspi1, transmitData, 16, HAL_MAX_DELAY);
+	HAL_Delay(1);
+	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+}
+
