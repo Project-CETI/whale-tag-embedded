@@ -305,12 +305,10 @@ void* audio_thread_spi(void* paramPtr)
             is_first_byte = 0;
           }
           long long global_time_startRead_us = get_global_time_us();
-          int spi_response = spiRead(spi_fd,
+          spiRead(spi_fd,
                   audio_buffers[audio_buffer_toLog].buffer +
                       (audio_buffers[audio_buffer_toLog].counter * SPI_BLOCK_SIZE),
                   SPI_BLOCK_SIZE);
-          //CETI_LOG("SPI READ TIME US: %ld", (long)(get_global_time_us() - global_time_startRead_us));
-          //CETI_LOG("SPI RESPONSE %d", spi_response);
           // Make sure the GPIO flag for data available has been cleared.
           // It seems this is always the case, but just double check.
           while(gpioRead(AUDIO_DATA_AVAILABLE) && get_global_time_us() - global_time_startRead_us <= 10000)

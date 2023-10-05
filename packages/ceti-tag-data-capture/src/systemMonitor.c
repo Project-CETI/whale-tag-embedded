@@ -22,6 +22,8 @@ static unsigned long long cpu_prev_system[NUM_CPU_ENTRIES], cpu_prev_idle[NUM_CP
 static unsigned long long cpu_prev_ioWait[NUM_CPU_ENTRIES], cpu_prev_irq[NUM_CPU_ENTRIES], cpu_prev_irqSoft[NUM_CPU_ENTRIES];
 static double cpu_percents[NUM_CPU_ENTRIES];
 static FILE* cpu_proc_stat_file;
+// State for limiting log file sizes.
+static long long last_logrotate_time_us = 0;
 // The main process ID of the program.
 static int cetiApp_pid = -1;
 // Thread IDs, which will be updated by the relevant threads if they are enabled.
@@ -51,10 +53,10 @@ static const char* systemMonitor_data_file_headers[] = {
   "SysMonitor CPU", "GoPros CPU",
   "RAM Free [B]", "RAM Free [%]",
   "Swap Free [B]", "Swap Free [%]",
-  "Root Free [KB]", "Overlay Free [KB]", "Log Size [KB]",
+  "Root Free [KB]", "Overlay Free [KB]", "Log Size [KB]", "SysLog Size [KB]",
   "CPU Temperature [C]", "GPU Temperature [C]",
   };
-static const int num_systemMonitor_data_file_headers = 29;
+static const int num_systemMonitor_data_file_headers = 30;
 
 int init_systemMonitor()
 {
@@ -98,6 +100,9 @@ void* systemMonitor_thread(void* paramPtr) {
       else
         CETI_LOG("XXX Failed to set affinity to CPU %d", SYSTEMMONITOR_CPU);
     }
+
+    // Initialize state for limiting log file sizes.
+    last_logrotate_time_us = get_global_time_us();
 
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically check system resources");
@@ -178,16 +183,46 @@ void* systemMonitor_thread(void* paramPtr) {
         fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)ram_free)/((double)ram_total));
         fprintf(systemMonitor_data_file, ",%lld", swap_free);
         fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)swap_free)/((double)swap_total));
-        fprintf(systemMonitor_data_file, ",%ld", get_root_free_b());
-        fprintf(systemMonitor_data_file, ",%ld", get_overlay_free_b());
-        fprintf(systemMonitor_data_file, ",%ld", get_log_size_b());
+        fprintf(systemMonitor_data_file, ",%ld", get_root_free_kb());
+        fprintf(systemMonitor_data_file, ",%ld", get_overlay_free_kb());
+        fprintf(systemMonitor_data_file, ",%ld", get_log_size_kb());
+        fprintf(systemMonitor_data_file, ",%ld", get_syslog_size_kb());
         fprintf(systemMonitor_data_file, ",%f", get_cpu_temperature_c());
         fprintf(systemMonitor_data_file, ",%f", get_gpu_temperature_c());
         // Finish the row of data and close the file.
         fprintf(systemMonitor_data_file, "\n");
         fclose(systemMonitor_data_file);
       }
-
+      
+      // Force log rotations, to enforce the size limits specified in firstboot.
+      #if LOGROTATE_PERIOD_US >= 0
+      if(get_global_time_us() - last_logrotate_time_us >= LOGROTATE_PERIOD_US)
+      {
+        CETI_LOG("Forcing a log file rotation");
+        last_logrotate_time_us = get_global_time_us();
+        char system_command[100];
+        char system_response[100];
+        // Rotate the logs.
+        system_call_with_output("sudo logrotate -f /etc/logrotate.d/rsyslog", system_response);
+        // Check if it archived any old logs.
+        // The configuration in firstboot tells it to use /var/log/old_logs for old files.
+        if(system_call_with_output("ls -l /var/log/old_logs/ | wc -l", system_response) != -1)
+        {
+          int num_old_log_files = atof(system_response) - 1; // subtract 1 for the line that lists the total count
+          if(num_old_log_files > 0)
+          {
+            // Make a directory for the old logs on the data partition.
+            system_call_with_output("sudo mkdir /data/logs", system_response);
+            sprintf(system_command, "sudo mkdir /data/logs/logs_copied_%lld", last_logrotate_time_us);
+            system_call_with_output(system_command, system_response);
+            // Move the old logs to the data partition.
+            sprintf(system_command, "sudo mv /var/log/old_logs/* /data/logs/logs_copied_%lld", last_logrotate_time_us);
+            system_call_with_output(system_command, system_response);
+          }
+        }
+      }
+      #endif
+      
       // Delay to implement a desired sampling rate.
       // Take into account the time it took to acquire/save data.
       polling_sleep_duration_us = SYSTEMMONITOR_SAMPLING_PERIOD_US;
@@ -413,37 +448,48 @@ float get_gpu_temperature_c()
   return atof(temperature_c_str);
 }
 
-long get_overlay_free_b()
+long get_overlay_free_kb()
 {
-  char available_b[20] = "";
+  char available_kb[20] = "";
   int system_success = system_call_with_output(
     "df --output=source,avail | grep overlay | awk '{print $2}'",
-    available_b);
-  if(system_success == -1 || strlen(available_b) == 0)
+    available_kb);
+  if(system_success == -1 || strlen(available_kb) == 0)
     return -1;
-  return (long)atof(available_b);
+  return (long)atof(available_kb);
 }
 
-long get_root_free_b()
+long get_root_free_kb()
 {
-  char available_b[20] = "";
+  char available_kb[20] = "";
   int system_success = system_call_with_output(
     "df --output=source,avail | grep /dev/root | awk '{print $2}'",
-    available_b);
-  if(system_success == -1 || strlen(available_b) == 0)
+    available_kb);
+  if(system_success == -1 || strlen(available_kb) == 0)
     return -1;
-  return (long)atof(available_b);
+  return (long)atof(available_kb);
 }
 
-long get_log_size_b()
+long get_log_size_kb()
 {
-  char log_size_b[20] = "";
+  char log_size_kb[20] = "";
   int system_success = system_call_with_output(
-    "du /var/log/ --threshold=10M 2>/dev/null | grep /var/log/$ | awk '{print $1}'",
-    log_size_b);
-  if(system_success == -1 || strlen(log_size_b) == 0)
+    "du /var/log/ 2>/dev/null | grep /var/log/$ | awk '{print $1}'",
+    log_size_kb);
+  if(system_success == -1 || strlen(log_size_kb) == 0)
     return -1;
-  return (long)atof(log_size_b);
+  return (long)atof(log_size_kb);
+}
+
+long get_syslog_size_kb()
+{
+  char syslog_size_kb[20] = "";
+  int system_success = system_call_with_output(
+    "du /var/log/syslog 2>/dev/null | grep /var/log/syslog$ | awk '{print $1}'",
+    syslog_size_kb);
+  if(system_success == -1 || strlen(syslog_size_kb) == 0)
+    return -1;
+  return (long)atof(syslog_size_kb);
 }
 
 // Various
