@@ -37,6 +37,8 @@ int main(void) {
     pthread_t thread_ids[50] = {0};
     int* threads_running[50];
     int num_threads = 0;
+    int audio_acquisition_thread_index = -1;
+    int audio_write_thread_index = -1;
     CETI_LOG("-------------------------------------------------");
     CETI_LOG("Starting acquisition threads");
     // RTC
@@ -115,15 +117,18 @@ int main(void) {
     usleep(1000000); // wait to make sure all other threads are on their assigned CPUs (maybe not needed?)
     pthread_create(&thread_ids[num_threads], NULL, &audio_thread_spi, NULL);
     threads_running[num_threads] = &g_audio_thread_spi_is_running;
+    audio_acquisition_thread_index = num_threads;
     num_threads++;
     #if ENABLE_AUDIO_FLAC
     pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeFlac, NULL);
     threads_running[num_threads] = &g_audio_thread_writeData_is_running;
+    audio_write_thread_index = num_threads;
     num_threads++;
     #else
     // dump raw audio files
     pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeRaw, NULL);
     threads_running[num_threads] = &g_audio_thread_writeData_is_running;
+    audio_write_thread_index = num_threads;
     num_threads++;
     #endif
     #endif
@@ -139,6 +144,27 @@ int main(void) {
     while (!g_exit) {
         // Let threads do their work.
         usleep(100000);
+        // Check if the audio needs to be restarted after an overflow.
+        #if ENABLE_AUDIO
+        if(g_audio_overflow_detected)
+        {
+          // Wait for the threads to stop.
+          while(g_audio_thread_spi_is_running || g_audio_thread_writeData_is_running)
+            usleep(100000);
+          // Restart the threads.
+          pthread_create(&thread_ids[audio_acquisition_thread_index], NULL, &audio_thread_spi, NULL);
+          threads_running[audio_acquisition_thread_index] = &g_audio_thread_spi_is_running;
+          #if ENABLE_AUDIO_FLAC
+          pthread_create(&thread_ids[audio_write_thread_index], NULL, &audio_thread_writeFlac, NULL);
+          threads_running[audio_write_thread_index] = &g_audio_thread_writeData_is_running;
+          #else
+          // dump raw audio files
+          pthread_create(&thread_ids[audio_write_thread_index], NULL, &audio_thread_writeRaw, NULL);
+          threads_running[audio_write_thread_index] = &g_audio_thread_writeData_is_running;
+          #endif
+          usleep(100000);
+        }
+        #endif
     }
     CETI_LOG("-------------------------------------------------");
     CETI_LOG("Data acquisition completed. Waiting for threads to stop.");

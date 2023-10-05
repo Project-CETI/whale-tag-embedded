@@ -93,21 +93,21 @@ do
 # The overflow flag is the Pi GPIO 12, read using pigpio utility
 # A note is made in the /data/fifo_status.txt file if there is an event
 
-	overflow=$(pigs r 12)
-
-	if [ $overflow -eq 1 ]
-	then
-		echo "FIFO overflow detected, restarting recorder"
-		echo "quit" > cetiCommand
-		cat cetiResponse
-		sudo touch /data/fifo_status.txt
-        date | sudo tee -a /data/fifo_status.txt
-		echo "fault detected" | sudo tee -a /data/fifo_status.txt
-		sleep 30
-		sudo /opt/ceti-tag-data-capture/bin/cetiTagApp & 
-	else
-		echo "FIFO is OK"
-	fi
+#	overflow=$(pigs r 12)
+#
+#	if [ $overflow -eq 1 ]
+#	then
+#		echo "FIFO overflow detected, restarting recorder"
+#		echo "quit" > cetiCommand
+#		cat cetiResponse
+#		sudo touch /data/fifo_status.txt
+#        date | sudo tee -a /data/fifo_status.txt
+#		echo "fault detected" | sudo tee -a /data/fifo_status.txt
+#		sleep 30
+#		sudo /opt/ceti-tag-data-capture/bin/cetiTagApp &
+#	else
+#		echo "FIFO is OK"
+#	fi
 
 #loop timing
 	sleep 60

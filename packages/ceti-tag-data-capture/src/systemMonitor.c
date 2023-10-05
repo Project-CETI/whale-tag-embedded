@@ -51,9 +51,10 @@ static const char* systemMonitor_data_file_headers[] = {
   "SysMonitor CPU", "GoPros CPU",
   "RAM Free [B]", "RAM Free [%]",
   "Swap Free [B]", "Swap Free [%]",
+  "Root Free [KB]", "Overlay Free [KB]", "Log Size [KB]",
   "CPU Temperature [C]", "GPU Temperature [C]",
   };
-static const int num_systemMonitor_data_file_headers = 26;
+static const int num_systemMonitor_data_file_headers = 29;
 
 int init_systemMonitor()
 {
@@ -177,6 +178,9 @@ void* systemMonitor_thread(void* paramPtr) {
         fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)ram_free)/((double)ram_total));
         fprintf(systemMonitor_data_file, ",%lld", swap_free);
         fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)swap_free)/((double)swap_total));
+        fprintf(systemMonitor_data_file, ",%ld", get_root_free_b());
+        fprintf(systemMonitor_data_file, ",%ld", get_overlay_free_b());
+        fprintf(systemMonitor_data_file, ",%ld", get_log_size_b());
         fprintf(systemMonitor_data_file, ",%f", get_cpu_temperature_c());
         fprintf(systemMonitor_data_file, ",%f", get_gpu_temperature_c());
         // Finish the row of data and close the file.
@@ -407,6 +411,39 @@ float get_gpu_temperature_c()
   if(system_success == -1)
     return -1;
   return atof(temperature_c_str);
+}
+
+long get_overlay_free_b()
+{
+  char available_b[20] = "";
+  int system_success = system_call_with_output(
+    "df --output=source,avail | grep overlay | awk '{print $2}'",
+    available_b);
+  if(system_success == -1 || strlen(available_b) == 0)
+    return -1;
+  return (long)atof(available_b);
+}
+
+long get_root_free_b()
+{
+  char available_b[20] = "";
+  int system_success = system_call_with_output(
+    "df --output=source,avail | grep /dev/root | awk '{print $2}'",
+    available_b);
+  if(system_success == -1 || strlen(available_b) == 0)
+    return -1;
+  return (long)atof(available_b);
+}
+
+long get_log_size_b()
+{
+  char log_size_b[20] = "";
+  int system_success = system_call_with_output(
+    "du /var/log/ --threshold=10M 2>/dev/null | grep /var/log/$ | awk '{print $1}'",
+    log_size_b);
+  if(system_success == -1 || strlen(log_size_b) == 0)
+    return -1;
+  return (long)atof(log_size_b);
 }
 
 // Various

@@ -21,6 +21,8 @@
 #include "sensors/imu.h"
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 
+#include "sensors/audio.h"
+
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>

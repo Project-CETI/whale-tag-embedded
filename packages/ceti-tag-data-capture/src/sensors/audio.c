@@ -46,6 +46,20 @@ struct audio_dataPage {
     bool readyToBeSavedToDisk;
 };
 static struct audio_dataPage audio_page[2];
+int g_audio_overflow_detected = 0;
+static int audio_overflow_detected_location = -1;
+
+static FILE* audio_status_file = NULL;
+static char audio_status_file_notes[256] = "";
+static const char* audio_status_file_headers[] = {
+  "Overflow",
+  "Overflow Detection Location",
+  "Start Writing",
+  "Done Writing",
+  "See SPI Block",
+  };
+static const int num_audio_status_file_headers = 5;
+static int audio_writing_to_status_file = 0;
 
 //-----------------------------------------------------------------------------
 // Initialization
@@ -62,6 +76,22 @@ int init_audio() {
       CETI_LOG("XXXX Failed to set initial audio configuration - ADC register did not read back as expected");
       return (-1);
   }
+  
+  // Open an output file to write status information.
+  if(init_data_file(audio_status_file, AUDIO_STATUS_FILEPATH,
+                     audio_status_file_headers,  num_audio_status_file_headers,
+                     audio_status_file_notes, "init_audio()") < 0)
+    return -1;
+
+  // Initialize the overflow indicator.
+  if(AUDIO_OVERFLOW_GPIO >= 0)
+  {
+    gpioInitialise();
+    gpioSetMode(AUDIO_OVERFLOW_GPIO, PI_INPUT);
+  }
+  g_audio_overflow_detected = 0;
+  audio_overflow_detected_location = -1;
+
   return 0;
 }
 
@@ -148,6 +178,7 @@ int reset_audio_fifo(void) {
 //-----------------------------------------------------------------------------
 
 int start_audio_acq(void) {
+    CETI_LOG("Starting audio acquisition");
     char cam_response[8];
     cam(5, 0, 0, 0, 0, cam_response); // stops the input stream
     cam(3, 0, 0, 0, 0, cam_response); // flushes the FIFO
@@ -162,6 +193,7 @@ int start_audio_acq(void) {
 }
 
 int stop_audio_acq(void) {
+    CETI_LOG("Stopping audio acquisition");
     char cam_response[8];
     cam(5, 0, 0, 0, 0, cam_response); // stops the input stream
 
@@ -222,16 +254,102 @@ void* audio_thread_spi(void* paramPtr) {
     prev_status = gpioRead(AUDIO_DATA_AVAILABLE);
     status = prev_status;
 
+    // Check if the audio is already overflowed.
+    #if AUDIO_OVERFLOW_GPIO >= 0
+    g_audio_overflow_detected = g_audio_overflow_detected || gpioRead(AUDIO_OVERFLOW_GPIO);
+    if(g_audio_overflow_detected)
+    {
+      CETI_LOG("*** OVERFLOW 0 ***");
+      long long global_time_us = get_global_time_us();
+      while(audio_writing_to_status_file)
+        usleep(10);
+      audio_writing_to_status_file = 1;
+      audio_overflow_detected_location = 0;
+      audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
+      fprintf(audio_status_file, "%lld", global_time_us);
+      fprintf(audio_status_file, ",%d", getRtcCount());
+      // Write any notes, then clear them so they are only written once.
+      fprintf(audio_status_file, ",%s", audio_status_file_notes);
+      strcpy(audio_status_file_notes, "");
+      // Write overflow status information.
+      fprintf(audio_status_file, ",%d", g_audio_overflow_detected);
+      fprintf(audio_status_file, ",%d", audio_overflow_detected_location);
+      fprintf(audio_status_file, ",");
+      fprintf(audio_status_file, ",");
+      fprintf(audio_status_file, ",");
+      // Finish the row of data.
+      fprintf(audio_status_file, "\n");
+      fclose(audio_status_file);
+      audio_writing_to_status_file = 0;
+    }
+    #endif
+
+    // Start the audio acquisition.
+    start_audio_acq();
+
     // Main loop to acquire audio data.
     CETI_LOG("Starting loop to fetch data via SPI");
     g_audio_thread_spi_is_running = 1;
-    while (!g_exit) {
+    while (!g_exit && !g_audio_overflow_detected) {
 
         status = gpioRead(AUDIO_DATA_AVAILABLE);
+
+        // Check if the FPGA buffer overflowed.
+        #if AUDIO_OVERFLOW_GPIO >= 0
+        g_audio_overflow_detected = g_audio_overflow_detected || gpioRead(AUDIO_OVERFLOW_GPIO);
+        if(g_audio_overflow_detected)
+        {
+          CETI_LOG("*** OVERFLOW 1 ***");
+          long long global_time_us = get_global_time_us();
+          while(audio_writing_to_status_file)
+            usleep(10);
+          audio_writing_to_status_file = 1;
+          audio_overflow_detected_location = 1;
+          audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
+          fprintf(audio_status_file, "%lld", global_time_us);
+          fprintf(audio_status_file, ",%d", getRtcCount());
+          // Write any notes, then clear them so they are only written once.
+          fprintf(audio_status_file, ",%s", audio_status_file_notes);
+          strcpy(audio_status_file_notes, "");
+          // Write overflow status information.
+          fprintf(audio_status_file, ",%d", g_audio_overflow_detected);
+          fprintf(audio_status_file, ",%d", audio_overflow_detected_location);
+          fprintf(audio_status_file, ",");
+          fprintf(audio_status_file, ",");
+          fprintf(audio_status_file, ",");
+          // Finish the row of data.
+          fprintf(audio_status_file, "\n");
+          fclose(audio_status_file);
+          audio_writing_to_status_file = 0;
+        }
+        #endif
 
         if (status != prev_status) {
             prev_status = status;
 
+//            if(status)
+//            {
+//              long long global_time_us = get_global_time_us();
+//              while(audio_writing_to_status_file)
+//                usleep(10);
+//              audio_writing_to_status_file = 1;
+//              audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
+//              fprintf(audio_status_file, "%lld", global_time_us);
+//              fprintf(audio_status_file, ",%d", getRtcCount());
+//              // Write any notes, then clear them so they are only written once.
+//              fprintf(audio_status_file, ",%s", audio_status_file_notes);
+//              strcpy(audio_status_file_notes, "");
+//              // Write overflow status information.
+//              fprintf(audio_status_file, ",");
+//              fprintf(audio_status_file, ",");
+//              fprintf(audio_status_file, ",");
+//              fprintf(audio_status_file, ",");
+//              fprintf(audio_status_file, ",1");
+//              // Finish the row of data.
+//              fprintf(audio_status_file, "\n");
+//              fclose(audio_status_file);
+//              audio_writing_to_status_file = 0;
+//            }
             while (status) {
                 // SPI block has become available, read it from the HW FIFO via
                 // SPI. Discard the first byte.
@@ -257,14 +375,78 @@ void* audio_thread_spi(void* paramPtr) {
                     audio_page[pageIndex].counter++;
                 }
                 status = gpioRead(AUDIO_DATA_AVAILABLE);
+
+                // Check if the FPGA buffer overflowed.
+                #if AUDIO_OVERFLOW_GPIO >= 0
+                g_audio_overflow_detected = g_audio_overflow_detected || gpioRead(AUDIO_OVERFLOW_GPIO);
+                if(g_audio_overflow_detected)
+                {
+                  CETI_LOG("*** OVERFLOW 2 ***");
+                  long long global_time_us = get_global_time_us();
+                  while(audio_writing_to_status_file)
+                    usleep(10);
+                  audio_writing_to_status_file = 1;
+                  audio_overflow_detected_location = 2;
+                  audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
+                  fprintf(audio_status_file, "%lld", global_time_us);
+                  fprintf(audio_status_file, ",%d", getRtcCount());
+                  // Write any notes, then clear them so they are only written once.
+                  fprintf(audio_status_file, ",%s", audio_status_file_notes);
+                  strcpy(audio_status_file_notes, "");
+                  // Write overflow status information.
+                  fprintf(audio_status_file, ",%d", g_audio_overflow_detected);
+                  fprintf(audio_status_file, ",%d", audio_overflow_detected_location);
+                  fprintf(audio_status_file, ",");
+                  fprintf(audio_status_file, ",");
+                  fprintf(audio_status_file, ",");
+                  // Finish the row of data.
+                  fprintf(audio_status_file, "\n");
+                  fclose(audio_status_file);
+                  audio_writing_to_status_file = 0;
+                }
+                #endif
             }
         } else {
-            usleep(1000);
+            //usleep(1000);
+//            long achieved_sleep_us = 0;
+////            achieved_sleep_us += gpioDelay(99); // delays of 100 us or less use busy waits
+////            achieved_sleep_us += gpioDelay(99); // delays of 100 us or less use busy waits
+////            achieved_sleep_us += gpioDelay(99); // delays of 100 us or less use busy waits
+////            achieved_sleep_us += gpioDelay(99); // delays of 100 us or less use busy waits
+////            achieved_sleep_us += gpioDelay(99); // delays of 100 us or less use busy waits
+////            achieved_sleep_us += gpioDelay(99); // delays of 100 us or less use busy waits
+////            achieved_sleep_us += gpioDelay(99); // delays of 100 us or less use busy waits
+////            achieved_sleep_us += gpioDelay(99); // delays of 100 us or less use busy waits
+////            achieved_sleep_us += gpioDelay(99); // delays of 100 us or less use busy waits
+////            achieved_sleep_us += gpioDelay(99); // delays of 100 us or less use busy waits
+//            achieved_sleep_us += gpioDelay(1000); // delays of 100 us or less use busy waits
+
+            long long start_sleep_time_us = get_global_time_us();
+            usleep(100);
+            long achieved_sleep_us = get_global_time_us() - start_sleep_time_us;
+//            CETI_LOG("%ld", achieved_sleep_us);
         }
     }
+
+    // Close the SPI communication.
     spiClose(spi_fd);
+    // Log that the thread is stopping.
+    if(g_audio_overflow_detected && !g_exit)
+      CETI_LOG("*** Audio overflow detected at location %d", audio_overflow_detected_location);
+    else
+      CETI_LOG("Done!");
+    // Wait for the write-data thread to finish as well.
+    while(g_audio_thread_writeData_is_running)
+      usleep(100000);
+    // Stop FPGA audio capture and reset its buffer.
+    stop_audio_acq();
+    usleep(100000);
+    reset_audio_fifo();
+    usleep(100000);
+    g_audio_overflow_detected = 0;
+    audio_overflow_detected_location = -1;
+    // Exit.
     g_audio_thread_spi_is_running = 0;
-    CETI_LOG("Done!");
     return NULL;
 }
 
@@ -297,12 +479,38 @@ void* audio_thread_writeFlac(void* paramPtr) {
     else
       CETI_LOG("XXX Failed to set priority");
 
+    #if AUDIO_OVERFLOW_GPIO >= 0
+    g_audio_overflow_detected = g_audio_overflow_detected || gpioRead(AUDIO_OVERFLOW_GPIO);
+    #endif
+
     CETI_LOG("Starting loop to periodically write data");
     g_audio_thread_writeData_is_running = 1;
     // FLAC__bool ok = true;
     int pageIndex = 0;
-    while (!g_exit) {
+    while (!g_exit && !g_audio_overflow_detected) {
         if (audio_page[pageIndex].readyToBeSavedToDisk) {
+
+            long long global_time_us = get_global_time_us();
+            while(audio_writing_to_status_file)
+              usleep(10);
+            audio_writing_to_status_file = 1;
+            audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
+            fprintf(audio_status_file, "%lld", global_time_us);
+            fprintf(audio_status_file, ",%d", getRtcCount());
+            // Write any notes, then clear them so they are only written once.
+            fprintf(audio_status_file, ",%s", audio_status_file_notes);
+            strcpy(audio_status_file_notes, "");
+            // Write overflow status information.
+            fprintf(audio_status_file, ",");
+            fprintf(audio_status_file, ",");
+            fprintf(audio_status_file, ",1");
+            fprintf(audio_status_file, ",");
+            fprintf(audio_status_file, ",");
+            // Finish the row of data.
+            fprintf(audio_status_file, "\n");
+            fclose(audio_status_file);
+            audio_writing_to_status_file = 0;
+
             if ( (audio_acqDataFileLength > MAX_AUDIO_DATA_FILE_SIZE) || (flac_encoder == 0) ) {
                 audio_createNewFlacFile();
             }
@@ -317,16 +525,40 @@ void* audio_thread_writeFlac(void* paramPtr) {
             FLAC__stream_encoder_process_interleaved(flac_encoder, buff, SAMPLES_PER_RAM_PAGE);
             audio_page[pageIndex].readyToBeSavedToDisk = false;
             audio_acqDataFileLength += RAM_SIZE;
+
+            global_time_us = get_global_time_us();
+            while(audio_writing_to_status_file)
+              usleep(10);
+            audio_writing_to_status_file = 1;
+            audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
+            fprintf(audio_status_file, "%lld", global_time_us);
+            fprintf(audio_status_file, ",%d", getRtcCount());
+            // Write any notes, then clear them so they are only written once.
+            fprintf(audio_status_file, ",%s", audio_status_file_notes);
+            strcpy(audio_status_file_notes, "");
+            // Write overflow status information.
+            fprintf(audio_status_file, ",");
+            fprintf(audio_status_file, ",");
+            fprintf(audio_status_file, ",");
+            fprintf(audio_status_file, ",1");
+            fprintf(audio_status_file, ",");
+            // Finish the row of data.
+            fprintf(audio_status_file, "\n");
+            fclose(audio_status_file);
+            audio_writing_to_status_file = 0;
         } else {
-            usleep(1000);
+            usleep(10000000);
         }
         pageIndex = !pageIndex;
     }
     FLAC__stream_encoder_finish(flac_encoder);
     FLAC__stream_encoder_delete(flac_encoder);
     flac_encoder = 0;
+    if(g_audio_overflow_detected && !g_exit)
+      CETI_LOG("*** Audio overflow detected at location %d", audio_overflow_detected_location);
+    else
+      CETI_LOG("Done!");
     g_audio_thread_writeData_is_running = 0;
-    CETI_LOG("Done!");
     return NULL;
 }
 
@@ -404,11 +636,37 @@ void* audio_thread_writeRaw(void* paramPtr) {
    else
      CETI_LOG("XXX Failed to set priority");
 
+   #if AUDIO_OVERFLOW_GPIO >= 0
+   g_audio_overflow_detected = g_audio_overflow_detected || gpioRead(AUDIO_OVERFLOW_GPIO);
+   #endif
+
    CETI_LOG("Starting loop to periodically write data");
    g_audio_thread_writeData_is_running = 1;
    int pageIndex = 0;
-   while (!g_exit) {
+   while (!g_exit && !g_audio_overflow_detected) {
        if (audio_page[pageIndex].readyToBeSavedToDisk) {
+
+           long long global_time_us = get_global_time_us();
+            while(audio_writing_to_status_file)
+              usleep(10);
+            audio_writing_to_status_file = 1;
+            audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
+            fprintf(audio_status_file, "%lld", global_time_us);
+            fprintf(audio_status_file, ",%d", getRtcCount());
+            // Write any notes, then clear them so they are only written once.
+            fprintf(audio_status_file, ",%s", audio_status_file_notes);
+            strcpy(audio_status_file_notes, "");
+            // Write overflow status information.
+            fprintf(audio_status_file, ",");
+            fprintf(audio_status_file, ",");
+            fprintf(audio_status_file, ",1");
+            fprintf(audio_status_file, ",");
+            fprintf(audio_status_file, ",");
+            // Finish the row of data.
+            fprintf(audio_status_file, "\n");
+            fclose(audio_status_file);
+            audio_writing_to_status_file = 0;
+
            if ( (audio_acqDataFileLength > MAX_AUDIO_DATA_FILE_SIZE) || (acqData == NULL) ) {
                audio_createNewRawFile();
            }
@@ -417,13 +675,37 @@ void* audio_thread_writeRaw(void* paramPtr) {
            audio_acqDataFileLength += RAM_SIZE;
            fflush(acqData);
            fsync(fileno(acqData));
+
+           global_time_us = get_global_time_us();
+            while(audio_writing_to_status_file)
+              usleep(10);
+            audio_writing_to_status_file = 1;
+            audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
+            fprintf(audio_status_file, "%lld", global_time_us);
+            fprintf(audio_status_file, ",%d", getRtcCount());
+            // Write any notes, then clear them so they are only written once.
+            fprintf(audio_status_file, ",%s", audio_status_file_notes);
+            strcpy(audio_status_file_notes, "");
+            // Write overflow status information.
+            fprintf(audio_status_file, ",");
+            fprintf(audio_status_file, ",");
+            fprintf(audio_status_file, ",");
+            fprintf(audio_status_file, ",1");
+            fprintf(audio_status_file, ",");
+            // Finish the row of data.
+            fprintf(audio_status_file, "\n");
+            fclose(audio_status_file);
+            audio_writing_to_status_file = 0;
        } else {
-           usleep(1000);
+           usleep(10000000);
        }
        pageIndex = !pageIndex;
    }
+   if(g_audio_overflow_detected && !g_exit)
+     CETI_LOG("*** Audio overflow detected at location %d", audio_overflow_detected_location);
+   else
+     CETI_LOG("Done!");
    g_audio_thread_writeData_is_running = 0;
-   CETI_LOG("Done!");
    return NULL;
 }
 

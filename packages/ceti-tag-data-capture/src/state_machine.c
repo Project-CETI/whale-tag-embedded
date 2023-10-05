@@ -198,10 +198,6 @@ int updateStateMachine() {
 
     // ---------------- Startup ----------------
     case (ST_START):
-        // Start recording
-        #if ENABLE_AUDIO
-        start_audio_acq();
-        #endif
         start_rtc_count = getTimeDeploy(); // new v0.5 gets start time from the csv
         last_reset_rtc_count = getRtcCount(); //start_time since last restart (used to keep wifi-enabled)
         CETI_LOG("Deploy Start: %u", start_rtc_count);

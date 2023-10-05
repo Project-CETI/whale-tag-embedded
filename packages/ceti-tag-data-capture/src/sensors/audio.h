@@ -54,7 +54,7 @@
     (HWM * 32) // make SPI block size <= HWM * 32 otherwise may underflow
 
 //#define NUM_SPI_BLOCKS (2100*10)   // 5 minute buffer
-#define NUM_SPI_BLOCKS (2100 * 2)    //1 minute buffer
+#define NUM_SPI_BLOCKS (2100 * 2)    // 1 minute buffer
 #define RAM_SIZE (NUM_SPI_BLOCKS * SPI_BLOCK_SIZE) // bytes
 
 #define SAMPLE_RATE (96000)
@@ -70,6 +70,9 @@
 // Data Acq SPI Settings and Audio Data Buffering
 #define SPI_CE (0)
 #define SPI_CLK_RATE (15000000) // Hz
+
+// Overflow indicator.
+#define AUDIO_OVERFLOW_GPIO 12 // -1 to not use the indicator
 
 //-----------------------------------------------------------------------------
 // Dacq Flow Control Handshaking Interrupt
@@ -107,5 +110,6 @@ void * audio_thread_writeRaw(void* paramPtr);
 //-----------------------------------------------------------------------------
 extern int g_audio_thread_spi_is_running;
 extern int g_audio_thread_writeData_is_running;
+extern int g_audio_overflow_detected;
 
 #endif // AUDIO_H
