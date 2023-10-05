@@ -87,7 +87,7 @@
 // Methods
 //-----------------------------------------------------------------------------
 int init_audio();
-void init_pages();
+void init_audio_buffers();
 int setup_audio_default(void);
 int setup_audio_48kHz(void);
 int setup_audio_96kHz(void);
@@ -102,8 +102,8 @@ void audio_createNewFlacFile();
 void audio_createNewRawFile();
 void* audio_thread_spi(void* paramPtr);
 void* audio_thread_writeFlac(void* paramPtr);
-void * audio_thread_writeRaw(void* paramPtr);
-
+void* audio_thread_writeRaw(void* paramPtr);
+void audio_check_for_overflow(int location_index);
 
 //-----------------------------------------------------------------------------
 // Global variables

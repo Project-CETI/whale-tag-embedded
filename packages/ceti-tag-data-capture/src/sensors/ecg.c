@@ -327,7 +327,7 @@ void* ecg_thread_writeData(void* paramPtr)
   {
     // Wait for new data to be in the buffer.
     while(ecg_buffer_select_toLog == ecg_buffer_select_toWrite && !g_exit)
-      usleep(100000);
+      usleep(500000);
 
     // Write the last buffer to a file.
     long ecg_data_file_size_b = 0;

@@ -158,7 +158,6 @@ int main(void) {
           pthread_create(&thread_ids[audio_write_thread_index], NULL, &audio_thread_writeFlac, NULL);
           threads_running[audio_write_thread_index] = &g_audio_thread_writeData_is_running;
           #else
-          // dump raw audio files
           pthread_create(&thread_ids[audio_write_thread_index], NULL, &audio_thread_writeRaw, NULL);
           threads_running[audio_write_thread_index] = &g_audio_thread_writeData_is_running;
           #endif

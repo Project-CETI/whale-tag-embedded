@@ -241,6 +241,16 @@ add_swap () {
   sudo sh -c "echo 'CONF_SWAPSIZE=1024' >> /etc/dphys-swapfile"
   sudo dphys-swapfile setup
   sudo dphys-swapfile swapon
+  # Only use swap in emergencies.
+  #   Swappiness is a number from 0-100, with 0 being less likely to use swap.
+  #   The default value is 60.
+  #   More information from https://unix.stackexchange.com/a/265716:
+  #    vm.swappiness = 0   # Swap is disabled. In earlier versions, this meant that the kernel would swap only to avoid an out of memory condition, but in later versions this is achieved by setting to 1.
+  #    vm.swappiness = 1   # Kernel version 3.5 and over, as well as kernel version 2.6.32-303 and over: Minimum amount of swapping without disabling it entirely.
+  #    vm.swappiness = 10  # This value is sometimes recommended to improve performance when sufficient memory exists in a system, this value *10* could be considered for the performance being expected.
+  #    vm.swappiness = 60  # The default value.
+  #    vm.swappiness = 100 # The kernel will swap aggressively.
+  sudo sh -c "echo 'vm.swappiness=1' >> /etc/sysctl.conf"
 }
 
 
