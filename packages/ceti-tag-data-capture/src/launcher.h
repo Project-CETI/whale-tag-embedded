@@ -45,7 +45,7 @@
 #define RTC_UPDATE_PERIOD_SHORT_US 10000 // A finer delay, to find the new RTC value close to its update time
 #define COMMAND_POLLING_PERIOD_US 1000
 #define STATEMACHINE_UPDATE_PERIOD_US 1000000
-#define SYSTEMMONITOR_SAMPLING_PERIOD_US 5000000
+#define SYSTEMMONITOR_SAMPLING_PERIOD_US 10000000
 
 // Setting a CPU to -1 will allow the system to decide (the thread will not set an affinity)
 #define AUDIO_SPI_CPU 3

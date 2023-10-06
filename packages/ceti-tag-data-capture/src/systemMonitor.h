@@ -27,7 +27,7 @@
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
 #define NUM_CPU_ENTRIES 5 // overall, then 4 cores
-#define TID_PRINT_PERIOD_US 60000000 // How often to print thread IDs; -1 to never print
+#define TID_PRINT_PERIOD_US 3530000000 // How often to print thread IDs; -1 to never print
 #define LOGROTATE_PERIOD_US 3600000000 // How often to force a log-file rotation; -1 to not use.
 
 //-----------------------------------------------------------------------------
@@ -49,6 +49,7 @@ int update_cpu_usage();
 int get_cpu_id_for_tid(int tid);
 float get_cpu_temperature_c();
 float get_gpu_temperature_c();
+void force_system_log_rotation();
 int system_call_with_output(char* cmd, char* result);
 void* systemMonitor_thread(void* paramPtr);
 

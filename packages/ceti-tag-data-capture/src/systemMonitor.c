@@ -113,12 +113,13 @@ void* systemMonitor_thread(void* paramPtr) {
     long long polling_sleep_duration_us;
     g_systemMonitor_thread_is_running = 1;
     #if TID_PRINT_PERIOD_US >= 0
-    long long last_tid_print_time_us = get_global_time_us();
+    // Set the previous time such that it will print once at most 30s after starting and thereafter according to the desired period.
+    long long last_tid_print_time_us = get_global_time_us() + (TID_PRINT_PERIOD_US > 30000000 ? (30000000 - TID_PRINT_PERIOD_US) : 0);
     #endif
     while (!g_exit) {
       // Print the thread IDs if desired
       #if TID_PRINT_PERIOD_US >= 0
-      if(get_global_time_us() - last_tid_print_time_us > TID_PRINT_PERIOD_US)
+      if(get_global_time_us() - last_tid_print_time_us >= TID_PRINT_PERIOD_US)
       {
         CETI_LOG("......");
         CETI_LOG("Thread IDs:");
@@ -198,28 +199,8 @@ void* systemMonitor_thread(void* paramPtr) {
       #if LOGROTATE_PERIOD_US >= 0
       if(get_global_time_us() - last_logrotate_time_us >= LOGROTATE_PERIOD_US)
       {
-        CETI_LOG("Forcing a log file rotation");
+        force_system_log_rotation();
         last_logrotate_time_us = get_global_time_us();
-        char system_command[100];
-        char system_response[100];
-        // Rotate the logs.
-        system_call_with_output("sudo logrotate -f /etc/logrotate.d/rsyslog", system_response);
-        // Check if it archived any old logs.
-        // The configuration in firstboot tells it to use /var/log/old_logs for old files.
-        if(system_call_with_output("ls -l /var/log/old_logs/ | wc -l", system_response) != -1)
-        {
-          int num_old_log_files = atof(system_response) - 1; // subtract 1 for the line that lists the total count
-          if(num_old_log_files > 0)
-          {
-            // Make a directory for the old logs on the data partition.
-            system_call_with_output("sudo mkdir /data/logs", system_response);
-            sprintf(system_command, "sudo mkdir /data/logs/logs_copied_%lld", last_logrotate_time_us);
-            system_call_with_output(system_command, system_response);
-            // Move the old logs to the data partition.
-            sprintf(system_command, "sudo mv /var/log/old_logs/* /data/logs/logs_copied_%lld", last_logrotate_time_us);
-            system_call_with_output(system_command, system_response);
-          }
-        }
       }
       #endif
       
@@ -490,6 +471,34 @@ long get_syslog_size_kb()
   if(system_success == -1 || strlen(syslog_size_kb) == 0)
     return -1;
   return (long)atof(syslog_size_kb);
+}
+
+// System logs
+//------------------------------------------
+void force_system_log_rotation()
+{
+  CETI_LOG("Forcing a log file rotation");
+  char system_command[100];
+  char system_response[100];
+  long long log_rotation_time_us = get_global_time_us();
+  // Rotate the logs.
+  system_call_with_output("sudo logrotate -f /etc/logrotate.d/rsyslog", system_response);
+  // Check if it archived any old logs.
+  // The configuration in firstboot tells it to use /var/log/old_logs for old files.
+  if(system_call_with_output("ls -l /var/log/old_logs/ | wc -l", system_response) != -1)
+  {
+    int num_old_log_files = atof(system_response) - 1; // subtract 1 for the line that lists the total count
+    if(num_old_log_files > 0)
+    {
+      // Make a directory for the old logs on the data partition.
+      system_call_with_output("sudo mkdir /data/logs", system_response);
+      sprintf(system_command, "sudo mkdir /data/logs/logs_copied_%lld", log_rotation_time_us);
+      system_call_with_output(system_command, system_response);
+      // Move the old logs to the data partition.
+      sprintf(system_command, "sudo mv /var/log/old_logs/* /data/logs/logs_copied_%lld", log_rotation_time_us);
+      system_call_with_output(system_command, system_response);
+    }
+  }
 }
 
 // Various
