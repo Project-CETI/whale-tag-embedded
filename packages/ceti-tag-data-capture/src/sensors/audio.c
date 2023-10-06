@@ -48,6 +48,7 @@ struct audio_buffer_struct {
 };
 static struct audio_buffer_struct audio_buffers[2];
 int g_audio_overflow_detected = 0;
+int g_audio_force_overflow = 0;
 static int audio_overflow_detected_location = -1;
 
 static FILE* audio_status_file = NULL;
@@ -294,6 +295,13 @@ void* audio_thread_spi(void* paramPtr)
         //   its edge we should be able to delay up to about 9ms without issue.
         usleep(2000);
 
+        // Cause an overflow for testing purposes if desired.
+        if(g_audio_force_overflow)
+        {
+          usleep(100000);
+          g_audio_force_overflow = 0;
+        }
+
         // Read a block of data if an overflow has not occurred.
         audio_check_for_overflow(2);
         if(!g_audio_overflow_detected)
@@ -325,10 +333,10 @@ void* audio_thread_spi(void* paramPtr)
           {
               audio_buffers[audio_buffer_toLog].counter++;
           }
-        }
 
-        // Check if the FPGA buffer overflowed.
-        audio_check_for_overflow(3);
+          // Check if the FPGA buffer overflowed.
+          audio_check_for_overflow(3);
+        }
       }
     }
 
@@ -402,7 +410,7 @@ void* audio_thread_writeFlac(void* paramPtr)
       //  since the buffer will fill about once per minute and it only takes
       //  about 2 seconds to write the buffer to a file.
       while(audio_buffer_toWrite == audio_buffer_toLog && !g_exit && !g_audio_overflow_detected)
-        usleep(10000000);
+        usleep(1000000);
 
       if(!g_exit && !g_audio_overflow_detected)
       {
@@ -578,7 +586,7 @@ void* audio_thread_writeRaw(void* paramPtr)
     //  since the buffer will fill about once per minute and it only takes
     //  about 2 seconds to write the buffer to a file.
     while(audio_buffer_toWrite == audio_buffer_toLog && !g_exit && !g_audio_overflow_detected)
-      usleep(10000000);
+      usleep(1000000);
 
     if(!g_exit && !g_audio_overflow_detected)
     {
@@ -682,7 +690,8 @@ void audio_check_for_overflow(int location_index)
   g_audio_overflow_detected = g_audio_overflow_detected || gpioRead(AUDIO_OVERFLOW_GPIO);
   if(g_audio_overflow_detected)
   {
-    CETI_LOG("*** OVERFLOW %d ***", location_index);
+    CETI_LOG("*** OVERFLOW detected at location %d ***", location_index);
+    audio_overflow_detected_location = location_index;
     long long global_time_us = get_global_time_us();
     while(audio_writing_to_status_file)
       usleep(10);

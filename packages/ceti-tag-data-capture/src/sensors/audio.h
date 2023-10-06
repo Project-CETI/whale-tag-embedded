@@ -111,5 +111,6 @@ void audio_check_for_overflow(int location_index);
 extern int g_audio_thread_spi_is_running;
 extern int g_audio_thread_writeData_is_running;
 extern int g_audio_overflow_detected;
+extern int g_audio_force_overflow;
 
 #endif // AUDIO_H
