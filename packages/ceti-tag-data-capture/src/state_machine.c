@@ -3,7 +3,7 @@
 // Version:      Refer to _versioning.h
 // Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, 
 //               MIT CSAIL
-// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto, 
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto (delpreto@csail.mit.edu),
 //               Michael Salino-Hugg (msalinohugg@seas.harvard.edu), 
 //               [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------

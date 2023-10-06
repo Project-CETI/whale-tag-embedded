@@ -276,6 +276,7 @@ configure_logging() {
         missingok
         notifempty
         nocompress
+        copytruncate
 }
 /var/log/mail.info
 /var/log/mail.warn
@@ -292,6 +293,7 @@ configure_logging() {
         missingok
         notifempty
         nocompress
+        copytruncate
 }
 /var/log/lpr.log
 /var/log/cron.log
@@ -303,6 +305,7 @@ configure_logging() {
         missingok
         notifempty
         nocompress
+        copytruncate
 }
 /var/log/messages
 {
@@ -312,6 +315,7 @@ configure_logging() {
         missingok
         notifempty
         nocompress
+        copytruncate
 }
 ' >> /etc/logrotate.d/rsyslog"
 }
