@@ -38,12 +38,16 @@
 #define IMU_GYROSCOPE_REPORT_ID 0x02 //report ID for the gyroscope data
 #define IMU_MAGNETOMETER_REPORT_ID 0x03 //report ID for the magnetometer data
 
+#define IMU_REPORT_COMMAND_REQ 0xF2
+#define IMU_ME_CALIBRATION_COMMAND 0x07
+#define IMU_SAVE_CALIBRATION_COMMAND 0x06
+
 //Sensor metadata
 #define ACC_META 0xE302
 #define GYRO_META 0xE306
 #define ROTATION_VECTOR_META 0xE30B
 
-//Report interval from MSByte to LSByte
+//Report interval in miliseconds from MSByte to LSByte (must be >2500)
 #define IMU_REPORT_INTERVAL_3 0x00
 #define IMU_REPORT_INTERVAL_2 0x00
 #define IMU_REPORT_INTERVAL_1 0x4E
@@ -54,6 +58,12 @@
 
 //The length of data (including header) of the message to configure the rotation vector reports
 #define IMU_CONFIGURE_REPORT_LENGTH 21
+#define IMU_CONFIGURE_CAL_LENGTH 16
+
+//Calibration settings for sensors
+#define IMU_CAL_OFF 0
+#define IMU_CAL_SENSORS 1
+#define IMU_CAL_ALL 2
 
 //The length of the rotation vector data received from the IMU
 #define IMU_ROTATION_VECTOR_REPORT_LENGTH 23
@@ -137,7 +147,9 @@ typedef struct __IMU_Typedef {
 
 //Function prototypes
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu);
-HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half);
+void IMU_init_cal(IMU_HandleTypeDef* imu);
+uint8_t IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half);
+//HAL_StatusTypeDef
 
 //Main IMU thread to run on RTOS
 void imu_thread_entry(ULONG thread_input);
