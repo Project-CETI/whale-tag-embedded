@@ -10,6 +10,7 @@
 #include "Sensor Inc/ECG.h"
 #include "Sensor Inc/KellerDepth.h"
 #include "Sensor Inc/RTC.h"
+#include "Sensor Inc/BMS.h"
 #include "Lib Inc/threads.h"
 #include "app_filex.h"
 #include <stdio.h>
@@ -21,6 +22,9 @@ extern Thread_HandleTypeDef threads[NUM_THREADS];
 //RTC date and time
 extern RTC_TimeTypeDef eTime;
 extern RTC_DateTypeDef eDate;
+
+//BMS measurements
+extern MAX17320_HandleTypeDef bms;
 
 //GPS data
 extern GPS_HandleTypeDef gps;
@@ -118,13 +122,18 @@ void sd_thread_entry(ULONG thread_input) {
 		header.timestamp[0] = eTime.Hours;
 		header.timestamp[1] = eTime.Minutes;
 		header.timestamp[2] = eTime.Seconds;
+		header.state_of_charge = bms.state_of_charge;
+		header.total_battery_voltage = bms.total_battery_voltage;
+		header.bms_faults = bms.faults;
 
 		//Save GPS coordinates of tag if GPS locked
 		if (gps.is_pos_locked) {
+			header.gps_lock = 1;
 			header.latitude = gps_data.latitude;
 			header.longitude = gps_data.longitude;
 		}
 		else {
+			header.gps_lock = 0;
 			header.latitude = 0;
 			header.longitude = 0;
 		}
@@ -134,6 +143,7 @@ void sd_thread_entry(ULONG thread_input) {
 		tx_mutex_get(&imu_first_half_mutex, TX_WAIT_FOREVER);
 		sd_writing = true;
 		fx_file_write(&data_file, &header, sizeof(Header_Data));
+
 		fx_file_write(&data_file, imu_data[0], sizeof(IMU_Data) * IMU_HALF_BUFFER_SIZE);
 		while (sd_writing);
 		tx_mutex_put(&imu_first_half_mutex);

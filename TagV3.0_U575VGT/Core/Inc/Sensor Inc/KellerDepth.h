@@ -44,11 +44,6 @@
 #define DEPTH_BUFFER_SIZE 250
 #define DEPTH_HALF_BUFFER_SIZE (DEPTH_BUFFER_SIZE / 2)
 
-//Frame parameters
-#define SAMPLE_DATA_SIZE 10
-#define SAMPLES_PER_FRAME 15
-#define HEADER_ID 0x24
-
 typedef struct __attribute__ ((packed, scalar_storage_order("little-endian")))
 keller_raw_data{
 	uint8_t status;

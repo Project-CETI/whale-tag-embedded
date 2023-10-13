@@ -41,10 +41,10 @@ typedef enum __TX_THREAD_LIST {
 	APRS_THREAD,
 	BURNWIRE_THREAD,
 	RTC_THREAD,
-	DATA_LOG_THREAD,
 	//BMS_THREAD,
+	DATA_LOG_THREAD,
 	NUM_THREADS //DO NOT ADD THREAD ENUMS BELOW THIS
-}Thread;
+} Thread;
 
 //TX Thread configuration members that can be defined at runtime (constants).
 //We put these in a separate struct so they can be defined in the header file when adding new threads.
@@ -142,7 +142,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.priority = 12,
 			.preempt_threshold = 12,
 			.timeslice = TX_NO_TIME_SLICE,
-			.start = TX_DONT_START
+			.start = TX_AUTO_START
 		},
 		[APRS_THREAD] = {
 			//APRS Thread
@@ -177,17 +177,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_AUTO_START
 		},
-		[DATA_LOG_THREAD] = {
-			// Data Log Thread
-			.thread_name = "Data Log Thread",
-			.thread_entry_function = sd_thread_entry,
-			.thread_input = 0x1234,
-			.thread_stack_size = 2048,
-			.priority = 7,
-			.preempt_threshold = 7,
-			.timeslice = TX_NO_TIME_SLICE,
-			.start = TX_DONT_START
-		},/*
+		/*
 		[BMS_THREAD] = {
 			// BMS Thread
 			.thread_name = "BMS Thread",
@@ -199,6 +189,17 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_AUTO_START
 		},*/
+		[DATA_LOG_THREAD] = {
+			// Data Log Thread
+			.thread_name = "Data Log Thread",
+			.thread_entry_function = sd_thread_entry,
+			.thread_input = 0x1234,
+			.thread_stack_size = 2048,
+			.priority = 7,
+			.preempt_threshold = 7,
+			.timeslice = TX_NO_TIME_SLICE,
+			.start = TX_DONT_START
+		},
 };
 
 //An array to hold all the threads. We do NOT need to touch this at all the add new threads, only edit the config list (above).

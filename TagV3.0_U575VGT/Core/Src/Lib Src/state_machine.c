@@ -68,6 +68,16 @@ void state_machine_thread_entry(ULONG thread_input){
 				}
 			}
 
+			//BMS critical battery flag
+			if (actual_flags & STATE_CRIT_BATT_FLAG) {
+
+				//RTC timed out for data collection, exit data capture and enter recovery
+				if (state == STATE_RECOVERY) {
+					exit_recovery();
+					state = STATE_FISHTRACKER;
+				}
+			}
+
 			//BMS low battery flag
 			if (actual_flags & STATE_LOW_BATT_FLAG){
 
@@ -76,16 +86,6 @@ void state_machine_thread_entry(ULONG thread_input){
 					hard_exit_data_capture();
 					enter_recovery();
 					state = STATE_RECOVERY;
-				}
-			}
-
-			//BMS critical battery flag
-			if (actual_flags & STATE_CRIT_BATT_FLAG) {
-
-				//RTC timed out for data collection, exit data capture and enter recovery
-				if (state == STATE_RECOVERY) {
-					exit_recovery();
-					state = STATE_FISHTRACKER;
 				}
 			}
 

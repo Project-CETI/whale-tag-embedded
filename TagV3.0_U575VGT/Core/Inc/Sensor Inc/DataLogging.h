@@ -10,6 +10,7 @@
 
 #include "tx_api.h"
 #include <stdint.h>
+#include "Sensor Inc/BMS.h"
 
 #define DATA_LOG_SLEEP_TIME_SEC 1
 #define DATA_LOG_SLEEP_TIME_TICKS tx_s_to_ticks(DATA_LOG_SLEEP_TIME_SEC)
@@ -29,7 +30,7 @@ typedef struct __Header_Typedef {
 	uint8_t key_value;
 
 	//Number of samples per frame
-	uint8_t samples_count;
+	uint16_t samples_count;
 
 	//Number of bytes per frame
 	uint16_t bytes_count;
@@ -42,6 +43,12 @@ typedef struct __Header_Typedef {
 
 	float latitude;
 	float longitude;
+	uint8_t gps_lock;
+
+	float state_of_charge;
+	float total_battery_voltage;
+	max17320_Reg_Faults bms_faults;
+
 
 } Header_Data;
 
