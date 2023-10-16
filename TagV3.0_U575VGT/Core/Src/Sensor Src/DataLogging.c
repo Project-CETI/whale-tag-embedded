@@ -123,7 +123,8 @@ void sd_thread_entry(ULONG thread_input) {
 		header.timestamp[1] = eTime.Minutes;
 		header.timestamp[2] = eTime.Seconds;
 		header.state_of_charge = bms.state_of_charge;
-		header.total_battery_voltage = bms.total_battery_voltage;
+		header.cell_1_voltage = bms.cell_1_voltage;
+		header.cell_2_voltage = bms.cell_2_voltage;
 		header.bms_faults = bms.faults;
 
 		//Save GPS coordinates of tag if GPS locked

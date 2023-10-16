@@ -38,16 +38,7 @@
 #define IMU_GYROSCOPE_REPORT_ID 0x02 //report ID for the gyroscope data
 #define IMU_MAGNETOMETER_REPORT_ID 0x03 //report ID for the magnetometer data
 
-#define IMU_REPORT_COMMAND_REQ 0xF2
-#define IMU_ME_CALIBRATION_COMMAND 0x07
-#define IMU_SAVE_CALIBRATION_COMMAND 0x06
-
-//Sensor metadata
-#define ACC_META 0xE302
-#define GYRO_META 0xE306
-#define ROTATION_VECTOR_META 0xE30B
-
-//Report interval in miliseconds from MSByte to LSByte (must be >2500)
+//Report interval from MSByte to LSByte
 #define IMU_REPORT_INTERVAL_3 0x00
 #define IMU_REPORT_INTERVAL_2 0x00
 #define IMU_REPORT_INTERVAL_1 0x4E
@@ -58,12 +49,6 @@
 
 //The length of data (including header) of the message to configure the rotation vector reports
 #define IMU_CONFIGURE_REPORT_LENGTH 21
-#define IMU_CONFIGURE_CAL_LENGTH 16
-
-//Calibration settings for sensors
-#define IMU_CAL_OFF 0
-#define IMU_CAL_SENSORS 1
-#define IMU_CAL_ALL 2
 
 //The length of the rotation vector data received from the IMU
 #define IMU_ROTATION_VECTOR_REPORT_LENGTH 23
@@ -81,8 +66,6 @@
 //ThreadX flag for stopping the IMU (exit data capture)
 #define IMU_STOP_DATA_THREAD_FLAG 0x2
 #define IMU_STOP_SD_THREAD_FLAG 0x4
-
-//ThreadX flag for when thread is done collecting data
 #define IMU_HALF_BUFFER_FLAG 0x8
 
 //The number of IMU Samples to collect before writing to the SD card. This MUST be an even number.
@@ -96,15 +79,11 @@
 //MS timeout for SPI reads
 #define IMU_SPI_READ_TIMEOUT 10
 
-#define IMU_SLEEP_TIME_SEC 1
-#define IMU_SLEEP_TIME_TICKS tx_s_to_ticks(IMU_SLEEP_TIME_SEC)
-
-
 //IMU typedef definition for useful data holding (of various types, like quaternion, accel, gyro, magnetometer
 typedef struct __IMU_Data_Typedef {
 
 	//A header to signify which type of data this is (Matches the macro defined report IDs above)
-	uint8_t data_id;
+	uint8_t data_header;
 
 	/*
 	 * The data for the IMU is only stored and written to the SD card as raw data.
@@ -125,7 +104,7 @@ typedef struct __IMU_Data_Typedef {
 } IMU_Data;
 
 //IMU typedef definition for useful variables
-typedef struct __IMU_Typedef {
+typedef struct __IMU_Typedef{
 
 	//SPI handler for communication
 	SPI_HandleTypeDef* hspi;
@@ -147,9 +126,7 @@ typedef struct __IMU_Typedef {
 
 //Function prototypes
 void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu);
-void IMU_init_cal(IMU_HandleTypeDef* imu);
-uint8_t IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half);
-//HAL_StatusTypeDef
+HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half);
 
 //Main IMU thread to run on RTOS
 void imu_thread_entry(ULONG thread_input);

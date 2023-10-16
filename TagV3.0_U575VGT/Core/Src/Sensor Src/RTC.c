@@ -9,7 +9,6 @@
 #include "Sensor Inc/GpsGeofencing.h"
 #include "Sensor Inc/DataLogging.h"
 #include "Lib Inc/state_machine.h"
-#include "main.h"
 
 //External variables
 extern RTC_HandleTypeDef hrtc;
@@ -23,36 +22,29 @@ extern GPS_HandleTypeDef gps;
 extern GPS_Data gps_data;
 
 //Create RTC structs to track date and time
-RTC_TimeTypeDef sTime = {0};
-RTC_DateTypeDef sDate = {0};
+//RTC_TimeTypeDef sTime = {0};
+//RTC_DateTypeDef sDate = {0};
 RTC_TimeTypeDef eTime = {0};
 RTC_DateTypeDef eDate = {0};
-
-//Status of RTC time initialization
-bool rtc_setup = false;
 
 void rtc_thread_entry(ULONG thread_input) {
 
 	bool first_pass = true;
+	RTC_TimeTypeDef sTime = {0};
+	RTC_DateTypeDef sDate = {0};
+
+	// wait for gps lock
+	while (!gps.is_pos_locked && sTime.Minutes < RTC_GPS_TIMEOUT_MINS) {
+		HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+		HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+	}
+
+	RTC_Init(&sTime, &sDate);
+	RTC_Init(&eTime, &eDate);
 
 	while (1) {
 
-		//Initialize start date and time for RTC only if there is GPS lock
-		if (gps.is_pos_locked && !rtc_setup) {
-			RTC_Init(&sTime, &sDate);
-			RTC_Init(&eTime, &eDate);
-			rtc_setup = true;
-		}
-		else {
-			RTC_Init(&sTime, &sDate, false);
-		}
-
 		ULONG actual_flags;
-
-		//Calibrate RTC with new GPS date and time every time interval
-		if (gps.is_pos_locked && eTime.Minutes % RTC_INIT_REFRESH_MINS == RTC_TIME_TOLERANCE_MINS) {
-			RTC_Init(&eTime, &eDate, true);
-		}
 
 		//Get time from RTC (must query time THEN date to update registers)
 		HAL_RTC_GetTime(&hrtc, &eTime, RTC_FORMAT_BIN);
@@ -76,9 +68,9 @@ void rtc_thread_entry(ULONG thread_input) {
 void RTC_Init(RTC_TimeTypeDef *eTime, RTC_DateTypeDef *eDate) {
 
 	//Initialize start time for RTC
-	eTime->Hours = gps_data.timestamp[0];
-	eTime->Minutes = gps_data.timestamp[1];
-	eTime->Seconds = gps_data.timestamp[2];
+	eTime->Hours = 0;//gps_data.timestamp[0];
+	eTime->Minutes = 0;//gps_data.timestamp[1];
+	eTime->Seconds = 0;//gps_data.timestamp[2];
 	eTime->DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
 	eTime->StoreOperation = RTC_STOREOPERATION_RESET;
 
@@ -88,9 +80,10 @@ void RTC_Init(RTC_TimeTypeDef *eTime, RTC_DateTypeDef *eDate) {
 	}
 
 	//Initialize start date for RTC
-	eDate->Year = gps_data.datestamp[0];
-	eDate->Month = gps_data.datestamp[1];
-	eDate->Date = gps_data.datestamp[2];
+	eDate->WeekDay = 2;
+	eDate->Year = 10;//gps_data.datestamp[0];
+	eDate->Month = 10;//gps_data.datestamp[1];
+	eDate->Date = 10;//gps_data.datestamp[2];
 
 	//Set start date for RTC
 	if (HAL_RTC_SetDate(&hrtc, &eDate, RTC_FORMAT_BCD) != HAL_OK) {

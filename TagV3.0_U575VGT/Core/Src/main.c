@@ -29,6 +29,7 @@
 #include "ad7768.h"
 #include "audio.h"
 #include "app_filex.h"
+#include "Sensor Inc/BMS.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -176,14 +177,29 @@ int main(void)
   HAL_NVIC_DisableIRQ(EXTI14_IRQn);
   /* USER CODE END 2 */
 
-  MX_ThreadX_Init();
+  //MX_ThreadX_Init();
 
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  MAX17320_HandleTypeDef bms;
   while (1)
   {
     /* USER CODE END WHILE */
+	  RTC_TimeTypeDef sTime = {0};
+	  RTC_DateTypeDef sDate = {0};
+
+	  HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD);
+	  HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD);
+
+	  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+	  HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+
+	  max17320_Reg_Status status = {0};
+	  HAL_StatusTypeDef ret = max17320_init(&bms, &hi2c3);
+	  if (ret == HAL_OK) {
+		  status = bms.status;
+	  }
 
     /* USER CODE BEGIN 3 */
   }

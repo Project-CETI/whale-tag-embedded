@@ -41,7 +41,7 @@ typedef enum __TX_THREAD_LIST {
 	APRS_THREAD,
 	BURNWIRE_THREAD,
 	RTC_THREAD,
-	//BMS_THREAD,
+	BMS_THREAD,
 	DATA_LOG_THREAD,
 	NUM_THREADS //DO NOT ADD THREAD ENUMS BELOW THIS
 } Thread;
@@ -177,7 +177,6 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_AUTO_START
 		},
-		/*
 		[BMS_THREAD] = {
 			// BMS Thread
 			.thread_name = "BMS Thread",
@@ -188,7 +187,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.preempt_threshold = 8,
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_AUTO_START
-		},*/
+		},
 		[DATA_LOG_THREAD] = {
 			// Data Log Thread
 			.thread_name = "Data Log Thread",

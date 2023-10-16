@@ -46,7 +46,9 @@ typedef struct __Header_Typedef {
 	uint8_t gps_lock;
 
 	float state_of_charge;
-	float total_battery_voltage;
+	float time_to_empty;
+	float cell_1_voltage;
+	float cell_2_voltage;
 	max17320_Reg_Faults bms_faults;
 
 

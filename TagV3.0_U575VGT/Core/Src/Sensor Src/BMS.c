@@ -21,15 +21,13 @@ MAX17320_HandleTypeDef bms;
 
 void bms_thread_entry(ULONG thread_input){
 
-	max17320_init(&bms, &hi2c3);
+	HAL_StatusTypeDef ret = max17320_init(&bms, &hi2c3);
+	if (ret != HAL_OK) {
+		tx_event_flags_set(&state_machine_event_flags_group, STATE_CRIT_BATT_FLAG, TX_OR);
+	}
 	max17320_clear_write_protection(&bms);
 	max17320_set_alert_thresholds(&bms);
 	max17320_configure_cell_balancing(&bms);
-
-	if (bms.status.protection_alert == 1) {
-		max17320_get_faults(&bms);
-		tx_event_flags_set(&state_machine_event_flags_group, STATE_CRIT_BATT_FLAG, TX_OR);
-	}
 
 	ULONG actual_flags;
 
@@ -39,12 +37,17 @@ void bms_thread_entry(ULONG thread_input){
 		max17320_get_state_of_charge(&bms);
 		max17320_get_voltages(&bms);
 
-		if (bms.total_battery_voltage < MAX17320_LOW_BATT_VOLT_THR) {
-			tx_event_flags_set(&state_machine_event_flags_group, STATE_LOW_BATT_FLAG, TX_OR);
+		if (bms.status.protection_alert == 1) {
+			max17320_get_faults(&bms);
+			tx_event_flags_set(&state_machine_event_flags_group, STATE_CRIT_BATT_FLAG, TX_OR);
 		}
 
-		if (bms.total_battery_voltage < MAX17320_CRITICAL_BATT_VOLT_THR) {
+		if (bms.cell_1_voltage < MAX17320_CRITICAL_BATT_VOLT_THR && bms.cell_2_voltage < MAX17320_CRITICAL_BATT_VOLT_THR) {
 			tx_event_flags_set(&state_machine_event_flags_group, STATE_CRIT_BATT_FLAG, TX_OR);
+		}
+
+		if (bms.cell_1_voltage < MAX17320_LOW_BATT_VOLT_THR && bms.cell_2_voltage < MAX17320_LOW_BATT_VOLT_THR) {
+			tx_event_flags_set(&state_machine_event_flags_group, STATE_LOW_BATT_FLAG, TX_OR);
 		}
 
 		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
@@ -146,6 +149,18 @@ HAL_StatusTypeDef max17320_set_alert_thresholds(MAX17320_HandleTypeDef *dev) {
 	data_buf[1] = MAX17320_MAX_SOC_THR / SOC_ALT_LSB;
 
 	ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_SOC_ALT_THR, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+
+	return ret;
+}
+
+HAL_StatusTypeDef max17320_set_ovp_thresholds(MAX17320_HandleTypeDef *dev) {
+
+	uint8_t data_buf[2] = {0};
+
+	data_buf[0] |= MAX17320_LOWER_HALF_DEFAULT;
+	data_buf[1] |= MAX17320_ROOM_CHARGE_THR;
+
+	HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR_END, MAX17320_REG_OVP_THR, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
 
 	return ret;
 }

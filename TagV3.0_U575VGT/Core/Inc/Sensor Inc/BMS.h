@@ -37,6 +37,8 @@
 #define MAX17320_REG_TOTAL_BAT_VOLTAGE	0x0DA
 #define MAX17320_REG_PACK_SIDE_VOLTAGE	0x0DB
 
+#define MAX17320_REG_OVP_THR			0x1D9
+
 #define MAX17320_REG_TEMPERATURE		0x01B
 
 #define MAX17320_REG_PACK_CFG			0x1B5
@@ -89,9 +91,13 @@
 #define MAX17320_MIN_SOC_THR			0x00 // Not defined yet
 #define MAX17320_MAX_SOC_THR			0x00
 
+// Overvoltage Thresholds
+#define MAX17320_ROOM_CHARGE_THR		0xA0
+#define MAX17320_LOWER_HALF_DEFAULT		0x59 // Default for lower overvoltage threshold register
+
 // State Machine Flag Thresholds
-#define MAX17320_LOW_BATT_VOLT_THR		0x00
-#define MAX17320_CRITICAL_BATT_VOLT_THR	0x00
+#define MAX17320_LOW_BATT_VOLT_THR		3.2
+#define MAX17320_CRITICAL_BATT_VOLT_THR	3.1
 
 // Cell Balancing Thresholds
 #define MAX17320_CELL_BAL_THR			0b011 // Corresponds to a 10.0 mV threshold
@@ -185,6 +191,7 @@ typedef struct __MAX17320_HandleTypeDef {
 HAL_StatusTypeDef max17320_init(MAX17320_HandleTypeDef *dev, I2C_HandleTypeDef *hi2c_device);
 HAL_StatusTypeDef max17320_clear_write_protection(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_set_alert_thresholds(MAX17320_HandleTypeDef *dev);
+HAL_StatusTypeDef max17320_set_ovp_thresholds(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_configure_cell_balancing(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_configure_thermistors(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_get_status(MAX17320_HandleTypeDef *dev);
