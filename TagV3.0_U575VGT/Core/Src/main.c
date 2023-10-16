@@ -177,7 +177,7 @@ int main(void)
   HAL_NVIC_DisableIRQ(EXTI14_IRQn);
   /* USER CODE END 2 */
 
-  //MX_ThreadX_Init();
+  MX_ThreadX_Init();
 
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */

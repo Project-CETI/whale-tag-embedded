@@ -12,12 +12,16 @@
 #include "Sensor Inc/RTC.h"
 #include "Sensor Inc/BMS.h"
 #include "Lib Inc/threads.h"
+#include "Lib Inc/state_machine.h"
 #include "app_filex.h"
 #include <stdio.h>
 #include <stdbool.h>
 
 //Threads array
 extern Thread_HandleTypeDef threads[NUM_THREADS];
+
+//State variable
+extern State state;
 
 //RTC date and time
 extern RTC_TimeTypeDef eTime;
@@ -110,10 +114,13 @@ void sd_thread_entry(ULONG thread_input) {
 	fx_file_write(&data_file, ecg_data[0], sizeof(IMU_Data) * ECG_HALF_BUFFER_SIZE);
 	while (sd_writing);
 
+	ULONG actual_flags;
+
+	//Wait for RTC thread to acquire GPS timestamp and initialize
+	tx_event_flags_get(&rtc_event_flags_group, RTC_INIT_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+
 	//Sequentially save buffers for all sensors
 	while (1) {
-
-		ULONG actual_flags;
 
 		//Update header date and time
 		header.datestamp[0] = eDate.Year;
@@ -139,8 +146,12 @@ void sd_thread_entry(ULONG thread_input) {
 			header.longitude = 0;
 		}
 
+		//Save current state of tag
+		header.state = state;
+
 		//Wait for the sensor threads to be done filling the first half of buffer
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+
 		tx_mutex_get(&imu_first_half_mutex, TX_WAIT_FOREVER);
 		sd_writing = true;
 		fx_file_write(&data_file, &header, sizeof(Header_Data));
@@ -160,6 +171,33 @@ void sd_thread_entry(ULONG thread_input) {
 		tx_mutex_put(&ecg_first_half_mutex);
 
 		tx_event_flags_set(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR);
+
+		//Update header date and time
+		header.datestamp[0] = eDate.Year;
+		header.datestamp[1] = eDate.Month;
+		header.datestamp[2] = eDate.Date;
+		header.timestamp[0] = eTime.Hours;
+		header.timestamp[1] = eTime.Minutes;
+		header.timestamp[2] = eTime.Seconds;
+		header.state_of_charge = bms.state_of_charge;
+		header.cell_1_voltage = bms.cell_1_voltage;
+		header.cell_2_voltage = bms.cell_2_voltage;
+		header.bms_faults = bms.faults;
+
+		//Save GPS coordinates of tag if GPS locked
+		if (gps.is_pos_locked) {
+			header.gps_lock = 1;
+			header.latitude = gps_data.latitude;
+			header.longitude = gps_data.longitude;
+		}
+		else {
+			header.gps_lock = 0;
+			header.latitude = 0;
+			header.longitude = 0;
+		}
+
+		//Save current state of tag
+		header.state = state;
 
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_mutex_get(&imu_second_half_mutex, TX_WAIT_FOREVER);

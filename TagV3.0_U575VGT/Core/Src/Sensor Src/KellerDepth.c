@@ -132,8 +132,8 @@ HAL_StatusTypeDef depth_get_data(Keller_HandleTypedef* keller_sensor, uint8_t bu
 		depth_data[buffer_half][index].status = receiveData[0];
 		depth_data[buffer_half][index].raw_pressure = ((uint16_t) receiveData[1] << 8) | receiveData[2];
 		depth_data[buffer_half][index].raw_temp = ((uint16_t) receiveData[3] << 8) | receiveData[4];
-		depth_data[buffer_half][index].temperature = TO_DEGC(depth_data[buffer_half][index].raw_temp);
-		depth_data[buffer_half][index].pressure = TO_BAR(depth_data[buffer_half][index].raw_pressure);
+		//depth_data[buffer_half][index].temperature = TO_DEGC(depth_data[buffer_half][index].raw_temp);
+		//depth_data[buffer_half][index].pressure = TO_BAR(depth_data[buffer_half][index].raw_pressure);
 
 		//If we filled the buffer, back out now (prevent overflow or hardfault)
 		if (index >= IMU_HALF_BUFFER_SIZE){

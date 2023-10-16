@@ -17,7 +17,7 @@ extern I2C_HandleTypeDef hi2c3;
 extern TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP data_log_event_flags_group;
 
-MAX17320_HandleTypeDef bms;
+MAX17320_HandleTypeDef bms = {0};
 
 void bms_thread_entry(ULONG thread_input){
 

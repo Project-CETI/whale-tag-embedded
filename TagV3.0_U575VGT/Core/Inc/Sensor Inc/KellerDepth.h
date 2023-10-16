@@ -61,10 +61,10 @@ typedef struct __Depth_Data_Typedef {
 	uint16_t raw_temp;
 
 	//Pressure in Bar
-	float pressure;
+	//float pressure;
 
 	//Temperature in celsius
-	float temperature;
+	//float temperature;
 } DEPTH_Data;
 
 typedef struct __Keller_Depth_TypeDef

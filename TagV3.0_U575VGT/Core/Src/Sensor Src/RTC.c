@@ -22,14 +22,18 @@ extern GPS_HandleTypeDef gps;
 extern GPS_Data gps_data;
 
 //Create RTC structs to track date and time
-//RTC_TimeTypeDef sTime = {0};
-//RTC_DateTypeDef sDate = {0};
+RTC_TimeTypeDef sTime = {0};
+RTC_DateTypeDef sDate = {0};
 RTC_TimeTypeDef eTime = {0};
 RTC_DateTypeDef eDate = {0};
+
+//ThreadX flags for rtc
+TX_EVENT_FLAGS_GROUP rtc_log_event_flags_group;
 
 void rtc_thread_entry(ULONG thread_input) {
 
 	bool first_pass = true;
+
 	RTC_TimeTypeDef sTime = {0};
 	RTC_DateTypeDef sDate = {0};
 
@@ -41,6 +45,8 @@ void rtc_thread_entry(ULONG thread_input) {
 
 	RTC_Init(&sTime, &sDate);
 	RTC_Init(&eTime, &eDate);
+
+	tx_event_flags_set(&rtc_log_event_flags_group, RTC_INIT_FLAG, TX_OR);
 
 	while (1) {
 
@@ -68,25 +74,24 @@ void rtc_thread_entry(ULONG thread_input) {
 void RTC_Init(RTC_TimeTypeDef *eTime, RTC_DateTypeDef *eDate) {
 
 	//Initialize start time for RTC
-	eTime->Hours = 0;//gps_data.timestamp[0];
-	eTime->Minutes = 0;//gps_data.timestamp[1];
-	eTime->Seconds = 0;//gps_data.timestamp[2];
+	eTime->Hours = gps_data.timestamp[0];
+	eTime->Minutes = gps_data.timestamp[1];
+	eTime->Seconds = gps_data.timestamp[2];
 	eTime->DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
 	eTime->StoreOperation = RTC_STOREOPERATION_RESET;
 
 	//Set start time for RTC
-	if (HAL_RTC_SetTime(&hrtc, &eTime, RTC_FORMAT_BCD) != HAL_OK) {
+	if (HAL_RTC_SetTime(&hrtc, eTime, RTC_FORMAT_BCD) != HAL_OK) {
 		Error_Handler();
 	}
 
 	//Initialize start date for RTC
-	eDate->WeekDay = 2;
-	eDate->Year = 10;//gps_data.datestamp[0];
-	eDate->Month = 10;//gps_data.datestamp[1];
-	eDate->Date = 10;//gps_data.datestamp[2];
+	eDate->Year = gps_data.datestamp[0];
+	eDate->Month = gps_data.datestamp[1];
+	eDate->Date = gps_data.datestamp[2];
 
 	//Set start date for RTC
-	if (HAL_RTC_SetDate(&hrtc, &eDate, RTC_FORMAT_BCD) != HAL_OK) {
+	if (HAL_RTC_SetDate(&hrtc, eDate, RTC_FORMAT_BCD) != HAL_OK) {
 		Error_Handler();
 	}
 }

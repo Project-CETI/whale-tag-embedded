@@ -22,18 +22,21 @@
 #define KEY_VALUE 0x24
 #define SAMPLES_PER_FRAME (IMU_BUFFER_SIZE + DEPTH_BUFFER_SIZE + ECG_BUFFER_SIZE)
 #define BYTES_PER_HEADER  (sizeof(Header_Data))
-#define BYTES_PER_FRAME (BYTES_PER_HEADER + sizeof(IMU_Data) * IMU_BUFFER_SIZE + sizeof(DEPTH_Data) * DEPTH_BUFFER_SIZE + sizeof(ECG_Data) * ECG_BUFFER_SIZE)
+#define BYTES_PER_FRAME (BYTES_PER_HEADER + sizeof(IMU_Data) * IMU_HALF_BUFFER_SIZE + sizeof(DEPTH_Data) * DEPTH_HALF_BUFFER_SIZE + sizeof(ECG_Data) * ECG_HALF_BUFFER_SIZE)
 
 typedef struct __Header_Typedef {
 
 	//Key value to identify start of frame
 	uint8_t key_value;
 
+	//Number of bytes per frame
+	uint16_t bytes_count;
+
 	//Number of samples per frame
 	uint16_t samples_count;
 
-	//Number of bytes per frame
-	uint16_t bytes_count;
+	//Current state of tag
+	uint8_t state;
 
 	//Date of samples
 	uint8_t datestamp[3];
