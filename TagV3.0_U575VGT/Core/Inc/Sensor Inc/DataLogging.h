@@ -35,25 +35,31 @@ typedef struct __Header_Typedef {
 	//Number of samples per frame
 	uint16_t samples_count;
 
-	//Current state of tag
+	//State machine state and flag
 	uint8_t state;
+	uint8_t state_flags;
 
 	//Date of samples
 	uint8_t datestamp[3];
 
-	//Time of first IMU sample
+	//Time of first sample
 	uint8_t timestamp[3];
 
+	//GPS data
 	float latitude;
 	float longitude;
 	uint8_t gps_lock;
 
+	//BMS data
 	float state_of_charge;
 	float time_to_empty;
 	float cell_1_voltage;
 	float cell_2_voltage;
 	max17320_Reg_Faults bms_faults;
 
+	//Light sensor data
+	uint16_t infrared;
+	uint16_t visible;
 
 } Header_Data;
 

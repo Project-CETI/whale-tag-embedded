@@ -50,6 +50,7 @@ void ecg_thread_entry(ULONG thread_input){
 		ULONG actual_flags;
 
 		//Acquire first half mutex to start collecting data
+		//tx_event_flags_get(&audio_event_flags_group, AUDIO_BUFFER_HALF_FULL_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_mutex_get(&ecg_first_half_mutex, TX_WAIT_FOREVER);
 
@@ -63,6 +64,7 @@ void ecg_thread_entry(ULONG thread_input){
 		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 
 		//Acquire the second half mutex to fill it up
+		//tx_event_flags_get(&audio_event_flags_group, AUDIO_BUFFER_FULL_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_mutex_get(&ecg_second_half_mutex, TX_WAIT_FOREVER);
 
@@ -132,12 +134,13 @@ HAL_StatusTypeDef ecg_get_data(ECG_HandleTypeDef* ecg, uint8_t buffer_half) {
 		//Fill up the first half buffer
 		ecg_data[buffer_half][index] = ecg->data;
 
+		//If we filled the buffer, back out now (prevent overflow or hardfault)
+		if (index >= ECG_HALF_BUFFER_SIZE) {
+			return HAL_OK;
+		}
 	}
 
-	//If we filled the buffer, back out now (prevent overflow or hardfault)
-	if (index >= ECG_HALF_BUFFER_SIZE) {
-		return HAL_OK;
-	}
+	return HAL_OK;
 }
 
 HAL_StatusTypeDef ecg_read_adc(ECG_HandleTypeDef* ecg){

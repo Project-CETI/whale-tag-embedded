@@ -25,6 +25,7 @@
 #include "Sensor Inc/GpsGeofencing.h"
 #include "Sensor Inc/RTC.h"
 #include "Sensor Inc/KellerDepth.h"
+#include "Sensor Inc/BMS.h"
 #include "Lib Inc/state_machine.h"
 #include "Recovery Inc/Aprs.h"
 #include "Recovery Inc/Burnwire.h"
@@ -43,6 +44,8 @@ typedef enum __TX_THREAD_LIST {
 	RTC_THREAD,
 	BMS_THREAD,
 	DATA_LOG_THREAD,
+	//LIGHT_THREAD,
+	//COMMS_RX_THREAD,
 	NUM_THREADS //DO NOT ADD THREAD ENUMS BELOW THIS
 } Thread;
 
@@ -199,6 +202,30 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_DONT_START
 		},
+		/*
+		[LIGHT_THREAD] = {
+			// Light Thread
+			.thread_name = "Light Thread",
+			.thread_entry_function = light_thread_entry,
+			.thread_input = 0x1234,
+			.thread_stack_size = 800,
+			.priority = 9,
+			.preempt_threshold = 9,
+			.timeslice = TX_NO_TIME_SLICE,
+			.start = TX_AUTO_START
+		},
+		[COMMS_RX_THREAD] = {
+			// Comms RX Thread
+			.thread_name = "Comms RX Thread",
+			.thread_entry_function = comms_rx_thread_entry,
+			.thread_input = 0x1234,
+			.thread_stack_size = 800,
+			.priority = 9,
+			.preempt_threshold = 9,
+			.timeslice = TX_NO_TIME_SLICE,
+			.start = TX_AUTO_START
+		},
+		*/
 };
 
 //An array to hold all the threads. We do NOT need to touch this at all the add new threads, only edit the config list (above).

@@ -32,7 +32,7 @@ void burnwire_thread_entry(ULONG thread_input){
 	HAL_GPIO_WritePin(BURNWIRE_ON_GPIO_Port, BURNWIRE_ON_Pin, GPIO_PIN_RESET);
 
 	//Signal to the state machine that the tag has released
-	tx_event_flags_set(&state_machine_event_flags_group, STATE_TAG_RELEASED, TX_OR);
+	tx_event_flags_set(&state_machine_event_flags_group, STATE_TAG_RELEASED_FLAG, TX_OR);
 
-	//Thread is now completed and will stop running, if for some reason, it needs to run again, it must be restarted & resumed.
+
 }

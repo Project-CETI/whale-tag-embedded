@@ -24,6 +24,7 @@
 */
 
 #include "audio.h"
+#include "Sensor Inc/RTC.h"
 #include "util.h"
 #include "fx_api.h"
 #include "tx_api.h"
@@ -40,6 +41,12 @@
 extern SPI_HandleTypeDef hspi1;
 extern SAI_HandleTypeDef hsai_BlockB1;
 extern SD_HandleTypeDef hsd1;
+
+//RTC new audio file status
+extern new_audio_file;
+
+//RTC current time
+extern RTC_TimeTypeDef eTime;
 
 //Statically declare ADC at runtime
 ad7768_dev audio_adc = {
@@ -152,93 +159,113 @@ void audio_thread_entry(ULONG thread_input){
 	  	  	  	  	  	  	  	  .audio_ch_headers = 1,
 								  .audio_rate = CFG_AUDIO_RATE_96_KHZ,
 	  	  	  	  	  	  	  	  .audio_depth = CFG_AUDIO_DEPTH_16_BIT};
-	  ULONG acc_flag_pointer = 0;
+	ULONG acc_flag_pointer = 0;
+	uint8_t file_index = 0;
+	char *file_name;
+	sprintf(file_name, "audio_data_%d.bin", file_index);
 
-	  //Create our binary file for dumping audio data
-	  UINT fx_result = FX_SUCCESS;
-	  fx_result = fx_file_create(&sdio_disk, "audio_test.bin");
-	  if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
-	      Error_Handler();
-	  }
+	//Create our binary file for dumping audio data
+	UINT fx_result = FX_SUCCESS;
+	fx_result = fx_file_create(&sdio_disk, file_name);
+	if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
+	  Error_Handler();
+	}
 
-	  //Open the file (put a dummy close in front incase the file is already open)
-	  fx_result = fx_file_open(&sdio_disk, &audio_file, "audio_test.bin", FX_OPEN_FOR_WRITE);
-	  if(fx_result != FX_SUCCESS){
-	      Error_Handler();
-	  }
+	//Open the file (put a dummy close in front in case the file is already open)
+	fx_result = fx_file_open(&sdio_disk, &audio_file, file_name, FX_OPEN_FOR_WRITE);
+	if(fx_result != FX_SUCCESS){
+	  Error_Handler();
+	}
 
-	  //Set our "write complete" callback function
-	  fx_result = fx_file_write_notify_set(&audio_file, audio_SDWriteComplete);
-	  if(fx_result != FX_SUCCESS){
-	      Error_Handler();
-	  }
+	//Set our "write complete" callback function
+	fx_result = fx_file_write_notify_set(&audio_file, audio_SDWriteComplete);
+	if(fx_result != FX_SUCCESS){
+	  Error_Handler();
+	}
 
-	  //Set our DMA buffer callbacks for both half full and full
-	  HAL_SAI_RegisterCallback(&hsai_BlockB1, HAL_SAI_RX_HALFCOMPLETE_CB_ID, audio_SAI_RxHalfCpltCallback);
-	  HAL_SAI_RegisterCallback(&hsai_BlockB1, HAL_SAI_RX_COMPLETE_CB_ID, audio_SAI_RxCpltCallback);
+	//Set our DMA buffer callbacks for both half full and full
+	HAL_SAI_RegisterCallback(&hsai_BlockB1, HAL_SAI_RX_HALFCOMPLETE_CB_ID, audio_SAI_RxHalfCpltCallback);
+	HAL_SAI_RegisterCallback(&hsai_BlockB1, HAL_SAI_RX_COMPLETE_CB_ID, audio_SAI_RxCpltCallback);
 
-	  //Create our event flags group
-	  tx_event_flags_create(&audio_event_flags_group, "Audio Event Flags");
+	//Create our event flags group
+	tx_event_flags_create(&audio_event_flags_group, "Audio Event Flags");
 
-	  //Setup the ADC and sync it
-	  ad7768_setup(&audio_adc);
+	//Setup the ADC and sync it
+	ad7768_setup(&audio_adc);
 
-	  //Initialize our audio manager
-	  audio_init(&audio, &audio_adc, &hsai_BlockB1, &tag_config, &audio_file);
+	//Initialize our audio manager
+	audio_init(&audio, &audio_adc, &hsai_BlockB1, &tag_config, &audio_file);
 
-	  //Dummy delay
-	  HAL_Delay(1000);
+	//Dummy delay
+	HAL_Delay(1000);
 
-	  //The first write is usually the slowest, add in a dummy write to get it out of the way
-	  audio.sd_write_complete = false;
-	  fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
+	//The first write is usually the slowest, add in a dummy write to get it out of the way
+	audio.sd_write_complete = false;
+	fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * 10);
 
-	  //Poll for completion
+	//Poll for completion
+	while (!audio.sd_write_complete);
+
+	//Start gathering audio data through the SAI and DMA
+	audio_record(&audio);
+
+	while (1){
+
+		if (new_audio_file) {
+			file_index += 1;
+			sprintf(file_name, "audio_data_%d.bin", file_index);
+
+			fx_file_close(audio.file);
+
+			fx_result = fx_file_create(&sdio_disk, file_name);
+			if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
+				Error_Handler();
+			}
+
+			fx_result = fx_file_open(&sdio_disk, &audio_file, file_name, FX_OPEN_FOR_WRITE);
+			if(fx_result != FX_SUCCESS){
+				Error_Handler();
+			}
+		}
+
+		//Wait for the temp buffer to be either half of fully full. This suspends the audio task and lets others run.
+		yielding = true;
+		tx_event_flags_get(&audio_event_flags_group, AUDIO_BUFFER_FULL_FLAG | AUDIO_BUFFER_HALF_FULL_FLAG | AUDIO_STOP_THREAD_FLAG, TX_OR_CLEAR, &acc_flag_pointer, TX_WAIT_FOREVER);
+		yielding = false;
+
+		//If half full, write the bottom half
+		if (acc_flag_pointer & AUDIO_BUFFER_HALF_FULL_FLAG){
+			audio.sd_write_complete = false;
+			audio_writing = true;
+			fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * TEMP_BUF_HALF_BLOCK_LENGTH);
+		}
+
+		//If full, write the top half
+		if (acc_flag_pointer & AUDIO_BUFFER_FULL_FLAG){
+			audio.sd_write_complete = false;
+			audio_writing = true;
+			fx_file_write(audio.file, audio.temp_buffer[TEMP_BUF_HALF_BLOCK_LENGTH], AUDIO_CIRCULAR_BUFFER_SIZE * TEMP_BUF_HALF_BLOCK_LENGTH);
+		}
+
+	  //Poll for completion, this blocks out other tasks but is *neccessary*
+	  //We block out the other tasks to prevent unneccessary context switches which would slow down the SD card writes significantly, to the point where we would lose data.
 	  while (!audio.sd_write_complete);
 
-	  //Start gathering audio data through the SAI and DMA
-	  audio_record(&audio);
+	  //If we need to stop the thread, stop the data collection and suspend the thread
+	  if (acc_flag_pointer & AUDIO_STOP_THREAD_FLAG){
 
-	  while (1){
+		  //Stop DMA buffer
+		  HAL_SAI_DMAPause(audio.sai);
 
-		  //Wait for the temp buffer to be either half of fully full. This suspends the audio task and lets others run.
-		  yielding = true;
-		  tx_event_flags_get(&audio_event_flags_group, AUDIO_BUFFER_FULL_FLAG | AUDIO_BUFFER_HALF_FULL_FLAG | AUDIO_STOP_THREAD_FLAG, TX_OR_CLEAR, &acc_flag_pointer, TX_WAIT_FOREVER);
-		  yielding = false;
+		  //Close file
+		  fx_file_close(audio.file);
 
-		  //If half full, write the bottom half
-		  if (acc_flag_pointer & AUDIO_BUFFER_HALF_FULL_FLAG){
-      		audio.sd_write_complete = false;
-      		audio_writing = true;
-      		fx_file_write(audio.file, audio.temp_buffer[0], AUDIO_CIRCULAR_BUFFER_SIZE * TEMP_BUF_HALF_BLOCK_LENGTH);
-		  }
-
-		  //If full, write the top half
-		  if (acc_flag_pointer & AUDIO_BUFFER_FULL_FLAG){
-      		audio.sd_write_complete = false;
-      		audio_writing = true;
-      		fx_file_write(audio.file, audio.temp_buffer[TEMP_BUF_HALF_BLOCK_LENGTH], AUDIO_CIRCULAR_BUFFER_SIZE * TEMP_BUF_HALF_BLOCK_LENGTH);
-		  }
-
-		  //Poll for completion, this blocks out other tasks but is *neccessary*
-		  //We block out the other tasks to prevent unneccessary context switches which would slow down the SD card writes significantly, to the point where we would lose data.
-		  while (!audio.sd_write_complete);
-
-		  //If we need to stop the thread, stop the data collection and suspend the thread
-		  if (acc_flag_pointer & AUDIO_STOP_THREAD_FLAG){
-
-			  //Stop DMA buffer
-			  HAL_SAI_DMAPause(audio.sai);
-
-			  //Close file
-			  fx_file_close(audio.file);
-
-			  //Terminate thread so it needs to be fully reset to start again
-			  tx_event_flags_delete(&audio_event_flags_group);
-			  tx_thread_terminate(&threads[AUDIO_THREAD].thread);
-		  }
-
+		  //Terminate thread so it needs to be fully reset to start again
+		  tx_event_flags_delete(&audio_event_flags_group);
+		  tx_thread_terminate(&threads[AUDIO_THREAD].thread);
 	  }
+
+	}
 }
 
 

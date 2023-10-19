@@ -7,8 +7,13 @@
  *      Datasheet: optoelectronics.liteon.com/upload/download/DS86-2014-0006/LTR-329ALS-01_DS_V1.pdf
  */
 
-#include "LightSensor.h"
+#include "Sensor Inc/LightSensor.h"
 #include "util.h"
+#include "main.h"
+
+extern I2C_HandleTypeDef hi2c2;
+
+LightSensorHandleTypedef light;
 
 /*** PRIVATE ***/
 
@@ -85,8 +90,23 @@ static inline ALSMeasureTime __ALSMeasureTime_get_max_from_freq_Hz(float freq_Hz
 }
 
 /*** PUBLIC ***/
+
+void light_thread_entry(ULONG thread_input) {
+
+	//Initalize chip
+	LightSensor_Init(&hi2c2, &light);
+
+
+
+	while (1) {
+
+		LightSensor_get_data(&light);
+
+	}
+}
+
 // Wait 100ms minimum after VDD is supplied to light sensor
-HAL_StatusTypeDef LightSensor_init(LightSensorHandleTypedef *light_sensor, I2C_HandleTypeDef *hi2c_device) {
+HAL_StatusTypeDef LightSensor_init(I2C_HandleTypeDef *hi2c_device, LightSensorHandleTypedef *light_sensor) {
 	
 	light_sensor->i2c_handler = hi2c_device;
 	

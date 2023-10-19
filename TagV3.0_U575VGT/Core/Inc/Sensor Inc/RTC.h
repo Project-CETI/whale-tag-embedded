@@ -15,11 +15,15 @@
 #include <stdbool.h>
 
 // rtc timeout settings
-#define RTC_SHUTDOWN_LIMIT_SEC 20
+#define RTC_SHUTDOWN_LIMIT_MINS 20
 #define RTC_SHUTDOWN_LIMIT_HOUR 1
 
 // rtc initialization timeout
-#define RTC_GPS_TIMEOUT_MINS 20 // timeout in minutes before initializing rtc without gps timestamp
+#define RTC_GPS_TIMEOUT_MINS 1 // timeout in minutes before initializing rtc without gps timestamp
+
+// rtc new audio file interval
+#define RTC_AUDIO_REFRESH_MINS 5
+#define RTC_AUDIO_REFRESH_TOL 1
 
 // rtc event flags
 #define RTC_INIT_FLAG 0x1

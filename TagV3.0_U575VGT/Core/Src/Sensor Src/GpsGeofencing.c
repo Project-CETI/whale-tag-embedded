@@ -32,7 +32,7 @@ void gps_thread_entry(ULONG thread_input){
 			if (!gps_data.is_dominica){
 
 				//Signal the state machine to enter recovery mode
-				tx_event_flags_set(&state_machine_event_flags_group, STATE_GPS_FLAG, TX_OR);
+				tx_event_flags_set(&state_machine_event_flags_group, STATE_GPS_FENCE_FLAG, TX_OR);
 			}
 		}
 

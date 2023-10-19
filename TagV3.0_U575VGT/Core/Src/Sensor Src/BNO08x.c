@@ -7,6 +7,7 @@
  * 	Source file for the IMU drivers. See header file for more details
  */
 #include "BNO08x.h"
+#include "Sensor Inc/audio.h"
 #include "fx_api.h"
 #include "app_filex.h"
 #include "main.h"
@@ -21,7 +22,7 @@ extern SPI_HandleTypeDef hspi1;
 //Threads array
 extern Thread_HandleTypeDef threads[NUM_THREADS];
 
-extern UART_HandleTypeDef huart4;
+extern TX_EVENT_FLAGS_GROUP audio_event_flags_group;
 
 static void IMU_read_startup_data(IMU_HandleTypeDef* imu);
 static HAL_StatusTypeDef IMU_poll_new_data(IMU_HandleTypeDef* imu, uint32_t timeout);
@@ -62,6 +63,9 @@ void imu_thread_entry(ULONG thread_input){
 
 	while(1) {
 
+		//Wait for audio thread (1st half)
+		//tx_event_flags_get(&audio_event_flags_group, AUDIO_BUFFER_HALF_FULL_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+
 		//Wait for first half of the buffer to be ready for data
 		tx_mutex_get(&imu_first_half_mutex, TX_WAIT_FOREVER);
 
@@ -71,6 +75,9 @@ void imu_thread_entry(ULONG thread_input){
 		//Release the mutex to allow for SD card writing thread to run
 		tx_mutex_put(&imu_first_half_mutex);
 		tx_event_flags_set(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR);
+
+		//Wait for audio thread (2nd half)
+		//tx_event_flags_get(&audio_event_flags_group, AUDIO_BUFFER_FULL_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 
 		//Acquire second half (so we can fill it up)
 		tx_mutex_get(&imu_second_half_mutex, TX_WAIT_FOREVER);
@@ -186,8 +193,6 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 			//Return to start of loop
 			continue;
 		}
-
-		HAL_UART_Transmit(&huart4, &receiveData, 20, HAL_MAX_DELAY);
 
 		//Ensure this is the correct channel we're receiving data on and it has a timestamp
 		if (receiveData[2] == IMU_DATA_CHANNEL && receiveData[4] == IMU_TIMESTAMP_REPORT_ID){
@@ -331,8 +336,6 @@ static void IMU_configure_reports(IMU_HandleTypeDef * imu, uint8_t reportID, boo
 		HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_RESET);
 		HAL_Delay(1);
 	}
-
-	HAL_UART_Transmit(&huart4, &transmitData, 20, HAL_MAX_DELAY);
 
 	//Transmit data and pull CS back up to high
 	HAL_SPI_Transmit(&hspi1, transmitData, IMU_CONFIGURE_REPORT_LENGTH, HAL_MAX_DELAY);

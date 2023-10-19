@@ -29,20 +29,16 @@ void bms_thread_entry(ULONG thread_input){
 	max17320_set_alert_thresholds(&bms);
 	max17320_configure_cell_balancing(&bms);
 
-	ULONG actual_flags;
-
 	while (1) {
+
+		ULONG actual_flags = 0;
 
 		max17320_get_remaining_capacity(&bms);
 		max17320_get_state_of_charge(&bms);
 		max17320_get_voltages(&bms);
 
-		if (bms.status.protection_alert == 1) {
+		if (bms.status.protection_alert) {
 			max17320_get_faults(&bms);
-			tx_event_flags_set(&state_machine_event_flags_group, STATE_CRIT_BATT_FLAG, TX_OR);
-		}
-
-		if (bms.cell_1_voltage < MAX17320_CRITICAL_BATT_VOLT_THR && bms.cell_2_voltage < MAX17320_CRITICAL_BATT_VOLT_THR) {
 			tx_event_flags_set(&state_machine_event_flags_group, STATE_CRIT_BATT_FLAG, TX_OR);
 		}
 
@@ -50,7 +46,20 @@ void bms_thread_entry(ULONG thread_input){
 			tx_event_flags_set(&state_machine_event_flags_group, STATE_LOW_BATT_FLAG, TX_OR);
 		}
 
+		if (bms.cell_1_voltage < MAX17320_CRITICAL_BATT_VOLT_THR && bms.cell_2_voltage < MAX17320_CRITICAL_BATT_VOLT_THR) {
+			tx_event_flags_set(&state_machine_event_flags_group, STATE_CRIT_BATT_FLAG, TX_OR);
+			max17320_close_fets(&bms);
+		}
+
 		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		tx_event_flags_get(&state_machine_event_flags_group, STATE_SLEEP_MODE_FLAG | STATE_EXIT_SLEEP_MODE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+
+		if (actual_flags & STATE_SLEEP_MODE_FLAG) {
+			max17320_close_fets(&bms);
+		}
+		else if (actual_flags & STATE_EXIT_SLEEP_MODE_FLAG) {
+			max17320_open_fets(&bms);
+		}
 	}
 }
 
@@ -190,6 +199,36 @@ HAL_StatusTypeDef max17320_configure_thermistors(MAX17320_HandleTypeDef *dev) {
 	return ret;
 }
 
+HAL_StatusTypeDef max17320_configure_fets(MAX17320_HandleTypeDef *dev) {
+
+	uint8_t data_buf[2] = {0};
+	data_buf[1] |= (MAX17320_PROT_CFG_DEFAULT | MAX17320_ENABLE_FET_OVERRIDE);
+
+    HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR_END, MAX17320_REG_PROT_CFG, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+
+    return ret;
+
+}
+
+HAL_StatusTypeDef max17320_close_fets(MAX17320_HandleTypeDef *dev) {
+
+    uint8_t data_buf[2] = {0};
+    data_buf[1] |= (MAX17320_FET_CHGOFF | MAX17320_FET_DISOFF);
+
+    HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+
+	return ret;
+}
+
+HAL_StatusTypeDef max17320_open_fets(MAX17320_HandleTypeDef *dev) {
+
+    uint8_t data_buf[2] = {0};
+
+    HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+
+	return ret;
+}
+
 HAL_StatusTypeDef max17320_get_status(MAX17320_HandleTypeDef *dev) {
 
     uint8_t data_buf[2] = {0};
@@ -241,7 +280,7 @@ HAL_StatusTypeDef max17320_get_state_of_charge(MAX17320_HandleTypeDef *dev) {
 	HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_REP_SOC, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
 
 	dev->state_of_charge = TO_16_BIT(data_buf[0], data_buf[1]) * PERCENTAGE_LSB;
-
+	dev->raw = TO_16_BIT(data_buf[0], data_buf[1]);
 	return ret;
 }
 

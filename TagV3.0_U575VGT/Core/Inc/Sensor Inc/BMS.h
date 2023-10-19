@@ -37,11 +37,12 @@
 #define MAX17320_REG_TOTAL_BAT_VOLTAGE	0x0DA
 #define MAX17320_REG_PACK_SIDE_VOLTAGE	0x0DB
 
+#define MAX17320_REG_COMM_STAT			0x061
 #define MAX17320_REG_OVP_THR			0x1D9
+#define MAX17320_REG_PACK_CFG			0x1B5
+#define MAX17320_REG_PROT_CFG			0x1D7
 
 #define MAX17320_REG_TEMPERATURE		0x01B
-
-#define MAX17320_REG_PACK_CFG			0x1B5
 
 #define MAX17320_REG_BATT_CURRENT		0x01C
 #define MAX17320_REG_AVG_BATT_CURRENT	0x01D
@@ -55,8 +56,6 @@
 #define MAX17320_REG_SOC_ALT_THR		0x003
 
 #define MAX17320_REG_CELL_BAL_THR		0x1D4
-
-#define MAX17320_REG_COMM_STAT			0x061
 
 #define MAX17320_REG_DEV_NAME           0x021
 
@@ -98,6 +97,8 @@
 // State Machine Flag Thresholds
 #define MAX17320_LOW_BATT_VOLT_THR		3.2
 #define MAX17320_CRITICAL_BATT_VOLT_THR	3.1
+#define MAX17320_LOW_SOC_THR			20
+#define MAX17320_CRITICAL_SOC_THR		5
 
 // Cell Balancing Thresholds
 #define MAX17320_CELL_BAL_THR			0b011 // Corresponds to a 10.0 mV threshold
@@ -109,6 +110,12 @@
 // Thermistor Settings
 #define MAX17320_NUM_THERMISTORS		0x01
 #define MAX17320_THERMISTOR_TYPE		0x00 // 10kΩ thermistor
+
+// FET Settings
+#define MAX17320_PROT_CFG_DEFAULT		0x09
+#define MAX17320_ENABLE_FET_OVERRIDE	0b100 // Enable manual control of FETs
+#define MAX17320_FET_DISOFF				0b10 // Disable discharge FET
+#define MAX17320_FET_CHGOFF				0b1 // Disable charge FET
 
 // Other Macros
 #define MAX17320_TIMEOUT                1000
@@ -194,6 +201,8 @@ HAL_StatusTypeDef max17320_set_alert_thresholds(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_set_ovp_thresholds(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_configure_cell_balancing(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_configure_thermistors(MAX17320_HandleTypeDef *dev);
+HAL_StatusTypeDef max17320_close_fets(MAX17320_HandleTypeDef *dev);
+HAL_StatusTypeDef max17320_open_fets(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_get_status(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_get_faults(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_get_fet_status(MAX17320_HandleTypeDef *dev);

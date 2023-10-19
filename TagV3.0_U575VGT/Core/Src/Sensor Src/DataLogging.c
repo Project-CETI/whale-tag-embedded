@@ -10,7 +10,7 @@
 #include "Sensor Inc/ECG.h"
 #include "Sensor Inc/KellerDepth.h"
 #include "Sensor Inc/RTC.h"
-#include "Sensor Inc/BMS.h"
+#include "Sensor Inc/LightSensor.h"
 #include "Lib Inc/threads.h"
 #include "Lib Inc/state_machine.h"
 #include "app_filex.h"
@@ -27,22 +27,28 @@ extern State state;
 extern RTC_TimeTypeDef eTime;
 extern RTC_DateTypeDef eDate;
 
-//BMS measurements
+//BMS data
 extern MAX17320_HandleTypeDef bms;
 
 //GPS data
 extern GPS_HandleTypeDef gps;
 extern GPS_Data gps_data;
 
+//Light sensor data
+extern LightSensorHandleTypedef light;
+
 //Sample counters for sensors
 extern uint8_t imu_sample_counter;
 
 //FileX variables
-extern FX_MEDIA        sdio_disk;
+extern FX_MEDIA sdio_disk;
 extern ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
 
 //ThreadX flags for data logging
 TX_EVENT_FLAGS_GROUP data_log_event_flags_group;
+
+//ThreadX flags for RTC
+extern TX_EVENT_FLAGS_GROUP rtc_event_flags_group;
 
 //ThreadX flags for IMU sensor
 extern TX_EVENT_FLAGS_GROUP imu_event_flags_group;
@@ -58,6 +64,12 @@ extern TX_MUTEX depth_second_half_mutex;
 extern TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
 extern TX_MUTEX ecg_first_half_mutex;
 extern TX_MUTEX ecg_second_half_mutex;
+
+//ThreadX flags for state machine
+extern TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
+
+//State machine flags
+extern ULONG actual_flags;
 
 //Arrays for holding sensor data. The buffer is split in half and shared with the IMU thread.
 extern IMU_Data imu_data[2][IMU_HALF_BUFFER_SIZE];
@@ -91,20 +103,20 @@ void sd_thread_entry(ULONG thread_input) {
 	//Create our binary file for dumping sensor data
 	char *file_name = "data.bin";
 	fx_result = fx_file_create(&sdio_disk, file_name);
-	if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
-	  Error_Handler();
+	if ((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)) {
+		Error_Handler();
 	}
 
 	//Open binary file
 	fx_result = fx_file_open(&sdio_disk, &data_file, file_name, FX_OPEN_FOR_WRITE);
-	if(fx_result != FX_SUCCESS){
-	  Error_Handler();
+	if (fx_result != FX_SUCCESS) {
+		Error_Handler();
 	}
 
 	//Setup "write complete" callback function
 	fx_result = fx_file_write_notify_set(&data_file, SDWriteComplete_Callback);
-	if(fx_result != FX_SUCCESS){
-	  Error_Handler();
+	if (fx_result != FX_SUCCESS) {
+		Error_Handler();
 	}
 
 	//Dummy write at start since first write is usually slow
@@ -129,10 +141,14 @@ void sd_thread_entry(ULONG thread_input) {
 		header.timestamp[0] = eTime.Hours;
 		header.timestamp[1] = eTime.Minutes;
 		header.timestamp[2] = eTime.Seconds;
+
 		header.state_of_charge = bms.state_of_charge;
 		header.cell_1_voltage = bms.cell_1_voltage;
 		header.cell_2_voltage = bms.cell_2_voltage;
 		header.bms_faults = bms.faults;
+
+		header.infrared = light.data.infrared;
+		header.visible = light.data.visible;
 
 		//Save GPS coordinates of tag if GPS locked
 		if (gps.is_pos_locked) {
@@ -148,6 +164,7 @@ void sd_thread_entry(ULONG thread_input) {
 
 		//Save current state of tag
 		header.state = state;
+		header.state_flags = actual_flags;
 
 		//Wait for the sensor threads to be done filling the first half of buffer
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
@@ -179,10 +196,14 @@ void sd_thread_entry(ULONG thread_input) {
 		header.timestamp[0] = eTime.Hours;
 		header.timestamp[1] = eTime.Minutes;
 		header.timestamp[2] = eTime.Seconds;
+
 		header.state_of_charge = bms.state_of_charge;
 		header.cell_1_voltage = bms.cell_1_voltage;
 		header.cell_2_voltage = bms.cell_2_voltage;
 		header.bms_faults = bms.faults;
+
+		header.infrared = light.data.infrared;
+		header.visible = light.data.visible;
 
 		//Save GPS coordinates of tag if GPS locked
 		if (gps.is_pos_locked) {
@@ -198,6 +219,7 @@ void sd_thread_entry(ULONG thread_input) {
 
 		//Save current state of tag
 		header.state = state;
+		header.state_flags = actual_flags;
 
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_mutex_get(&imu_second_half_mutex, TX_WAIT_FOREVER);

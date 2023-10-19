@@ -48,6 +48,7 @@ void depth_thread_entry(ULONG thread_input) {
 		ULONG actual_flags;
 
 		//Wait for first half of the buffer to be ready for data
+		//tx_event_flags_get(&audio_event_flags_group, AUDIO_BUFFER_HALF_FULL_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_mutex_get(&depth_first_half_mutex, TX_WAIT_FOREVER);
 
@@ -62,6 +63,7 @@ void depth_thread_entry(ULONG thread_input) {
 		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 
 		//Acquire second half (so we can fill it up)
+		//tx_event_flags_get(&audio_event_flags_group, AUDIO_BUFFER_FULL_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_mutex_get(&depth_second_half_mutex, TX_WAIT_FOREVER);
 

@@ -11,6 +11,7 @@
 #define LIGHTSENSOR_H
 
 #include "stm32u5xx_hal.h"
+#include "tx_port.h"
 
 // ALS == Ambient Light Sensor
 // Light sensor I2C address
@@ -136,7 +137,8 @@ typedef struct __LightSensor_TypeDef
     ALSDataRegister data;
 } LightSensorHandleTypedef;
 
-HAL_StatusTypeDef LightSensor_init(LightSensorHandleTypedef *light_sensor, I2C_HandleTypeDef *hi2c_device);
+void light_thread_entry(ULONG thread_input);
+HAL_StatusTypeDef LightSensor_init(I2C_HandleTypeDef *hi2c_device, LightSensorHandleTypedef *light_sensor);
 HAL_StatusTypeDef LightSensor_wake_up(LightSensorHandleTypedef *light_sensor, ALSGain gain);
 HAL_StatusTypeDef LightSensor_sleep(LightSensorHandleTypedef *light_sensor);
 HAL_StatusTypeDef LightSensor_get_data(LightSensorHandleTypedef *light_sensor);

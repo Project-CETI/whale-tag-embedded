@@ -28,11 +28,17 @@ RTC_TimeTypeDef eTime = {0};
 RTC_DateTypeDef eDate = {0};
 
 //ThreadX flags for rtc
-TX_EVENT_FLAGS_GROUP rtc_log_event_flags_group;
+TX_EVENT_FLAGS_GROUP rtc_event_flags_group;
+
+//Time interval variable
+uint8_t new_audio_file;
 
 void rtc_thread_entry(ULONG thread_input) {
 
 	bool first_pass = true;
+
+	// create events flag
+	tx_event_flags_create(&rtc_event_flags_group, "RTC Event Flags");
 
 	RTC_TimeTypeDef sTime = {0};
 	RTC_DateTypeDef sDate = {0};
@@ -46,7 +52,7 @@ void rtc_thread_entry(ULONG thread_input) {
 	RTC_Init(&sTime, &sDate);
 	RTC_Init(&eTime, &eDate);
 
-	tx_event_flags_set(&rtc_log_event_flags_group, RTC_INIT_FLAG, TX_OR);
+	tx_event_flags_set(&rtc_event_flags_group, RTC_INIT_FLAG, TX_OR);
 
 	while (1) {
 
@@ -57,8 +63,15 @@ void rtc_thread_entry(ULONG thread_input) {
 		HAL_RTC_GetDate(&hrtc, &eDate, RTC_FORMAT_BIN);
 
 		//Check if max operating duration passed
-		if (abs(eTime.Seconds - sTime.Seconds) > RTC_SHUTDOWN_LIMIT_SEC && abs(eTime.Hours - sTime.Hours) > RTC_SHUTDOWN_LIMIT_HOUR) {
+		if (abs(eTime.Minutes - sTime.Minutes) > RTC_SHUTDOWN_LIMIT_MINS && abs(eTime.Hours - sTime.Hours) > RTC_SHUTDOWN_LIMIT_HOUR) {
 			tx_event_flags_set(&state_machine_event_flags_group, STATE_TIMEOUT_FLAG, TX_OR);
+		}
+
+		if (abs(eTime.Minutes - sTime.Minutes) % RTC_AUDIO_REFRESH_MINS <= RTC_AUDIO_REFRESH_TOL) {
+			new_audio_file = 1;
+		}
+		else {
+			new_audio_file = 0;
 		}
 
 		//Sleep and repeat the process once woken up
