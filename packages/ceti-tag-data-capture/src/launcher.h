@@ -27,9 +27,10 @@
 #define ENABLE_GOPROS 0
 
 //-----------------------------------------------------------------------------
-// State Change Intervals
+// State Change Configurations
 //-----------------------------------------------------------------------------
 #define BURNWIRE_BURN_INTERVAL_DEFAULT_MIN 20 //time in minutes that the burnwire remains on
+#define MIN_DATA_PARTITION_FREE_KB (1*1024*1024) // 1 GiB
 
 //-----------------------------------------------------------------------------
 // Sampling and logging configuration.
@@ -125,9 +126,9 @@
 #include "sensors/ecg.h"
 #endif
 
-#if ENABLE_SYSTEMMONITOR
+// Include this regardless of ENABLE_SYSTEMMONITOR
+//  since the launcher will use its helpers to check disk usage.
 #include "systemMonitor.h"
-#endif
 
 #if ENABLE_GOPROS
 #include "sensors/goPros.h"
@@ -138,6 +139,7 @@
 // Global variables
 //-----------------------------------------------------------------------------
 extern int g_exit;
+extern int g_stopAcquisition;
 
 //-----------------------------------------------------------------------------
 // Helper methods

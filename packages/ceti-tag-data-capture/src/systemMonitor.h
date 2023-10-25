@@ -14,7 +14,7 @@
 #define _GNU_SOURCE   // change how sched.h will be included
 
 #include "utils/logging.h"
-#include "launcher.h" // for g_exit, sampling rate, data filepath, and CPU affinity
+#include "launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "sys/types.h"
 #include "sys/sysinfo.h"
 #include "stdlib.h"
@@ -43,6 +43,7 @@ long long get_ram_free();
 long long get_ram_used();
 long get_overlay_free_kb();
 long get_root_free_kb();
+long get_dataPartition_free_kb();
 long get_log_size_kb();
 long get_syslog_size_kb();
 int update_cpu_usage();

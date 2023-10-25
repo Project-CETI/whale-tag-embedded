@@ -11,6 +11,7 @@
 // Initialize global variables
 //-----------------------------------------------------------------------------
 int g_exit = 0;
+int g_stopAcquisition = 0;
 
 void sig_handler(int signum) {
    g_exit = 1;
@@ -141,12 +142,14 @@ int main(void) {
     CETI_LOG("-------------------------------------------------");
     CETI_LOG("Data acquisition is running!");
     CETI_LOG("-------------------------------------------------");
-    while (!g_exit) {
+    while(!g_exit)
+    {
         // Let threads do their work.
         usleep(100000);
+
         // Check if the audio needs to be restarted after an overflow.
         #if ENABLE_AUDIO
-        if(g_audio_overflow_detected)
+        if(g_audio_overflow_detected && (g_audio_thread_spi_is_running && g_audio_thread_writeData_is_running))
         {
           // Wait for the threads to stop.
           while(g_audio_thread_spi_is_running || g_audio_thread_writeData_is_running)
@@ -164,7 +167,15 @@ int main(void) {
           usleep(100000);
         }
         #endif
+
+        // Check if the data partition is full.
+        if(!g_stopAcquisition && get_dataPartition_free_kb() < MIN_DATA_PARTITION_FREE_KB)
+        {
+          CETI_LOG("*** DATA PARTITION IS FULL. Stopping all threads that acquire data.");
+          g_stopAcquisition = 1;
+        }
     }
+    g_stopAcquisition = 1;
     CETI_LOG("-------------------------------------------------");
     CETI_LOG("Data acquisition completed. Waiting for threads to stop.");
 

@@ -53,10 +53,11 @@ static const char* systemMonitor_data_file_headers[] = {
   "SysMonitor CPU", "GoPros CPU",
   "RAM Free [B]", "RAM Free [%]",
   "Swap Free [B]", "Swap Free [%]",
-  "Root Free [KB]", "Overlay Free [KB]", "Log Size [KB]", "SysLog Size [KB]",
+  "Root Free [KB]", "Overlay Free [KB]", "Data Free [KB]",
+  "Log Size [KB]", "SysLog Size [KB]",
   "CPU Temperature [C]", "GPU Temperature [C]",
   };
-static const int num_systemMonitor_data_file_headers = 30;
+static const int num_systemMonitor_data_file_headers = 31;
 
 int init_systemMonitor()
 {
@@ -116,7 +117,7 @@ void* systemMonitor_thread(void* paramPtr) {
     // Set the previous time such that it will print once at most 30s after starting and thereafter according to the desired period.
     long long last_tid_print_time_us = get_global_time_us() + (TID_PRINT_PERIOD_US > 30000000 ? (30000000 - TID_PRINT_PERIOD_US) : 0);
     #endif
-    while (!g_exit) {
+    while (!g_stopAcquisition) {
       // Print the thread IDs if desired
       #if TID_PRINT_PERIOD_US >= 0
       if(get_global_time_us() - last_tid_print_time_us >= TID_PRINT_PERIOD_US)
@@ -186,6 +187,7 @@ void* systemMonitor_thread(void* paramPtr) {
         fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)swap_free)/((double)swap_total));
         fprintf(systemMonitor_data_file, ",%ld", get_root_free_kb());
         fprintf(systemMonitor_data_file, ",%ld", get_overlay_free_kb());
+        fprintf(systemMonitor_data_file, ",%ld", get_dataPartition_free_kb());
         fprintf(systemMonitor_data_file, ",%ld", get_log_size_kb());
         fprintf(systemMonitor_data_file, ",%ld", get_syslog_size_kb());
         fprintf(systemMonitor_data_file, ",%f", get_cpu_temperature_c());
@@ -288,6 +290,42 @@ long long get_ram_free()
   //Multiply in next statement to avoid int overflow on right hand side...
   physMemFree *= memInfo.mem_unit;
   return physMemFree;
+}
+
+// Disk usage
+//------------------------------------------
+
+long get_overlay_free_kb()
+{
+  char available_kb[20] = "";
+  int system_success = system_call_with_output(
+    "df --output=source,avail | grep overlay | awk '{print $2}'",
+    available_kb);
+  if(system_success == -1 || strlen(available_kb) == 0)
+    return -1;
+  return (long)atof(available_kb);
+}
+
+long get_root_free_kb()
+{
+  char available_kb[20] = "";
+  int system_success = system_call_with_output(
+    "df --output=source,avail | grep /dev/root | awk '{print $2}'",
+    available_kb);
+  if(system_success == -1 || strlen(available_kb) == 0)
+    return -1;
+  return (long)atof(available_kb);
+}
+
+long get_dataPartition_free_kb()
+{
+  char available_kb[20] = "";
+  int system_success = system_call_with_output(
+    "df --output=target,avail | grep /data | awk '{print $2}'",
+    available_kb);
+  if(system_success == -1 || strlen(available_kb) == 0)
+    return -1;
+  return (long)atof(available_kb);
 }
 
 // CPU usage
@@ -429,27 +467,8 @@ float get_gpu_temperature_c()
   return atof(temperature_c_str);
 }
 
-long get_overlay_free_kb()
-{
-  char available_kb[20] = "";
-  int system_success = system_call_with_output(
-    "df --output=source,avail | grep overlay | awk '{print $2}'",
-    available_kb);
-  if(system_success == -1 || strlen(available_kb) == 0)
-    return -1;
-  return (long)atof(available_kb);
-}
-
-long get_root_free_kb()
-{
-  char available_kb[20] = "";
-  int system_success = system_call_with_output(
-    "df --output=source,avail | grep /dev/root | awk '{print $2}'",
-    available_kb);
-  if(system_success == -1 || strlen(available_kb) == 0)
-    return -1;
-  return (long)atof(available_kb);
-}
+// System logs
+//------------------------------------------
 
 long get_log_size_kb()
 {
@@ -473,8 +492,6 @@ long get_syslog_size_kb()
   return (long)atof(syslog_size_kb);
 }
 
-// System logs
-//------------------------------------------
 void force_system_log_rotation()
 {
   CETI_LOG("Forcing a log file rotation");
