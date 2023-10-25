@@ -13,7 +13,7 @@
 //-----------------------------------------------------------------------------
 #define _GNU_SOURCE   // change how sched.h will be included
 
-#include "launcher.h" // for g_exit, sampling rate, data filepath, and CPU affinity
+#include "launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "utils/logging.h"
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 

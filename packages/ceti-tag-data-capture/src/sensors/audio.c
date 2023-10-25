@@ -263,10 +263,10 @@ void* audio_thread_spi(void* paramPtr)
     start_audio_acq();
     // Main loop to acquire audio data.
     g_audio_thread_spi_is_running = 1;
-    while(!g_exit && !g_audio_overflow_detected) 
+    while(!g_stopAcquisition && !g_audio_overflow_detected) 
     {
       // Wait for SPI data to be available.
-      while(!gpioRead(AUDIO_DATA_AVAILABLE) && !g_exit && !g_audio_overflow_detected)
+      while(!gpioRead(AUDIO_DATA_AVAILABLE) && !g_stopAcquisition && !g_audio_overflow_detected)
       {
         // Reduce the CPU load a bit.
         // Based on 30-second tests, there seems to be diminishing returns after about 1000us.
@@ -279,7 +279,7 @@ void* audio_thread_spi(void* paramPtr)
         audio_check_for_overflow(1);
       }
 
-      if(!g_exit && !g_audio_overflow_detected)
+      if(!g_stopAcquisition && !g_audio_overflow_detected)
       {
         // Wait for SPI data to *really* be available?
         // Note that this delay is surprisingly important.
@@ -344,7 +344,7 @@ void* audio_thread_spi(void* paramPtr)
     spiClose(spi_fd);
 
     // Log that the thread is stopping.
-    if(g_audio_overflow_detected && !g_exit)
+    if(g_audio_overflow_detected && !g_stopAcquisition)
       CETI_LOG("*** Audio overflow detected at location %d", audio_overflow_detected_location);
     else
       CETI_LOG("Done!");
@@ -397,22 +397,22 @@ void* audio_thread_writeFlac(void* paramPtr)
       CETI_LOG("XXX Failed to set priority");
 
     // Wait for the SPI thread to finish initializing and start the main loop.
-    while(!g_audio_thread_spi_is_running && !g_exit && !g_audio_overflow_detected)
+    while(!g_audio_thread_spi_is_running && !g_stopAcquisition && !g_audio_overflow_detected)
       usleep(1000);
 
     // Main loop.
     CETI_LOG("Starting loop to periodically write data");
     g_audio_thread_writeData_is_running = 1;
-    while(!g_exit && !g_audio_overflow_detected)
+    while(!g_stopAcquisition && !g_audio_overflow_detected)
     {
       // Wait for the SPI thread to finish filling this buffer.
       // Note that this can use a long delay to yield the CPU,
       //  since the buffer will fill about once per minute and it only takes
       //  about 2 seconds to write the buffer to a file.
-      while(audio_buffer_toWrite == audio_buffer_toLog && !g_exit && !g_audio_overflow_detected)
+      while(audio_buffer_toWrite == audio_buffer_toLog && !g_stopAcquisition && !g_audio_overflow_detected)
         usleep(1000000);
 
-      if(!g_exit && !g_audio_overflow_detected)
+      if(!g_stopAcquisition && !g_audio_overflow_detected)
       {
         // Log that a write is starting.
         long long global_time_us = get_global_time_us();
@@ -488,7 +488,7 @@ void* audio_thread_writeFlac(void* paramPtr)
     FLAC__stream_encoder_delete(flac_encoder);
     flac_encoder = 0;
     // Exit the thread.
-    if(g_audio_overflow_detected && !g_exit)
+    if(g_audio_overflow_detected && !g_stopAcquisition)
       CETI_LOG("*** Audio overflow detected at location %d", audio_overflow_detected_location);
     else
       CETI_LOG("Done!");
@@ -572,23 +572,23 @@ void* audio_thread_writeRaw(void* paramPtr)
     CETI_LOG("XXX Failed to set priority");
 
   // Wait for the SPI thread to finish initializing and start the main loop.
-  while(!g_audio_thread_spi_is_running && !g_exit && !g_audio_overflow_detected)
+  while(!g_audio_thread_spi_is_running && !g_stopAcquisition && !g_audio_overflow_detected)
     usleep(1000);
 
   // Main loop.
   CETI_LOG("Starting loop to periodically write data");
   g_audio_thread_writeData_is_running = 1;
   int pageIndex = 0;
-  while(!g_exit && !g_audio_overflow_detected)
+  while(!g_stopAcquisition && !g_audio_overflow_detected)
   {
     // Wait for the SPI thread to finish filling this buffer.
     // Note that this can use a long delay to yield the CPU,
     //  since the buffer will fill about once per minute and it only takes
     //  about 2 seconds to write the buffer to a file.
-    while(audio_buffer_toWrite == audio_buffer_toLog && !g_exit && !g_audio_overflow_detected)
+    while(audio_buffer_toWrite == audio_buffer_toLog && !g_stopAcquisition && !g_audio_overflow_detected)
       usleep(1000000);
 
-    if(!g_exit && !g_audio_overflow_detected)
+    if(!g_stopAcquisition && !g_audio_overflow_detected)
     {
       // Log that a write is starting.
       long long global_time_us = get_global_time_us();
@@ -652,7 +652,7 @@ void* audio_thread_writeRaw(void* paramPtr)
   }
 
   // Exit the thread.
-  if(g_audio_overflow_detected && !g_exit)
+  if(g_audio_overflow_detected && !g_stopAcquisition)
    CETI_LOG("*** Audio overflow detected at location %d", audio_overflow_detected_location);
   else
    CETI_LOG("Done!");
