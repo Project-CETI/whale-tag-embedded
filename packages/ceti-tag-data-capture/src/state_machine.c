@@ -20,9 +20,9 @@ static int presentState = ST_CONFIG;
 // Config file and associated parameters
 static FILE* ceti_config_file = NULL;
 static char cPress_1[16], cPress_2[16], cVolt_1[16], cVolt_2[16], cTimeOut[16], cBurnTime[16];
-static double d_press_1, d_press_2, d_volt_1, d_volt_2;
-static int timeOut_minutes, timeout_seconds;
-static int burnInterval_seconds = 60*BURNWIRE_BURN_INTERVAL_DEFAULT_MIN;
+static double g_config.surface_pressure, g_config.dive_pressure, g_config.release_voltage_v, g_config.critical_voltage_v;
+static int timeOut_minutes, g_config.timeout_s;
+static int g_config.burn_interval_s = 60*BURNWIRE_BURN_INTERVAL_DEFAULT_MIN;
 // RTC counts
 static unsigned int start_rtc_count = 0;
 static unsigned int last_reset_rtc_count = 0;
@@ -131,67 +131,7 @@ int updateStateMachine() {
     case (ST_CONFIG):
         // Load the deployment configuration
         CETI_LOG("Configuring the deployment parameters from %s", CETI_CONFIG_FILE);
-        ceti_config_file = fopen(CETI_CONFIG_FILE, "r");
-        if (ceti_config_file == NULL) {
-            CETI_LOG("XXXX Cannot open configuration file %s", CETI_CONFIG_FILE);
-            return (-1);
-        }
-        
-        char line[256];
-        char *pTemp;
-        while (fgets(line, 256, ceti_config_file) != NULL) {
-
-            if (*line == '#')
-                continue; // ignore comment lines
-
-            if (!strncmp(line, "P1=", 3)) {
-                pTemp = (line + 3);
-                strcpy(cPress_1, pTemp);
-            }
-            if (!strncmp(line, "P2=", 3)) {
-                pTemp = (line + 3);
-                strcpy(cPress_2, pTemp);
-            }
-            if (!strncmp(line, "V1=", 3)) {
-                pTemp = (line + 3);
-                strcpy(cVolt_1, pTemp);
-            }
-            if (!strncmp(line, "V2=", 3)) {
-                pTemp = (line + 3);
-                strcpy(cVolt_2, pTemp);
-            }
-            if (!strncmp(line, "T0=", 3)) {
-                pTemp = (line + 3);
-                strcpy(cTimeOut, pTemp);
-            }
-            if (!strncmp(line, "BT=", 3)) {
-                pTemp = (line + 3);
-                strcpy(cBurnTime, pTemp);
-                burnInterval_seconds = atol(cBurnTime)*60; //overwrite default value
-            }
-        }
-
-        fclose(ceti_config_file);
-
-        // printf("P1 is %s\n",cPress_1);
-        // printf("P2 is %s\n",cPress_2);
-        // printf("V1 is %s\n",cVolt_1);
-        // printf("V2 is %s\n",cVolt_2);
-        // printf("Timeout is %s\n",cTimeOut);
-
-        d_press_1 = atof(cPress_1);
-        d_press_2 = atof(cPress_2);
-        d_volt_1 = atof(cVolt_1);
-        d_volt_2 = atof(cVolt_2);
-        timeOut_minutes =
-            atol(cTimeOut); // the configuration file units are minutes
-        timeout_seconds = timeOut_minutes * 60;
-
-        // printf("P1 is %.2f\n",d_press_1);
-        // printf("P2 is %.2f\n",d_press_2);
-        // printf("V1 is %.2f\n",d_volt_1);
-        // printf("V2 is %.2f\n",d_volt_2);
-        // printf("Timeout is %d\n",timeOut);
+        config_read(CETI_CONFIG_FILE);
 
         presentState = ST_START;
         break;
@@ -214,8 +154,8 @@ int updateStateMachine() {
         //g_latest_battery_v2_v));
 
         #if ENABLE_BATTERY_GAUGE
-        if ((g_latest_battery_v1_v + g_latest_battery_v2_v < d_volt_1) ||
-            (current_rtc_count - start_rtc_count > timeout_seconds)
+        if ((g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v) ||
+            (current_rtc_count - start_rtc_count > g_config.timeout_s)
         ) {
             burnTimeStart = current_rtc_count;
             burnwireOn();
@@ -225,7 +165,7 @@ int updateStateMachine() {
         #endif
 
         #if ENABLE_PRESSURETEMPERATURE_SENSOR
-        if ((g_latest_pressureTemperature_pressure_bar > d_press_2)
+        if ((g_latest_pressureTemperature_pressure_bar > g_config.dive_pressure)
             && (current_rtc_count - last_reset_rtc_count > (WIFI_GRACE_PERIOD_MIN * 60))
         ){
             //disable wifi
@@ -245,8 +185,8 @@ int updateStateMachine() {
         //g_latest_battery_v2_v));
 
         #if ENABLE_BATTERY_GAUGE
-        if ((g_latest_battery_v1_v + g_latest_battery_v2_v < d_volt_1) ||
-            (current_rtc_count - start_rtc_count > timeout_seconds)
+        if ((g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v) ||
+            (current_rtc_count - start_rtc_count > g_config.timeout_s)
         ) {
             burnTimeStart = current_rtc_count;
             burnwireOn();
@@ -256,7 +196,7 @@ int updateStateMachine() {
         #endif
 
         #if ENABLE_PRESSURE_SENSOR
-        if (g_latest_pressureTemperature_pressure_bar < d_press_1) {
+        if (g_latest_pressureTemperature_pressure_bar < g_config.surface_pressure) {
             presentState = ST_REC_SURF; // came to surface
             break;
         }
@@ -272,8 +212,8 @@ int updateStateMachine() {
         //g_latest_battery_v2_v));
 
         #if ENABLE_BATTERY_GAUGE
-        if ((g_latest_battery_v1_v + g_latest_battery_v2_v < d_volt_1) ||
-            (current_rtc_count - start_rtc_count > timeout_seconds)
+        if ((g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v) ||
+            (current_rtc_count - start_rtc_count > g_config.timeout_s)
         ) {
             burnTimeStart = current_rtc_count;
             burnwireOn();
@@ -283,13 +223,13 @@ int updateStateMachine() {
         #endif
 
         #if ENABLE_PRESSURE_SENSOR
-        if (g_latest_pressureTemperature_pressure_bar > d_press_2) {
+        if (g_latest_pressureTemperature_pressure_bar > g_config.dive_pressure) {
             recoveryOff();
             presentState = ST_REC_SUB; // back under....
             break;
         }
 
-        if (g_latest_pressureTemperature_pressure_bar < d_press_1) {
+        if (g_latest_pressureTemperature_pressure_bar < g_config.surface_pressure) {
             recoveryOn();
         }
         #endif
@@ -303,19 +243,19 @@ int updateStateMachine() {
         //  [1]));
 
         #if ENABLE_BATTERY_GAUGE
-        if (g_latest_battery_v1_v + g_latest_battery_v2_v < d_volt_2) {
+        if (g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.critical_voltage_v) {
             presentState = ST_SHUTDOWN; // critical battery
             break;
         }
 
-        if (g_latest_battery_v1_v + g_latest_battery_v2_v < d_volt_1) {
+        if (g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v) {
             presentState = ST_RETRIEVE; // low battery
             break;
         }
 
         // update 220109 to leave burnwire on without time limit
         // Leave burn wire on for 20 minutes or until the battery is depleted
-        if (current_rtc_count - burnTimeStart > burnInterval_seconds) {
+        if (current_rtc_count - burnTimeStart > g_config.burn_interval_s) {
         	burnwireOff();  //leaving it on no time limit -change 220109
         	presentState = ST_RETRIEVE;
         }
@@ -323,12 +263,12 @@ int updateStateMachine() {
 
         #if ENABLE_PRESSURETEMPERATURE_SENSOR
         // at surface, turn on the Recovery Board
-        if (g_latest_pressureTemperature_pressure_bar < d_press_1) {
+        if (g_latest_pressureTemperature_pressure_bar < g_config.surface_pressure) {
             recoveryOn();
         }
 
         // still under or resubmerged
-        if (g_latest_pressureTemperature_pressure_bar > d_press_2) {
+        if (g_latest_pressureTemperature_pressure_bar > g_config.dive_pressure) {
             recoveryOff();
         }
 
@@ -345,13 +285,13 @@ int updateStateMachine() {
 
         #if ENABLE_BATTERY_GAUGE
         // critical battery
-        if (g_latest_battery_v1_v + g_latest_battery_v2_v < d_volt_2) {
+        if (g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.critical_voltage_v) {
             presentState = ST_SHUTDOWN;
             break;
         }
 
         // low battery
-        if (g_latest_battery_v1_v + g_latest_battery_v2_v < d_volt_1) {
+        if (g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v) {
             // burnwireOn();
             recoveryOn();
         }

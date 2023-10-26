@@ -43,3 +43,10 @@ clean:
 	rm -f $(OBJ)
 	rm -rf $(BINDIR)
 	rm -rf $(DESTDIR)
+	$(MAKE) clean -C test
+.PHONY:  clean
+
+
+test:
+	$(MAKE) -C test
+.PHONY:  test

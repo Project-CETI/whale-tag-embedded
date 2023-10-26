@@ -10,8 +10,8 @@
 # Units are bar absolute with reference value of 1 bar (absolute) abs
 # See Keller 4LD...9LD data sheet
 #
-P1=0.04
-P2=0.10
+P1=0.05
+P2=0.11
 #
 #------------------------------------------------------------------------------
 # Battery Thresholds V1 and V2
@@ -22,18 +22,17 @@ P2=0.10
 # V2 - battery is critical, time to put the system to sleep
 # Units are volts
 #
-V1=6.4
-V2=6.2
+V1=6.5
+V2=6.3
 #
 #------------------------------------------------------------------------------
 # Deployment Timeout
 # Indepedent of battery state of charge, if deployment
 # time reaches this value, the tag will release
 # The battery thresholds take precedence
-# Default units are minutes, 
-# (d/D = days, h/H = hours, m/M = minutes, s/S = seconds)
+# Units are minutes, use integers only
 # (4 day) * (24 hr/day) * (60 min/hr) = 5760
-T0=4d
+T0=5760
 #
 #------------------------------------------------------------------------------
 # Burn Interval (Minutes)

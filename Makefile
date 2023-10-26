@@ -3,6 +3,7 @@ MAKEFILE_DIR := $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 DOCKER_IMAGE ?= sdcard-builder
 OUT_DIR ?= $(MAKEFILE_DIR)/out
 RASPIOS_IMAGE="$(MAKEFILE_DIR)/raspios/raspios_lite.img"
+PACKAGES := $(wildcard packages/*/.)
 
 .PHONY: \
 	clean \
@@ -24,6 +25,11 @@ build: docker-image
 clean:
 	rm -rf build/__pycache__
 	rm -rf $(OUT_DIR)
+	$(foreach package, $(PACKAGES), $(MAKE) clean -C $(package))
+
+test:
+	$(foreach package, $(PACKAGES), $(MAKE) test -C $(package))
+.PHONY: test
 
 # Docker helpers
 docker-image:

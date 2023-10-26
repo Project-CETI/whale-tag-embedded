@@ -9,16 +9,31 @@
 #ifndef CETI_CONFIG_H
 #define CETI_CONFIG_H
 
+#include <stdint.h>
+#include <time.h>
+
+#define CONFIG_DEFAULT_SURFACE_PRESSURE_BAR (0.04)
+#define CONFIG_DEFAULT_DIVE_PRESSURE_BAR    (0.10)
+#define CONFIG_DEFAULT_RELEASE_VOLTAGE_V    (6.4)
+#define CONFIG_DEFAULT_CRITICAL_VOLTAGE_V   (6.2)
+#define CONFIG_DEFAULT_TIMEOUT_S            (4*24*60*60)
+#define CONFIG_DEFAULT_BURN_INTERVAL_S      (5*60)
+#define CONFIG_DEFAULT_RECOVERY_ENABLED     0
+
+
 typedef struct tag_configuration {
-    float dive_pressure;
-    float surface_pressure;
-    float release_voltage_v;
-    float critical_voltage_v;
-    int64_t timeout_s;
-    uint32_t burn_interval_s;
-    //recovery enable ???
+    float   surface_pressure;
+    float   dive_pressure;
+    float   release_voltage_v;
+    float   critical_voltage_v;
+    time_t  timeout_s;
+    time_t  burn_interval_s;
+    uint8_t recovery_enabled;
 } TagConfig;
 
-#extern TagConfig g_tag_config;
+extern TagConfig g_config;
 
+time_t strtotime_s(const char *_String, char **_EndPtr);
+int config_read(const char * filename);
+int config_parse_line(const char *_String);
 #endif //CETI_CONFIG_H
