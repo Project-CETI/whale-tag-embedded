@@ -1,0 +1,53 @@
+
+cd /opt/ceti-tag-data-capture
+cd /opt/ceti-tag-data-capture/ipc
+cd /opt/ceti-tag-data-capture/bin
+cd ~/whale-tag-embedded/packages/ceti-tag-data-capture # go to scratch build directory
+cd ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc
+cd ~/whale-tag-embedded/packages/ceti-tag-data-capture/bin
+
+sudo /opt/ceti-tag-data-capture/ipc/tagMonitor.sh # start the tag monitor
+sudo ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc/tagMonitor.sh # start the tag monitor
+
+sudo raspi-config nonint do_overlayfs 1 # disable read-only filesystem
+sudo raspi-config nonint do_overlayfs 0 # enable read-only filesystem
+
+sudo systemctl stop ceti-tag-data-capture # stop the app service
+sudo /opt/ceti-tag-data-capture/ipc/sendCommand.sh quit # quit the app
+sudo /opt/ceti-tag-data-capture/ipc/sendCommand.sh stopDataAcq # stop data capture
+sudo /opt/ceti-tag-data-capture/ipc/sendCommand.sh checkCell_1 # check a battery voltage
+sudo ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc/sendCommand.sh quit # quit the app
+sudo ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc/sendCommand.sh stopDataAcq # stop data capture
+sudo ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc/sendCommand.sh checkCell_1 # check a battery voltage
+
+sudo rm /data/*.flac /data/*.csv # clear data
+
+sudo pkill tagMonitor # kill the tag monitor process
+sudo pkill cetiTagApp # kill the app process
+ps aux | grep ceti # check if the app or monitor process is running
+
+(mkfifo -m 644 ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc/cetiCommand || /bin/true) && (mkfifo -m 644 ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc/cetiResponse || /bin/true) # make IPC channels for the scratch directory
+(find src/ -name "*.o" -type f -delete); (rm bin/cetiTagApp); make # build the app from scratch
+(cd bin; sudo ./cetiTagApp) # run the app
+((sleep 20 && echo "quit" > ipc/cetiCommand) &) && (echo "" > ipc/cetiCommand) && (cd bin; sudo ./cetiTagApp; cd ..) # run the app for 20 seconds
+
+rfkill block wifi; sleep 10; rfkill unblock wifi # restart and reconnect WiFi
+
+sudo sh -c "echo 'CONF_SWAPFILE=/data/swap/swapfile' >> /etc/dphys-swapfile"
+sudo sh -c "echo 'CONF_SWAPSIZE=1024' >> /etc/dphys-swapfile"
+sudo dphys-swapfile setup
+sudo dphys-swapfile swapon
+sudo sh -c "echo 'vm.swappiness=1' >> /etc/sysctl.conf"
+cat /proc/sys/vm/swappiness # check the swappiness
+
+vcgencmd measure_temp | egrep  -o  '[[:digit:]]*\.[[:digit:]]*' # measure GPU temperature
+cat /sys/devices/virtual/thermal/thermal_zone0/temp | awk '{print $1/1000}' # measure CPU temperature
+
+du -h /*/ --threshold=10M 2>/dev/null
+du -h /var/log/* --threshold=1M 2>/dev/null
+
+sudo mkdir /data/logs # create a log directory on the data partition
+sudo logrotate -f /etc/logrotate.d/rsyslog # force a log rotation
+
+sudo reboot
+sudo shutdown -h now

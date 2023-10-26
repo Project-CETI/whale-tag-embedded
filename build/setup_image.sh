@@ -105,5 +105,10 @@ rm /etc/init.d/resize2fs_once
 # Copy filesystem overlay.
 tar -cf - -C "${OVERLAY_DIR}" --owner=pi --group=pi . | tar -xf - -C /
 
+# Add useful commands to the bash history.
+sudo rm /home/pi/.bash_history
+sudo dos2unix /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt
+sudo mv /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt /home/pi/.bash_history
+
 # All done
 echo "( ・◡・)つ━☆   Build complete"

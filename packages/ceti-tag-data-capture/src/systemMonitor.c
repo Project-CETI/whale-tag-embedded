@@ -117,7 +117,8 @@ void* systemMonitor_thread(void* paramPtr) {
     // Set the previous time such that it will print once at most 30s after starting and thereafter according to the desired period.
     long long last_tid_print_time_us = get_global_time_us() + (TID_PRINT_PERIOD_US > 30000000 ? (30000000 - TID_PRINT_PERIOD_US) : 0);
     #endif
-    while (!g_stopAcquisition) {
+    while(!g_exit)
+    {
       // Print the thread IDs if desired
       #if TID_PRINT_PERIOD_US >= 0
       if(get_global_time_us() - last_tid_print_time_us >= TID_PRINT_PERIOD_US)
@@ -143,61 +144,70 @@ void* systemMonitor_thread(void* paramPtr) {
         last_tid_print_time_us = get_global_time_us();
       }
       #endif
-      
-      // Acquire timing and system information as close together as possible.
+
+      // Acquire a timestamp for the data about to be read.
       global_time_us = get_global_time_us();
       rtc_count = getRtcCount();
-      ram_free = get_ram_free();
-      swap_free = get_swap_free();
-      update_cpu_usage();
-      
-      // Write system usage information to the data file.
-      systemMonitor_data_file = fopen(SYSTEMMONITOR_DATA_FILEPATH, "at");
-      if(systemMonitor_data_file == NULL)
-        CETI_LOG("failed to open data output file: %s", SYSTEMMONITOR_DATA_FILEPATH);
-      else
+
+      if(!g_stopAcquisition)
       {
-        // Write timing information.
-        fprintf(systemMonitor_data_file, "%lld", global_time_us);
-        fprintf(systemMonitor_data_file, ",%d", rtc_count);
-        // Write any notes, then clear them so they are only written once.
-        fprintf(systemMonitor_data_file, ",%s", systemMonitor_data_file_notes);
-        strcpy(systemMonitor_data_file_notes, "");
-        // Write the system usage data.
-        for(int cpu_entry_index = 0; cpu_entry_index < NUM_CPU_ENTRIES; cpu_entry_index++)
-          fprintf(systemMonitor_data_file, ",%0.2f", cpu_percents[cpu_entry_index]);
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_audio_thread_spi_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_audio_thread_writeData_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_ecg_thread_getData_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_ecg_thread_writeData_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_imu_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_light_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_pressureTemperature_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_boardTemperature_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_battery_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_recovery_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_stateMachine_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_command_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_rtc_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_systemMonitor_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_goPros_thread_tid));
-        fprintf(systemMonitor_data_file, ",%lld", ram_free);
-        fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)ram_free)/((double)ram_total));
-        fprintf(systemMonitor_data_file, ",%lld", swap_free);
-        fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)swap_free)/((double)swap_total));
-        fprintf(systemMonitor_data_file, ",%ld", get_root_free_kb());
-        fprintf(systemMonitor_data_file, ",%ld", get_overlay_free_kb());
-        fprintf(systemMonitor_data_file, ",%ld", get_dataPartition_free_kb());
-        fprintf(systemMonitor_data_file, ",%ld", get_log_size_kb());
-        fprintf(systemMonitor_data_file, ",%ld", get_syslog_size_kb());
-        fprintf(systemMonitor_data_file, ",%f", get_cpu_temperature_c());
-        fprintf(systemMonitor_data_file, ",%f", get_gpu_temperature_c());
-        // Finish the row of data and close the file.
-        fprintf(systemMonitor_data_file, "\n");
-        fclose(systemMonitor_data_file);
+        // Acquire system information as close as possible to the above timestamps.
+        ram_free = get_ram_free();
+        swap_free = get_swap_free();
+        update_cpu_usage();
+
+        // Write system usage information to the data file.
+        systemMonitor_data_file = fopen(SYSTEMMONITOR_DATA_FILEPATH, "at");
+        if(systemMonitor_data_file == NULL)
+          CETI_LOG("failed to open data output file: %s", SYSTEMMONITOR_DATA_FILEPATH);
+        else
+        {
+          // Write timing information.
+          fprintf(systemMonitor_data_file, "%lld", global_time_us);
+          fprintf(systemMonitor_data_file, ",%d", rtc_count);
+          // Write any notes, then clear them so they are only written once.
+          fprintf(systemMonitor_data_file, ",%s", systemMonitor_data_file_notes);
+          strcpy(systemMonitor_data_file_notes, "");
+          // Write the system usage data.
+          for(int cpu_entry_index = 0; cpu_entry_index < NUM_CPU_ENTRIES; cpu_entry_index++)
+            fprintf(systemMonitor_data_file, ",%0.2f", cpu_percents[cpu_entry_index]);
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_audio_thread_spi_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_audio_thread_writeData_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_ecg_thread_getData_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_ecg_thread_writeData_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_imu_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_light_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_pressureTemperature_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_boardTemperature_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_battery_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_recovery_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_stateMachine_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_command_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_rtc_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_systemMonitor_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_goPros_thread_tid));
+          fprintf(systemMonitor_data_file, ",%lld", ram_free);
+          fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)ram_free)/((double)ram_total));
+          fprintf(systemMonitor_data_file, ",%lld", swap_free);
+          fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)swap_free)/((double)swap_total));
+          fprintf(systemMonitor_data_file, ",%ld", get_root_free_kb());
+          fprintf(systemMonitor_data_file, ",%ld", get_overlay_free_kb());
+          fprintf(systemMonitor_data_file, ",%ld", get_dataPartition_free_kb());
+          fprintf(systemMonitor_data_file, ",%ld", get_log_size_kb());
+          fprintf(systemMonitor_data_file, ",%ld", get_syslog_size_kb());
+          fprintf(systemMonitor_data_file, ",%f", get_cpu_temperature_c());
+          fprintf(systemMonitor_data_file, ",%f", get_gpu_temperature_c());
+          // Finish the row of data and close the file.
+          fprintf(systemMonitor_data_file, "\n");
+          fclose(systemMonitor_data_file);
+        }
       }
       
-      // Force log rotations, to enforce the size limits specified in firstboot.
+      // Force log rotations, to enforce the size limits specified in firstboot
+      //  and to move logs onto the persistent data partition.
+      // Note that this will continue even after data acquisition is signaled to stop,
+      //  but the logs are generally small (one test indicated about 1.1 MiB over 11 hours,
+      //  which would fill the 1 GiB free space threshold in about 1.2 years).
       #if LOGROTATE_PERIOD_US >= 0
       if(get_global_time_us() - last_logrotate_time_us >= LOGROTATE_PERIOD_US)
       {
