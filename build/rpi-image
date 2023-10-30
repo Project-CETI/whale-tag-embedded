@@ -278,8 +278,12 @@ def raspios_list(suffix):
   with urllib.request.urlopen(url) as f:
     json_data = json.loads(f.read())
 
-  items = [json_data['os_list'][0]]
-  items.extend(json_data['os_list'][1]['subitems'])
+  items = [item for item in json_data['os_list'] if not 'subitems' in item]
+  for item in json_data['os_list']:
+    if 'subitems' in item:
+      items.extend(item['subitems'])
+  items = [item for item in items if 'url' in item]
+
   return [item for item in items if suffix in image_filename(item['url'])]
 
 def subcommand_urls(args):
