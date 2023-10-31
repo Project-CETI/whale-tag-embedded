@@ -3,7 +3,7 @@
 // Version:      Refer to _versioning.h
 // Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, 
 //               MIT CSAIL
-// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto, 
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto (delpreto@csail.mit.edu),
 //               Michael Salino-Hugg (msalinohugg@seas.harvard.edu), 
 //               [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
@@ -198,10 +198,6 @@ int updateStateMachine() {
 
     // ---------------- Startup ----------------
     case (ST_START):
-        // Start recording
-        #if ENABLE_AUDIO
-        start_audio_acq();
-        #endif
         start_rtc_count = getTimeDeploy(); // new v0.5 gets start time from the csv
         last_reset_rtc_count = getRtcCount(); //start_time since last restart (used to keep wifi-enabled)
         CETI_LOG("Deploy Start: %u", start_rtc_count);

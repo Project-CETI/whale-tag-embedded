@@ -283,7 +283,7 @@ int handle_command(void) {
         return 0;
     }
 
-    if (!strncmp(g_command, "resetFPGA", 7)) {
+    if (!strncmp(g_command, "resetFPGA", 9)) {
         CETI_LOG("Resetting the FPGA");
         #if ENABLE_FPGA
         gpioSetMode(RESET, PI_OUTPUT);
@@ -296,6 +296,23 @@ int handle_command(void) {
         #else
         CETI_LOG("XXXX The FPGA is not selected for operation - skipping command XXXX");
         #endif
+        return 0;
+    }
+
+    if (!strncmp(g_command, "simulateAudioOverflow", 21)) {
+        CETI_LOG("Simulating an audio buffer overflow");
+        g_audio_overflow_detected = 1;
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Simulated audio overflow\n"); // echo it
+        fclose(g_rsp_pipe);
+        return 0;
+    }
+    if (!strncmp(g_command, "forceAudioOverflow", 18)) {
+        CETI_LOG("Forcing an audio buffer overflow");
+        g_audio_force_overflow = 1;
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Forcing an audio overflow\n"); // echo it
+        fclose(g_rsp_pipe);
         return 0;
     }
 

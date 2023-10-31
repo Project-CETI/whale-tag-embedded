@@ -54,7 +54,7 @@
     (HWM * 32) // make SPI block size <= HWM * 32 otherwise may underflow
 
 //#define NUM_SPI_BLOCKS (2100*10)   // 5 minute buffer
-#define NUM_SPI_BLOCKS (2100 * 2)    //1 minute buffer
+#define NUM_SPI_BLOCKS (2100 * 2)    // 1 minute buffer
 #define RAM_SIZE (NUM_SPI_BLOCKS * SPI_BLOCK_SIZE) // bytes
 
 #define SAMPLE_RATE (96000)
@@ -71,6 +71,9 @@
 #define SPI_CE (0)
 #define SPI_CLK_RATE (15000000) // Hz
 
+// Overflow indicator.
+#define AUDIO_OVERFLOW_GPIO 12 // -1 to not use the indicator
+
 //-----------------------------------------------------------------------------
 // Dacq Flow Control Handshaking Interrupt
 // The flow control signal is GPIO 22, (WiringPi 3). The FPGA sets this when
@@ -84,7 +87,7 @@
 // Methods
 //-----------------------------------------------------------------------------
 int init_audio();
-void init_pages();
+void init_audio_buffers();
 int setup_audio_default(void);
 int setup_audio_48kHz(void);
 int setup_audio_96kHz(void);
@@ -99,13 +102,15 @@ void audio_createNewFlacFile();
 void audio_createNewRawFile();
 void* audio_thread_spi(void* paramPtr);
 void* audio_thread_writeFlac(void* paramPtr);
-void * audio_thread_writeRaw(void* paramPtr);
-
+void* audio_thread_writeRaw(void* paramPtr);
+void audio_check_for_overflow(int location_index);
 
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
 extern int g_audio_thread_spi_is_running;
 extern int g_audio_thread_writeData_is_running;
+extern int g_audio_overflow_detected;
+extern int g_audio_force_overflow;
 
 #endif // AUDIO_H
