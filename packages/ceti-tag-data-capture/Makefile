@@ -52,7 +52,7 @@ clean:
 	rm -f $(OBJ)
 	rm -rf $(BINDIR)
 	rm -rf $(DESTDIR)
-	$(MAKE) clean -C test
+	@$(MAKE) clean -C test
 
 test:
-	$(MAKE) test -C test
+	@$(MAKE) test -C test

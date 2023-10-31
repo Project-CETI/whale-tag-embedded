@@ -49,7 +49,6 @@ typedef struct {
     ConfigError (*parse)(const char*_String);
 }ConfigList;
 
-
 static ConfigError __config_parse_surface_pressure(const char *_String);
 static ConfigError __config_parse_dive_pressure(const char *_String);
 static ConfigError __config_parse_release_voltage(const char *_String);
@@ -60,6 +59,7 @@ static ConfigError __config_parse_burn_interval_value(const char *_String);
 
 /* key is the value compared to*/
 /* method is what to do with the value*/
+//This would have more efficient lookup as a hash table
 const ConfigList config_keys[] = {
     {.key = STR_FROM("P1"), .parse = __config_parse_surface_pressure},
     {.key = STR_FROM("P2"), .parse = __config_parse_dive_pressure},
@@ -70,12 +70,8 @@ const ConfigList config_keys[] = {
     //{.key = STR_FROM("Recovery_Enable"), .parse = __config_parse_recovery_enable_value},
 };
 
-
-
-
 /* Private Methods ***********************************************************/
-static 
-ConfigError __config_parse_dive_pressure(const char *_String){
+static ConfigError __config_parse_dive_pressure(const char *_String){
     char *end_ptr;
     float parsed_value;
 
@@ -92,8 +88,7 @@ ConfigError __config_parse_dive_pressure(const char *_String){
     return CONFIG_OK;
 }
 
-static
-ConfigError __config_parse_surface_pressure(const char *_String){
+static ConfigError __config_parse_surface_pressure(const char *_String){
     char *end_ptr;
     float parsed_value;
 
@@ -110,11 +105,11 @@ ConfigError __config_parse_surface_pressure(const char *_String){
     return CONFIG_OK;
 }
 
-static
-ConfigError __config_parse_release_voltage(const char *_String){
+static ConfigError __config_parse_release_voltage(const char *_String){
     char *end_ptr;
     float parsed_value;
 
+    //try reading a float
     errno = 0;
     parsed_value = strtof(_String, &end_ptr);
     if(parsed_value == 0.0f){
@@ -123,16 +118,20 @@ ConfigError __config_parse_release_voltage(const char *_String){
         }
     }
 
-    //ToDo: Check acceptable range
+    //Check acceptable range
+    if(parsed_value > 8.4) return CONFIG_ERR_INVALID_VALUE;
+    if(parsed_value < 6.2) return CONFIG_ERR_INVALID_VALUE;
+    
+    //assign value
     g_config.release_voltage_v = parsed_value;
     return CONFIG_OK;
 }
 
-static
-ConfigError __config_parse_critical_voltage(const char *_String){
+static ConfigError __config_parse_critical_voltage(const char *_String){
     char *end_ptr;
     float parsed_value;
 
+    //try reading a float
     errno = 0;
     parsed_value = strtof(_String, &end_ptr);
     if(parsed_value == 0.0f){
@@ -141,13 +140,16 @@ ConfigError __config_parse_critical_voltage(const char *_String){
         }
     }
 
-    //ToDo: Check acceptable range
+    //Check acceptable range
+    if(parsed_value > 8.4) return CONFIG_ERR_INVALID_VALUE;
+    if(parsed_value < 6.2) return CONFIG_ERR_INVALID_VALUE;
+
+    //assign value
     g_config.critical_voltage_v = parsed_value;
     return CONFIG_OK;
 }
 
-static
-ConfigError __config_parse_timeout(const char *_String){
+static ConfigError __config_parse_timeout(const char *_String){
     char *end_ptr;
     time_t parsed_value;
 
@@ -163,8 +165,7 @@ ConfigError __config_parse_timeout(const char *_String){
     return CONFIG_OK;
 }
 
-static
-ConfigError __config_parse_burn_interval_value(const char *_String){
+static ConfigError __config_parse_burn_interval_value(const char *_String){
     char *end_ptr;
     time_t parsed_value;
 

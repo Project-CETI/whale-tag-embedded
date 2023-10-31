@@ -35,11 +35,11 @@ clean:
 	rm -rf $(OUT_DIR)
 
 test:
-	$(foreach package, $(PACKAGES), $(MAKE) test -C $(package))
+	$(foreach package, $(PACKAGES), @$(MAKE) test -C $(package))
 
 deep_clean: clean docker-image-remove
 	rm -rf raspios
-	$(foreach package, $(PACKAGES), $(MAKE) clean -C $(package);)
+	$(foreach package, $(PACKAGES), @$(MAKE) clean -C $(package);)
 
 # Docker helpers
 $(DOCKER_IMAGE):
