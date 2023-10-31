@@ -10,6 +10,12 @@ UNITY_DIR    = lib/Unity
 CFLAGS     = -Wall -g
 LDFLAGS    = -lpthread -lm -L $(UNITY_DIR) -lunity -I $(UNITY_DIR)/src/ -I ../src
 
+build:
+	@
+
+binary:
+	@
+
 test: $(TEST_APP)
 	$(foreach test, $^, ./$(test);)
 .PHONY : test

@@ -24,9 +24,18 @@ BINDIR    ?= bin
 IPCDIR    ?= ipc
 CONFIGDIR ?= config
 DATADIR   ?= data
-DESTDIR   ?= opt/ceti-tag-data-capture
+DESTDIR   ?= /opt/ceti-tag-data-capture
 
+.PHONY: \
+	build \
+	binary \
+	install \
+	clean \
+	test
+	
 build: $(APP)
+
+binary: $(APP)
 
 $(APP): $(OBJ)
 	mkdir -p $(BINDIR)
@@ -44,9 +53,6 @@ clean:
 	rm -rf $(BINDIR)
 	rm -rf $(DESTDIR)
 	$(MAKE) clean -C test
-.PHONY:  clean
-
 
 test:
 	$(MAKE) -C test
-.PHONY:  test

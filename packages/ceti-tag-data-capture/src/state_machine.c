@@ -9,6 +9,7 @@
 //-----------------------------------------------------------------------------
 
 #include "state_machine.h"
+#include "utils/config.h"
 
 //-----------------------------------------------------------------------------
 // Initialization
@@ -17,12 +18,6 @@
 // Global/static variables
 //-----------------------------------------------------------------------------
 static int presentState = ST_CONFIG;
-// Config file and associated parameters
-static FILE* ceti_config_file = NULL;
-static char cPress_1[16], cPress_2[16], cVolt_1[16], cVolt_2[16], cTimeOut[16], cBurnTime[16];
-static double g_config.surface_pressure, g_config.dive_pressure, g_config.release_voltage_v, g_config.critical_voltage_v;
-static int timeOut_minutes, g_config.timeout_s;
-static int g_config.burn_interval_s = 60*BURNWIRE_BURN_INTERVAL_DEFAULT_MIN;
 // RTC counts
 static unsigned int start_rtc_count = 0;
 static unsigned int last_reset_rtc_count = 0;
