@@ -55,4 +55,4 @@ clean:
 	$(MAKE) clean -C test
 
 test:
-	$(MAKE) -C test
+	$(MAKE) test -C test
