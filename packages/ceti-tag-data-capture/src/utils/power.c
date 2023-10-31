@@ -45,7 +45,7 @@ void wifi_disable(void){
  * Disables Wifi at hardware level
  */
 int wifi_kill(void){
-    return system(sudo rfkill block wlan0);
+    return system("sudo rfkill block wlan0");
 }
 
 void usb_disable(void){
