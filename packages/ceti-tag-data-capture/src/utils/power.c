@@ -12,7 +12,9 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 
-
+/*
+ * Disables Wifi at driver level
+ */
 void wifi_disable(void){
 	int sock = -1;
 	struct ifreq wrq = {
@@ -37,6 +39,13 @@ void wifi_disable(void){
         CETI_LOG("Unable to write wlan0 interface flags.");
         return;
 	}
+}
+
+/*
+ * Disables Wifi at hardware level
+ */
+int wifi_kill(void){
+    return system(sudo rfkill block wlan0);
 }
 
 void usb_disable(void){

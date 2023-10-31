@@ -229,7 +229,7 @@ int updateStateMachine() {
             && (current_rtc_count - last_reset_rtc_count > (WIFI_GRACE_PERIOD_MIN * 60))
         ){
             //disable wifi
-            wifi_disable(); 
+            wifi_kill();
             // usb_disable();
             activity_led_disable();
             presentState = ST_REC_SUB; // 1st dive after deploy

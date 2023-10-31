@@ -20,7 +20,6 @@
 #define ECG_ERROR_FLAG_MASK (ECG_FLAG_ADC_ERROR | ECG_FLAG_ADC_ZEROS | ECG_FLAG_EXP_ERROR | ECG_FLAG_TIMEOUT)
 
 #define ECG_SLEEP_INTERVAL_uSECONDS 100
-#define ECG_BINARY_WRITE 0
 
 typedef struct ecg_sample_t{
   time_t   sys_clock;
@@ -88,6 +87,7 @@ int init_ecg_electronics() {
   CETI_LOG("Successfully initialized the ECG electronics");
   CETI_LOG("ECG LEDs are in use? %d", ECG_GPIO_EXPANDER_USE_LEDS);
   CETI_LOG("ECG data-ready pin: %d", ECG_ADC_DATA_READY_PIN);
+  #if ECG_GPIO_EXPANDER_USE_LEDS
   for(int i = 0; i < 5; i++)
   {
     ecg_gpio_expander_set_leds_green();
@@ -95,6 +95,7 @@ int init_ecg_electronics() {
     ecg_gpio_expander_set_leds_off();
     usleep(100000);
   }
+  #endif
 
   return 0;
 }
@@ -111,23 +112,17 @@ int init_ecg_data_file(void)
   int data_file_exists = 0;
   do
   {
-    #if !(ECG_BINARY_WRITE)
     sprintf(ecg_data_filepath, "%s_%02d.csv", ECG_DATA_FILEPATH_BASE, data_file_postfix_count);
-    #else
-    sprintf(ecg_data_filepath, "%s_%02d.bin", ECG_DATA_FILEPATH_BASE, data_file_postfix_count);
-    #endif
     data_file_exists = (access(ecg_data_filepath, F_OK) != -1);
     data_file_postfix_count++;
   } while(data_file_exists);
 
   // Open the new file.
-  #if !(ECG_BINARY_WRITE)
   int init_data_file_success = init_data_file(ecg_data_file, ecg_data_filepath,
                                               ecg_data_file_headers,  num_ecg_data_file_headers,
                                               NULL,
                                               "init_ecg_data_file()");
   ecg_restart_flag |= ECG_FLAG_NEW_LOG;
-  #endif
 
   return init_data_file_success;
 }
@@ -176,16 +171,10 @@ void* ecg_thread_getData(void* paramPtr)
   ecg_gpio_expander_set_leds_green();
   while(!g_exit)
   {
-    // ecg_adc_update_data(&g_exit, ECG_SAMPLE_TIMEOUT_US);
-
-
     // Request an update of the ECG data, then see if new data was received yet.
     //  The new data may be read immediately by this call after waiting for data to be ready,
     //  or nothing may happen if waiting for an interrupt callback to be triggered.
-
-    // if(g_ecg_adc_latest_reading_global_time_us != prev_ecg_adc_latest_reading_global_time_us)
-    if(ecg_adc_read_data_ready() == 0)
-    {
+    if(ecg_adc_read_data_ready() == 0) {
       ECGSample *current_sample = &ecg_samples[ecg_buffer_select_toLog][ecg_buffer_index_toLog];
       *current_sample = (ECGSample){
         .value = ecg_adc_raw_read_data(),         // Store the new data sample and its timestamp.
@@ -235,7 +224,7 @@ void* ecg_thread_getData(void* paramPtr)
       first_sample = 0;
       // If the ADC or the GPIO expander had an error,
       //  wait a bit and then try to reconnect to them.
-      if(current_sample->flags && !g_exit) {
+      if((current_sample->flags & ECG_ERROR_FLAG_MASK) && !g_exit) {
         ecg_gpio_expander_set_leds_red();
         usleep(1000000);
         init_ecg_electronics();
@@ -247,7 +236,7 @@ void* ecg_thread_getData(void* paramPtr)
       }
 
       // Set the LEDs to yellow if the leads are off.
-      if( current_sample->gpio_expander & 0b00000011 ) {
+      if( current_sample->gpio_expander & 0b00000011 ) { //ToDo: remove magic number
         if(!previous_leadsoff)
           ecg_gpio_expander_set_leds_yellow();
         previous_leadsoff = 1;
@@ -334,34 +323,25 @@ void* ecg_thread_writeData(void* paramPtr)
   while(!g_exit)
   {
     // Wait for new data to be in the buffer.
-    while(ecg_buffer_select_toLog == ecg_buffer_select_toWrite && !g_exit)
+    while((ecg_buffer_select_toLog == ecg_buffer_select_toWrite) && !g_exit)
       usleep(250000);
 
     // Write the last buffer to a file.
-    #if !(ECG_BINARY_WRITE)
     ecg_data_file = fopen(ecg_data_filepath, "at");
-    #else
-    ecg_data_file = fopen(ecg_data_filepath, "a+b");
-    #endif
-    if(ecg_data_file == NULL)
-    {
+    if(ecg_data_file == NULL){
       CETI_LOG("failed to open data output file: %s", ecg_data_filepath);
       init_ecg_data_file();
-    }
-    else
-    {
+    } else {
       // Determine the last index to write.
       // During normal operation, will want to write the entire buffer
       //  since the acquisition thread has just finished filling it.
       int ecg_buffer_last_index_toWrite = ECG_BUFFER_LENGTH;
       // If the program exited though, will want to write only as much
       //  as the acquisition thread has filled.
-      if(ecg_buffer_select_toLog == ecg_buffer_select_toWrite)
-      {
+      if(ecg_buffer_select_toLog == ecg_buffer_select_toWrite) {
         ecg_buffer_last_index_toWrite = ecg_buffer_index_toLog;
       }
 
-      #if !(ECG_BINARY_WRITE)
       // Write the buffer data to the file.
       for(int i = 0; i < ecg_buffer_last_index_toWrite; i++){
         ECGSample *current_sample = &ecg_samples[ecg_buffer_select_toWrite][i]; 
@@ -388,24 +368,15 @@ void* ecg_thread_writeData(void* paramPtr)
       // Check the file size and close the file.
       fseek(ecg_data_file, 0L, SEEK_END);
       ecg_data_file_size_b = ftell(ecg_data_file);
-      #else
-      // Write the buffer data to the file.
-      fwrite(ecg_samples[ecg_buffer_select_toWrite], sizeof(ECGSample), ecg_buffer_last_index_toWrite, ecg_data_file);
-
-      ecg_data_file_size_b += sizeof(ECGSample)*(ecg_buffer_last_index_toWrite);
-      #endif
 
       /*CSV WRITE*/
-
       fclose(ecg_data_file);
 
       // If the file size limit has been reached, start a new file.
-      if((ecg_data_file_size_b >= (long)(ECG_MAX_FILE_SIZE_MB)*1024L*1024L || ecg_data_file_size_b < 0) && !g_exit){
+      if((ecg_data_file_size_b >= (long)(ECG_MAX_FILE_SIZE_MB)*1024L*1024L || ecg_data_file_size_b < 0) && !g_exit) {
         ecg_data_file_size_b = 0;
         init_ecg_data_file();
       }
-
-      //CETI_LOG("Wrote %d entries in %lld us", ECG_BUFFER_LENGTH, get_global_time_us() - start_time_us);
     }
     // Advance to the next buffer.
     ecg_buffer_select_toWrite++;
