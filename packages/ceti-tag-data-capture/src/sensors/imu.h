@@ -15,7 +15,7 @@
 
 #include "../utils/logging.h"
 #include "../utils/timing.h" // for timestamps
-#include "../launcher.h" // for g_exit, sampling rate, data filepath, and CPU affinity
+#include "../launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
 
 #include <pigpio.h>

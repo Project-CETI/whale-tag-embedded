@@ -270,6 +270,15 @@ int handle_command(void) {
         return 0;
     }
 
+    if (!strncmp(g_command, "stopDataAcq", 11)) {
+        CETI_LOG("Stopping all data acquisition");
+        g_stopAcquisition = 1;
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Data acquisition stopping\n"); // echo it
+        fclose(g_rsp_pipe);
+        return 0;
+    }
+
     if (!strncmp(g_command, "stopAudioAcq", 12)) {
         CETI_LOG("Stopping audio acquisition");
         #if ENABLE_AUDIO
@@ -469,6 +478,8 @@ int handle_command(void) {
     fprintf(g_rsp_pipe, "resetFPGA        Reset FPGA state machines\n");
     fprintf(g_rsp_pipe, "resetAudioFIFO   Reset audio HW FIFO\n");
     fprintf(g_rsp_pipe, "checkCAM         Verify hardware control link\n");
+
+    fprintf(g_rsp_pipe, "stopDataAcq     Stop writing any data to disk\n");
 
     fprintf(g_rsp_pipe, "startAudioAcq    Start acquiring audio samples from the FIFO\n");
     fprintf(g_rsp_pipe, "stopAudioAcq     Stop acquiring audio samples from  the FIFO\n");

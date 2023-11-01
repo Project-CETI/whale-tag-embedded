@@ -65,13 +65,13 @@ void* pressureTemperature_thread(void* paramPtr) {
     int rtc_count;
     long long polling_sleep_duration_us;
     g_pressureTemperature_thread_is_running = 1;
-    while (!g_exit) {
+    while (!g_stopAcquisition) {
       pressureTemperature_data_file = fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
       if(pressureTemperature_data_file == NULL)
       {
         CETI_LOG("failed to open data output file: %s", PRESSURETEMPERATURE_DATA_FILEPATH);
         // Sleep a bit before retrying.
-        for(int i = 0; i < 10 && !g_exit; i++)
+        for(int i = 0; i < 10 && !g_stopAcquisition; i++)
           usleep(100000);
       }
       else

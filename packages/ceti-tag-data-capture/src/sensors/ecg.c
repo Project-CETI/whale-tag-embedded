@@ -169,7 +169,7 @@ void* ecg_thread_getData(void* paramPtr)
   long long start_time_ms = get_global_time_ms();
   int previous_leadsoff = 0;
   ecg_gpio_expander_set_leds_green();
-  while(!g_exit)
+  while(!g_stopAcquisition)
   {
     // Request an update of the ECG data, then see if new data was received yet.
     //  The new data may be read immediately by this call after waiting for data to be ready,
@@ -224,7 +224,8 @@ void* ecg_thread_getData(void* paramPtr)
       first_sample = 0;
       // If the ADC or the GPIO expander had an error,
       //  wait a bit and then try to reconnect to them.
-      if((current_sample->flags & ECG_ERROR_FLAG_MASK) && !g_exit) {
+      if(is_invalid && !g_exit)
+      {
         ecg_gpio_expander_set_leds_red();
         usleep(1000000);
         init_ecg_electronics();
@@ -320,10 +321,10 @@ void* ecg_thread_writeData(void* paramPtr)
   g_ecg_thread_writeData_is_running = 1;
 
   // Continuously wait for new data and then write it to the file.
-  while(!g_exit)
+  while(!g_stopAcquisition)
   {
     // Wait for new data to be in the buffer.
-    while((ecg_buffer_select_toLog == ecg_buffer_select_toWrite) && !g_exit)
+    while(ecg_buffer_select_toLog == ecg_buffer_select_toWrite && !g_exit)
       usleep(250000);
 
     // Write the last buffer to a file.
@@ -373,10 +374,10 @@ void* ecg_thread_writeData(void* paramPtr)
       fclose(ecg_data_file);
 
       // If the file size limit has been reached, start a new file.
-      if((ecg_data_file_size_b >= (long)(ECG_MAX_FILE_SIZE_MB)*1024L*1024L || ecg_data_file_size_b < 0) && !g_exit) {
-        ecg_data_file_size_b = 0;
-        init_ecg_data_file();
-      }
+      if((ecg_data_file_size_b >= (long)(ECG_MAX_FILE_SIZE_MB)*1024L*1024L || ecg_data_file_size_b < 0) && !g_exit)
+        init_ecg_data_file(0);
+
+      //CETI_LOG("Wrote %d entries in %lld us", ECG_BUFFER_LENGTH, get_global_time_us() - start_time_us);
     }
     // Advance to the next buffer.
     ecg_buffer_select_toWrite++;
