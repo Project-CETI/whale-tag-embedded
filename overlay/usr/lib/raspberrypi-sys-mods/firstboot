@@ -48,6 +48,7 @@ get_variables () {
 
   check_noobs
 
+  # shellcheck disable=SC2034 # Unused variables left for readability
   ROOT_DEV_SIZE=$(cat "/sys/block/${ROOT_DEV_NAME}/size")
   DATA_DEV_SIZE=$(cat "/sys/block/${DATA_DEV_NAME}/size")
   TARGET_END=$((DATA_DEV_SIZE - 1))
@@ -61,6 +62,7 @@ get_variables () {
   ROOT_PART_END=$(echo "$ROOT_PART_LINE" | cut -d ":" -f 3)
 
   DATA_PART_LINE=$(echo "$PARTITION_TABLE" | grep -e "^${DATA_PART_NUM}:")
+    # shellcheck disable=SC2034 # Unused variables left for readability
   DATA_PART_START=$(echo "$DATA_PART_LINE" | cut -d ":" -f 2)
   DATA_PART_END=$(echo "$DATA_PART_LINE" | cut -d ":" -f 3)
 
@@ -81,6 +83,7 @@ i
 r
 w
 EOF
+# shellcheck disable=SC2181 #akward to not check error code in this manor
   if [ "$?" -eq 0 ]; then
     sed -i "s/${OLD_DISKID}/${DISKID}/g" /etc/fstab
     sed -i "s/${OLD_DISKID}/${DISKID}/" /boot/cmdline.txt
@@ -89,6 +92,7 @@ EOF
 
 }
 
+# shellcheck disable=SC2317 #codeblock is unused
 fix_wpa() {
   if [ -e /boot/firstrun.sh ] \
      && ! grep -q 'imager_custom set_wlan' /boot/firstrun.sh \
@@ -169,7 +173,8 @@ do_resize () {
 
 sethostname() {
   if [ -z "$NETWORK_ADAPTER_NAME" ]; then
-    NETWORK_ADAPTER_NAME="$(ls /sys/class/net/ | grep ^e | head -n1 | awk '{print $1;}')"
+    NETWORK_FILES=(/sys/class/net/e*)
+    NETWORK_ADAPTER_NAME="${NETWORK_FILES[0]##*/}"
   fi
 
   MAC_ADDRESS="/sys/class/net/$NETWORK_ADAPTER_NAME/address"
@@ -216,6 +221,7 @@ apply_custom () {
         MSG="$MSG\n$line"
         whiptail --infobox "$MSG" 20 60
     done
+    # shellcheck disable=SC2181 #akward to not check error code in this manor
     if [ "$?" -ne 0 ]; then
       mv /run/firstboot.log /var/log/firstboot.log
       FAIL_REASON="Failed to apply customisations from custom.toml\n\nLog file saved as /var/log/firstboot.log\n$FAIL_REASON"
@@ -226,10 +232,12 @@ apply_custom () {
 }
 
 add_wifi () {
-  echo 'network={' >> /etc/wpa_supplicant/wpa_supplicant.conf
-  echo '	ssid="CETI"' >> /etc/wpa_supplicant/wpa_supplicant.conf
-  echo '	psk="Talk2Whales"' >> /etc/wpa_supplicant/wpa_supplicant.conf
-  echo '}' >> /etc/wpa_supplicant/wpa_supplicant.conf
+  {
+    echo 'network={' f
+    echo '	ssid="CETI"'
+    echo '	psk="Talk2Whales"'
+    echo '}'
+  } >> /etc/wpa_supplicant/wpa_supplicant.conf
 }
 
 add_swap () {

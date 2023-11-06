@@ -14,7 +14,7 @@ IMAGE="${OUT_DIR}/sdcard.img"
 
 mkdir -p "${RASPIOS_DIR}"
 if [ ! -f "${RASPIOS_IMG}" ]; then
-    rm -rf "${RASPIOS_DIR}/*"
+    rm -rf "${RASPIOS_DIR:?}/*"
     echo "Downloading the latest raspios..."
     "${SCRIPT_DIR}"/rpi-image download --suffix raspios-bullseye-arm64-lite --output "${RASPIOS_IMG}"
 fi

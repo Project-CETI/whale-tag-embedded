@@ -9,11 +9,11 @@ then
 
     # Send a command to the ceti app
     echo "SENDING : $1"
-    if echo $1 > $IPC_DIR/cetiCommand
+    if echo "$1" > "$IPC_DIR/cetiCommand"
     then
       # Read and print the response
       echo "RESPONSE:"
-      cat $IPC_DIR/cetiResponse
+      cat "$IPC_DIR/cetiResponse"
     else
       echo "Error sending command - make sure this script is running as root"
     fi

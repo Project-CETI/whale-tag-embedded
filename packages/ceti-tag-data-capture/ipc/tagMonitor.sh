@@ -22,9 +22,9 @@ do
 # Check that there is disk space available to continue recording.
 # The tag app should automatically stop if there is less than 1 GiB free.
   disk_avail_kb=$(df --output=target,avail | grep /data)
-  set $disk_avail_kb
+  set "$disk_avail_kb"
   echo "$2 KiB available"
-  if [ $data_acquisition_running -eq 1 ] && [ $2 -lt $((1*1024*1024)) ]
+  if [ $data_acquisition_running -eq 1 ] && [ "$2" -lt $((1*1024*1024)) ]
   then
     echo "disk almost full; stopping data acquisition"
     echo "stopDataAcq" > cetiCommand
@@ -56,7 +56,7 @@ do
   check1=$( echo "$v1 < 3.00" | bc )
   check2=$( echo "$v2 < 3.00" | bc )
 
-  if [ $check1 -gt 0 ] || [ $check2 -gt 0 ] 
+  if [ "$check1" -gt 0 ] || [ "$check2" -gt 0 ] 
   then
     echo "low battery cell detected; powering down the Pi now!"
     echo s > /proc/sysrq-trigger
@@ -76,37 +76,37 @@ do
 # A note is made in the /data/tagMonitor_log_fifo_overflows.csv file if there is an event
 
   overflow=$(pigs r 12)
-  if [ $data_acquisition_running -eq 1 ] && [ $overflow -eq 1 ]
+  if [ $data_acquisition_running -eq 1 ] && [ "$overflow" -eq 1 ]
   then
     # Log the event.
     sudo touch /data/tagMonitor_log_fifo_overflows.csv
-    echo -n `date '+%s,%F %H-%M-%S'` | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
+    echo -n "$(date '+%s,%F %H-%M-%S')" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
     echo ", fault detected" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
     # Wait to see if the tag software handles it.
     echo "FIFO overflow detected, waiting for the main app to handle it"
     sleep 30
     overflow=$(pigs r 12)
-    if [ $overflow -eq 1 ]
+    if [ "$overflow" -eq 1 ]
     then
       echo "FIFO overflow still detected, restarting the main app"
       # Tell the main app to gracefully quit.
       echo "quit" > cetiCommand
       cat cetiResponse
-      echo -n `date '+%s,%F %H-%M-%S'` | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
+      echo -n "$(date '+%s,%F %H-%M-%S')" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
       echo ", still overflow - sent quit command" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
       sleep 30
       # Make sure the app is stopped.
       sudo pkill cetiTagApp
-      echo -n `date '+%s,%F %H-%M-%S'` | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
+      echo -n "$(date '+%s,%F %H-%M-%S')" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
       echo ", killed app process" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
       sleep 5
       # Start the main app again.
       sudo /opt/ceti-tag-data-capture/bin/cetiTagApp &
-      echo -n `date '+%s,%F %H-%M-%S'` | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
+      echo -n "$(date '+%s,%F %H-%M-%S')" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
       echo ", main app started" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
     else
       echo "FIFO is OK; the main app handled the overflow"
-      echo -n `date '+%s,%F %H-%M-%S'` | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
+      echo -n "$(date '+%s,%F %H-%M-%S')" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
       echo ", main app handled overflow" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
     fi
   elif [ $data_acquisition_running -eq 1 ]
