@@ -17,9 +17,11 @@ static FILE* boardTemperature_data_file = NULL;
 static char boardTemperature_data_file_notes[256] = "";
 static const char* boardTemperature_data_file_headers[] = {
   "Board Temperature [C]",
+  "Battery Temperature [C]",
   };
-static const int num_boardTemperature_data_file_headers = 1;
+static const int num_boardTemperature_data_file_headers = 2;
 static int boardTemperature_c;
+static int batteryTemperature_c;
 
 int init_boardTemperature() {
   CETI_LOG("Successfully initialized the board temperature sensor [did nothing]");
@@ -82,6 +84,13 @@ void* boardTemperature_thread(void* paramPtr) {
           strcat(boardTemperature_data_file_notes, "INVALID? | ");
         }
 
+        
+        // Acquire battery temperature and enable/disable charge and discharge
+        if(getBatteryTemperature(&batteryTemperature_c) < 0)
+          strcat(boardTemperature_data_file_notes, "ERROR | ");
+        if(batteryTemperature_c > MAX_CHARGE_TEMP) 
+          disableCharging();
+
         // Write timing information.
         fprintf(boardTemperature_data_file, "%lld", global_time_us);
         fprintf(boardTemperature_data_file, ",%d", rtc_count);
@@ -90,6 +99,7 @@ void* boardTemperature_thread(void* paramPtr) {
         strcpy(boardTemperature_data_file_notes, "");
         // Write the sensor data.
         fprintf(boardTemperature_data_file, ",%d", boardTemperature_c);
+        fprintf(boardTemperature_data_file, ",%d", batteryTemperature_c);
         // Finish the row of data and close the file.
         fprintf(boardTemperature_data_file, "\n");
         fclose(boardTemperature_data_file);

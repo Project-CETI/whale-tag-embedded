@@ -163,3 +163,28 @@ int getBatteryData(double* battery_v1_v, double* battery_v2_v,
     return (0);
 }
 
+//-----------------------------------------------------------------------------
+// Charge and Discharge Enabling
+//-----------------------------------------------------------------------------
+int enableCharging() {
+
+  return(0);
+}
+
+int disableCharging() {
+
+  return(0);
+
+}
+
+int enableDischarging() {
+
+  return(0);
+
+}
+
+int disableDischarging() {
+
+  return(0);
+
+}
