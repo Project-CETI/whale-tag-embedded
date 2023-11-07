@@ -109,6 +109,8 @@ void* boardTemperature_thread(void* paramPtr) {
 
 //-----------------------------------------------------------------------------
 // Board mounted temperature sensor SA56004 Interface
+//  * This device provides two measurement channels, one of which is a remote 
+//    temperature sesnsing diode attached to the battery cells.
 //-----------------------------------------------------------------------------
 
 int getBoardTemperature(int *pBoardTemp) {
@@ -120,6 +122,19 @@ int getBoardTemperature(int *pBoardTemp) {
     }
 
     *pBoardTemp = i2cReadByteData(fd,0x00);
+    i2cClose(fd);
+    return(0);
+}
+
+int getBatteryTemperature(int *pBattTemp) {
+
+    int fd;
+    if((fd=i2cOpen(1,ADDR_BOARDTEMPERATURE,0)) < 0) {
+        CETI_LOG("XXXX Failed to connect to the temperature sensor XXXX");
+        return(-1);
+    }
+
+    *pBattTemp = i2cReadByteData(fd,0x01);
     i2cClose(fd);
     return(0);
 }

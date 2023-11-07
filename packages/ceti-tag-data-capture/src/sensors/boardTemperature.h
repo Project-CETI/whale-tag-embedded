@@ -35,6 +35,7 @@ extern int g_boardTemperature_thread_is_running;
 //-----------------------------------------------------------------------------
 int init_boardTemperature();
 int getBoardTemperature(int *pBoardTemp);
+int getBatteryTemperature(int *pBattTemp);
 void* boardTemperature_thread(void* paramPtr);
 
 #endif // BOARDTEMPERATURE_H
