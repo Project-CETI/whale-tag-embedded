@@ -1,8 +1,10 @@
 //-----------------------------------------------------------------------------
 // Project:      CETI Tag Electronics
 // Version:      Refer to _versioning.h
-// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
-// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab,
+//               MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto,
+//               Michael Salino-Hugg, [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
 #ifndef LIGHT_H
@@ -11,11 +13,11 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
-#define _GNU_SOURCE   // change how sched.h will be included
+#define _GNU_SOURCE // change how sched.h will be included
 
-#include "../utils/logging.h"
-#include "../launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
+#include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
+#include "../utils/logging.h"
 
 #include <pigpio.h>
 #include <pthread.h> // to set CPU affinity
@@ -29,8 +31,8 @@
 // Methods
 //-----------------------------------------------------------------------------
 int init_light();
-int getAmbientLight(int* pAmbientLightVisible, int* pAmbientLightIR);
-void* light_thread(void* paramPtr);
+int getAmbientLight(int *pAmbientLightVisible, int *pAmbientLightIR);
+void *light_thread(void *paramPtr);
 
 //-----------------------------------------------------------------------------
 // Global variables
@@ -38,10 +40,3 @@ void* light_thread(void* paramPtr);
 extern int g_light_thread_is_running;
 
 #endif // LIGHT_H
-
-
-
-
-
-
-

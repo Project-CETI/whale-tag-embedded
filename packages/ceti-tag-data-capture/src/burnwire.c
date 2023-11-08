@@ -1,7 +1,8 @@
 //-----------------------------------------------------------------------------
 // Project:      CETI Tag Electronics
 // Version:      Refer to _versioning.h
-// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab,
+//               MIT CSAIL
 // Contributors: Matt Cummings, Peter Malkin [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
@@ -11,8 +12,7 @@
 // Initialization
 //-----------------------------------------------------------------------------
 int init_burnwire() {
-
-  if(burnwireOff() < 0) {
+  if (burnwireOff() < 0) {
     CETI_LOG("XXXX Failed to turn off the burnwire XXXX");
     return (-1);
   }
@@ -25,34 +25,32 @@ int init_burnwire() {
 //-----------------------------------------------------------------------------
 
 int burnwireOn(void) {
+  int fd, result;
 
-    int fd, result;
-
-    // Open a connection to the io expander
-    if ( (fd = i2cOpen(1,ADDR_MAINTAG_IOX,0)) < 0 ) {
-        CETI_LOG("XXXX Failed to open I2C connection for IO Expander XXXX");
-        return -1;
-    }
-    result = i2cReadByte(fd);
-    result = result & (~BW_nON & ~BW_RST);
-    i2cWriteByte(fd,result);
-    i2cClose(fd);
-    return 0;
+  // Open a connection to the io expander
+  if ((fd = i2cOpen(1, ADDR_MAINTAG_IOX, 0)) < 0) {
+    CETI_LOG("XXXX Failed to open I2C connection for IO Expander XXXX");
+    return -1;
+  }
+  result = i2cReadByte(fd);
+  result = result & (~BW_nON & ~BW_RST);
+  i2cWriteByte(fd, result);
+  i2cClose(fd);
+  return 0;
 }
 
 int burnwireOff(void) {
 
-    int fd, result;
+  int fd, result;
 
-    // Open a connection to the io expander
-    if ( (fd = i2cOpen(1,ADDR_MAINTAG_IOX,0)) < 0 ) {
-        CETI_LOG("XXXX Failed to open I2C connection for IO Expander XXXX");
-        return -1;
-    }
-    result = i2cReadByte(fd);
-    result = result | (BW_nON | BW_RST);
-    i2cWriteByte(fd,result);
-    i2cClose(fd);
-    return 0;
+  // Open a connection to the io expander
+  if ((fd = i2cOpen(1, ADDR_MAINTAG_IOX, 0)) < 0) {
+    CETI_LOG("XXXX Failed to open I2C connection for IO Expander XXXX");
+    return -1;
+  }
+  result = i2cReadByte(fd);
+  result = result | (BW_nON | BW_RST);
+  i2cWriteByte(fd, result);
+  i2cClose(fd);
+  return 0;
 }
-

@@ -1,8 +1,10 @@
 //-----------------------------------------------------------------------------
 // Project:      CETI Tag Electronics
 // Version:      Refer to _versioning.h
-// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
-// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab,
+//               MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto,
+//               [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
 #ifndef TIMING_H
@@ -11,14 +13,14 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
-#define _GNU_SOURCE   // change how sched.h will be included
+#define _GNU_SOURCE // change how sched.h will be included
 
-#include "logging.h"
 #include "../launcher.h" // for g_exit, the state machine data filepath, to get an initial RTC timestamp if needed
+#include "logging.h"
 #include <pigpio.h>
+#include <pthread.h> // to set CPU affinity
 #include <sys/time.h>
 #include <sys/timex.h>
-#include <pthread.h> // to set CPU affinity
 
 //-----------------------------------------------------------------------------
 // Configuration
@@ -33,10 +35,10 @@ void updateRtcCount();
 int getRtcCount();
 int resetRtcCount();
 unsigned int getTimeDeploy(void);
-long long get_global_time_us();
-long long get_global_time_ms();
+int64_t get_global_time_us();
+int64_t get_global_time_ms();
 void sync_global_time_init(void);
-void* rtc_thread(void* paramPtr);
+void *rtc_thread(void *paramPtr);
 
 //-----------------------------------------------------------------------------
 // Global variables

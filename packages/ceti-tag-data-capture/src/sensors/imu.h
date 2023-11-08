@@ -1,8 +1,10 @@
 //-----------------------------------------------------------------------------
 // Project:      CETI Tag Electronics
 // Version:      Refer to _versioning.h
-// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
-// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab,
+//               MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto,
+//               [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
 #ifndef IMU_H
@@ -11,41 +13,46 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
-#define _GNU_SOURCE   // change how sched.h will be included
+#define _GNU_SOURCE // change how sched.h will be included
 
+#include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
+#include "../systemMonitor.h" // for the global CPU assignment variable to update
 #include "../utils/logging.h"
 #include "../utils/timing.h" // for timestamps
-#include "../launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
-#include "../systemMonitor.h" // for the global CPU assignment variable to update
 
-#include <pigpio.h>
-#include <stdio.h>
 #include <inttypes.h>
+#include <math.h> // for fmin()
+#include <pigpio.h>
+#include <pthread.h> // to set CPU affinity
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h> // for usleep()
-#include <math.h> // for fmin()
-#include <pthread.h> // to set CPU affinity
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
-#define IMU_MAX_FILE_SIZE_MB 1024 // Seems to log about 1GiB every 33 hours when nominally streaming quaternion at 20 Hz and accel/gyro/mag at 50 Hz
-                                  // Note that 2GB is the file size maximum for 32-bit systems
-#define IMU_DATA_FILE_FLUSH_PERIOD_US 1000000 // How often to close/reopen the data file (avoid doing it at every sample to reduce delays in the loop)
+// Seems to log about 1GiB every 33 hours when nominally streaming quaternion
+// at 20 Hz and accel/gyro/mag at 50 Hz Note that 2GB is the file size maximum
+// for 32-bit systems
+#define IMU_MAX_FILE_SIZE_MB 1024
+
+// How often to close/reopen the data file (avoid doing it at every sample to
+// reduce delays in the loop)
+#define IMU_DATA_FILE_FLUSH_PERIOD_US 1000000
 
 typedef struct { // To hold rotation vector input report information
-    char reportID;
-    char sequenceNum;
-    char status;
-    char delay;
-    signed short quat_i;
-    signed short quat_j;
-    signed short quat_k;
-    signed short quat_real;
-    signed short accEstimate;
+  char reportID;
+  char sequenceNum;
+  char status;
+  char delay;
+  signed short quat_i;
+  signed short quat_j;
+  signed short quat_k;
+  signed short quat_real;
+  signed short accEstimate;
 } rotation_t;
 
-#define BUS_IMU 0x00   //IMU is only device on i2c0
+#define BUS_IMU 0x00 // IMU is only device on i2c0
 #define ADDR_IMU 0x4A
 #define IMU_N_RESET 4
 // Bitbang IMU I2C
@@ -93,34 +100,35 @@ typedef struct { // To hold rotation vector input report information
 #define IMU_SENSOR_REPORTID_AR_VR_STABILIZED_ROTATION_VECTOR 0x28
 #define IMU_SENSOR_REPORTID_AR_VR_STABILIZED_GAME_ROTATION_VECTOR 0x29
 
-//// Record IDs from figure 29, page 29 reference manual
-//// These are used to read the metadata for each sensor type
-//#define IMU_FRS_RECORDID_ACCELEROMETER 0xE302
-//#define IMU_FRS_RECORDID_GYROSCOPE_CALIBRATED 0xE306
-//#define IMU_FRS_RECORDID_MAGNETIC_FIELD_CALIBRATED 0xE309
-//#define IMU_FRS_RECORDID_ROTATION_VECTOR 0xE30B
+// // Record IDs from figure 29, page 29 reference manual
+// // These are used to read the metadata for each sensor type
+// #define IMU_FRS_RECORDID_ACCELEROMETER 0xE302
+// #define IMU_FRS_RECORDID_GYROSCOPE_CALIBRATED 0xE306
+// #define IMU_FRS_RECORDID_MAGNETIC_FIELD_CALIBRATED 0xE309
+// #define IMU_FRS_RECORDID_ROTATION_VECTOR 0xE30B
 
-//// Reset complete packet (BNO08X Datasheet p.24 Figure 1-27)
-//#define IMU_EXECUTABLE_RESET_COMPLETE 0x1
+// // Reset complete packet (BNO08X Datasheet p.24 Figure 1-27)
+// #define IMU_EXECUTABLE_RESET_COMPLETE 0x1
 
-//// Command IDs from section 6.4, page 42
-//// These are used to calibrate, initialize, set orientation, tare etc the sensor
-//#define IMU_COMMAND_ERRORS 1
-//#define IMU_COMMAND_COUNTER 2
-//#define IMU_COMMAND_TARE 3
-//#define IMU_COMMAND_INITIALIZE 4
-//#define IMU_COMMAND_DCD 6
-//#define IMU_COMMAND_ME_CALIBRATE 7
-//#define IMU_COMMAND_DCD_PERIOD_SAVE 9
-//#define IMU_COMMAND_OSCILLATOR 10
-//#define IMU_COMMAND_CLEAR_DCD 11
+// // Command IDs from section 6.4, page 42
+// // These are used to calibrate, initialize, set orientation, tare etc the
+// /sensor
+// #define IMU_COMMAND_ERRORS 1
+// #define IMU_COMMAND_COUNTER 2
+// #define IMU_COMMAND_TARE 3
+// #define IMU_COMMAND_INITIALIZE 4
+// #define IMU_COMMAND_DCD 6
+// #define IMU_COMMAND_ME_CALIBRATE 7
+// #define IMU_COMMAND_DCD_PERIOD_SAVE 9
+// #define IMU_COMMAND_OSCILLATOR 10
+// #define IMU_COMMAND_CLEAR_DCD 11
 
-//#define IMU_CALIBRATE_ACCEL 0
-//#define IMU_CALIBRATE_GYRO 1
-//#define IMU_CALIBRATE_MAG 2
-//#define IMU_CALIBRATE_PLANAR_ACCEL 3
-//#define IMU_CALIBRATE_ACCEL_GYRO_MAG 4
-//#define IMU_CALIBRATE_STOP 5
+// #define IMU_CALIBRATE_ACCEL 0
+// #define IMU_CALIBRATE_GYRO 1
+// #define IMU_CALIBRATE_MAG 2
+// #define IMU_CALIBRATE_PLANAR_ACCEL 3
+// #define IMU_CALIBRATE_ACCEL_GYRO_MAG 4
+// #define IMU_CALIBRATE_STOP 5
 
 //-----------------------------------------------------------------------------
 // Global variables
@@ -136,11 +144,6 @@ int resetIMU();
 int setupIMU();
 int imu_enable_feature_report(int report_id, uint32_t report_interval_us);
 int imu_read_data();
-void* imu_thread(void* paramPtr);
+void *imu_thread(void *paramPtr);
 
 #endif // IMU_H
-
-
-
-
-

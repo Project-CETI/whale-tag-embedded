@@ -1,8 +1,10 @@
 //-----------------------------------------------------------------------------
 // Project:      CETI Tag Electronics
 // Version:      Refer to _versioning.h
-// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
-// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab,
+//               MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto,
+//               [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
 #ifndef LAUNCHER_H
@@ -29,15 +31,15 @@
 //-----------------------------------------------------------------------------
 // State Change Configurations
 //-----------------------------------------------------------------------------
-#define BURNWIRE_BURN_INTERVAL_DEFAULT_MIN 20 //time in minutes that the burnwire remains on
-#define MIN_DATA_PARTITION_FREE_KB (1*1024*1024) // 1 GiB
+#define BURNWIRE_BURN_INTERVAL_DEFAULT_MIN 20        //time in minutes that the burnwire remains on
+#define MIN_DATA_PARTITION_FREE_KB (1 * 1024 * 1024) // 1 GiB
 
 //-----------------------------------------------------------------------------
 // Sampling and logging configuration.
 //-----------------------------------------------------------------------------
 #define BATTERY_SAMPLING_PERIOD_US 1000000
-#define IMU_SAMPLING_PERIOD_QUAT_US  50000 // rate for the computed orientation
-#define IMU_SAMPLING_PERIOD_9DOF_US  20000 // rate for the accelerometer/gyroscope/magnetometer
+#define IMU_SAMPLING_PERIOD_QUAT_US 50000 // rate for the computed orientation
+#define IMU_SAMPLING_PERIOD_9DOF_US 20000 // rate for the accelerometer/gyroscope/magnetometer
 #define LIGHT_SAMPLING_PERIOD_US 1000000
 #define PRESSURETEMPERATURE_SAMPLING_PERIOD_US 1000000
 #define BOARDTEMPERATURE_SAMPLING_PERIOD_US 1000000
@@ -81,10 +83,11 @@
 // Includes
 //-----------------------------------------------------------------------------
 #include <pigpio.h>
-#include "utils/logging.h"
-#include "utils/timing.h"
+
 #include "commands.h"
 #include "state_machine.h"
+#include "utils/logging.h"
+#include "utils/timing.h"
 
 #if ENABLE_BATTERY_GAUGE
 #include "battery.h"
@@ -134,7 +137,6 @@
 #include "sensors/goPros.h"
 #endif
 
-
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
@@ -147,6 +149,3 @@ extern int g_stopAcquisition;
 int init_tag();
 
 #endif // LAUNCHER_H
-
-
-
