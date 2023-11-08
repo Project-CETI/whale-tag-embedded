@@ -183,11 +183,11 @@ int main(void) {
   int num_threads_running = num_threads;
   int threads_timeout_reached = 0;
 #if ENABLE_GOPROS
-  long long wait_for_threads_timeout_us = 20000000 * NUM_GOPROS;
+  int64_t wait_for_threads_timeout_us = 20000000 * NUM_GOPROS;
 #else
-  long long wait_for_threads_timeout_us = 30000000;
+  int64_t wait_for_threads_timeout_us = 30000000;
 #endif
-  long long wait_for_threads_startTime_us = get_global_time_us();
+  int64_t wait_for_threads_startTime_us = get_global_time_us();
   while (num_threads_running > 0 && !threads_timeout_reached) {
     usleep(100000);
     num_threads_running = 0;

@@ -49,7 +49,7 @@ static int16_t imu_quaternion_accuracy;       // rad
 static int16_t imu_accel_accuracy;            // a rating of 0-3
 static int16_t imu_gyro_accuracy;             // a rating of 0-3
 static int16_t imu_mag_accuracy;              // a rating of 0-3
-static long imu_reading_delay_us = 0;         // delay from sensor reading to data transmission
+static int32_t imu_reading_delay_us = 0;      // delay from sensor reading to data transmission
 
 int init_imu() {
   if (setupIMU() < 0) {
@@ -72,7 +72,7 @@ int init_imu_data_file(int restarted_program) {
   int data_file_postfix_count = 0;
   int data_file_exists = 0;
   do {
-    sprintf(imu_data_filepath, "%s_%02d.csv", IMU_DATA_FILEPATH_BASE, data_file_postfix_count);
+    snprintf(imu_data_filepath, sizeof(imu_data_filepath), "%s_%02d.csv", IMU_DATA_FILEPATH_BASE, data_file_postfix_count);
     data_file_exists = (access(imu_data_filepath, F_OK) != -1);
     data_file_postfix_count++;
   } while (data_file_exists);
@@ -83,7 +83,7 @@ int init_imu_data_file(int restarted_program) {
                                               imu_data_file_notes, "init_imu_data_file()");
   // Change the note from restarted to new file if this is not the first initialization.
   if (!restarted_program)
-    strcpy(imu_data_file_notes, "New log file! | ");
+    snprintf(imu_data_file_notes, sizeof(imu_data_file_notes), "New log file! | ");
   return init_data_file_success;
 }
 
@@ -110,11 +110,11 @@ void *imu_thread(void *paramPtr) {
   // Main loop while application is running.
   CETI_LOG("Starting loop to periodically acquire data");
   int report_id_updated = -1;
-  long imu_data_file_size_b = 0;
-  long long global_time_us = get_global_time_us();
-  long long start_global_time_us = get_global_time_us();
+  int32_t imu_data_file_size_b = 0;
+  int64_t global_time_us = get_global_time_us();
+  int64_t start_global_time_us = get_global_time_us();
   int rtc_count;
-  long long imu_last_data_file_flush_time_us = get_global_time_us();
+  int64_t imu_last_data_file_flush_time_us = get_global_time_us();
   g_imu_thread_is_running = 1;
   imu_data_file = fopen(imu_data_filepath, "at");
   while (!g_stopAcquisition) {
@@ -138,8 +138,9 @@ void *imu_thread(void *paramPtr) {
         } while (report_id_updated == -1                            // no data received yet
                  && get_global_time_us() - global_time_us < 5000000 // timeout not reached
                  && !g_stopAcquisition);                            // program not quitting
-      } else
+      } else {
         report_id_updated = -1;
+      }
       // Acquire timing information for this sample.
       global_time_us = get_global_time_us();
       rtc_count = getRtcCount();
@@ -151,7 +152,7 @@ void *imu_thread(void *paramPtr) {
         fprintf(imu_data_file, ",%d", rtc_count);
         // Write any notes, then clear them so they are only written once.
         fprintf(imu_data_file, ",%s", imu_data_file_notes);
-        strcpy(imu_data_file_notes, "");
+        imu_data_file_notes[0] = '\0';
         // Write the sensor reading delay.
         fprintf(imu_data_file, ",%ld", imu_reading_delay_us);
         // Write quaternion data if it was the appropriate feature report.
@@ -161,32 +162,36 @@ void *imu_thread(void *paramPtr) {
           fprintf(imu_data_file, ",%d", imu_quaternion[2]);
           fprintf(imu_data_file, ",%d", imu_quaternion[3]);
           fprintf(imu_data_file, ",%d", imu_quaternion_accuracy);
-        } else
+        } else {
           fprintf(imu_data_file, ",,,,,");
+        }
         // Write accelerometer data if it was the appropriate feature report.
         if (report_id_updated == IMU_SENSOR_REPORTID_ACCELEROMETER) {
           fprintf(imu_data_file, ",%d", imu_accel_m_ss[0]);
           fprintf(imu_data_file, ",%d", imu_accel_m_ss[1]);
           fprintf(imu_data_file, ",%d", imu_accel_m_ss[2]);
           fprintf(imu_data_file, ",%d", imu_accel_accuracy);
-        } else
+        } else {
           fprintf(imu_data_file, ",,,,");
+        }
         // Write gyroscope data if it was the appropriate feature report.
         if (report_id_updated == IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED) {
           fprintf(imu_data_file, ",%d", imu_gyro_rad_s[0]);
           fprintf(imu_data_file, ",%d", imu_gyro_rad_s[1]);
           fprintf(imu_data_file, ",%d", imu_gyro_rad_s[2]);
           fprintf(imu_data_file, ",%d", imu_gyro_accuracy);
-        } else
+        } else {
           fprintf(imu_data_file, ",,,,");
+        }
         // Write magnetometer data if it was the appropriate feature report.
         if (report_id_updated == IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED) {
           fprintf(imu_data_file, ",%d", imu_mag_ut[0]);
           fprintf(imu_data_file, ",%d", imu_mag_ut[1]);
           fprintf(imu_data_file, ",%d", imu_mag_ut[2]);
           fprintf(imu_data_file, ",%d", imu_mag_accuracy);
-        } else
+        } else {
           fprintf(imu_data_file, ",,,,");
+        }
         // Finish the row of data.
         fprintf(imu_data_file, "\n");
 
@@ -198,7 +203,7 @@ void *imu_thread(void *paramPtr) {
           fclose(imu_data_file);
 
           // If the file size limit has been reached, start a new file.
-          if ((imu_data_file_size_b >= (long)(IMU_MAX_FILE_SIZE_MB)*1024L * 1024L || imu_data_file_size_b < 0) &&
+          if ((imu_data_file_size_b >= (int32_t)(IMU_MAX_FILE_SIZE_MB)*1024L * 1024L || imu_data_file_size_b < 0) &&
               !g_stopAcquisition) {
             init_imu_data_file(0);
           }
@@ -385,10 +390,10 @@ int imu_read_data() {
     if (retval > 0 && pktBuff[2] == IMU_CHANNEL_REPORTS) { // make sure we have the right channel
       uint8_t report_id = pktBuff[9];
       uint32_t timestamp_delay_us = ((uint32_t)pktBuff[8] << (8 * 3)) | ((uint32_t)pktBuff[7] << (8 * 2)) | ((uint32_t)pktBuff[6] << (8 * 1)) | ((uint32_t)pktBuff[5] << (8 * 0));
-      imu_reading_delay_us = (long)timestamp_delay_us;
+      imu_reading_delay_us = (int32_t)timestamp_delay_us;
       // uint8_t sequence_number = pktBuff[10];
       // CETI_LOG("IMU REPORT %d  seq %3d  timestamp_delay_us %ld\n",
-      //   report_id, sequence_number, (long)timestamp_delay_us);
+      //   report_id, sequence_number, (int32_t)timestamp_delay_us);
       // for (int i = 0; i < 4; i++)
       //   CETI_LOG("    H%2d: %d\n", i, shtpHeader[i]);
       // for (int i = 0; i < numBytesAvail; i++)

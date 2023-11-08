@@ -21,7 +21,7 @@ static int ecg_adc_is_singleShot = 0;
 static int ecg_adc_i2c_device = 0;
 static int ecg_adc_channel = ECG_ADC_CHANNEL_ECG;
 // Global variables
-long g_ecg_adc_latest_reading = ECG_INVALID_PLACEHOLDER;
+int32_t g_ecg_adc_latest_reading = ECG_INVALID_PLACEHOLDER;
 int64_t g_ecg_adc_latest_reading_global_time_us = 0;
 
 // Initialize the I2C and connect to the ADC.
@@ -217,7 +217,7 @@ int ecg_adc_start_data_acquisition_via_timer() {
   // Try to reach a point in the ADC cycle just a bit after data is ready.
   int data_is_ready = 0;
   int64_t wait_for_data_startTime_us = get_global_time_us();
-  long timeout_us = 1000000;
+  int32_t timeout_us = 1000000;
   while (!data_is_ready && get_global_time_us() - wait_for_data_startTime_us < timeout_us)
     data_is_ready = (ecg_adc_read_data_ready() == 0 ? 1 : 0);
   usleep(50);
@@ -319,8 +319,8 @@ int ecg_adc_read_data(int *exit_flag, int64_t timeout_us) {
   printf(" \t\t %d %d %d  \t\t ", result_bytes[0], result_bytes[1], result_bytes[2]);
 #endif
 
-  // Parse the data bytes into a single long number.
-  long data32 = result_bytes[0];
+  // Parse the data bytes into a single int32_t number.
+  int32_t data32 = result_bytes[0];
   data32 <<= 8;
   data32 |= result_bytes[1];
   data32 <<= 8;
@@ -335,7 +335,7 @@ int ecg_adc_read_data(int *exit_flag, int64_t timeout_us) {
 // Read a single-ended measurement from the desired channel.
 // Will update the ADC condiguration if needed (if the specified channel is different than the one previously read).
 // @param channel Can be 0, 1, 2, or 3.
-long ecg_adc_read_singleEnded(int channel, int *exit_flag, int64_t timeout_us) {
+int32_t ecg_adc_read_singleEnded(int channel, int *exit_flag, int64_t timeout_us) {
   // Update the configuration for the desired channel if needed.
   ecg_adc_config &= ECG_ADC_MUX_MASK;
   switch (channel) {
@@ -354,7 +354,7 @@ long ecg_adc_read_singleEnded(int channel, int *exit_flag, int64_t timeout_us) {
 // Read a differential measurement between channels 0 and 1.
 // Will update the ADC configuration if needed
 //  (if the previous read was for a different channel subset).
-long ecg_adc_read_differential_0_1(int *exit_flag, int64_t timeout_us) {
+int32_t ecg_adc_read_differential_0_1(int *exit_flag, int64_t timeout_us) {
   // Update the configuration for the desired channel if needed.
   ecg_adc_config &= ECG_ADC_MUX_MASK;
   ecg_adc_config |= ECG_ADC_MUX_DIFF_0_1;
@@ -367,7 +367,7 @@ long ecg_adc_read_differential_0_1(int *exit_flag, int64_t timeout_us) {
 // Read a differential measurement between channels 2 and 3.
 // Will update the ADC configuration if needed
 //  (if the previous read was for a different channel subset).
-long ecg_adc_read_differential_2_3(int *exit_flag, int64_t timeout_us) {
+int32_t ecg_adc_read_differential_2_3(int *exit_flag, int64_t timeout_us) {
   // Update the configuration for the desired channel if needed.
   ecg_adc_config &= ECG_ADC_MUX_MASK;
   ecg_adc_config |= ECG_ADC_MUX_DIFF_2_3;
@@ -380,7 +380,7 @@ long ecg_adc_read_differential_2_3(int *exit_flag, int64_t timeout_us) {
 // Read a differential measurement between channels 1 and 2.
 // Will update the ADC configuration if needed
 //  (if the previous read was for a different channel subset).
-long ecg_adc_read_differential_1_2(int *exit_flag, int64_t timeout_us) {
+int32_t ecg_adc_read_differential_1_2(int *exit_flag, int64_t timeout_us) {
   // Update the configuration for the desired channel if needed.
   ecg_adc_config &= ECG_ADC_MUX_MASK;
   ecg_adc_config |= ECG_ADC_MUX_DIFF_1_2;
@@ -393,7 +393,7 @@ long ecg_adc_read_differential_1_2(int *exit_flag, int64_t timeout_us) {
 // Read a measurement with the positive and negative inputs both shorted to AVDD/2.
 // Will update the ADC configuration if needed
 //  (if the previous read was for a different channel subset).
-long ecg_adc_read_shorted(int *exit_flag, int64_t timeout_us) {
+int32_t ecg_adc_read_shorted(int *exit_flag, int64_t timeout_us) {
   // Update the configuration for the desired channel if needed.
   ecg_adc_config &= ECG_ADC_MUX_MASK;
   ecg_adc_config |= ECG_ADC_MUX_SHORTED;

@@ -299,7 +299,7 @@ void *audio_thread_spi(void *paramPtr) {
           spiRead(spi_fd, &first_byte, 1);
           is_first_byte = 0;
         }
-        long long global_time_startRead_us = get_global_time_us();
+        int64_t global_time_startRead_us = get_global_time_us();
         spiRead(spi_fd, audio_buffers[audio_buffer_toLog].buffer + (audio_buffers[audio_buffer_toLog].counter * SPI_BLOCK_SIZE), SPI_BLOCK_SIZE);
         // Make sure the GPIO flag for data available has been cleared.
         // It seems this is always the case, but just double check.
@@ -392,7 +392,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
 
     if (!g_stopAcquisition && !g_audio_overflow_detected) {
       // Log that a write is starting.
-      long long global_time_us = get_global_time_us();
+      int64_t global_time_us = get_global_time_us();
       while (audio_writing_to_status_file)
         usleep(10);
       audio_writing_to_status_file = 1;
@@ -401,7 +401,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
       fprintf(audio_status_file, ",%d", getRtcCount());
       // Write any notes, then clear them so they are only written once.
       fprintf(audio_status_file, ",%s", audio_status_file_notes);
-      strcpy(audio_status_file_notes, "");
+      audio_status_file_notes[0] = '\0';
       // Write overflow status information.
       fprintf(audio_status_file, ",");
       fprintf(audio_status_file, ",");
@@ -443,7 +443,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
       fprintf(audio_status_file, ",%d", getRtcCount());
       // Write any notes, then clear them so they are only written once.
       fprintf(audio_status_file, ",%s", audio_status_file_notes);
-      strcpy(audio_status_file_notes, "");
+      audio_status_file_notes[0] = '\0';
       // Write overflow status information.
       fprintf(audio_status_file, ",");
       fprintf(audio_status_file, ",");
@@ -485,7 +485,7 @@ void audio_createNewFlacFile() {
   // filename is the time in ms at the start of audio recording
   struct timeval te;
   gettimeofday(&te, NULL);
-  long long milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
+  int64_t milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
   snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%lld.flac", milliseconds);
   audio_acqDataFileLength = 0;
 
@@ -561,7 +561,7 @@ void *audio_thread_writeRaw(void *paramPtr) {
 
     if (!g_stopAcquisition && !g_audio_overflow_detected) {
       // Log that a write is starting.
-      long long global_time_us = get_global_time_us();
+      int64_t global_time_us = get_global_time_us();
       while (audio_writing_to_status_file)
         usleep(10);
       audio_writing_to_status_file = 1;
@@ -570,7 +570,7 @@ void *audio_thread_writeRaw(void *paramPtr) {
       fprintf(audio_status_file, ",%d", getRtcCount());
       // Write any notes, then clear them so they are only written once.
       fprintf(audio_status_file, ",%s", audio_status_file_notes);
-      strcpy(audio_status_file_notes, "");
+      audio_status_file_notes[0] = '\0';
       // Write overflow status information.
       fprintf(audio_status_file, ",");
       fprintf(audio_status_file, ",");
@@ -606,7 +606,7 @@ void *audio_thread_writeRaw(void *paramPtr) {
       fprintf(audio_status_file, ",%d", getRtcCount());
       // Write any notes, then clear them so they are only written once.
       fprintf(audio_status_file, ",%s", audio_status_file_notes);
-      strcpy(audio_status_file_notes, "");
+      audio_status_file_notes[0] = '\0';
       // Write overflow status information.
       fprintf(audio_status_file, ",");
       fprintf(audio_status_file, ",");
@@ -637,7 +637,7 @@ void audio_createNewRawFile() {
   // filename is the time in ms at the start of audio recording
   struct timeval te;
   gettimeofday(&te, NULL);
-  long long milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
+  int64_t milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
   snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%lld.raw", milliseconds);
   acqData = fopen(audio_acqDataFileName, "wb");
   audio_acqDataFileLength = 0;
@@ -658,7 +658,7 @@ void audio_check_for_overflow(int location_index) {
   if (g_audio_overflow_detected) {
     CETI_LOG("*** OVERFLOW detected at location %d ***", location_index);
     audio_overflow_detected_location = location_index;
-    long long global_time_us = get_global_time_us();
+    int64_t global_time_us = get_global_time_us();
     while (audio_writing_to_status_file)
       usleep(10);
     audio_writing_to_status_file = 1;
@@ -667,7 +667,7 @@ void audio_check_for_overflow(int location_index) {
     fprintf(audio_status_file, ",%d", getRtcCount());
     // Write any notes, then clear them so they are only written once.
     fprintf(audio_status_file, ",%s", audio_status_file_notes);
-    strcpy(audio_status_file_notes, "");
+    audio_status_file_notes[0] = '\0';
     // Write overflow status information.
     fprintf(audio_status_file, ",%d", g_audio_overflow_detected);
     fprintf(audio_status_file, ",%d", location_index);

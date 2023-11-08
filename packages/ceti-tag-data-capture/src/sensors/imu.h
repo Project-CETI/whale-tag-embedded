@@ -45,11 +45,11 @@ typedef struct { // To hold rotation vector input report information
   char sequenceNum;
   char status;
   char delay;
-  signed short quat_i;
-  signed short quat_j;
-  signed short quat_k;
-  signed short quat_real;
-  signed short accEstimate;
+  int16_t quat_i;
+  int16_t quat_j;
+  int16_t quat_k;
+  int16_t quat_real;
+  int16_t accEstimate;
 } rotation_t;
 
 #define BUS_IMU 0x00 // IMU is only device on i2c0

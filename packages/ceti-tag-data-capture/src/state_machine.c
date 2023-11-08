@@ -73,8 +73,8 @@ void *stateMachine_thread(void *paramPtr) {
   // Main loop while application is running.
   CETI_LOG("Starting loop to periodically update state");
   int state_to_process;
-  long long global_time_us;
-  long long polling_sleep_duration_us;
+  int64_t global_time_us;
+  int64_t polling_sleep_duration_us;
   g_stateMachine_thread_is_running = 1;
   while (!g_exit) {
     // Acquire timing information for when the next state will begin processing.
@@ -96,7 +96,7 @@ void *stateMachine_thread(void *paramPtr) {
         fprintf(stateMachine_data_file, ",%d", current_rtc_count);
         // Write any notes, then clear them so they are only written once.
         fprintf(stateMachine_data_file, ",%s", stateMachine_data_file_notes);
-        strcpy(stateMachine_data_file_notes, "");
+        stateMachine_data_file_notes[0] = '\0';
         // Write the sensor data.
         fprintf(stateMachine_data_file, ",%s", get_state_str(state_to_process));
         fprintf(stateMachine_data_file, ",%s", get_state_str(presentState));
@@ -147,27 +147,27 @@ int updateStateMachine() {
 
         if (!strncmp(line, "P1=", 3)) {
           pTemp = (line + 3);
-          strcpy(cPress_1, pTemp);
+          snprintf(cPress_1, sizeof(cPress_1) pTemp);
         }
         if (!strncmp(line, "P2=", 3)) {
           pTemp = (line + 3);
-          strcpy(cPress_2, pTemp);
+          snprintf(cPress_2, sizeof(cPress_2) pTemp);
         }
         if (!strncmp(line, "V1=", 3)) {
           pTemp = (line + 3);
-          strcpy(cVolt_1, pTemp);
+          snprintf(cVolt_1, sizeof(cVolt_1) pTemp);
         }
         if (!strncmp(line, "V2=", 3)) {
           pTemp = (line + 3);
-          strcpy(cVolt_2, pTemp);
+          snprintf(cVolt_2, sizeof(cVolt_2) pTemp);
         }
         if (!strncmp(line, "T0=", 3)) {
           pTemp = (line + 3);
-          strcpy(cTimeOut, pTemp);
+          snprintf(cTimeOut, sizeof(cTimeOut) pTemp);
         }
         if (!strncmp(line, "BT=", 3)) {
           pTemp = (line + 3);
-          strcpy(cBurnTime, pTemp);
+          snprintf(cBurnTime, sizeof(cBurnTime) pTemp);
           burnInterval_seconds = atol(cBurnTime) * 60; // overwrite default value
         }
       }

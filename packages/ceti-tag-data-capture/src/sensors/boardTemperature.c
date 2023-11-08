@@ -57,9 +57,9 @@ void *boardTemperature_thread(void *paramPtr) {
 
   // Main loop while application is running.
   CETI_LOG("Starting loop to periodically acquire data");
-  long long global_time_us;
+  int64_t global_time_us;
   int rtc_count;
-  long long polling_sleep_duration_us;
+  int64_t polling_sleep_duration_us;
   g_boardTemperature_thread_is_running = 1;
   while (!g_stopAcquisition) {
     boardTemperature_data_file = fopen(BOARDTEMPERATURE_DATA_FILEPATH, "at");
@@ -69,14 +69,15 @@ void *boardTemperature_thread(void *paramPtr) {
       for (int i = 0; i < 10 && !g_stopAcquisition; i++)
         usleep(100000);
     } else {
+      bool boardTemperature_data_error = false;
+      bool boardTemperature_data_valid = true;
       // Acquire timing and sensor information as close together as possible.
       global_time_us = get_global_time_us();
       rtc_count = getRtcCount();
-      if (getBoardTemperature(&boardTemperature_c) < 0)
-        strcat(boardTemperature_data_file_notes, "ERROR | ");
-      if (boardTemperature_c < -80) { // it seems to return -83 when no sensor is connected
+      boardTemperature_data_error = (getBoardTemperature(&boardTemperature_c) < 0);
+      boardTemperature_data_valid = !(boardTemperature_c < -80);
+      if (!boardTemperature_data_valid) { // it seems to return -83 when no sensor is connected
         CETI_LOG("XXX readings are likely invalid");
-        strcat(boardTemperature_data_file_notes, "INVALID? | ");
       }
 
       // Write timing information.
@@ -84,7 +85,11 @@ void *boardTemperature_thread(void *paramPtr) {
       fprintf(boardTemperature_data_file, ",%d", rtc_count);
       // Write any notes, then clear them so they are only written once.
       fprintf(boardTemperature_data_file, ",%s", boardTemperature_data_file_notes);
-      strcpy(boardTemperature_data_file_notes, "");
+      if (boardTemperature_data_error)
+        fprintf(boardTemperature_data_file, "ERROR | ");
+      if (!boardTemperature_data_valid)
+        fprintf(boardTemperature_data_file, "INVALID? | ");
+      boardTemperature_data_file_notes[0] = '\0';
       // Write the sensor data.
       fprintf(boardTemperature_data_file, ",%d", boardTemperature_c);
       // Finish the row of data and close the file.

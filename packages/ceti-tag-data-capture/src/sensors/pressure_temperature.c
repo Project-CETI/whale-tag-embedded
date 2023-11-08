@@ -67,48 +67,45 @@ void *pressureTemperature_thread(void *paramPtr) {
 
   // Main loop while application is running.
   CETI_LOG("Starting loop to periodically acquire data");
-  long long global_time_us;
+  int64_t global_time_us;
   int rtc_count;
-  long long polling_sleep_duration_us;
+  int64_t polling_sleep_duration_us;
   g_pressureTemperature_thread_is_running = 1;
   while (!g_stopAcquisition) {
-    pressureTemperature_data_file =
-        fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
+    pressureTemperature_data_file = fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
     if (pressureTemperature_data_file == NULL) {
-      CETI_LOG("failed to open data output file: %s",
-               PRESSURETEMPERATURE_DATA_FILEPATH);
+      CETI_LOG("failed to open data output file: %s", PRESSURETEMPERATURE_DATA_FILEPATH);
       // Sleep a bit before retrying.
       for (int i = 0; i < 10 && !g_stopAcquisition; i++)
         usleep(100000);
     } else {
+      bool pressureTemperature_data_error = false;
+      bool pressureTemperature_data_valid = true;
       // Acquire timing and sensor information as close together as possible.
       global_time_us = get_global_time_us();
       rtc_count = getRtcCount();
-      if (getPressureTemperature(&g_latest_pressureTemperature_pressure_bar,
-                                 &g_latest_pressureTemperature_temperature_c) <
-          0)
-        strcat(pressureTemperature_data_file_notes, "ERROR | ");
-      if (g_latest_pressureTemperature_pressure_bar < -100 ||
-          g_latest_pressureTemperature_temperature_c <
-              -100) // it seems to return -228.63 for pressure and -117.10 for
-                    // temperature when no sensor is connected
-      {
+      pressureTemperature_data_error = (getPressureTemperature(&g_latest_pressureTemperature_pressure_bar, &g_latest_pressureTemperature_temperature_c) < 0);
+
+      // it seems to return -228.63 for pressure and -117.10 for temperature when no sensor is connected
+      pressureTemperature_data_valid = !(g_latest_pressureTemperature_pressure_bar < -100 || g_latest_pressureTemperature_temperature_c < -100);
+      if (!pressureTemperature_data_valid) {
         CETI_LOG("XXX readings are likely invalid");
-        strcat(pressureTemperature_data_file_notes, "INVALID? | ");
       }
 
       // Write timing information.
       fprintf(pressureTemperature_data_file, "%lld", global_time_us);
       fprintf(pressureTemperature_data_file, ",%d", rtc_count);
       // Write any notes, then clear them so they are only written once.
-      fprintf(pressureTemperature_data_file, ",%s",
-              pressureTemperature_data_file_notes);
-      strcpy(pressureTemperature_data_file_notes, "");
+      fprintf(pressureTemperature_data_file, ",%s", pressureTemperature_data_file_notes);
+      if (pressureTemperature_data_error)
+        fprintf(pressureTemperature_data_file, "ERROR | ");
+      if (!pressureTemperature_data_valid)
+        fprintf(pressureTemperature_data_file, "INVALID? | ");
+
+      pressureTemperature_data_file_notes[0] = '\0';
       // Write the sensor data.
-      fprintf(pressureTemperature_data_file, ",%.3f",
-              g_latest_pressureTemperature_pressure_bar);
-      fprintf(pressureTemperature_data_file, ",%.3f",
-              g_latest_pressureTemperature_temperature_c);
+      fprintf(pressureTemperature_data_file, ",%.3f", g_latest_pressureTemperature_pressure_bar);
+      fprintf(pressureTemperature_data_file, ",%.3f", g_latest_pressureTemperature_temperature_c);
       // Finish the row of data and close the file.
       fprintf(pressureTemperature_data_file, "\n");
       fclose(pressureTemperature_data_file);
@@ -133,7 +130,7 @@ void *pressureTemperature_thread(void *paramPtr) {
 int getPressureTemperature(double *pressure_bar, double *temperature_c) {
 
   int fd;
-  short int temperature_data, pressure_data;
+  int16_t temperature_data, pressure_data;
   char presSensData_byte[5];
 
   if ((fd = i2cOpen(1, ADDR_PRESSURETEMPERATURE, 0)) < 0) {

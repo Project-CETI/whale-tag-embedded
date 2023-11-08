@@ -57,9 +57,9 @@ void *recovery_thread(void *paramPtr) {
 
   // Main loop while application is running.
   CETI_LOG("Starting loop to periodically acquire data");
-  long long global_time_us;
+  int64_t global_time_us;
   int rtc_count;
-  long long polling_sleep_duration_us;
+  int64_t polling_sleep_duration_us;
   g_recovery_thread_is_running = 1;
   while (!g_stopAcquisition) {
     recovery_data_file = fopen(RECOVERY_DATA_FILEPATH, "at");
@@ -69,18 +69,21 @@ void *recovery_thread(void *paramPtr) {
       for (int i = 0; i < 10 && !g_stopAcquisition; i++)
         usleep(100000);
     } else {
+      bool gps_error = false;
+
       // Acquire timing and sensor information as close together as possible.
       global_time_us = get_global_time_us();
       rtc_count = getRtcCount();
-      if (getGpsLocation(gps_location) < 0)
-        strcat(recovery_data_file_notes, "ERROR | ");
+      gps_error = (getGpsLocation(gps_location) < 0);
 
       // Write timing information.
       fprintf(recovery_data_file, "%lld", global_time_us);
       fprintf(recovery_data_file, ",%d", rtc_count);
       // Write any notes, then clear them so they are only written once.
       fprintf(recovery_data_file, ",%s", recovery_data_file_notes);
-      strcpy(recovery_data_file_notes, "");
+      if (gps_error)
+        fprintf(recovery_data_file, "ERROR | ");
+      recovery_data_file_notes[0] = '\0';
       // Write the sensor data.
       fprintf(recovery_data_file, "\"%s\"", gps_location);
       // Finish the row of data and close the file.

@@ -35,6 +35,7 @@ int init_data_file(FILE *data_file, const char *data_filepath,
   // Write headers if the file didn't already exist.
   if (!data_file_exists) {
     char header[500] = "";
+
     strcat(header, "Timestamp [us]");
     strcat(header, ",RTC Count");
     strcat(header, ",Notes");

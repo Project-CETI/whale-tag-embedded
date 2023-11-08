@@ -23,12 +23,12 @@ static const int num_ecg_data_file_headers = 4;
 static int ecg_buffer_select_toLog = 0;   // which buffer will be populated with new incoming data
 static int ecg_buffer_select_toWrite = 0; // which buffer will be flushed to the output file
 static int ecg_buffer_index_toLog = 0;
-static long long global_times_us[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
+static int64_t global_times_us[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static int rtc_counts[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
-static long ecg_readings[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
+static int32_t ecg_readings[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static int leadsOff_readings_p[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static int leadsOff_readings_n[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
-static long long sample_indexes[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
+static int64_t sample_indexes[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static char ecg_data_file_notes[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH][75];
 
 int init_ecg() {
@@ -83,7 +83,7 @@ int init_ecg_data_file(int restarted_program) {
   int data_file_postfix_count = 0;
   int data_file_exists = 0;
   do {
-    sprintf(ecg_data_filepath, "%s_%02d.csv", ECG_DATA_FILEPATH_BASE, data_file_postfix_count);
+    snprintf(ecg_data_filepath, sizeof(ecg_data_filepath), "%s_%02d.csv", ECG_DATA_FILEPATH_BASE, data_file_postfix_count);
     data_file_exists = (access(ecg_data_filepath, F_OK) != -1);
     data_file_postfix_count++;
   } while (data_file_exists);
@@ -95,7 +95,7 @@ int init_ecg_data_file(int restarted_program) {
                                               "init_ecg_data_file()");
   // Change the note from restarted to new file if this is not the first initialization.
   if (!restarted_program)
-    strcpy(ecg_data_file_notes[ecg_buffer_select_toLog][0], "New log file! | ");
+    snprintf(ecg_data_file_notes[ecg_buffer_select_toLog][0], 75, "New log file! | ");
   return init_data_file_success;
 }
 
@@ -130,14 +130,14 @@ void *ecg_thread_getData(void *paramPtr) {
   g_ecg_thread_getData_is_running = 1;
 
   // Continuously poll the ADC and the leads-off detection output.
-  long long prev_ecg_adc_latest_reading_global_time_us = 0;
+  int64_t prev_ecg_adc_latest_reading_global_time_us = 0;
   ecg_buffer_index_toLog = 0;
-  long long sample_index = 0;
-  long consecutive_zero_ecg_count = 0;
-  long instantaneous_sampling_period_us = 0;
+  int64_t sample_index = 0;
+  int32_t consecutive_zero_ecg_count = 0;
+  int32_t instantaneous_sampling_period_us = 0;
   int first_sample = 1;
   int is_invalid = 0;
-  long long start_time_ms = get_global_time_ms();
+  int64_t start_time_ms = get_global_time_ms();
   int previous_leadsoff = 0;
   ecg_gpio_expander_set_leds_green();
   while (!g_stopAcquisition) {
@@ -242,7 +242,7 @@ void *ecg_thread_getData(void *paramPtr) {
       }
 
       // Clear the next notes.
-      strcpy(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "");
+      ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog][0] = '\0';
     }
 
     // Note that there is no delay to implement a desired sampling rate,
@@ -250,7 +250,7 @@ void *ecg_thread_getData(void *paramPtr) {
   }
 
   // Print the duration and the sampling rate.
-  long long duration_ms = get_global_time_ms() - start_time_ms;
+  int64_t duration_ms = get_global_time_ms() - start_time_ms;
   CETI_LOG("Average rate %0.2f Hz (%lld samples in %lld ms)",
            1000.0 * (float)sample_index / (float)duration_ms,
            sample_index, duration_ms);
@@ -304,7 +304,7 @@ void *ecg_thread_writeData(void *paramPtr) {
       usleep(250000);
 
     // Write the last buffer to a file.
-    long ecg_data_file_size_b = 0;
+    int32_t ecg_data_file_size_b = 0;
     ecg_data_file = fopen(ecg_data_filepath, "at");
     if (ecg_data_file == NULL) {
       CETI_LOG("failed to open data output file: %s", ecg_data_filepath);
@@ -342,7 +342,7 @@ void *ecg_thread_writeData(void *paramPtr) {
       fclose(ecg_data_file);
 
       // If the file size limit has been reached, start a new file.
-      if ((ecg_data_file_size_b >= (long)(ECG_MAX_FILE_SIZE_MB)*1024L * 1024L || ecg_data_file_size_b < 0) && !g_stopAcquisition)
+      if ((ecg_data_file_size_b >= (int32_t)(ECG_MAX_FILE_SIZE_MB)*1024L * 1024L || ecg_data_file_size_b < 0) && !g_stopAcquisition)
         init_ecg_data_file(0);
 
       //CETI_LOG("Wrote %d entries in %lld us", ECG_BUFFER_LENGTH, get_global_time_us() - start_time_us);

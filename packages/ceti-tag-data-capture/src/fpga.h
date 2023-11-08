@@ -43,7 +43,6 @@
 
 #define POWER_FLAG 17
 
-#include "utils/logging.h"
 #include <pigpio.h>
 #include <stdio.h>  // for FILE
 #include <stdlib.h> // for malloc()

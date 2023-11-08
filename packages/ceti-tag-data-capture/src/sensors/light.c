@@ -66,9 +66,9 @@ void *light_thread(void *paramPtr) {
 
   // Main loop while application is running.
   CETI_LOG("Starting loop to periodically acquire data");
-  long long global_time_us;
+  int64_t global_time_us;
   int rtc_count;
-  long long polling_sleep_duration_us;
+  int64_t polling_sleep_duration_us;
   g_light_thread_is_running = 1;
   while (!g_stopAcquisition) {
     light_data_file = fopen(LIGHT_DATA_FILEPATH, "at");
@@ -78,17 +78,17 @@ void *light_thread(void *paramPtr) {
       for (int i = 0; i < 10 && !g_stopAcquisition; i++)
         usleep(100000);
     } else {
+      bool light_data_error = false;
+      bool light_data_valid = true;
       // Acquire timing and sensor information as close together as possible.
       global_time_us = get_global_time_us();
       rtc_count = getRtcCount();
-      if (getAmbientLight(&light_reading_visible, &light_reading_ir) < 0)
-        strcat(light_data_file_notes, "ERROR | ");
-      if (light_reading_visible < -80 ||
-          light_reading_ir <
-              -80) // it seems to return -83 when no sensor is connected
-      {
+      light_data_error = (getAmbientLight(&light_reading_visible, &light_reading_ir) < 0);
+
+      // it seems to return -83 when no sensor is connected
+      light_data_valid = !(light_reading_visible < -80 || light_reading_ir < -80);
+      if (!light_data_valid) {
         CETI_LOG("XXX readings are likely invalid");
-        strcat(light_data_file_notes, "INVALID? | ");
       }
 
       // Write timing information.
@@ -96,7 +96,11 @@ void *light_thread(void *paramPtr) {
       fprintf(light_data_file, ",%d", rtc_count);
       // Write any notes, then clear them so they are only written once.
       fprintf(light_data_file, ",%s", light_data_file_notes);
-      strcpy(light_data_file_notes, "");
+      if (light_data_error)
+        fprintf(light_data_file, "ERROR | ");
+      if (!light_data_valid)
+        fprintf(light_data_file, "INVALID? | ");
+      light_data_file_notes[0] = '\0';
       // Write the sensor data.
       fprintf(light_data_file, ",%d", light_reading_visible);
       fprintf(light_data_file, ",%d", light_reading_ir);

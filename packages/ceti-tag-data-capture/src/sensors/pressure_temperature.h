@@ -21,7 +21,8 @@
 
 #include <pigpio.h>
 #include <pthread.h> // to set CPU affinity
-#include <unistd.h>  // for usleep()
+#include <stdint.h>
+#include <unistd.h> // for usleep()
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration

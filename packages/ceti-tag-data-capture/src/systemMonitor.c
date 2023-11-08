@@ -192,10 +192,9 @@ void *systemMonitor_thread(void *paramPtr) {
 
       // Write system usage information to the data file.
       systemMonitor_data_file = fopen(SYSTEMMONITOR_DATA_FILEPATH, "at");
-      if (systemMonitor_data_file == NULL)
-        CETI_LOG("failed to open data output file: %s",
-                 SYSTEMMONITOR_DATA_FILEPATH);
-      else {
+      if (systemMonitor_data_file == NULL) {
+        CETI_LOG("failed to open data output file: %s", SYSTEMMONITOR_DATA_FILEPATH);
+      } else {
         // Write timing information.
         fprintf(systemMonitor_data_file, "%lld", global_time_us);
         fprintf(systemMonitor_data_file, ",%d", rtc_count);
@@ -352,33 +351,33 @@ int64_t get_ram_free() {
 // Disk usage
 //------------------------------------------
 
-long get_overlay_free_kb() {
+int32_t get_overlay_free_kb() {
   char available_kb[20] = "";
   int system_success = system_call_with_output(
       "df --output=source,avail | grep overlay | awk '{print $2}'",
       available_kb);
   if (system_success == -1 || strlen(available_kb) == 0)
     return -1;
-  return (long)atof(available_kb);
+  return (int32_t)atof(available_kb);
 }
 
-long get_root_free_kb() {
+int32_t get_root_free_kb() {
   char available_kb[20] = "";
   int system_success = system_call_with_output(
       "df --output=source,avail | grep /dev/root | awk '{print $2}'",
       available_kb);
   if (system_success == -1 || strlen(available_kb) == 0)
     return -1;
-  return (long)atof(available_kb);
+  return (int32_t)atof(available_kb);
 }
 
-long get_dataPartition_free_kb() {
+int32_t get_dataPartition_free_kb() {
   char available_kb[20] = "";
   int system_success = system_call_with_output(
       "df --output=target,avail | grep /data | awk '{print $2}'", available_kb);
   if (system_success == -1 || strlen(available_kb) == 0)
     return -1;
-  return (long)atof(available_kb);
+  return (int32_t)atof(available_kb);
 }
 
 // CPU usage
@@ -402,12 +401,9 @@ int update_cpu_usage() {
       // printf("Retrieved line of length %d:\n", num_read);
       // printf("%s\n", line);
       if (cpu_entry_index == 0)
-        sprintf(sscanf_format_string,
-                "cpu %%llu %%llu %%llu %%llu %%llu %%llu %%llu");
+        snprintf(sscanf_format_string, sizeof(sscanf_format_string), "cpu %%llu %%llu %%llu %%llu %%llu %%llu %%llu");
       else
-        sprintf(sscanf_format_string,
-                "cpu%d %%llu %%llu %%llu %%llu %%llu %%llu %%llu",
-                cpu_entry_index - 1);
+        snprintf(sscanf_format_string, sizeof(sscanf_format_string), "cpu%d %%llu %%llu %%llu %%llu %%llu %%llu %%llu", cpu_entry_index - 1);
       int res =
           sscanf(line, sscanf_format_string, &cpu_user, &cpu_userNice,
                  &cpu_system, &cpu_idle, &cpu_ioWait, &cpu_irq, &cpu_irqSoft);
@@ -421,15 +417,15 @@ int update_cpu_usage() {
       // printf("Read cpu_irqSoft |%lld|\n", cpu_irqSoft );
       // printf("\n");
 
-      if (res < 7)
+      if (res < 7) {
         cpu_percents[cpu_entry_index] = -1.0;
-      else if (cpu_user < cpu_prev_user[cpu_entry_index] ||
-               cpu_userNice < cpu_prev_userNice[cpu_entry_index] ||
-               cpu_system < cpu_prev_system[cpu_entry_index] ||
-               cpu_idle < cpu_prev_idle[cpu_entry_index] ||
-               cpu_ioWait < cpu_prev_ioWait[cpu_entry_index] ||
-               cpu_irq < cpu_prev_irq[cpu_entry_index] ||
-               cpu_irqSoft < cpu_prev_irqSoft[cpu_entry_index]) {
+      } else if (cpu_user < cpu_prev_user[cpu_entry_index] ||
+                 cpu_userNice < cpu_prev_userNice[cpu_entry_index] ||
+                 cpu_system < cpu_prev_system[cpu_entry_index] ||
+                 cpu_idle < cpu_prev_idle[cpu_entry_index] ||
+                 cpu_ioWait < cpu_prev_ioWait[cpu_entry_index] ||
+                 cpu_irq < cpu_prev_irq[cpu_entry_index] ||
+                 cpu_irqSoft < cpu_prev_irqSoft[cpu_entry_index]) {
         // Overflow detection. Just skip this value.
         cpu_percents[cpu_entry_index] = -1.0;
       } else {
@@ -475,7 +471,7 @@ int get_cpu_id_for_tid(int tid) {
   // Run the ps command with the given process ID.
   FILE *ps_command_file;
   char ps_command_string[40];
-  sprintf(ps_command_string, "ps --pid %d -o tid=,psr= -L", cetiApp_pid);
+  snprintf(ps_command_string, sizeof(ps_command_string), "ps --pid %d -o tid=,psr= -L", cetiApp_pid);
   ps_command_file = popen(ps_command_string, "r");
   if (ps_command_file == NULL)
     return -1;
@@ -502,10 +498,7 @@ int get_cpu_id_for_tid(int tid) {
 
 float get_cpu_temperature_c() {
   char temperature_c_str[20] = "";
-  int system_success = system_call_with_output(
-      "cat /sys/devices/virtual/thermal/thermal_zone0/temp | awk '{print "
-      "$1/1000}'",
-      temperature_c_str);
+  int system_success = system_call_with_output("cat /sys/devices/virtual/thermal/thermal_zone0/temp | awk '{print $1/1000}'", temperature_c_str);
   if (system_success == -1)
     return -1;
   return atof(temperature_c_str);
@@ -513,9 +506,7 @@ float get_cpu_temperature_c() {
 
 float get_gpu_temperature_c() {
   char temperature_c_str[20] = "";
-  int system_success = system_call_with_output(
-      "vcgencmd measure_temp | egrep  -o  '[[:digit:]]*\\.[[:digit:]]*'",
-      temperature_c_str);
+  int system_success = system_call_with_output("vcgencmd measure_temp | egrep  -o  '[[:digit:]]*\\.[[:digit:]]*'", temperature_c_str);
   if (system_success == -1)
     return -1;
   return atof(temperature_c_str);
@@ -524,25 +515,21 @@ float get_gpu_temperature_c() {
 // System logs
 //------------------------------------------
 
-long get_log_size_kb() {
+int32_t get_log_size_kb() {
   char log_size_kb[20] = "";
-  int system_success = system_call_with_output(
-      "du /var/log/ 2>/dev/null | grep /var/log/$ | awk '{print $1}'",
-      log_size_kb);
+  int system_success = system_call_with_output("du /var/log/ 2>/dev/null | grep /var/log/$ | awk '{print $1}'", log_size_kb);
   if (system_success == -1 || strlen(log_size_kb) == 0)
     return -1;
-  return (long)atof(log_size_kb);
+  return (int32_t)atof(log_size_kb);
 }
 
-long get_syslog_size_kb() {
+int32_t get_syslog_size_kb() {
   char syslog_size_kb[20] = "";
   int system_success =
-      system_call_with_output("du /var/log/syslog 2>/dev/null | grep "
-                              "/var/log/syslog$ | awk '{print $1}'",
-                              syslog_size_kb);
+      system_call_with_output("du /var/log/syslog 2>/dev/null | grep /var/log/syslog$ | awk '{print $1}'", syslog_size_kb);
   if (system_success == -1 || strlen(syslog_size_kb) == 0)
     return -1;
-  return (long)atof(syslog_size_kb);
+  return (int32_t)atof(syslog_size_kb);
 }
 
 void force_system_log_rotation() {
@@ -551,8 +538,7 @@ void force_system_log_rotation() {
   char system_response[100];
   int64_t log_rotation_time_us = get_global_time_us();
   // Rotate the logs.
-  system_call_with_output("sudo logrotate -f /etc/logrotate.d/rsyslog",
-                          system_response);
+  system_call_with_output("sudo logrotate -f /etc/logrotate.d/rsyslog", system_response);
   // Check if it archived any old logs.
   // The configuration in firstboot tells it to use /var/log/old_logs for old
   // files.
@@ -563,13 +549,12 @@ void force_system_log_rotation() {
     if (num_old_log_files > 0) {
       // Make a directory for the old logs on the data partition.
       system_call_with_output("sudo mkdir /data/logs", system_response);
-      sprintf(system_command, "sudo mkdir /data/logs/logs_copied_%lld",
-              log_rotation_time_us);
+      snprintf(system_command, sizeof(system_command),
+               "sudo mkdir /data/logs/logs_copied_%lld", log_rotation_time_us);
       system_call_with_output(system_command, system_response);
       // Move the old logs to the data partition.
-      sprintf(system_command,
-              "sudo mv /var/log/old_logs/* /data/logs/logs_copied_%lld",
-              log_rotation_time_us);
+      snprintf(system_command, sizeof(system_command),
+               "sudo mv /var/log/old_logs/* /data/logs/logs_copied_%lld", log_rotation_time_us);
       system_call_with_output(system_command, system_response);
     }
   }
@@ -580,7 +565,7 @@ void force_system_log_rotation() {
 
 // Run a system command and read the output.
 int system_call_with_output(char *cmd, char *result) {
-  strcpy(result, "");
+  result[0] = '\0'; //strcpy(result, "");
   FILE *system_pipe;
 
   /* Open the command for reading. */

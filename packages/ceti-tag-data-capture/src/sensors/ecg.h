@@ -48,7 +48,7 @@
 #define ECG_ZEROCOUNT_THRESHOLD 100
 
 // Do not expect large negative voltages (ADC readings are out of ~8e6)
-#define ECG_INVALID_PLACEHOLDER ((long)(-6666666))
+#define ECG_INVALID_PLACEHOLDER ((int32_t)(-6666666))
 
 // Only expect 0 or 1
 #define ECG_LEADSOFF_INVALID_PLACEHOLDER ((int)(-1))

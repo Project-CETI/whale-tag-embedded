@@ -111,17 +111,13 @@ void *goPros_thread(void *paramPtr) {
   int magnet_detected_debounced = 0;
   int prev_magnet_detected_debounced = 0;
   int magnet_detection_count = 0;
-  int magnet_detection_count_max =
-      GOPRO_MAGNET_DETECTION_BUFFER_US / goPro_thread_polling_period_us;
-  int magnet_detection_count_threshold =
-      GOPRO_MAGNET_DETECTION_THRESHOLD_US / goPro_thread_polling_period_us;
-  long led_heartbeat_recording_duration_us =
-      (8 * ((long long)GOPRO_LED_HEARTBEAT_PERIOD_US) / 10);
-  long led_heartbeat_stopped_duration_us =
-      (1 * ((long long)GOPRO_LED_HEARTBEAT_PERIOD_US) / 10);
-  long long last_python_heartbeat_us = get_global_time_us();
-  long long last_led_heartbeat_us = 0;
-  long long led_heartbeat_on_us = -1;
+  int magnet_detection_count_max = GOPRO_MAGNET_DETECTION_BUFFER_US / goPro_thread_polling_period_us;
+  int magnet_detection_count_threshold = GOPRO_MAGNET_DETECTION_THRESHOLD_US / goPro_thread_polling_period_us;
+  int32_t led_heartbeat_recording_duration_us = (8 * ((int64_t)GOPRO_LED_HEARTBEAT_PERIOD_US) / 10);
+  int32_t led_heartbeat_stopped_duration_us = (1 * ((int64_t)GOPRO_LED_HEARTBEAT_PERIOD_US) / 10);
+  int64_t last_python_heartbeat_us = get_global_time_us();
+  int64_t last_led_heartbeat_us = 0;
+  int64_t led_heartbeat_on_us = -1;
   while (!g_stopAcquisition) {
     // Periodically send a heartbeat to let Python know the connection is
     // active.
@@ -260,9 +256,9 @@ int send_command_to_all_goPros(int goPro_command) {
   int received_client_ack = 0;
   int all_commands_succeeded = 1;
   int num_read_from_client;
-  long long time_message_sent_us;
-  long long time_message_ack_us;
-  long long timeout_start_us;
+  int64_t time_message_sent_us;
+  int64_t time_message_ack_us;
+  int64_t timeout_start_us;
   int rtc_count_message_sent;
 
   // Send the command to all GoPros via the Python socket.
@@ -303,7 +299,7 @@ int send_command_to_all_goPros(int goPro_command) {
     fprintf(goPros_data_file, ",%d", rtc_count_message_sent);
     // Write any notes, then clear them so they are only written once.
     fprintf(goPros_data_file, ",%s", goPros_data_file_notes);
-    strcpy(goPros_data_file_notes, "");
+    goPros_data_file_notes[0] = '\0';
     // Write the command information.
     fprintf(goPros_data_file, ",%d", goPro_index);
     fprintf(goPros_data_file, ",%d", goPro_command);

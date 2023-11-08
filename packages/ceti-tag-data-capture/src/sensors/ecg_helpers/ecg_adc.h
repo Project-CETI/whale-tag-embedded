@@ -90,7 +90,7 @@
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
-extern long g_ecg_adc_latest_reading;
+extern int32_t g_ecg_adc_latest_reading;
 extern int64_t g_ecg_adc_latest_reading_global_time_us;
 
 //-----------------------------------------------------------------------------
@@ -115,11 +115,11 @@ void ecg_adc_set_channel(int channel);
 /* Reading */
 // update the global variables of the latest data/timestamp
 void ecg_adc_update_data(int *exit_flag, int64_t timeout_us);
-long ecg_adc_read_singleEnded(int channel, int *exit_flag, int64_t timeout_us);
-long ecg_adc_read_differential_0_1(int *exit_flag, int64_t timeout_us);
-long ecg_adc_read_differential_2_3(int *exit_flag, int64_t timeout_us);
-long ecg_adc_read_differential_1_2(int *exit_flag, int64_t timeout_us);
-long ecg_adc_read_shorted(int *exit_flag, int64_t timeout_us);
+int32_t ecg_adc_read_singleEnded(int channel, int *exit_flag, int64_t timeout_us);
+int32_t ecg_adc_read_differential_0_1(int *exit_flag, int64_t timeout_us);
+int32_t ecg_adc_read_differential_2_3(int *exit_flag, int64_t timeout_us);
+int32_t ecg_adc_read_differential_1_2(int *exit_flag, int64_t timeout_us);
+int32_t ecg_adc_read_shorted(int *exit_flag, int64_t timeout_us);
 
 /* Callback functions */
 void ecg_adc_data_ready_interrupt_fn(int gpio, int level, uint32_t tick);

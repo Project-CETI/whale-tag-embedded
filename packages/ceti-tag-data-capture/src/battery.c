@@ -71,9 +71,9 @@ void *battery_thread(void *paramPtr) {
 
   // Main loop while application is running.
   CETI_LOG("Starting loop to periodically acquire data");
-  long long global_time_us;
+  int64_t global_time_us;
   int rtc_count;
-  long long polling_sleep_duration_us;
+  int64_t polling_sleep_duration_us;
   g_battery_thread_is_running = 1;
   while (!g_stopAcquisition) {
     battery_data_file = fopen(BATTERY_DATA_FILEPATH, "at");
@@ -83,16 +83,17 @@ void *battery_thread(void *paramPtr) {
       for (int i = 0; i < 10 && !g_stopAcquisition; i++)
         usleep(100000);
     } else {
+      bool battery_data_error = false;
+      bool battery_data_valid = true;
       // Acquire timing and sensor information as close together as possible.
       global_time_us = get_global_time_us();
       rtc_count = getRtcCount();
-      if (getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v, &g_latest_battery_i_mA) < 0)
-        strcat(battery_data_file_notes, "ERROR | ");
+      battery_data_error = (getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v, &g_latest_battery_i_mA) < 0);
 
       // it seems to return -0.01 for voltages and -5.19 for current when no sensor is connected
-      if (g_latest_battery_v1_v < 0 || g_latest_battery_v2_v < 0) {
+      battery_data_valid = !(g_latest_battery_v1_v < 0 || g_latest_battery_v2_v < 0);
+      if (!battery_data_valid) {
         CETI_LOG("XXX readings are likely invalid");
-        strcat(battery_data_file_notes, "INVALID? | ");
       }
 
       // Write timing information.
@@ -100,7 +101,11 @@ void *battery_thread(void *paramPtr) {
       fprintf(battery_data_file, ",%d", rtc_count);
       // Write any notes, then clear them so they are only written once.
       fprintf(battery_data_file, ",%s", battery_data_file_notes);
-      strcpy(battery_data_file_notes, "");
+      if (battery_data_error)
+        fprintf(battery_data_file, "ERROR | ");
+      if (!battery_data_valid)
+        fprintf(battery_data_file, "INVALID? | ");
+      battery_data_file_notes[0] = '\0';
       // Write the sensor data.
       fprintf(battery_data_file, ",%.3f", g_latest_battery_v1_v);
       fprintf(battery_data_file, ",%.3f", g_latest_battery_v2_v);
@@ -127,7 +132,7 @@ void *battery_thread(void *paramPtr) {
 //-----------------------------------------------------------------------------
 int getBatteryData(double *battery_v1_v, double *battery_v2_v, double *battery_i_mA) {
   int fd, result;
-  signed short voltage, current;
+  signed int16_t voltage, current;
 
   if ((fd = i2cOpen(1, ADDR_BATT_GAUGE, 0)) < 0) {
     CETI_LOG("XXX Failed to connect to the fuel gauge");
