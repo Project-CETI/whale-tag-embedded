@@ -30,19 +30,17 @@
 #define TO_DEGC(RAW_IN)	(float)(((RAW_IN >> 4) - 24.0f) * 0.05 - 50.0f)
 #define TO_BAR(RAW_IN)	(float)((RAW_IN - 16384) * (P_MAX - P_MIN) / 32768 + P_MIN)
 
-//ThreadX flag bit for when DEPTH data is ready
-//#define DEPTH_DATA_READY_FLAG 0x1
-
-//ThreadX flag for stopping the DEPTH (exit data capture)
+//ThreadX status flags
 #define DEPTH_STOP_DATA_THREAD_FLAG 0x2
 #define DEPTH_STOP_SD_THREAD_FLAG 0x4
-
-//ThreadX flag for when thread is done collecting data
 #define DEPTH_HALF_BUFFER_FLAG 0x8
 
 //The number of DEPTH Samples to collect before writing to the SD card. This MUST be an even number.
 #define DEPTH_BUFFER_SIZE 250
 #define DEPTH_HALF_BUFFER_SIZE (DEPTH_BUFFER_SIZE / 2)
+
+//Timeout values
+#define DEPTH_MAX_BAD_DATA 50
 
 typedef struct __attribute__ ((packed, scalar_storage_order("little-endian")))
 keller_raw_data{

@@ -21,6 +21,7 @@
 
 #include "main.h"
 #include "tx_api.h"
+#include "Lib Inc/timing.h"
 
 #define ECG_ADC_I2C_ADDRESS 0b1000100
 
@@ -52,14 +53,10 @@
 //Timeouts for polling data ready
 #define ECG_ADC_DATA_TIMEOUT 2000
 
-//ThreadX flag bit for when data is ready
+//ThreadX status flags
 #define ECG_DATA_READY_FLAG 0x1
-
-//ThreadX flag bit for stopping the ecg data and SD writing threads
 #define ECG_STOP_DATA_THREAD_FLAG 0x2
 #define ECG_STOP_SD_THREAD_FLAG 0x4
-
-//ThreadX flag for when thread is done collecting data
 #define ECG_HALF_BUFFER_FLAG 0x8
 
 //ECG configuration register has the following structure:
@@ -75,6 +72,10 @@
 
 //A half buffer size, since our buffer is split in half
 #define ECG_HALF_BUFFER_SIZE (ECG_BUFFER_SIZE / 2)
+
+//Timeout values
+#define ECG_FLAG_TIMEOUT tx_s_to_ticks(10)
+#define ECG_MAX_BAD_DATA 50
 
 //Struct for holding ECG data (data and timestamps)
 typedef struct __ECG_Data_Typedef {

@@ -23,7 +23,7 @@
 /* audio_unit_test()
 */
 
-#include "audio.h"
+#include "Sensor Inc/audio.h"
 #include "Sensor Inc/RTC.h"
 #include "util.h"
 #include "fx_api.h"
@@ -32,6 +32,7 @@
 #include "app_threadx.h"
 #include "Lib Inc/threads.h"
 #include <stdbool.h>
+#include <stdio.h>
 
 /*******************************
  * PUBLIC FUNCTION DEFINITIONS *
@@ -42,11 +43,9 @@ extern SPI_HandleTypeDef hspi1;
 extern SAI_HandleTypeDef hsai_BlockB1;
 extern SD_HandleTypeDef hsd1;
 
-//RTC new audio file status
-extern new_audio_file;
-
 //RTC current time
 extern RTC_TimeTypeDef eTime;
+extern RTC_TimeTypeDef sTime;
 
 //Statically declare ADC at runtime
 ad7768_dev audio_adc = {
@@ -84,8 +83,8 @@ ad7768_dev audio_adc = {
 extern AudioManager audio;
 
 //FileX variables
-FX_FILE         audio_file = {};
-extern FX_MEDIA        sdio_disk;
+FX_FILE audio_file = {};
+extern FX_MEDIA sdio_disk;
 extern ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
 
 //Threads array
@@ -156,31 +155,31 @@ void audio_thread_entry(ULONG thread_input){
 	  	  	  	  	  	  	  	  .audio_ch_enabled[1] = 1,
 								  .audio_ch_enabled[2] = 1,
 								  .audio_ch_enabled[3] = 0,
-	  	  	  	  	  	  	  	  .audio_ch_headers = 1,
+	  	  	  	  	  	  	  	  .audio_ch_headers = 0,
 								  .audio_rate = CFG_AUDIO_RATE_96_KHZ,
 	  	  	  	  	  	  	  	  .audio_depth = CFG_AUDIO_DEPTH_16_BIT};
 	ULONG acc_flag_pointer = 0;
-	uint8_t file_index = 0;
-	char *file_name;
-	sprintf(file_name, "audio_data_%d.bin", file_index);
+	char file_name[30];
+	char tmp_file_name[30];
+	sprintf(file_name, "audio_data_%d_%d_%d.bin", eTime.Hours, eTime.Minutes, eTime.Seconds);
 
 	//Create our binary file for dumping audio data
 	UINT fx_result = FX_SUCCESS;
 	fx_result = fx_file_create(&sdio_disk, file_name);
-	if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
-	  Error_Handler();
+	if ((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)) {
+		Error_Handler();
 	}
 
 	//Open the file (put a dummy close in front in case the file is already open)
 	fx_result = fx_file_open(&sdio_disk, &audio_file, file_name, FX_OPEN_FOR_WRITE);
-	if(fx_result != FX_SUCCESS){
-	  Error_Handler();
+	if (fx_result != FX_SUCCESS) {
+		Error_Handler();
 	}
 
 	//Set our "write complete" callback function
 	fx_result = fx_file_write_notify_set(&audio_file, audio_SDWriteComplete);
-	if(fx_result != FX_SUCCESS){
-	  Error_Handler();
+	if (fx_result != FX_SUCCESS) {
+		Error_Handler();
 	}
 
 	//Set our DMA buffer callbacks for both half full and full
@@ -209,22 +208,42 @@ void audio_thread_entry(ULONG thread_input){
 	//Start gathering audio data through the SAI and DMA
 	audio_record(&audio);
 
-	while (1){
+	while (1) {
 
-		if (new_audio_file) {
-			file_index += 1;
-			sprintf(file_name, "audio_data_%d.bin", file_index);
+		if (abs(eTime.Minutes - sTime.Minutes) % RTC_AUDIO_REFRESH_MINS == 0) {
 
-			fx_file_close(audio.file);
+			//Create new audio file name
+			sprintf(tmp_file_name, "audio_data_%d_%d_%d.bin", eTime.Hours, eTime.Minutes, eTime.Seconds);
 
-			fx_result = fx_file_create(&sdio_disk, file_name);
-			if((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)){
-				Error_Handler();
-			}
+			//Only create new file if minutes is different or minutes is same and hours is different
+			if ((tmp_file_name[AUDIO_FILENAME_MINS_INDEX] != file_name[AUDIO_FILENAME_MINS_INDEX]) || ((tmp_file_name[AUDIO_FILENAME_HOURS_INDEX] != file_name[AUDIO_FILENAME_HOURS_INDEX]) && tmp_file_name[AUDIO_FILENAME_MINS_INDEX] == file_name[AUDIO_FILENAME_MINS_INDEX])) {
 
-			fx_result = fx_file_open(&sdio_disk, &audio_file, file_name, FX_OPEN_FOR_WRITE);
-			if(fx_result != FX_SUCCESS){
-				Error_Handler();
+				//Name new audio file
+				strcpy(file_name, tmp_file_name);
+
+				//Close previous audio file
+				fx_result = fx_file_close(audio.file);
+				if (fx_result != FX_SUCCESS) {
+					Error_Handler();
+				}
+
+				//Create new audio file
+				fx_result = fx_file_create(&sdio_disk, file_name);
+				if ((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)) {
+					Error_Handler();
+				}
+
+				//Open new audio file for writing
+				fx_result = fx_file_open(&sdio_disk, &audio_file, file_name, FX_OPEN_FOR_WRITE);
+				if (fx_result != FX_SUCCESS) {
+					Error_Handler();
+				}
+
+				//Set our "write complete" callback function
+				fx_result = fx_file_write_notify_set(&audio_file, audio_SDWriteComplete);
+				if (fx_result != FX_SUCCESS) {
+					Error_Handler();
+				}
 			}
 		}
 
@@ -261,7 +280,7 @@ void audio_thread_entry(ULONG thread_input){
 		  fx_file_close(audio.file);
 
 		  //Terminate thread so it needs to be fully reset to start again
-		  tx_event_flags_delete(&audio_event_flags_group);
+		  //tx_event_flags_delete(&audio_event_flags_group);
 		  tx_thread_terminate(&threads[AUDIO_THREAD].thread);
 	  }
 
@@ -279,7 +298,7 @@ HAL_StatusTypeDef audio_init(AudioManager *self, ad7768_dev *adc, SAI_HandleType
 
     self->temp_counter = 0;
     if(config){
-        //audio_configure(self, config);
+        audio_configure(self, config);
     }
     self->file = file;
     return HAL_OK;
@@ -292,9 +311,11 @@ HAL_StatusTypeDef audio_configure(AudioManager *self, TagConfig *config){
         channel_bytemask &= 0x00007777;
     }
     
+    /*
     if( config->audio_depth == CFG_AUDIO_DEPTH_16_BIT ){
-        channel_bytemask &= 0x0000EEEE;
+        channel_bytemask &= 0x0000EEEE; // 0x00003333
     }
+    */
 
     for(uint_fast8_t ch = 0; ch < 4; ch++){
         if( !config->audio_ch_enabled[ch] ){ //disable channel
@@ -307,10 +328,14 @@ HAL_StatusTypeDef audio_configure(AudioManager *self, TagConfig *config){
             ad7768_set_ch_state(self->adc, (ad7768_ch)ch, AD7768_ACTIVE);
         }
     }
+
+    /*
     self->sai->SlotInit.SlotActive = channel_bytemask;
     HAL_RESULT_PROPAGATE(HAL_SAI_Init(self->sai) != HAL_OK)
+    */
 
     HAL_RESULT_PROPAGATE(audio_set_sample_rate(self, config->audio_rate));
+
     return HAL_OK;
 }
 
@@ -324,7 +349,7 @@ HAL_StatusTypeDef audio_set_sample_rate(
     if (audio_rate == CFG_AUDIO_RATE_96_KHZ){
         ad7768_set_mclk_div(self->adc, AD7768_MCLK_DIV_8);
         ad7768_set_power_mode(self->adc, AD7768_MEDIAN);
-        ad7768_set_dclk_div(self->adc, AD7768_DCLK_DIV_4);
+        ad7768_set_dclk_div(self->adc, AD7768_DCLK_DIV_1); //4, could try 8
 
     } else if (audio_rate == CFG_AUDIO_RATE_192_KHZ){
         HAL_RESULT_PROPAGATE(ad7768_set_mclk_div(self->adc, AD7768_MCLK_DIV_4));

@@ -123,17 +123,18 @@ UINT USBD_STORAGE_Read(VOID *storage_instance, ULONG lun, UCHAR *data_pointer,
   UINT status = UX_SUCCESS;
 
   /* USER CODE BEGIN USBD_STORAGE_Read */
-  //UX_PARAMETER_NOT_USED(storage_instance);
-  //UX_PARAMETER_NOT_USED(lun);
-  //UX_PARAMETER_NOT_USED(data_pointer);
-  //UX_PARAMETER_NOT_USED(number_blocks);
-  //UX_PARAMETER_NOT_USED(lba);
-  //UX_PARAMETER_NOT_USED(media_status);
+  /*
+  UX_PARAMETER_NOT_USED(storage_instance);
+  UX_PARAMETER_NOT_USED(lun);
+  UX_PARAMETER_NOT_USED(data_pointer);
+  UX_PARAMETER_NOT_USED(number_blocks);
+  UX_PARAMETER_NOT_USED(lba);
+  UX_PARAMETER_NOT_USED(media_status);
+  */
 
   __disable_irq();
   HAL_SD_ReadBlocks(&hsd1, data_pointer, lba, number_blocks, HAL_MAX_DELAY);
   __enable_irq();
-
   /* USER CODE END USBD_STORAGE_Read */
 
   return status;
@@ -157,16 +158,17 @@ UINT USBD_STORAGE_Write(VOID *storage_instance, ULONG lun, UCHAR *data_pointer,
   UINT status = UX_SUCCESS;
 
   /* USER CODE BEGIN USBD_STORAGE_Write */
-
-  //UX_PARAMETER_NOT_USED(storage_instance);
-  //UX_PARAMETER_NOT_USED(lun);
-  //UX_PARAMETER_NOT_USED(data_pointer);
- // UX_PARAMETER_NOT_USED(number_blocks);
-  //UX_PARAMETER_NOT_USED(lba);
-  //UX_PARAMETER_NOT_USED(media_status);
+  /*
+  UX_PARAMETER_NOT_USED(storage_instance);
+  UX_PARAMETER_NOT_USED(lun);
+  UX_PARAMETER_NOT_USED(data_pointer);
+  UX_PARAMETER_NOT_USED(number_blocks);
+  UX_PARAMETER_NOT_USED(lba);
+  UX_PARAMETER_NOT_USED(media_status);
+  */
 
   __disable_irq();
-    HAL_SD_WriteBlocks(&hsd1, data_pointer, lba, number_blocks, HAL_MAX_DELAY);
+  HAL_SD_WriteBlocks(&hsd1, data_pointer, lba, number_blocks, HAL_MAX_DELAY);
   __enable_irq();
   /* USER CODE END USBD_STORAGE_Write */
 
@@ -220,6 +222,7 @@ UINT USBD_STORAGE_Status(VOID *storage_instance, ULONG lun, ULONG media_id,
   UX_PARAMETER_NOT_USED(lun);
   UX_PARAMETER_NOT_USED(media_id);
   UX_PARAMETER_NOT_USED(media_status);
+
   *media_status = media_status_callback();
   /* USER CODE END USBD_STORAGE_Status */
 

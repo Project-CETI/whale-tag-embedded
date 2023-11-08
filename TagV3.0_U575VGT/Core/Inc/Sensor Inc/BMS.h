@@ -15,18 +15,17 @@
 // Include Files
 #include "stm32u5xx_hal.h"
 #include "tx_port.h"
+#include "Lib Inc/timing.h"
 #include <stdbool.h>
 #include <util.h>
 
 
 // MAX17320G2 Device Address
 #define MAX17320_DEV_ADDR               0x6C // For internal memory range 0x000 - 0x0FF
-#define MAX17320_DEV_ADDR_END           0x16
+#define MAX17320_DEV_ADDR_EXT           0x16
 
 // MAX17320G2 Data Registers
 #define MAX17320_REG_STATUS             0x000
-#define MAX17320_REG_PROT_ALERT			0x0AF
-#define MAX17320_REG_PROT_CFG			0x1F1
 
 #define MAX17320_REG_REP_CAPACITY		0x005
 #define MAX17320_REG_REP_SOC			0x006
@@ -36,17 +35,21 @@
 #define MAX17320_REG_CELL2_VOLTAGE		0x0D7
 #define MAX17320_REG_TOTAL_BAT_VOLTAGE	0x0DA
 #define MAX17320_REG_PACK_SIDE_VOLTAGE	0x0DB
+#define MAX17320_REG_OC_VOLTAGE			0x0FB
 
 #define MAX17320_REG_COMM_STAT			0x061
-#define MAX17320_REG_OVP_THR			0x1D9
 #define MAX17320_REG_PACK_CFG			0x1B5
 #define MAX17320_REG_PROT_CFG			0x1D7
+#define MAX17320_REG_PROT_CFG2			0x1F1
+#define MAX17320_REG_PROT_ALRT			0x0AF
+#define MAX17320_REG_CFG2				0x0AB
+
+#define MAX17320_REG_CMD				0x060
+#define MAX17320_REG_REMAIN_WRITES		0x1FD
 
 #define MAX17320_REG_TEMPERATURE		0x01B
-
 #define MAX17320_REG_BATT_CURRENT		0x01C
 #define MAX17320_REG_AVG_BATT_CURRENT	0x01D
-
 #define MAX17320_REG_TIME_TO_EMPTY		0x011
 #define MAX17320_REG_TIME_TO_FULL		0x020
 
@@ -54,11 +57,13 @@
 #define MAX17320_REG_VOLTAGE_ALT_THR	0x001
 #define MAX17320_REG_TEMP_ALT_THR		0x002
 #define MAX17320_REG_SOC_ALT_THR		0x003
-
 #define MAX17320_REG_CELL_BAL_THR		0x1D4
 
-#define MAX17320_REG_DEV_NAME           0x021
+#define MAX17320_REG_CHARGE_VOLTAGE		0x1D9
+#define MAX17320_REG_UVP				0x1D0
+#define MAX17320_REG_OVP				0x1DA
 
+#define MAX17320_REG_DEV_NAME           0x021
 
 // LSB Conversion Macros
 #define R_SENSE_VAL						0.001 // Ω
@@ -77,22 +82,26 @@
 #define TEMP_ALT_LSB					1.0 // °C
 #define SOC_ALT_LSB						1.0 // %
 
-// Alert Thresholds
-#define MAX17320_MIN_CURRENT_THR		0x00
+#define ROOM_CHARGE_VOLTAGE_LSB			0.005 // V
+#define UVP_PROT_LSB					0.02 // V
+#define OVP_PROT_LSB					0.04 // V
+
+// Alert and Protection Thresholds
+#define MAX17320_MIN_CURRENT_THR		0x00 // mA
 #define MAX17320_MAX_CURRENT_THR		0x00
 
-#define MAX17320_MIN_VOLTAGE_THR		3.0 // V
-#define MAX17320_MAX_VOLTAGE_THR		4.0 // V
+#define MAX17320_ROOM_CHARGE_V_THR		0 // signed relative to 4.2V
+#define MAX17320_UVP_THR				0x50 // unsigned relative to 2.2V (2.6V @0x50)
+#define MAX17320_OVP_THR				0x5 // unsigned relative to room charge voltage (4.2V @0x0 + 4.25V @0x0)
 
-#define MAX17320_MIN_TEMP_THR			0x00 // Not defined yet
+#define MAX17320_MIN_VOLTAGE_THR		3.0 // V
+#define MAX17320_MAX_VOLTAGE_THR		4.6 // V
+
+#define MAX17320_MIN_TEMP_THR			0x00 // C
 #define MAX17320_MAX_TEMP_THR			0x00
 
-#define MAX17320_MIN_SOC_THR			0x00 // Not defined yet
+#define MAX17320_MIN_SOC_THR			0x00 // %
 #define MAX17320_MAX_SOC_THR			0x00
-
-// Overvoltage Thresholds
-#define MAX17320_ROOM_CHARGE_THR		0xA0
-#define MAX17320_LOWER_HALF_DEFAULT		0x59 // Default for lower overvoltage threshold register
 
 // State Machine Flag Thresholds
 #define MAX17320_LOW_BATT_VOLT_THR		3.2
@@ -101,8 +110,8 @@
 #define MAX17320_CRITICAL_SOC_THR		5
 
 // Cell Balancing Thresholds
-#define MAX17320_CELL_BAL_THR			0b011 // Corresponds to a 10.0 mV threshold
-#define MAX17320_CELL_R_BAL_THR			0b011 // Corresponds to a 11.7mΩ threshold
+#define MAX17320_CELL_BAL_THR			0b011 // Corresponds to 10.0 mV threshold
+#define MAX17320_CELL_R_BAL_THR			0b111 // Corresponds to 27.34mΩ threshold (based on 20% measured battery nominal resistance)
 
 #define MAX17320_CELL_CHARGE_THR		0x02 // Corresponds to 5mA current charging threshold, -5mA current discharging threshold
 #define MAX17320_CELL_SOC_THR			0x5005 // Corresponds to 80% full charge threshold
@@ -117,12 +126,23 @@
 #define MAX17320_FET_DISOFF				0b10 // Disable discharge FET
 #define MAX17320_FET_CHGOFF				0b1 // Disable charge FET
 
+// Event Flags
+#define BMS_OP_DONE_FLAG				0x1
+
 // Other Macros
 #define MAX17320_TIMEOUT                1000
+#define MAX17320_CHECK_TIMEOUT			tx_s_to_ticks(60)
 #define SECOND_TO_HOUR					3600
 
+#define RESET_DELAY_MS					20
+#define BLOCK_PROG_TIME_MS				1000
+#define RECALL_TIME_MS					10
+
+#define BMS_WRITES_TOLERANCE			0x0F // corresponds to max 4 writes
+#define BMS_FLAG_TIMEOUT				tx_s_to_ticks(2)
+
 // 8-bit to 16-bit conversion
-#define TO_16_BIT(b1, b2)				((uint16_t)(b2 << 8) | (uint8_t)b1)
+#define TO_16_BIT(b1, b2)				((uint16_t)(b2 << 8) | (uint16_t)b1)
 
 
 // Register Structs
@@ -194,15 +214,21 @@ typedef struct __MAX17320_HandleTypeDef {
 
 } MAX17320_HandleTypeDef;
 
-
+HAL_StatusTypeDef max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev);
+uint8_t max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev);
+HAL_StatusTypeDef max17320_full_reset(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_init(MAX17320_HandleTypeDef *dev, I2C_HandleTypeDef *hi2c_device);
 HAL_StatusTypeDef max17320_clear_write_protection(MAX17320_HandleTypeDef *dev);
+HAL_StatusTypeDef max17320_set_write_protection(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_set_alert_thresholds(MAX17320_HandleTypeDef *dev);
-HAL_StatusTypeDef max17320_set_ovp_thresholds(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_configure_cell_balancing(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_configure_thermistors(MAX17320_HandleTypeDef *dev);
+HAL_StatusTypeDef max17320_configure_fets(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_close_fets(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_open_fets(MAX17320_HandleTypeDef *dev);
+HAL_StatusTypeDef max17320_start_charge(MAX17320_HandleTypeDef *dev);
+HAL_StatusTypeDef max17320_stop_charge(MAX17320_HandleTypeDef *dev);
+HAL_StatusTypeDef max17320_clear_alerts(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_get_status(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_get_faults(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_get_fet_status(MAX17320_HandleTypeDef *dev);

@@ -21,10 +21,9 @@
 #include "main.h"
 #include "stm32u575xx.h"
 #include "tx_api.h"
+#include "Lib Inc/timing.h"
 #include <stdint.h>
 #include <stdbool.h>
-
-//Useful defines
 
 //Channels
 #define IMU_CONTROL_CHANNEL 2
@@ -59,13 +58,13 @@
 //Timeout values
 #define IMU_NEW_DATA_TIMEOUT_MS 2000
 #define IMU_DUMMY_PACKET_TIMEOUT_MS 500
+#define IMU_FLAG_WAIT_TIMEOUT tx_s_to_ticks(10)
+#define IMU_MAX_BAD_DATA 50
 
-//ThreadX flag bit for when IMU data is ready
+//ThreadX status flags
 #define IMU_DATA_READY_FLAG 0x1
-
-//ThreadX flag for stopping the IMU (exit data capture)
-#define IMU_STOP_DATA_THREAD_FLAG 0x2
-#define IMU_STOP_SD_THREAD_FLAG 0x4
+#define IMU_STOP_SD_THREAD_FLAG 0x2
+#define IMU_STOP_DATA_THREAD_FLAG 0x4
 #define IMU_HALF_BUFFER_FLAG 0x8
 
 //The number of IMU Samples to collect before writing to the SD card. This MUST be an even number.

@@ -142,7 +142,7 @@
 /* Defined, this value is the maximum number of classes in the device stack that can be loaded by
    USBX.  */
 
-#define UX_MAX_SLAVE_CLASS_DRIVER    1
+#define UX_MAX_SLAVE_CLASS_DRIVER    2
 
 /* Defined, this value is the maximum number of interfaces in the device framework.  */
 
@@ -187,7 +187,7 @@
 
 /* Defined, this value includes code to handle storage Multi-Media Commands (MMC). E.g., DVD-ROM. */
 
-#define UX_SLAVE_CLASS_STORAGE_INCLUDE_MMC
+/* #define UX_SLAVE_CLASS_STORAGE_INCLUDE_MMC */
 
 /* Defined, this value represents the maximum number of bytes that a storage payload can send/receive.
    The default is 8K bytes but can be reduced in memory constrained environments.  */
@@ -467,7 +467,7 @@
 
 /* This is the ThreadX priority value for the standard USBX threads */
 
-/* #define UX_THREAD_PRIORITY_CLASS          20 */
+#define UX_THREAD_PRIORITY_CLASS             1
 
 /* This is the ThreadX priority value for the USBX HID keyboard class. */
 

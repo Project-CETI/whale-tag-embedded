@@ -40,7 +40,7 @@ void depth_thread_entry(ULONG thread_input) {
 	tx_mutex_create(&depth_first_half_mutex, "DEPTH First Half Mutex", TX_INHERIT);
 	tx_mutex_create(&depth_second_half_mutex, "DEPTH Second Half Mutex", TX_INHERIT);
 
-	//Allow the SD card writing thread to start
+	//Start ECG sensor thread
 	tx_thread_resume(&threads[ECG_THREAD].thread);
 
 	while (1) {
@@ -49,7 +49,8 @@ void depth_thread_entry(ULONG thread_input) {
 
 		//Wait for first half of the buffer to be ready for data
 		//tx_event_flags_get(&audio_event_flags_group, AUDIO_BUFFER_HALF_FULL_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
-		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG | IMU_STOP_DATA_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
+		actual_flags &= ~IMU_HALF_BUFFER_FLAG;
 		tx_mutex_get(&depth_first_half_mutex, TX_WAIT_FOREVER);
 
 		//Fill up the first half of the buffer (this function call fills up the IMU buffer on its own)
@@ -59,12 +60,13 @@ void depth_thread_entry(ULONG thread_input) {
 		tx_mutex_put(&depth_first_half_mutex);
 
 		tx_event_flags_set(&depth_event_flags_group, DEPTH_HALF_BUFFER_FLAG, TX_OR);
-		tx_event_flags_get(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		tx_event_flags_get(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG | ECG_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 
 		//Acquire second half (so we can fill it up)
 		//tx_event_flags_get(&audio_event_flags_group, AUDIO_BUFFER_FULL_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
-		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG | IMU_STOP_DATA_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
+		actual_flags &= ~IMU_HALF_BUFFER_FLAG;
 		tx_mutex_get(&depth_second_half_mutex, TX_WAIT_FOREVER);
 
 		//Call to get data, this handles filling up the second half of the buffer completely
@@ -74,7 +76,7 @@ void depth_thread_entry(ULONG thread_input) {
 		tx_mutex_put(&depth_second_half_mutex);
 
 		tx_event_flags_set(&depth_event_flags_group, DEPTH_HALF_BUFFER_FLAG, TX_OR);
-		tx_event_flags_get(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		tx_event_flags_get(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG | ECG_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 
 		//Check to see if there was a stop flag raised
@@ -98,19 +100,25 @@ HAL_StatusTypeDef depth_get_data(Keller_HandleTypedef* keller_sensor, uint8_t bu
 
 	//Receive data buffer
 	uint8_t receiveData[256] = {0};
+	uint8_t bad_data_count = 0;
 
 	for (uint16_t index = 0; index < DEPTH_HALF_BUFFER_SIZE; index++) {
 
-		ULONG actual_events;
-		HAL_StatusTypeDef ret = HAL_ERROR;
 		uint8_t data_buf[1] = {KELLER_REQ};
 
-		ret = HAL_I2C_Master_Transmit(keller_sensor->i2c_handler, 0x40 << 1, data_buf, 1, 100);
+		HAL_StatusTypeDef ret = HAL_I2C_Master_Transmit(keller_sensor->i2c_handler, 0x40 << 1, data_buf, 1, 100);
 
 		//If there is some issue, ignore the data
 		if (ret != HAL_OK) {
 			//Decrement index so we dont fill this part of the array
 			index--;
+			bad_data_count++;
+
+			if (bad_data_count > DEPTH_MAX_BAD_DATA) {
+				tx_event_flags_set(&depth_event_flags_group, DEPTH_STOP_DATA_THREAD_FLAG, TX_OR);
+				tx_event_flags_set(&depth_event_flags_group, DEPTH_STOP_SD_THREAD_FLAG, TX_OR);
+				tx_thread_suspend(&threads[DEPTH_THREAD].thread);
+			}
 
 			//Return to start of loop
 			continue;
@@ -126,6 +134,13 @@ HAL_StatusTypeDef depth_get_data(Keller_HandleTypedef* keller_sensor, uint8_t bu
 		if (ret != HAL_OK) {
 			//Decrement index so we dont fill this part of the array
 			index--;
+			bad_data_count++;
+
+			if (bad_data_count > DEPTH_MAX_BAD_DATA) {
+				tx_event_flags_set(&depth_event_flags_group, DEPTH_STOP_DATA_THREAD_FLAG, TX_OR);
+				tx_event_flags_set(&depth_event_flags_group, DEPTH_STOP_SD_THREAD_FLAG, TX_OR);
+				tx_thread_suspend(&threads[DEPTH_THREAD].thread);
+			}
 
 			//Return to start of loop
 			continue;

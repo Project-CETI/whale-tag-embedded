@@ -42,16 +42,17 @@ void ecg_thread_entry(ULONG thread_input){
 	//Enable our interrupt handler (signals when data is ready)
 	HAL_NVIC_EnableIRQ(EXTI14_IRQn);
 
-	//Start data collection thread since we're ready to collect data
+	//Start data collection thread
 	tx_thread_resume(&threads[DATA_LOG_THREAD].thread);
 
-	while(1){
+	while(1) {
 
 		ULONG actual_flags;
 
 		//Acquire first half mutex to start collecting data
 		//tx_event_flags_get(&audio_event_flags_group, AUDIO_BUFFER_HALF_FULL_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
-		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG | IMU_STOP_DATA_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
+		actual_flags &= ~IMU_HALF_BUFFER_FLAG;
 		tx_mutex_get(&ecg_first_half_mutex, TX_WAIT_FOREVER);
 
 		//Fill up the first half of the buffer (this function call fills up the IMU buffer on its own)
@@ -65,7 +66,8 @@ void ecg_thread_entry(ULONG thread_input){
 
 		//Acquire the second half mutex to fill it up
 		//tx_event_flags_get(&audio_event_flags_group, AUDIO_BUFFER_FULL_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
-		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG | IMU_STOP_DATA_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
+		actual_flags &= ~IMU_HALF_BUFFER_FLAG;
 		tx_mutex_get(&ecg_second_half_mutex, TX_WAIT_FOREVER);
 
 		//Call to get data, this handles filling up the second half of the buffer completely
@@ -113,23 +115,36 @@ HAL_StatusTypeDef ecg_init(I2C_HandleTypeDef* hi2c, ECG_HandleTypeDef* ecg){
 
 HAL_StatusTypeDef ecg_get_data(ECG_HandleTypeDef* ecg, uint8_t buffer_half) {
 
-	for (uint16_t index = 0; index < ECG_HALF_BUFFER_SIZE; index++){
+	ULONG actual_events;
+	uint8_t bad_data_count = 0;
 
-		//holds event flags
-		ULONG actual_events;
+	for (uint16_t index = 0; index < ECG_HALF_BUFFER_SIZE; index++){
 
 		//We've initialized the ECG to be in continuous conversion mode, and we have an interrupt line signaling when data is ready.
 		//Thus, wait for our flag to be set in the interrupt handler. This function call will block the entire task until we receive the data.
-		tx_event_flags_get(&ecg_event_flags_group, ECG_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
+		tx_event_flags_get(&ecg_event_flags_group, ECG_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, ECG_FLAG_TIMEOUT);
 
-		//Wait for new data, retrieve it
-		while (ecg_read_adc(ecg) != HAL_OK)
-
-		/*
-		if (ecg_read_adc(ecg) == HAL_OK){
-			good_ecg_data++;
+		if (!(actual_events & ECG_DATA_READY_FLAG)) {
+			tx_event_flags_set(&ecg_event_flags_group, ECG_STOP_DATA_THREAD_FLAG, TX_OR);
+			tx_event_flags_set(&ecg_event_flags_group, ECG_STOP_SD_THREAD_FLAG, TX_OR);
+			tx_thread_suspend(&threads[ECG_THREAD].thread);
 		}
-		*/
+
+		HAL_StatusTypeDef ret = ecg_read_adc(ecg);
+
+		if (ret != HAL_OK) {
+			index--;
+			bad_data_count++;
+
+			if (bad_data_count > ECG_MAX_BAD_DATA) {
+				tx_event_flags_set(&ecg_event_flags_group, ECG_STOP_DATA_THREAD_FLAG, TX_OR);
+				tx_event_flags_set(&ecg_event_flags_group, ECG_STOP_SD_THREAD_FLAG, TX_OR);
+				tx_thread_suspend(&threads[ECG_THREAD].thread);
+			}
+
+			//Return to start of loop
+			continue;
+		}
 
 		//Fill up the first half buffer
 		ecg_data[buffer_half][index] = ecg->data;

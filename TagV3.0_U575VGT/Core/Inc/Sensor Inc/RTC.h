@@ -21,10 +21,6 @@
 // rtc initialization timeout
 #define RTC_GPS_TIMEOUT_MINS 1 // timeout in minutes before initializing rtc without gps timestamp
 
-// rtc new audio file interval
-#define RTC_AUDIO_REFRESH_MINS 5
-#define RTC_AUDIO_REFRESH_TOL 1
-
 // rtc event flags
 #define RTC_INIT_FLAG 0x1
 

@@ -153,9 +153,7 @@ VOID tx_application_define(VOID *first_unused_memory)
   if (tx_byte_pool_create(&ux_device_app_byte_pool, "Ux App memory pool", ux_device_byte_pool_buffer, UX_DEVICE_APP_MEM_POOL_SIZE) != TX_SUCCESS)
   {
     /* USER CODE BEGIN UX_Device_Byte_Pool_Error */
-	while(1)
-	{
-	}
+
     /* USER CODE END UX_Device_Byte_Pool_Error */
   }
   else

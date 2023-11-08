@@ -49,6 +49,9 @@ typedef enum {
 #define ALS_PART_ID      0b1010
 #define ALS_REVISION_ID  0b0000
 
+//Delay values
+#define LIGHT_DELAY_MS	1000
+
 typedef enum {
     GAIN_DEF    = 0b000,    // Gain x1 -> 1 lux to 64k lux
     GAIN_2X     = 0b001,    // Gain x2 -> 0.5 lux to 32k lux

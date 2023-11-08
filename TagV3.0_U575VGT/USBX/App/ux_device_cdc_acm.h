@@ -1,11 +1,11 @@
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
-  * @file    app_usbx_device.h
+  * @file    ux_device_cdc_acm.h
   * @author  MCD Application Team
-  * @brief   USBX Device applicative header file
+  * @brief   USBX Device CDC ACM interface header file
   ******************************************************************************
-   * @attention
+    * @attention
   *
   * Copyright (c) 2023 STMicroelectronics.
   * All rights reserved.
@@ -18,8 +18,8 @@
   */
 /* USER CODE END Header */
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __APP_USBX_DEVICE_H__
-#define __APP_USBX_DEVICE_H__
+#ifndef __UX_DEVICE_CDC_ACM_H__
+#define __UX_DEVICE_CDC_ACM_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,10 +27,7 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "ux_api.h"
-#include "ux_device_msc.h"
-#include "ux_device_cdc_acm.h"
-#include "ux_device_descriptors.h"
-#include "app_azure_rtos_config.h"
+#include "ux_device_class_cdc_acm.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -43,11 +40,6 @@ extern "C" {
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
-#define USBX_DEVICE_MEMORY_STACK_SIZE       15*1024
-
-#define UX_DEVICE_APP_THREAD_STACK_SIZE   2048
-#define UX_DEVICE_APP_THREAD_PRIO         1
-
 /* USER CODE BEGIN EC */
 
 /* USER CODE END EC */
@@ -58,31 +50,27 @@ extern "C" {
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
-UINT MX_USBX_Device_Init(VOID *memory_ptr);
+VOID USBD_CDC_ACM_Activate(VOID *cdc_acm_instance);
+VOID USBD_CDC_ACM_Deactivate(VOID *cdc_acm_instance);
+VOID USBD_CDC_ACM_ParameterChange(VOID *cdc_acm_instance);
 
 /* USER CODE BEGIN EFP */
-
+VOID usbx_cdc_acm_read_thread_entry(ULONG thread_input);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define USB_UART_BAUDRATE	9600
+#define MIN_BAUDRATE		9600
+#define VCP_WORDLENGTH8		8
+#define APP_RX_DATA_SIZE	64
+#define APP_TX_DATA_SIZE	64
+
+#define SLEEP_CMD			0x01
+#define WAKE_CMD			0x02
+#define START_CHAR			0x24
 
 /* USER CODE END PD */
-#ifndef UX_DEVICE_APP_THREAD_NAME
-#define UX_DEVICE_APP_THREAD_NAME  "USBX Device App Main Thread"
-#endif
-
-#ifndef UX_DEVICE_APP_THREAD_PREEMPTION_THRESHOLD
-#define UX_DEVICE_APP_THREAD_PREEMPTION_THRESHOLD  UX_DEVICE_APP_THREAD_PRIO
-#endif
-
-#ifndef UX_DEVICE_APP_THREAD_TIME_SLICE
-#define UX_DEVICE_APP_THREAD_TIME_SLICE  TX_NO_TIME_SLICE
-#endif
-
-#ifndef UX_DEVICE_APP_THREAD_START_OPTION
-#define UX_DEVICE_APP_THREAD_START_OPTION  TX_AUTO_START
-#endif
 
 /* USER CODE BEGIN 1 */
 
@@ -91,4 +79,4 @@ UINT MX_USBX_Device_Init(VOID *memory_ptr);
 #ifdef __cplusplus
 }
 #endif
-#endif /* __APP_USBX_DEVICE_H__ */
+#endif  /* __UX_DEVICE_CDC_ACM_H__ */

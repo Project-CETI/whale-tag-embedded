@@ -26,6 +26,7 @@
 #include "Sensor Inc/RTC.h"
 #include "Sensor Inc/KellerDepth.h"
 #include "Sensor Inc/BMS.h"
+#include "Sensor Inc/LightSensor.h"
 #include "Lib Inc/state_machine.h"
 #include "Recovery Inc/Aprs.h"
 #include "Recovery Inc/Burnwire.h"
@@ -44,7 +45,7 @@ typedef enum __TX_THREAD_LIST {
 	RTC_THREAD,
 	BMS_THREAD,
 	DATA_LOG_THREAD,
-	//LIGHT_THREAD,
+	LIGHT_THREAD,
 	//COMMS_RX_THREAD,
 	NUM_THREADS //DO NOT ADD THREAD ENUMS BELOW THIS
 } Thread;
@@ -86,7 +87,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.thread_name = "State Machine Thread",
 			.thread_entry_function = state_machine_thread_entry,
 			.thread_input = 0x1234,
-			.thread_stack_size = 1024,
+			.thread_stack_size = 2048,
 			.priority = 2,
 			.preempt_threshold = 2,
 			.timeslice = TX_NO_TIME_SLICE,
@@ -130,7 +131,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.thread_name = "ECG Thread",
 			.thread_entry_function = ecg_thread_entry,
 			.thread_input = 0x1234,
-			.thread_stack_size = 1024,
+			.thread_stack_size = 800,
 			.priority = 6,
 			.preempt_threshold = 6,
 			.timeslice = TX_NO_TIME_SLICE,
@@ -141,11 +142,11 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.thread_name = "GPS Thread",
 			.thread_entry_function = gps_thread_entry,
 			.thread_input = 0x1234,
-			.thread_stack_size = 1024,
+			.thread_stack_size = 800,
 			.priority = 12,
 			.preempt_threshold = 12,
 			.timeslice = TX_NO_TIME_SLICE,
-			.start = TX_AUTO_START
+			.start = TX_DONT_START
 		},
 		[APRS_THREAD] = {
 			//APRS Thread
@@ -163,14 +164,14 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.thread_name = "Burnwire Thread",
 			.thread_entry_function = burnwire_thread_entry,
 			.thread_input = 0x1234,
-			.thread_stack_size = 1024,
+			.thread_stack_size = 800,
 			.priority = 10,
 			.preempt_threshold = 10,
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_DONT_START
 		},
 		[RTC_THREAD] = {
-			// RTC Thread
+			//RTC Thread
 			.thread_name = "RTC Thread",
 			.thread_entry_function = rtc_thread_entry,
 			.thread_input = 0x1234,
@@ -178,21 +179,21 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.priority = 8,
 			.preempt_threshold = 8,
 			.timeslice = TX_NO_TIME_SLICE,
-			.start = TX_AUTO_START
+			.start = TX_DONT_START
 		},
 		[BMS_THREAD] = {
-			// BMS Thread
+			//BMS Thread
 			.thread_name = "BMS Thread",
 			.thread_entry_function = bms_thread_entry,
 			.thread_input = 0x1234,
 			.thread_stack_size = 800,
-			.priority = 8,
-			.preempt_threshold = 8,
+			.priority = 7, //8
+			.preempt_threshold = 7,
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_AUTO_START
 		},
 		[DATA_LOG_THREAD] = {
-			// Data Log Thread
+			//Data Log Thread
 			.thread_name = "Data Log Thread",
 			.thread_entry_function = sd_thread_entry,
 			.thread_input = 0x1234,
@@ -202,9 +203,8 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_DONT_START
 		},
-		/*
 		[LIGHT_THREAD] = {
-			// Light Thread
+			//Light Thread
 			.thread_name = "Light Thread",
 			.thread_entry_function = light_thread_entry,
 			.thread_input = 0x1234,
@@ -212,8 +212,9 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.priority = 9,
 			.preempt_threshold = 9,
 			.timeslice = TX_NO_TIME_SLICE,
-			.start = TX_AUTO_START
+			.start = TX_DONT_START
 		},
+		/*
 		[COMMS_RX_THREAD] = {
 			// Comms RX Thread
 			.thread_name = "Comms RX Thread",

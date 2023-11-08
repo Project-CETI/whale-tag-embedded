@@ -657,8 +657,9 @@ HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev){
 
 	// TODO: Change to output an error
 	// Bit 3 is CHIP_ERROR, Bit 2 is NO_CLOCK_ERROR, check both to see if there is an error
-	if(data != 0x00)
-		return HAL_ERROR;
+	if (data != 0x00) {
+		return data;
+	}
 
     ret |= ad7768_get_revision_id(dev, &data);
 
@@ -679,6 +680,10 @@ HAL_StatusTypeDef ad7768_setup(ad7768_dev *dev){
 //	if (!ret)
 //		printf("AD7768 successfully initialized\n");
 
+	if (ret != HAL_OK) {
+		return HAL_ERROR;
+	}
+
 	return ret;
 }
 
@@ -692,6 +697,6 @@ HAL_StatusTypeDef ad7768_sync(ad7768_dev *dev){
 	return ret;
 }
 
-HAL_StatusTypeDef ad7768_get_revision_id(ad7768_dev *dev, uint8_t *reg_data){
+HAL_StatusTypeDef ad7768_get_revision_id(ad7768_dev *dev, uint8_t *reg_data) {
     return ad7768_spi_read(dev, AD7768_REG_REV_ID, reg_data);
 }

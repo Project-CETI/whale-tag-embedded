@@ -12,7 +12,6 @@
 #include "main.h"
 
 extern I2C_HandleTypeDef hi2c2;
-
 LightSensorHandleTypedef light;
 
 /*** PRIVATE ***/
@@ -94,14 +93,11 @@ static inline ALSMeasureTime __ALSMeasureTime_get_max_from_freq_Hz(float freq_Hz
 void light_thread_entry(ULONG thread_input) {
 
 	//Initalize chip
-	LightSensor_Init(&hi2c2, &light);
-
-
+	LightSensor_init(&hi2c2, &light);
 
 	while (1) {
-
 		LightSensor_get_data(&light);
-
+		HAL_Delay(1000);
 	}
 }
 

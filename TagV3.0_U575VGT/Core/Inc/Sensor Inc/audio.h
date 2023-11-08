@@ -16,6 +16,7 @@
  * ADC Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/ad7768-7768-4.pdf
  */
 #include <stdint.h>
+#include "Lib Inc/timing.h"
 #include "main.h"
 #include "ad7768.h"
 #include "config.h"
@@ -27,20 +28,22 @@
 //ThreadX flag bits to show when the buffer is half full or completely full
 #define AUDIO_BUFFER_HALF_FULL_FLAG 0x1
 #define AUDIO_BUFFER_FULL_FLAG 0x2
-
-//ThreadX flag to stop the audio sensor (exit data collection)
 #define AUDIO_STOP_THREAD_FLAG 0x4
 
-//Do not change
-#define DMA_BUF_BLOCK_LENGTH 2
+//DMA block length
+#define DMA_BUF_BLOCK_LENGTH 2 //DO NOT CHANGE
 
 //Number of blocks the temp buffer should use. This MUST be an even number.
 #define TEMP_BUF_BLOCK_LENGTH 18
-
 #define TEMP_BUF_HALF_BLOCK_LENGTH ((TEMP_BUF_BLOCK_LENGTH) / 2)
 
 //Time interval to create new logging file in minutes
-#define NEW_FILE_INTERVAL_MINS 5
+#define RTC_AUDIO_REFRESH_MINS 5
+#define RTC_AUDIO_REFRESH_TOL 1
+
+//String indices for file name
+#define AUDIO_FILENAME_HOURS_INDEX 11
+#define AUDIO_FILENAME_MINS_INDEX 13
 
 typedef enum {
     AUDIO_BUF_STATE_EMPTY,

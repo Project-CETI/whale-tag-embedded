@@ -6,7 +6,7 @@
  *
  * 	Source file for the IMU drivers. See header file for more details
  */
-#include "BNO08x.h"
+#include "Sensor Inc/BNO08x.h"
 #include "Sensor Inc/audio.h"
 #include "fx_api.h"
 #include "app_filex.h"
@@ -18,8 +18,6 @@
 #include "Lib Inc/threads.h"
 
 extern SPI_HandleTypeDef hspi1;
-
-//Threads array
 extern Thread_HandleTypeDef threads[NUM_THREADS];
 
 extern TX_EVENT_FLAGS_GROUP audio_event_flags_group;
@@ -59,9 +57,11 @@ void imu_thread_entry(ULONG thread_input){
 	HAL_NVIC_EnableIRQ(EXTI12_IRQn);
 
 	//Allow the SD card writing thread to start
-	tx_thread_resume(&threads[DATA_LOG_THREAD].thread);
+	tx_thread_resume(&threads[DEPTH_THREAD].thread);
 
 	while(1) {
+
+		ULONG actual_flags;
 
 		//Wait for audio thread (1st half)
 		//tx_event_flags_get(&audio_event_flags_group, AUDIO_BUFFER_HALF_FULL_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
@@ -91,8 +91,6 @@ void imu_thread_entry(ULONG thread_input){
 
 		//DEBUG
 		good_counter = 0;
-		
-		ULONG actual_flags;
 
 		//Check to see if there was a stop flag raised
 		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
@@ -147,13 +145,19 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 
 	//receive data buffer
 	uint8_t receiveData[256] = {0};
+	uint8_t bad_data_count = 0;
+	ULONG actual_events;
 
 	for (uint16_t index = 0; index < IMU_HALF_BUFFER_SIZE; index++){
 
-		ULONG actual_events;
-
 		//Wait for data to be ready (suspends so other threads can run)
-		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
+		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
+
+		if (!(actual_events & IMU_DATA_READY_FLAG)) {
+			tx_event_flags_set(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR);
+			tx_event_flags_set(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR);
+			tx_thread_suspend(&threads[IMU_THREAD].thread);
+		}
 
 		//Read the header in to a buffer
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
@@ -167,6 +171,13 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 		if (ret == HAL_TIMEOUT || dataLength <= 0){
 			//Decrement index so we dont fill this part of the array
 			index--;
+			bad_data_count++;
+
+			if (bad_data_count > IMU_MAX_BAD_DATA) {
+				tx_event_flags_set(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR);
+				tx_event_flags_set(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR);
+				tx_thread_suspend(&threads[IMU_THREAD].thread);
+			}
 
 			//Return to start of loop
 			continue;
@@ -179,6 +190,12 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 		//Now that we know the length, wait for the payload of data to be ready
 		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
+		if (!(actual_events & IMU_DATA_READY_FLAG)) {
+			tx_event_flags_set(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR);
+			tx_event_flags_set(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR);
+			tx_thread_suspend(&threads[IMU_THREAD].thread);
+		}
+
 		//Read the data (note that the SHTP header is resent with each read, so we still need to read the full length
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
 		ret = HAL_SPI_Receive(imu->hspi, receiveData, dataLength, IMU_SPI_READ_TIMEOUT);
@@ -189,6 +206,13 @@ HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half){
 
 			//Same logic as above, reset our index
 			index--;
+			bad_data_count++;
+
+			if (bad_data_count > IMU_MAX_BAD_DATA) {
+				tx_event_flags_set(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR);
+				tx_event_flags_set(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR);
+				tx_thread_suspend(&threads[IMU_THREAD].thread);
+			}
 
 			//Return to start of loop
 			continue;

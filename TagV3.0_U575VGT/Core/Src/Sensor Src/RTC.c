@@ -30,18 +30,12 @@ RTC_DateTypeDef eDate = {0};
 //ThreadX flags for rtc
 TX_EVENT_FLAGS_GROUP rtc_event_flags_group;
 
-//Time interval variable
-uint8_t new_audio_file;
-
 void rtc_thread_entry(ULONG thread_input) {
 
 	bool first_pass = true;
 
 	// create events flag
 	tx_event_flags_create(&rtc_event_flags_group, "RTC Event Flags");
-
-	RTC_TimeTypeDef sTime = {0};
-	RTC_DateTypeDef sDate = {0};
 
 	// wait for gps lock
 	while (!gps.is_pos_locked && sTime.Minutes < RTC_GPS_TIMEOUT_MINS) {
@@ -67,18 +61,11 @@ void rtc_thread_entry(ULONG thread_input) {
 			tx_event_flags_set(&state_machine_event_flags_group, STATE_TIMEOUT_FLAG, TX_OR);
 		}
 
-		if (abs(eTime.Minutes - sTime.Minutes) % RTC_AUDIO_REFRESH_MINS <= RTC_AUDIO_REFRESH_TOL) {
-			new_audio_file = 1;
-		}
-		else {
-			new_audio_file = 0;
-		}
-
 		//Sleep and repeat the process once woken up
-		if (!first_pass && state == STATE_DATA_CAPTURE) {
+		if (!first_pass && (state == STATE_DATA_CAPTURE || state == STATE_DATA_OFFLOAD)) {
 			tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		}
-		else if (state == STATE_DATA_CAPTURE){
+		else if (state == STATE_DATA_CAPTURE || state == STATE_DATA_OFFLOAD) {
 			first_pass = false;
 		}
 	}
