@@ -167,24 +167,57 @@ int getBatteryData(double* battery_v1_v, double* battery_v2_v,
 // Charge and Discharge Enabling
 //-----------------------------------------------------------------------------
 int enableCharging() {
-
+  int fd, temp;
+  if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
+    CETI_LOG("XXXX Failed to connect to the battery gauge XXXX");
+    return (-1);
+  }
+  else {
+    temp = i2cReadByteData(fd,BATT_PROTECT);
+    i2cWriteByteData(fd,BATT_PROTECT, (temp | CE ) ); //establish undervoltage cutoff
+  }
   return(0);
 }
 
-int disableCharging() {
 
+int disableCharging() {
+  int fd, temp;
+  if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
+    CETI_LOG("XXXX Failed to connect to the battery gauge XXXX");
+    return (-1);
+  }
+  else {
+    temp = i2cReadByteData(fd,BATT_PROTECT);
+    i2cWriteByteData(fd,BATT_PROTECT, (temp & NCE)  ); //establish undervoltage cutoff
+  }
   return(0);
 
 }
 
 int enableDischarging() {
-
+  int fd, temp;
+  if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
+    CETI_LOG("XXXX Failed to connect to the battery gauge XXXX");
+    return (-1);
+  }
+  else {
+    temp = i2cReadByteData(fd,BATT_PROTECT);
+    i2cWriteByteData(fd,BATT_PROTECT, (temp | DE )  ); //establish undervoltage cutoff
+  }
   return(0);
 
 }
 
 int disableDischarging() {
-
+  int fd, temp;
+  if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
+    CETI_LOG("XXXX Failed to connect to the battery gauge XXXX");
+    return (-1);
+  }
+  else {
+    temp = i2cReadByteData(fd,BATT_PROTECT);
+    i2cWriteByteData(fd,BATT_PROTECT, (temp & NDE )  ); //establish undervoltage cutoff
+  }
   return(0);
 
 }

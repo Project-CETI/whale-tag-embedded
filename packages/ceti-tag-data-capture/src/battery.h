@@ -42,7 +42,13 @@
 
 #define MIN_CHARGE_TEMP (10)
 #define MAX_CHARGE_TEMP (40)
+#define MIN_DISCHARGE_TEMP (5)
 #define MAX_DISCHARGE_TEMP (50)
+
+#define DE 0x01    //BIT 0 set  Discharge Enable
+#define NDE 0xF7   //BIT 0 clear
+#define CE 0x02    //BIT 1 set  Charge Enable
+#define NCE 0xFD   //BIT 1 clear  1111 1101
 
 //-----------------------------------------------------------------------------
 // Methods

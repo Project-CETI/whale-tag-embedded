@@ -88,8 +88,19 @@ void* boardTemperature_thread(void* paramPtr) {
         // Acquire battery temperature and enable/disable charge and discharge
         if(getBatteryTemperature(&batteryTemperature_c) < 0)
           strcat(boardTemperature_data_file_notes, "ERROR | ");
-        if(batteryTemperature_c > MAX_CHARGE_TEMP) 
+        
+        if( (batteryTemperature_c > MAX_CHARGE_TEMP) &&  (batteryTemperature_c < MIN_CHARGE_TEMP) ) {
           disableCharging();
+          CETI_LOG("Battery charging disabled, outside thermal limits");
+        }
+        else enableCharging();
+
+        if( (batteryTemperature_c > MAX_DISCHARGE_TEMP) &&  (batteryTemperature_c < MIN_DISCHARGE_TEMP) ) {
+          disableDischarging();
+          CETI_LOG("Battery discharging disabled, outside thermal limits");        
+        }
+        else enableDischarging();
+
 
         // Write timing information.
         fprintf(boardTemperature_data_file, "%lld", global_time_us);

@@ -15,11 +15,11 @@
 //  2_1.5   11/24/22   Change RAM buffer size to accomodate read-only rootfs
 //  2.1.6   12/03/22   Added ECG
 //  2.2.0   03/25/22   Refactored codebase, testing on Pi Zero 2
-//
+//  2.2.1   11/8/23    Adding battery temperature monitoring
 
 #ifndef CETI_VERSIONING_H
 #define CETI_VERSIONING_H
 
-#define CETI_VERSION "v2_2.0 release candidate - in test"
+#define CETI_VERSION "v2_2.1 - Adding battery temperature monitoring, in test"
 
 #endif // CETI_VERSIONING_H
