@@ -80,17 +80,13 @@ int imu_init_data_files(void) {
 
   do {
     data_file_exists = 0;
-    //generate file names
-    for (int i_type = 0; i_type < IMU_DATA_TYPE_COUNT; i_type++) {
-      snprintf(imu_data_filepath[i_type], IMU_MAX_FILEPATH_LENGTH, IMU_DATA_FILEPATH_BASE "_%s_%02d", imu_data_names[i_type], data_file_postfix_count);
-    }
-    //check that all don't exist
+    //check that all filenames don't already exist
     for (int i_type = 0; i_type < IMU_DATA_TYPE_COUNT && !data_file_exists; i_type++) {
-      data_file_exists |= (access(imu_data_filepath[i_type], F_OK) != -1);
+      snprintf(imu_data_filepath[i_type], IMU_MAX_FILEPATH_LENGTH, IMU_DATA_FILEPATH_BASE "_%s_%02d.csv", imu_data_names[i_type], data_file_postfix_count);
+      data_file_exists = (access(imu_data_filepath[i_type], F_OK) != -1);
     }
     data_file_postfix_count++;
   } while(data_file_exists);
-
 
   int init_data_file_success = 0;
   for (int i_type = 0; i_type < IMU_DATA_TYPE_COUNT; i_type++) {
@@ -130,7 +126,7 @@ void* imu_thread(void* paramPtr) {
       if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
         CETI_LOG("Successfully set affinity to CPU %d", IMU_CPU);
       else
-        CETI_LOG("XXX Failed to set affinity to CPU %d", IMU_CPU);
+        CETI_ERR("Failed to set affinity to CPU %d", IMU_CPU);
     }
 
     // Main loop while application is running.
@@ -151,7 +147,7 @@ void* imu_thread(void* paramPtr) {
       int unopened_file = false;
       for (int i_type = 0; i_type < IMU_DATA_TYPE_COUNT && !unopened_file; i_type++) {
         if (imu_data_file[i_type] == NULL) {
-          CETI_LOG("failed to open data output file: %s", imu_data_filepath[i_type]);
+          CETI_ERR("Failed to open data output file: %s", imu_data_filepath[i_type]);
           imu_data_file[i_type] = fopen(imu_data_filepath[i_type], "at");
           unopened_file = (imu_data_file[i_type] == NULL);
         }
@@ -166,7 +162,7 @@ void* imu_thread(void* paramPtr) {
         // If there was an error, try to reset the IMU.
         // Ignore the initial few seconds though, since sometimes it takes a little bit to get in sync.
         if (get_global_time_us() - start_global_time_us > 10000000) {
-          CETI_LOG("XXX Error connecting to IMU. Waiting and then attempting to reconnect.");
+          CETI_ERR("Unable to connect to IMU");
           usleep(5000000);
           setupIMU();
           start_global_time_us = get_global_time_us();
@@ -180,7 +176,7 @@ void* imu_thread(void* paramPtr) {
       if(report_id_updated == -1) {
         // timeout reached
         if((get_global_time_us() - global_time_us > 5000000) && (get_global_time_us() - start_global_time_us > 10000000)) {
-          CETI_LOG("XXX Error reading from IMU. Waiting and then attempting to reconnect.");
+          CETI_ERR("Unable to reading from IMU");
           usleep(5000000);
           setupIMU();
           start_global_time_us = get_global_time_us();
@@ -209,7 +205,7 @@ void* imu_thread(void* paramPtr) {
 
       if(report_type == -1){
         //unknown report type
-        CETI_LOG("[Warn]: Unknown report type: 0x%02x", report_id_updated);
+        CETI_WARN("Unknown IMU report type: 0x%02x", report_id_updated);
         continue;
       }
 
@@ -338,7 +334,7 @@ int setupIMU()
     // Open an I2C connection.
     int retval = bbI2COpen(IMU_BB_I2C_SDA, IMU_BB_I2C_SCL, 200000);
     if (retval < 0) {
-        CETI_LOG("XXX Failed to connect to the IMU XXX\n");
+        CETI_ERR("Failed to connect to the IMU\n");
         imu_is_connected = 0;
         return -1;
     }
@@ -406,7 +402,7 @@ int imu_enable_feature_report(int report_id, uint32_t report_interval_us)
   writeCmdBuf[27] = 0x00; // end
   int retval = bbI2CZip(IMU_BB_I2C_SDA, writeCmdBuf, 28, NULL, 0);
   if (retval < 0) {
-      CETI_LOG("XXX I2C write failed enabling report %d: %d", report_id, retval);
+      CETI_ERR("I2C write failed enabling report %d: %d", report_id, retval);
       return -1;
   }
 
@@ -422,7 +418,7 @@ int imu_enable_feature_report(int report_id, uint32_t report_interval_us)
   readCmdBuf[8] = 0x00; // end
   retval = bbI2CZip(IMU_BB_I2C_SDA, readCmdBuf, 9, shtpHeader, 4);
   if (retval < 0) {
-      CETI_LOG("XXX I2C read failed enabling report %d: %d", report_id, retval);
+      CETI_ERR("I2C read failed enabling report %d: %d", report_id, retval);
       return -1;
   }
   CETI_LOG("Enabled report %d.  Header is 0x%02X  0x%02X  0x%02X  0x%02X",
