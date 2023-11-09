@@ -131,7 +131,8 @@ extern int g_imu_thread_is_running;
 // Methods
 //-----------------------------------------------------------------------------
 int init_imu();
-int init_imu_data_file(int restarted_program);
+// int init_imu_data_file(int restarted_program);
+int imu_init_data_files(void);
 int resetIMU();
 int setupIMU();
 int imu_enable_feature_report(int report_id, uint32_t report_interval_us);
