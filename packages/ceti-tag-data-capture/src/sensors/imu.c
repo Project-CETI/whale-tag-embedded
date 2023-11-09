@@ -29,12 +29,33 @@ static FILE *imu_data_file[IMU_DATA_TYPE_COUNT] = {
     [IMU_DATA_TYPE_GYRO] = NULL,
     [IMU_DATA_TYPE_MAG] = NULL,
 };
-static char imu_data_file_notes[256] = "";
+//These all compile to single continuous strings, aka why no comma between quotes.
 static const char* imu_data_file_headers[IMU_DATA_TYPE_COUNT] = {
-    [IMU_DATA_TYPE_QUAT] = "Sensor_delay_us, Quat_i, Quat_j, Quat_k, Quat_Re, Quat_accuracy",
-    [IMU_DATA_TYPE_ACCEL] = "Sensor_delay_us, Accel_x_m_ss, Accel_y_m_ss, Accel_z_m_ss, Accel_accuracy",
-    [IMU_DATA_TYPE_GYRO] = "Sensor_delay_us, Gyro_x_rad_s, Gyro_y_rad_s, Gyro_z_rad_s, Gyro_accuracy",
-    [IMU_DATA_TYPE_MAG] = "Sensor_delay_us, Mag_x_uT, Mag_y_uT, Mag_z_uT, Mag_accuracy",
+    [IMU_DATA_TYPE_QUAT] =
+        "Sensor_delay_us"
+        ",Quat_i"
+        ",Quat_j"
+        ",Quat_k"
+        ",Quat_Re"
+        ",Quat_accuracy",
+    [IMU_DATA_TYPE_ACCEL] =
+        "Sensor_delay_us"
+        ",Accel_x_m_ss"
+        ",Accel_y_m_ss"
+        ",Accel_z_m_ss"
+        ",Accel_accuracy",
+    [IMU_DATA_TYPE_GYRO] =
+        "Sensor_delay_us"
+        ",Gyro_x_rad_s"
+        ",Gyro_y_rad_s"
+        ",Gyro_z_rad_s"
+        ",Gyro_accuracy",
+    [IMU_DATA_TYPE_MAG] =
+        "Sensor_delay_us"
+        ",Mag_x_uT"
+        ",Mag_y_uT"
+        ",Mag_z_uT"
+        ",Mag_accuracy",
 };
 static const char* imu_data_names[IMU_DATA_TYPE_COUNT] = {
     [IMU_DATA_TYPE_QUAT] = "quat",
@@ -93,7 +114,7 @@ int imu_init_data_files(void) {
     // Open the new files
     init_data_file_success |= init_data_file(imu_data_file[i_type], imu_data_filepath[i_type],
                                                 &imu_data_file_headers[i_type],  1,
-                                                imu_data_file_notes, "imu_init_data_files()");
+                                                NULL, "imu_init_data_files()");
   }
   imu_restarted_log = true;
   return init_data_file_success;
