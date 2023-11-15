@@ -4,8 +4,6 @@
 // Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 //
-// Note - version must correspond with the repository release tag
-//
 // Version    Date    Description
 //  2_1.0   10/08/21   Begin work, establish framework
 //  2_1.1   06/27/22   Update v2.0 to work with v2.1 hardware

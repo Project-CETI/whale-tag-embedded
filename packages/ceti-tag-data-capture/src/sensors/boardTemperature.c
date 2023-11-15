@@ -22,6 +22,7 @@ static const char* boardTemperature_data_file_headers[] = {
 static const int num_boardTemperature_data_file_headers = 2;
 static int boardTemperature_c;
 static int batteryTemperature_c;
+static int charging_disabled, discharging_disabled;
 
 int init_boardTemperature() {
   CETI_LOG("Successfully initialized the board temperature sensor [did nothing]");
@@ -76,32 +77,49 @@ void* boardTemperature_thread(void* paramPtr) {
         // Acquire timing and sensor information as close together as possible.
         global_time_us = get_global_time_us();
         rtc_count = getRtcCount();
-        if(getBoardTemperature(&boardTemperature_c) < 0)
+
+//        if(getBoardTemperature(&boardTemperature_c) < 0)        
+        if(getTemperatures(&boardTemperature_c,&batteryTemperature_c) < 0)
           strcat(boardTemperature_data_file_notes, "ERROR | ");
+
         if(boardTemperature_c < -80) // it seems to return -83 when no sensor is connected
         {
           CETI_LOG("XXX readings are likely invalid");
           strcat(boardTemperature_data_file_notes, "INVALID? | ");
         }
-
         
-        // Acquire battery temperature and enable/disable charge and discharge
-        if(getBatteryTemperature(&batteryTemperature_c) < 0)
-          strcat(boardTemperature_data_file_notes, "ERROR | ");
+        // ******************   Battery Temperature Checks *****************************************************
+        if( (batteryTemperature_c > MAX_CHARGE_TEMP) ||  (batteryTemperature_c < MIN_CHARGE_TEMP) ) {          
+          if (!charging_disabled){  
+            disableCharging();
+            charging_disabled = 1;
+            CETI_LOG("Battery charging disabled, outside thermal limits");
+          }
+        }
+        else {  //probably want to require operator to reset this condition rather than have it start by itself.
+          if(charging_disabled) {
+            enableCharging();
+            charging_disabled = 0;
+            CETI_LOG("Battery charging re-enabled, back inside thermal limits");
+          }          
+        } 
+
+        if( (batteryTemperature_c > MAX_DISCHARGE_TEMP) ||  (batteryTemperature_c < MIN_DISCHARGE_TEMP) ) {
+         if (!discharging_disabled){  
+            disableDischarging();
+            discharging_disabled = 1;
+            CETI_LOG("Battery discharging disabled, outside thermal limits");
+          }     
+        }
+        else {
+          if (discharging_disabled){   // if there is no external supply, this condition will never occur (the device will turn off)
+            enableDischarging();
+            discharging_disabled = 0;
+            CETI_LOG("Battery discharging re-enabled, back inside thermal limits"); 
+          }
+        }
+        // ******************   End Battery Temperature Checks *****************************************************
         
-        if( (batteryTemperature_c > MAX_CHARGE_TEMP) &&  (batteryTemperature_c < MIN_CHARGE_TEMP) ) {
-          disableCharging();
-          CETI_LOG("Battery charging disabled, outside thermal limits");
-        }
-        else enableCharging();
-
-        if( (batteryTemperature_c > MAX_DISCHARGE_TEMP) &&  (batteryTemperature_c < MIN_DISCHARGE_TEMP) ) {
-          disableDischarging();
-          CETI_LOG("Battery discharging disabled, outside thermal limits");        
-        }
-        else enableDischarging();
-
-
         // Write timing information.
         fprintf(boardTemperature_data_file, "%lld", global_time_us);
         fprintf(boardTemperature_data_file, ",%d", rtc_count);
@@ -156,6 +174,25 @@ int getBatteryTemperature(int *pBattTemp) {
     }
 
     *pBattTemp = i2cReadByteData(fd,0x01);
+    i2cClose(fd);
+    return(0);
+}
+
+// This function does both at once, experimental for chasing the bus crash behavior
+// What we observe is that the bus hangs, not seeing this bug with the single
+// temperature reading. Hang in this case is SCL stuck low. Restarting the program
+// releases it. 
+
+int getTemperatures(int *pBoardTemp, int *pBattTemp) {
+
+    int fd;
+    if((fd=i2cOpen(1,ADDR_BOARDTEMPERATURE,0)) < 0) {
+        CETI_LOG("XXXX Failed to connect to the temperature sensor XXXX");
+        return(-1);
+    }
+    *pBoardTemp = i2cReadByteData(fd,0x0);
+    usleep(1000*10);  //experimental
+    *pBattTemp  = i2cReadByteData(fd,0x01);
     i2cClose(fd);
     return(0);
 }
