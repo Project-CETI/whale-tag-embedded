@@ -174,7 +174,7 @@ int enableCharging() {
   }
   else {
     temp = i2cReadByteData(fd,BATT_PROTECT);
-    i2cWriteByteData(fd,BATT_PROTECT, (temp | CE ) ); //establish undervoltage cutoff
+    i2cWriteByteData(fd,BATT_PROTECT, (temp | CE ) ); 
   }
   return(0);
 }
@@ -188,7 +188,7 @@ int disableCharging() {
   }
   else {
     temp = i2cReadByteData(fd,BATT_PROTECT);
-    i2cWriteByteData(fd,BATT_PROTECT, (temp & NCE)  ); //establish undervoltage cutoff
+    i2cWriteByteData(fd,BATT_PROTECT, (temp & NCE)  ); 
   }
   return(0);
 
@@ -202,7 +202,7 @@ int enableDischarging() {
   }
   else {
     temp = i2cReadByteData(fd,BATT_PROTECT);
-    i2cWriteByteData(fd,BATT_PROTECT, (temp | DE )  ); //establish undervoltage cutoff
+    i2cWriteByteData(fd,BATT_PROTECT, (temp | DE )  ); 
   }
   return(0);
 
@@ -216,7 +216,7 @@ int disableDischarging() {
   }
   else {
     temp = i2cReadByteData(fd,BATT_PROTECT);
-    i2cWriteByteData(fd,BATT_PROTECT, (temp & NDE )  ); //establish undervoltage cutoff
+    i2cWriteByteData(fd,BATT_PROTECT, (temp & NDE )  ); 
   }
   return(0);
 

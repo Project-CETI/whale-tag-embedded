@@ -88,7 +88,8 @@ void* boardTemperature_thread(void* paramPtr) {
           strcat(boardTemperature_data_file_notes, "INVALID? | ");
         }
         
-        // ******************   Battery Temperature Checks *****************************************************
+        // ******************   Battery Temperature Checks *************************
+
         if( (batteryTemperature_c > MAX_CHARGE_TEMP) ||  (batteryTemperature_c < MIN_CHARGE_TEMP) ) {          
           if (!charging_disabled){  
             disableCharging();
@@ -96,13 +97,15 @@ void* boardTemperature_thread(void* paramPtr) {
             CETI_LOG("Battery charging disabled, outside thermal limits");
           }
         }
+#if 0   
         else {  //probably want to require operator to reset this condition rather than have it start by itself.
           if(charging_disabled) {
             enableCharging();
             charging_disabled = 0;
             CETI_LOG("Battery charging re-enabled, back inside thermal limits");
           }          
-        } 
+        }
+#endif 
 
         if( (batteryTemperature_c > MAX_DISCHARGE_TEMP) ||  (batteryTemperature_c < MIN_DISCHARGE_TEMP) ) {
          if (!discharging_disabled){  
@@ -111,6 +114,7 @@ void* boardTemperature_thread(void* paramPtr) {
             CETI_LOG("Battery discharging disabled, outside thermal limits");
           }     
         }
+#if 0
         else {
           if (discharging_disabled){   // if there is no external supply, this condition will never occur (the device will turn off)
             enableDischarging();
@@ -118,7 +122,9 @@ void* boardTemperature_thread(void* paramPtr) {
             CETI_LOG("Battery discharging re-enabled, back inside thermal limits"); 
           }
         }
-        // ******************   End Battery Temperature Checks *****************************************************
+#endif
+      
+        // ******************   End Battery Temperature Checks *********************
         
         // Write timing information.
         fprintf(boardTemperature_data_file, "%lld", global_time_us);
@@ -194,5 +200,13 @@ int getTemperatures(int *pBoardTemp, int *pBattTemp) {
     usleep(1000*10);  //experimental
     *pBattTemp  = i2cReadByteData(fd,0x01);
     i2cClose(fd);
+    return(0);
+}
+
+int resetBattTempFlags() {
+    discharging_disabled = 0;
+    charging_disabled = 0;
+    enableDischarging();
+    enableCharging();
     return(0);
 }

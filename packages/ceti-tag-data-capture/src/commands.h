@@ -17,6 +17,7 @@
 #include "utils/logging.h"
 #include "recovery.h"
 #include "battery.h"
+#include "boardTemperature.h"
 #include "burnwire.h"
 #include "sensors/imu.h"
 #include "systemMonitor.h" // for the global CPU assignment variable to update
