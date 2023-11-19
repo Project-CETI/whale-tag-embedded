@@ -14,23 +14,30 @@
 # This is the CETI makefile for the top level
 #-----------------------------------------------------------------------------
 
-SRC        = $(wildcard src/*.c) $(wildcard src/*/*.c) $(wildcard src/*/*/*.c)
+SRC        = $(shell find src -type f -iname '*.c' 2> /dev/null)
 OBJ        = $(SRC:.c=.o)
 CC         = gcc
 CFLAGS     = -Wall -g
 LDFLAGS    = -lpthread -lpigpio -lFLAC -lm
 APP        = cetiTagApp
+HW_TEST    = cetiHWTest
+APP_OBJ    = $(filter-out src/$(HW_TEST).o, $(OBJ))
+HW_TEST_OBJ = $(filter-out src/launcher.o, $(OBJ))
 BINDIR    ?= bin
 IPCDIR    ?= ipc
 CONFIGDIR ?= config
 DATADIR   ?= data
 DESTDIR   ?= opt/ceti-tag-data-capture
 
-build: $(APP)
+build: $(APP) $(HW_TEST)
 
-$(APP): $(OBJ)
+$(APP): $(APP_OBJ)
 	mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) -o $(BINDIR)/$(APP) $(OBJ) $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $(BINDIR)/$(APP) $(APP_OBJ) $(LDFLAGS)
+
+$(HW_TEST): $(HW_TEST_OBJ)
+	mkdir -p $(BINDIR)
+	$(CC) $(CFLAGS) -o $(BINDIR)/$(HW_TEST) $(HW_TEST_OBJ) $(LDFLAGS)
 
 install: build
 	mkdir -p $(DESTDIR)

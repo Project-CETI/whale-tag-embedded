@@ -11,6 +11,20 @@
 // Initialization
 //-----------------------------------------------------------------------------
 
+#define LIGHT_TRY_OPEN(fd)   if ((fd=i2cOpen(1, ADDR_LIGHT, 0)) < 0) { \
+    CETI_LOG("XXXX Failed to connect to the light sensor XXXX"); \
+    return -1; \
+  }
+
+#define LIGHT_TRY_READ(fd, addr)   { \
+  int result; \
+  if ((result = i2cReadWordData(fd, addr)) < 0) { \
+    CETI_LOG("XXXX Failed to read light sensor XXXX"); \
+    return result; \
+  } \
+  result
+}
+
 // Global/static variables
 int g_light_thread_is_running = 0;
 static FILE* light_data_file = NULL;
@@ -126,14 +140,46 @@ int getAmbientLight(int* pAmbientLightVisible, int* pAmbientLightIR) {
 
     int fd;
 
-    if((fd=i2cOpen(1,ADDR_LIGHT,0)) < 0) {
-        CETI_LOG("XXXX Failed to connect to the light sensor XXXX");
-        return (-1);
-    }
+    LIGHT_TRY_OPEN(fd);
 
     // Read both wavelengths.
     *pAmbientLightVisible = i2cReadWordData(fd,0x88); // visible
     *pAmbientLightIR = i2cReadWordData(fd,0x8A); // infrared
     i2cClose(fd);
     return (0);
+}
+
+int light_get_part_id(int *pPartID, int *pRevisionID) {
+  int fd;
+  int result;
+
+  LIGHT_TRY_OPEN(fd);
+  result = LIGHT_TRY_READ(fd, 0x86);
+ 
+  if(pPartID != NULL)
+    *pPartID = result >> 4;
+
+  if(pRevisionID != NULL)
+    *pRevisionID = result & 0x0F;
+
+  i2cClose(fd);
+  return 0;
+}
+
+int light_get_manufacturer_id(int *pManufacID){
+  int fd;
+  int result;
+
+  LIGHT_TRY_OPEN(fd);
+  
+  if((result = i2cReadWordData(fd,0x87)) < 0) {
+    CETI_LOG("XXXX Failed to read light sensor XXXX");
+    return result;
+  } 
+
+  if(pManufacID != NULL)
+    *pManufacID = result;
+
+  i2cClose(fd);
+  return 0;
 }

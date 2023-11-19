@@ -17,9 +17,6 @@
 #include "utils/logging.h"
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 
-#include <pigpio.h>
-#include <pthread.h> // to set CPU affinity
-
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------

@@ -83,42 +83,39 @@ void* battery_thread(void* paramPtr) {
         // Sleep a bit before retrying.
         for(int i = 0; i < 10 && !g_stopAcquisition; i++)
           usleep(100000);
+        continue;
       }
-      else
-      {
-        // Acquire timing and sensor information as close together as possible.
-        global_time_us = get_global_time_us();
-        rtc_count = getRtcCount();
-        if(getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v,
-                          &g_latest_battery_i_mA) < 0)
-          strcat(battery_data_file_notes, "ERROR | ");
-        if(g_latest_battery_v1_v < 0 || g_latest_battery_v2_v < 0) // it seems to return -0.01 for voltages and -5.19 for current when no sensor is connected
-        {
-          CETI_LOG("XXX readings are likely invalid");
-          strcat(battery_data_file_notes, "INVALID? | ");
-        }
-
-        // Write timing information.
-        fprintf(battery_data_file, "%lld", global_time_us);
-        fprintf(battery_data_file, ",%d", rtc_count);
-        // Write any notes, then clear them so they are only written once.
-        fprintf(battery_data_file, ",%s", battery_data_file_notes);
-        strcpy(battery_data_file_notes, "");
-        // Write the sensor data.
-        fprintf(battery_data_file, ",%.3f", g_latest_battery_v1_v);
-        fprintf(battery_data_file, ",%.3f", g_latest_battery_v2_v);
-        fprintf(battery_data_file, ",%.3f", g_latest_battery_i_mA);
-        // Finish the row of data and close the file.
-        fprintf(battery_data_file, "\n");
-        fclose(battery_data_file);
-
-        // Delay to implement a desired sampling rate.
-        // Take into account the time it took to acquire/save data.
-        polling_sleep_duration_us = BATTERY_SAMPLING_PERIOD_US;
-        polling_sleep_duration_us -= get_global_time_us() - global_time_us;
-        if(polling_sleep_duration_us > 0)
-          usleep(polling_sleep_duration_us);
+     
+      // Acquire timing and sensor information as close together as possible.
+      global_time_us = get_global_time_us();
+      rtc_count = getRtcCount();
+      if(getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v, &g_latest_battery_i_mA) < 0)
+        strcat(battery_data_file_notes, "ERROR | ");
+      if(g_latest_battery_v1_v < 0 || g_latest_battery_v2_v < 0) { // it seems to return -0.01 for voltages and -5.19 for current when no sensor is connected
+        CETI_LOG("XXX readings are likely invalid");
+        strcat(battery_data_file_notes, "INVALID? | ");
       }
+
+      // Write timing information.
+      fprintf(battery_data_file, "%lld", global_time_us);
+      fprintf(battery_data_file, ",%d", rtc_count);
+      // Write any notes, then clear them so they are only written once.
+      fprintf(battery_data_file, ",%s", battery_data_file_notes);
+      strcpy(battery_data_file_notes, "");
+      // Write the sensor data.
+      fprintf(battery_data_file, ",%.3f", g_latest_battery_v1_v);
+      fprintf(battery_data_file, ",%.3f", g_latest_battery_v2_v);
+      fprintf(battery_data_file, ",%.3f", g_latest_battery_i_mA);
+      // Finish the row of data and close the file.
+      fprintf(battery_data_file, "\n");
+      fclose(battery_data_file);
+
+      // Delay to implement a desired sampling rate.
+      // Take into account the time it took to acquire/save data.
+      polling_sleep_duration_us = BATTERY_SAMPLING_PERIOD_US;
+      polling_sleep_duration_us -= get_global_time_us() - global_time_us;
+      if(polling_sleep_duration_us > 0)
+        usleep(polling_sleep_duration_us);
     }
     g_battery_thread_is_running = 0;
     CETI_LOG("Done!");
@@ -128,9 +125,7 @@ void* battery_thread(void* paramPtr) {
 //-----------------------------------------------------------------------------
 // Battery gauge interface
 //-----------------------------------------------------------------------------
-int getBatteryData(double* battery_v1_v, double* battery_v2_v,
-                   double* battery_i_mA) {
-
+int getBatteryData(double* battery_v1_v, double* battery_v2_v, double* battery_i_mA) {
     int fd, result;
     signed short voltage, current;
 
@@ -143,13 +138,11 @@ int getBatteryData(double* battery_v1_v, double* battery_v2_v,
     voltage = result << 3;
     result = i2cReadByteData(fd, BATT_CELL_1_V_LS);
     voltage = (voltage | (result >> 5));
-    voltage = (voltage | (result >> 5));
     *battery_v1_v = 4.883e-3 * voltage;
 
     result = i2cReadByteData(fd, BATT_CELL_2_V_MS);
     voltage = result << 3;
     result = i2cReadByteData(fd, BATT_CELL_2_V_LS);
-    voltage = (voltage | (result >> 5));
     voltage = (voltage | (result >> 5));
     *battery_v2_v = 4.883e-3 * voltage;
 
@@ -163,3 +156,8 @@ int getBatteryData(double* battery_v1_v, double* battery_v2_v,
     return (0);
 }
 
+#ifdef CODE_TEST
+int main(void){
+  return 0;
+}
+#endif
