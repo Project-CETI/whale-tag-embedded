@@ -16,15 +16,6 @@
     return -1; \
   }
 
-#define LIGHT_TRY_READ(fd, addr)   { \
-  int result; \
-  if ((result = i2cReadWordData(fd, addr)) < 0) { \
-    CETI_LOG("XXXX Failed to read light sensor XXXX"); \
-    return result; \
-  } \
-  result
-}
-
 // Global/static variables
 int g_light_thread_is_running = 0;
 static FILE* light_data_file = NULL;
@@ -153,9 +144,13 @@ int light_get_part_id(int *pPartID, int *pRevisionID) {
   int fd;
   int result;
 
-  LIGHT_TRY_OPEN(fd);
-  result = LIGHT_TRY_READ(fd, 0x86);
- 
+   LIGHT_TRY_OPEN(fd);
+
+  if((result = i2cReadWordData(fd,0x86)) < 0) {
+    CETI_LOG("XXXX Failed to read light sensor XXXX");
+    return result;
+  } 
+
   if(pPartID != NULL)
     *pPartID = result >> 4;
 
