@@ -235,6 +235,7 @@ void* imu_thread(void* paramPtr) {
       fprintf(cur_file, "%lld", global_time_us);
       fprintf(cur_file, ",%d", rtc_count);
       // Write any notes, then clear them so they are only written once.
+      fprintf(cur_file, ","); //notes seperator
       if (imu_restarted_log) {
         fprintf(cur_file, "Restarted |");
         imu_restarted_log = false;
@@ -243,6 +244,7 @@ void* imu_thread(void* paramPtr) {
         fprintf(cur_file, "New log file! | ");
         imu_new_log = false;
       }
+
       // Write the sensor reading delay.
       fprintf(cur_file, ",%ld", imu_reading_delay_us);
 
