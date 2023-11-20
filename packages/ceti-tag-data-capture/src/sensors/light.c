@@ -29,13 +29,9 @@ static int light_reading_visible;
 static int light_reading_ir;
 
 int init_light() {
-  int fd;
-  if((fd=i2cOpen(1,ADDR_LIGHT,0)) < 0) {
-    CETI_LOG("XXXX Failed to connect to the light sensor XXXX");
-    return (-1);
-  }
-  else {
-    i2cWriteByteData(fd,0x80,0x1); // wake the light sensor up
+  if(light_wake() != 0){
+    CETI_LOG("XXXX Failed to wake light sensor XXXX");
+    return -1;
   }
   CETI_LOG("Successfully initialized the light sensor");
 
@@ -128,7 +124,6 @@ void* light_thread(void* paramPtr) {
 //-----------------------------------------------------------------------------
 
 int getAmbientLight(int* pAmbientLightVisible, int* pAmbientLightIR) {
-
     int fd;
 
     LIGHT_TRY_OPEN(fd);
@@ -140,41 +135,48 @@ int getAmbientLight(int* pAmbientLightVisible, int* pAmbientLightIR) {
     return (0);
 }
 
-int light_get_part_id(int *pPartID, int *pRevisionID) {
+int light_verify(void) {
   int fd;
   int result;
+  uint8_t manu_id, part_id, rev_id; 
 
-   LIGHT_TRY_OPEN(fd);
+  LIGHT_TRY_OPEN(fd);
+
+  if((result = i2cReadWordData(fd,0x87)) < 0) {
+    CETI_LOG("XXXX Failed to read light sensor XXXX");
+    i2cClose(fd);
+    return result;
+  } 
+
+  manu_id = (uint8_t) result;
+  if (manu_id != 0x05) {
+    i2cClose(fd);
+    return 1;
+  }
 
   if((result = i2cReadWordData(fd,0x86)) < 0) {
     CETI_LOG("XXXX Failed to read light sensor XXXX");
+    i2cClose(fd);
     return result;
-  } 
-
-  if(pPartID != NULL)
-    *pPartID = result >> 4;
-
-  if(pRevisionID != NULL)
-    *pRevisionID = result & 0x0F;
-
+  }
   i2cClose(fd);
+
+  part_id = (uint8_t)result >> 4;
+  rev_id = (uint8_t)result & 0x0F;
+
+  if (part_id != 0x0a) 
+    return 2;
+  if (rev_id != 0x00) 
+    return 3;
+
+  //part part verified
   return 0;
 }
 
-int light_get_manufacturer_id(int *pManufacID){
+int light_wake(void){
   int fd;
-  int result;
 
   LIGHT_TRY_OPEN(fd);
+  return i2cWriteByteData(fd,0x80,0x1); // wake the light sensor up
   
-  if((result = i2cReadWordData(fd,0x87)) < 0) {
-    CETI_LOG("XXXX Failed to read light sensor XXXX");
-    return result;
-  } 
-
-  if(pManufacID != NULL)
-    *pManufacID = result;
-
-  i2cClose(fd);
-  return 0;
 }
