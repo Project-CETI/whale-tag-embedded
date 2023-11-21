@@ -24,6 +24,13 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "Lib Inc/state_machine.h"
+#include "Sensor Inc/BMS.h"
+#include "Sensor Inc/BNO08x.h"
+#include "Sensor Inc/ECG.h"
+#include "Sensor Inc/KellerDepth.h"
+#include "Sensor Inc/LightSensor.h"
+#include "Sensor Inc/audio.h"
+#include "Sensor Inc/RTC.h"
 #include "app_usbx_device.h"
 #include "main.h"
 /* USER CODE END Includes */
@@ -51,6 +58,13 @@ uint8_t usbReceiveBuf[APP_RX_DATA_SIZE];
 uint8_t usbTransmitBuf[APP_TX_DATA_SIZE];
 
 extern TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP bms_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP imu_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP depth_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP audio_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP light_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP rtc_event_flags_group;
 
 UX_SLAVE_CLASS_CDC_ACM_LINE_CODING_PARAMETER CDC_VCP_LineCoding =
 {
@@ -59,6 +73,8 @@ UX_SLAVE_CLASS_CDC_ACM_LINE_CODING_PARAMETER CDC_VCP_LineCoding =
 		0x00,   /* parity - none */
 		0x08    /* nb. of bits 8 */
 };
+
+uint8_t SET_SIMULATION_STATE = 0;
 
 /* USER CODE END PV */
 
@@ -177,7 +193,7 @@ VOID USBD_CDC_ACM_ParameterChange(VOID *cdc_acm_instance)
 /* USER CODE BEGIN 1 */
 VOID usbx_cdc_acm_read_thread_entry(ULONG thread_input) {
 
-  ULONG actual_length;
+  ULONG actual_length = 0;
   UX_SLAVE_DEVICE *device;
 
   UX_PARAMETER_NOT_USED(thread_input);
@@ -193,21 +209,74 @@ VOID usbx_cdc_acm_read_thread_entry(ULONG thread_input) {
       #endif
 
       // read received data in blocking mode
-      ux_device_class_cdc_acm_read(cdc_acm, (UCHAR *) &usbReceiveBuf[0], 2, &actual_length);
+      ux_device_class_cdc_acm_read(cdc_acm, (UCHAR *) &usbReceiveBuf[0], 6, &actual_length);
 
       if (actual_length != 0 && usbReceiveBuf[0] == START_CHAR) {
-        if (usbReceiveBuf[1] == SLEEP_CMD) {
-		  //if (ux_device_class_cdc_acm_write(cdc_acm, (UCHAR *) &usbReceiveBuf[1], 1, &actual_length) != UX_SUCCESS) {
-		  //  Error_Handler();
-		  //}
-          tx_event_flags_set(&state_machine_event_flags_group, STATE_SLEEP_MODE_FLAG, TX_OR);
-        }
-        else if (usbReceiveBuf[1] == WAKE_CMD) {
-		  //if (ux_device_class_cdc_acm_write(cdc_acm, (UCHAR *) &usbReceiveBuf[1], 1, &actual_length) != UX_SUCCESS) {
-		  //  Error_Handler();
-		  //}
-		  tx_event_flags_set(&state_machine_event_flags_group, STATE_EXIT_SLEEP_MODE_FLAG, TX_OR);
-        }
+        switch (usbReceiveBuf[1]) {
+          case SLEEP_CMD:
+        	  tx_event_flags_set(&state_machine_event_flags_group, STATE_SLEEP_MODE_FLAG, TX_OR);
+        	  break;
+          case WAKE_CMD:
+        	  tx_event_flags_set(&state_machine_event_flags_group, STATE_EXIT_SLEEP_MODE_FLAG, TX_OR);
+        	  break;
+          case TEST_SENSORS_CMD:
+        	  // unit tests for all sensors
+        	  tx_event_flags_set(&imu_event_flags_group, IMU_UNIT_TEST_FLAG, TX_OR);
+        	  tx_event_flags_set(&bms_event_flags_group, BMS_UNIT_TEST_FLAG, TX_OR);
+        	  tx_event_flags_set(&depth_event_flags_group, DEPTH_UNIT_TEST_FLAG, TX_OR);
+        	  tx_event_flags_set(&ecg_event_flags_group, ECG_UNIT_TEST_FLAG, TX_OR);
+        	  tx_event_flags_set(&audio_event_flags_group, AUDIO_UNIT_TEST_FLAG, TX_OR);
+        	  tx_event_flags_set(&light_event_flags_group, LIGHT_UNIT_TEST_FLAG, TX_OR);
+        	  tx_event_flags_set(&rtc_event_flags_group, RTC_UNIT_TEST_FLAG, TX_OR);
+        	  break;
+          case READ_SENSOR_CMD:
+        	  tx_event_flags_set(&bms_event_flags_group, BMS_GET_ALL_REG_FLAG, TX_OR);
+        	  break;
+          case WRITE_SENSOR_CMD:
+        	  // imu command only option
+        	  if (usbReceiveBuffer[2] == 0) {
+        		  // reset imu
+        		  if (usbReceiveBuffer[3] == 0) {
+                	  tx_event_flags_set(&imu_event_flags_group, IMU_RESET_FLAG, TX_OR);
+        		  }
+        		  // get samples from imu
+        		  else if (usbReceiveBuffer[3] == 1) {
+                	  tx_event_flags_set(&imu_event_flags_group, IMU_GET_SAMPLES_FLAG, TX_OR);
+        		  }
+        		  // double check
+        		  else if (usbReceiveBuffer[3] == 2) {
+					  tx_event_flags_set(&imu_event_flags_group, IMU_SET_CONFIG_FLAG, TX_OR);
+				  }
+        	  }
+        	  // bms write only option
+        	  if (usbReceiveBuffer[2] == 1) {
+
+        	  }
+        	  // bms command only option
+        	  else if (usbReceiveBuffer[2] == 2) {
+        		  // start discharge, stop charge
+        		  if (usbReceiveBuffer[3] == 0) {
+        			  tx_event_flags_set(&bms_event_flags_group, BMS_STOP_CHARGE_FLAG, TX_OR);
+        		  }
+        		  // start charge, stop discharge
+        		  else if (usbReceiveBuffer[3] == 1) {
+        			  tx_event_flags_set(&bms_event_flags_group, BMS_START_CHARGE_FLAG, TX_OR);
+        		  }
+        	  }
+        	  break;
+          case SIM_CMD:
+        	  // exit simulation mode
+        	  if (usbReceiveBuffer[2] == 0) {
+        		  tx_event_flags_set(&state_machine_event_flags_group, STATE_EXIT_SIM_FLAG, TX_OR);
+        	  }
+        	  // enter simulation mode
+        	  else if (usbReceiveBuffer[2] == 1) {
+        		  SET_SIMULATION_STATE = usbReceiveBuffer[3];
+        		  tx_event_flags_set(&state_machine_event_flags_group, STATE_ENTER_SIM_FLAG, TX_OR);
+        	  }
+          default:
+        	  break;
+    	}
       }
       else {
     	  tx_thread_sleep(MS_TO_TICK(10));

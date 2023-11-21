@@ -127,7 +127,8 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  HAL_NVIC_DisableIRQ(EXTI12_IRQn);
+  HAL_NVIC_DisableIRQ(EXTI14_IRQn);
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -163,8 +164,6 @@ int main(void)
   }
   */
 
-  HAL_NVIC_DisableIRQ(EXTI12_IRQn);
-  HAL_NVIC_DisableIRQ(EXTI14_IRQn);
   /* USER CODE END 2 */
 
   MX_ThreadX_Init();
@@ -183,96 +182,6 @@ int main(void)
   HAL_StatusTypeDef ret = max17320_init(&bms, &hi2c3);
   if (ret == HAL_OK) {
 	  value = 10;
-  }
-
-
-  ret = max17320_get_remaining_writes(&bms);
-	if (ret == HAL_OK) {
-		value = bms.raw;
-	}
-
-	/*
-	uint8_t data_buf[2] = {0};
-		data_buf[1] = (MAX17320_PROT_CFG_DEFAULT | MAX17320_ENABLE_FET_OVERRIDE);
-
-		//ret = max17320_nonvolatile_write(&bms, MAX17320_REG_PROT_CFG, &data_buf[0]);
-		if (ret == HAL_OK) {
-			value = 111;
-		}
-	*/
-
-	ret = max17320_get_status(&bms);
-	if (ret == HAL_OK) {
-		status = bms.status;
-	}
-
-	ret = max17320_get_faults(&bms);
-	if (ret == HAL_OK) {
-		fault = bms.faults;
-	}
-
-	ret = max17320_get_fet_status(&bms);
-	if (ret == HAL_OK) {
-		value = bms.raw;
-	}
-
-	ret = max17320_get_voltages(&bms);
-	if (ret == HAL_OK) {
-		voltage = bms.pack_side_voltage;
-		voltage = bms.cell_1_voltage;
-		voltage = bms.cell_2_voltage;
-		voltage = bms.total_battery_voltage;
-	}
-
-	ret = max17320_get_temperature(&bms);
-	if (ret == HAL_OK) {
-		voltage = bms.temperature;
-	}
-
-	ret = max17320_clear_alerts(&bms);
-	if (ret == HAL_OK) {
-		voltage = bms.cell_1_voltage;
-	}
-
-	ret = max17320_get_status(&bms);
-	if (ret == HAL_OK) {
-		status = bms.status;
-	}
-
-	ret = max17320_get_faults(&bms);
-	if (ret == HAL_OK) {
-		fault = bms.faults;
-	}
-
-  ret = max17320_test2(&bms);
-  if (ret == HAL_OK) {
-	  value = bms.raw;
-  }
-
-  ret = max17320_test(&bms);
-  if (ret == HAL_OK) {
-	  value = bms.raw;
-  }
-
-
-  ret = max17320_clear_write_protection(&bms);
-  if (ret == HAL_OK) {
-	  value = 1;
-  }
-
-  ret = max17320_test2(&bms);
-    if (ret == HAL_OK) {
-  	  value = bms.raw;
-    }
-
-  ret = max17320_test3(&bms);
-  if (ret == HAL_OK) {
-	  value = bms.raw;
-  }
-
-  ret = max17320_close_fets(&bms);
-  if (ret == HAL_OK) {
-	  value = 2;
   }
 
 
@@ -1071,6 +980,9 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOE, IMU_RESET_Pin|IMU_WAKE_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(BURNWIRE_ON_GPIO_Port, BURNWIRE_ON_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
@@ -1083,20 +995,17 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, ADC_CS_Pin|IMU_CS_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
-
-  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, ADC_ENABLE_NEG_5_Pin|ADC_ENABLE_POS_5_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin|DIAG_LED_1_Pin|DIAG_LED4_Pin|DIAG_LED3_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin|DIAG_LED1_Pin|DIAG_LED4_Pin|DIAG_LED3_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : BURNWIRE_ON_Pin */
-  GPIO_InitStruct.Pin = BURNWIRE_ON_Pin;
+  /*Configure GPIO pins : IMU_RESET_Pin BURNWIRE_ON_Pin */
+  GPIO_InitStruct.Pin = IMU_RESET_Pin|BURNWIRE_ON_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(BURNWIRE_ON_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pin : BMS_ALRT_Pin */
   GPIO_InitStruct.Pin = BMS_ALRT_Pin;
@@ -1117,9 +1026,9 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : ADC_CS_Pin IMU_CS_Pin DIAG_LED2_Pin DIAG_LED_1_Pin
+  /*Configure GPIO pins : ADC_CS_Pin IMU_CS_Pin DIAG_LED2_Pin DIAG_LED1_Pin
                            DIAG_LED4_Pin DIAG_LED3_Pin */
-  GPIO_InitStruct.Pin = ADC_CS_Pin|IMU_CS_Pin|DIAG_LED2_Pin|DIAG_LED_1_Pin
+  GPIO_InitStruct.Pin = ADC_CS_Pin|IMU_CS_Pin|DIAG_LED2_Pin|DIAG_LED1_Pin
                           |DIAG_LED4_Pin|DIAG_LED3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;

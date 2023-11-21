@@ -39,7 +39,6 @@ extern ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZ
 
 //BMS handler
 extern MAX17320_HandleTypeDef bms;
-extern uint8_t remaining_writes;
 
 //Status variable to indicate thread is writing to SD card
 bool config_writing = false;
@@ -90,13 +89,16 @@ void state_machine_thread_entry(ULONG thread_input){
 		}
 
 		//Tell BMS thread to write nonvolatile memory settings
-		tx_event_flags_set(&state_machine_event_flags_group, STATE_BMS_NONVOLATILE_SETUP_FLAG, TX_OR);
+		tx_event_flags_set(&bms_event_flags_group, BMS_NV_SETUP_FLAG, TX_OR);
 
 		//Wait for operation to finish
-		tx_event_flags_get(&bms_event_flags_group, BMS_OP_DONE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		tx_event_flags_get(&bms_event_flags_group, BMS_OP_DONE_FLAG | BMS_OP_ERROR_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		if (actual_flags & BMS_OP_ERROR_FLAG) {
+			state = STATE_BMS_ERROR;
+		}
 
 		//Set number of remaining writes for BMS
-		prior_state[1] = remaining_writes;
+		prior_state[1] = bms.remaining_writes;
 
 		//Write initial configuration to config file
 		config_writing = true;
@@ -116,7 +118,7 @@ void state_machine_thread_entry(ULONG thread_input){
 		}
 
 		ULONG actual_bytes;
-		fx_result = fx_file_read(&config_file, &prior_state[0], 1, &actual_bytes);
+		fx_result = fx_file_read(&config_file, &prior_state[0], 3, &actual_bytes);
 
 		//Immediately change states if file error or if prior state is sleep state
 		if ((fx_result != FX_SUCCESS) || (prior_state[0] == STATE_SLEEP)) {
@@ -153,7 +155,7 @@ void state_machine_thread_entry(ULONG thread_input){
 		if (actual_flags & STATE_EXIT_SLEEP_MODE_FLAG) {
 
 			//Tell BMS thread to open BMS mosfets to power tag
-			tx_event_flags_set(&state_machine_event_flags_group, STATE_BMS_OPEN_MOSFET_FLAG, TX_OR);
+			tx_event_flags_set(&bms_event_flags_group, BMS_OPEN_MOSFET_FLAG, TX_OR);
 			tx_event_flags_get(&bms_event_flags_group, BMS_OP_DONE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 
 			//Restore prior state
@@ -233,7 +235,6 @@ void state_machine_thread_entry(ULONG thread_input){
 				}
 			}
 
-
 			//BMS sleep mode flag
 			if (actual_flags & STATE_SLEEP_MODE_FLAG) {
 
@@ -266,8 +267,11 @@ void state_machine_thread_entry(ULONG thread_input){
 				}
 
 				//Tell BMS thread to close BMS mosfets to power off tag
-				tx_event_flags_set(&state_machine_event_flags_group, STATE_BMS_CLOSE_MOSFET_FLAG, TX_OR);
-				tx_event_flags_get(&bms_event_flags_group, BMS_OP_DONE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+				tx_event_flags_set(&bms_event_flags_group, BMS_CLOSE_MOSFET_FLAG, TX_OR);
+				tx_event_flags_get(&bms_event_flags_group, BMS_OP_DONE_FLAG | BMS_OP_ERROR_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+				if (actual_flags & BMS_OP_ERROR_FLAG) {
+					state = STATE_BMS_ERROR;
+				}
 			}
 
 			//USB connected flag
@@ -299,7 +303,7 @@ void enter_data_capture(){
 
 	//Resume data capture threads
 	//tx_thread_resume(&threads[AUDIO_THREAD].thread);
-	//tx_thread_resume(&threads[IMU_THREAD].thread);
+	tx_thread_resume(&threads[IMU_THREAD].thread);
 }
 
 

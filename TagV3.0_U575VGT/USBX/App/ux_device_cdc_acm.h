@@ -66,9 +66,13 @@ VOID usbx_cdc_acm_read_thread_entry(ULONG thread_input);
 #define APP_RX_DATA_SIZE	64
 #define APP_TX_DATA_SIZE	64
 
-#define SLEEP_CMD			0x01
-#define WAKE_CMD			0x02
 #define START_CHAR			0x24
+#define SLEEP_CMD			0x1
+#define WAKE_CMD			0x2
+#define TEST_SENSORS_CMD	0x3
+#define READ_SENSOR_CMD		0x4
+#define WRITE_SENSOR_CMD	0x5
+#define SIM_CMD				0x6
 
 /* USER CODE END PD */
 

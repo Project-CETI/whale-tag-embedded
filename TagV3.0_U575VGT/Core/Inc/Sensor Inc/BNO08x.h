@@ -30,79 +30,119 @@
 #define IMU_DATA_CHANNEL 3
 
 //REPORT IDs
-#define IMU_SET_FEATURE_REPORT_ID 0XFD //report ID for requesting sensor records/data
-#define IMU_TIMESTAMP_REPORT_ID 0xFB //report ID for timestamps that are put infront of the data
-#define IMU_ROTATION_VECTOR_REPORT_ID 0x05 //report ID for the quaternion rotation components
-#define IMU_ACCELEROMETER_REPORT_ID 0x01 //report ID for the accelerometer data
-#define IMU_GYROSCOPE_REPORT_ID 0x02 //report ID for the gyroscope data
-#define IMU_MAGNETOMETER_REPORT_ID 0x03 //report ID for the magnetometer data
+#define IMU_SET_FEATURE_REPORT_ID		0XFD //report ID for requesting sensor records/data
+#define IMU_TIMESTAMP_REPORT_ID			0xFB //report ID for timestamps that are put infront of the data
+#define IMU_GET_PRODUCT_REPORT_ID		0xF9 //report ID for product ID
+#define IMU_G_ROTATION_VECTOR_REPORT_ID	0x08 //report ID for the quaternion rotation components
+#define IMU_ROTATION_VECTOR_REPORT_ID	0x05 //report ID for the quaternion rotation components with accuracy
+#define IMU_ACCELEROMETER_REPORT_ID		0x01 //report ID for the accelerometer data
+#define IMU_GYROSCOPE_REPORT_ID			0x02 //report ID for the gyroscope data
+#define IMU_MAGNETOMETER_REPORT_ID		0x03 //report ID for the magnetometer data
 
 //Report interval from MSByte to LSByte
-#define IMU_REPORT_INTERVAL_3 0x00
-#define IMU_REPORT_INTERVAL_2 0x00
-#define IMU_REPORT_INTERVAL_1 0x4E
-#define IMU_REPORT_INTERVAL_0 0x20
+#define IMU_REPORT_INTERVAL_3			0x00
+#define IMU_REPORT_INTERVAL_2			0x00
+#define IMU_REPORT_INTERVAL_1			0x4E
+#define IMU_REPORT_INTERVAL_0			0x20
 
 //Bit mask for extracting length from the first two bytes of the header
 #define IMU_LENGTH_BIT_MASK 0x7FFF //neglects MSB
 
-//The length of data (including header) of the message to configure the rotation vector reports
-#define IMU_CONFIGURE_REPORT_LENGTH 21
-
-//The length of the rotation vector data received from the IMU
-#define IMU_ROTATION_VECTOR_REPORT_LENGTH 23
-
-//the length of the SHTP header
-#define IMU_SHTP_HEADER_LENGTH 4
+#define IMU_CONFIG_REPORT_LEN			0x15
+#define IMU_PRODUCT_CONFIG_REPORT_LEN	0x06
+#define IMU_ROTATION_VECTOR_REPORT_LEN	23
+#define IMU_SHTP_HEADER_LEN				4
 
 //Timeout values
-#define IMU_NEW_DATA_TIMEOUT_MS 2000
-#define IMU_DUMMY_PACKET_TIMEOUT_MS 500
-#define IMU_FLAG_WAIT_TIMEOUT tx_s_to_ticks(10)
-#define IMU_MAX_BAD_DATA 50
+#define IMU_NEW_DATA_TIMEOUT_MS 		2000
+#define IMU_DUMMY_PACKET_TIMEOUT_MS		500
+#define IMU_FLAG_WAIT_TIMEOUT			tx_s_to_ticks(10)
+#define IMU_CMD_WAIT_TIMEOUT			tx_s_to_ticks(2)
+#define IMU_MAX_BAD_DATA				50
 
 //ThreadX status flags
-#define IMU_DATA_READY_FLAG 0x1
-#define IMU_STOP_SD_THREAD_FLAG 0x2
-#define IMU_STOP_DATA_THREAD_FLAG 0x4
-#define IMU_HALF_BUFFER_FLAG 0x8
+#define IMU_DATA_READY_FLAG				0x1
+#define IMU_STOP_SD_THREAD_FLAG			0x2
+#define IMU_STOP_DATA_THREAD_FLAG		0x4
+#define IMU_HALF_BUFFER_FLAG			0x8
+#define IMU_UNIT_TEST_FLAG				0x10
+#define IMU_GET_SAMPLES_FLAG			0x12
+#define IMU_SET_CONFIG_FLAG				0x14
+#define IMU_RESET_FLAG					0x18
 
 //The number of IMU Samples to collect before writing to the SD card. This MUST be an even number.
-#define IMU_BUFFER_SIZE 250
-#define IMU_HALF_BUFFER_SIZE (IMU_BUFFER_SIZE / 2)
+#define IMU_BUFFER_SIZE					250
+#define IMU_HALF_BUFFER_SIZE			(IMU_BUFFER_SIZE / 2)
+#define IMU_RECEIVE_BUFFER_MAX_LEN		300
 
 //The useful number of data bytes for each kind of report (quaternion vs 3 axis measurement)
 #define IMU_QUAT_USEFUL_BYTES 10
 #define IMU_3_AXIS_USEFUL_BYTES 6
 
 //MS timeout for SPI reads
-#define IMU_SPI_READ_TIMEOUT 10
+#define IMU_SPI_READ_TIMEOUT_MS			10
+#define IMU_SPI_STARTUP_TIMEOUT_MS		5000
 
-//IMU typedef definition for useful data holding (of various types, like quaternion, accel, gyro, magnetometer
+// 8-bit to 16-bit conversion
+#define TO_16_BIT(b1, b2)				((uint16_t)(b2 << 8) | (uint16_t)b1)
+
+// struct for imu data
 typedef struct __IMU_Data_Typedef {
 
-	//A header to signify which type of data this is (Matches the macro defined report IDs above)
-	uint8_t data_header;
+	// report id
+	uint8_t report_id;
 
-	/*
-	 * The data for the IMU is only stored and written to the SD card as raw data.
-	 *
-	 * This is because the IMU is not useful inside of the system/tag (we dont do anything inside the tag with it, compared to say the BMS data.)
-	 *
-	 * So, to save processing power, we just store the raw bytes and handle everything else is post processing.
-	 *
-	 * The data is stored as follows (from index 0 to 9):
-	 *
-	 * X_lsb, X_msb, Y_lsb, Y_msb, Z_lsb, Z_msb, Real_lsb, Real_msb, Accuracy_lsb, Accuracy_msb
-	 *
-	 * Where X Y and Z represent the axes for any of the given reports, and "Real" and "Accuracy" are used only by the quaternion report.
-	 *
-	 * E.g., X_lsb and X_msb represent the acceleration in the X direction if it is an accelerometer report.
-	 */
-	uint8_t raw_data[10];
+	// report data
+	uint8_t raw_data[8];
+
 } IMU_Data;
 
-//IMU typedef definition for useful variables
+// struct for imu shtp header
+typedef struct __IMU_Header_Typedef {
+	uint8_t report_len_lsb;
+	uint8_t report_len_msb;
+	uint8_t channel;
+	uint8_t seq;
+} IMU_Header;
+
+// struct for imu configuration
+typedef struct __IMU_SensorConfig_Typedef {
+
+	// sensor header config
+	IMU_Header header;
+
+	// sensor feature config
+	uint8_t feature_report_id;
+	uint8_t report_id;
+	uint8_t feature_flags;
+	uint8_t sens_lsb;
+	uint8_t sens_msb;
+	uint8_t report_interval_lsb;
+	uint8_t report_interval_1;
+	uint8_t report_interval_2;
+	uint8_t report_interval_msb;
+	uint8_t batch_interval_lsb;
+	uint8_t batch_interval_1;
+	uint8_t batch_interval_2;
+	uint8_t batch_interval_msb;
+
+	// sensor specific configuration
+	uint32_t sensor_config;
+
+} IMU_SensorConfig;
+
+// struct for imu product id request
+typedef struct __IMU_ProductIDConfig_Typedef {
+	// sensor header config
+	IMU_Header header;
+
+	// sensor product id request
+	uint8_t feature_report_id;
+	uint8_t reserved;
+
+} IMU_ProductIDConfig;
+
+// struct for imu
 typedef struct __IMU_Typedef{
 
 	//SPI handler for communication
@@ -120,14 +160,20 @@ typedef struct __IMU_Typedef{
 	GPIO_TypeDef* wake_port;
 	uint16_t wake_pin;
 
+	//GPIO info for the reset line
+	GPIO_TypeDef* reset_port;
+	uint16_t reset_pin;
+
 } IMU_HandleTypeDef;
 
 
 //Function prototypes
-void IMU_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu);
-HAL_StatusTypeDef IMU_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half);
-
-//Main IMU thread to run on RTOS
 void imu_thread_entry(ULONG thread_input);
+void imu_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu);
+void imu_reset(IMU_HandleTypeDef* imu);
+void imu_configure_reports(IMU_HandleTypeDef* imu, uint8_t report_id);
+HAL_StatusTypeDef imu_get_product_id(IMU_HandleTypeDef* imu);
+void imu_configure_startup(IMU_HandleTypeDef* imu);
+HAL_StatusTypeDef imu_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half);
 
 #endif /* INC_BNO08X_H_ */

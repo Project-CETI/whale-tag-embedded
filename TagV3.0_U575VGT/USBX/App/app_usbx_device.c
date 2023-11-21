@@ -250,8 +250,8 @@ UINT MX_USBX_Device_Init(VOID *memory_ptr)
 
   /* Create the usbx cdc acm read thread */
   if (tx_thread_create(&ux_cdc_read_thread, "cdc_acm_read_usbx_app_thread_entry",
-                       usbx_cdc_acm_read_thread_entry, 1, pointer,
-                       2048, 1, 1, TX_NO_TIME_SLICE,
+                       usbx_cdc_acm_read_thread_entry, 0, pointer,
+					   CDC_ACM_READ_STACK_SIZE, CDC_ACM_READ_PRIO, CDC_ACM_READ_PRIO, TX_NO_TIME_SLICE,
                        TX_AUTO_START) != TX_SUCCESS)
   {
     return TX_THREAD_ERROR;

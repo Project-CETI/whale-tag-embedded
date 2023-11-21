@@ -8,12 +8,17 @@
 #include "Comms Inc/Comms_rx.h"
 #include "Lib Inc/state_machine.h"
 #include "Lib Inc/threads.h"
+#include "Sensor Inc/BMS.h"
+#include "Sensor Inc/BNO08x.h"
 #include "main.h"
 #include "stm32u5xx_hal_uart.h"
 
-extern UART_HandleTypeDef huart4; // double check
+extern UART_HandleTypeDef huart4;
+
 extern Thread_HandleTypeDef threads[NUM_THREADS];
 extern TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP bms_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP imu_event_flags_group;
 
 // event flags
 TX_EVENT_FLAGS_GROUP comms_event_flags_group;
@@ -50,12 +55,32 @@ void comms_rx_thread_entry(ULONG thread_input) {
 void comms_parse_cmd(Command_IDs cmd_id) {
 
 	switch (cmd_id) {
-		case SLEEP_MODE:
+		case SLEEP_CMD:
 			tx_event_flags_set(&state_machine_event_flags_group, STATE_SLEEP_MODE_FLAG, TX_OR);
 			break;
 
-		case EXIT_SLEEP_MODE:
+		case WAKE_CMD:
 			tx_event_flags_set(&state_machine_event_flags_group, STATE_EXIT_SLEEP_MODE_FLAG, TX_OR);
+			break;
+
+		case START_CHARGE_CMD:
+			tx_event_flags_set(&bms_event_flags_group, BMS_START_CHARGE_FLAG, TX_OR);
+			break;
+
+		case STOP_CHARGE_CMD:
+			tx_event_flags_set(&bms_event_flags_group, BMS_STOP_CHARGE_FLAG, TX_OR);
+			break;
+
+		case TEST_SENSORS_CMD:
+			tx_event_flags_set(&state_machine_event_flags_group, STATE_TEST_SENSORS_FLAG, TX_OR);
+			break;
+
+		case GET_BMS_INFO_CMD:
+			tx_event_flags_set(&bms_event_flags_group, BMS_GET_ALL_REG_FLAG, TX_OR);
+			break;
+
+		case GET_IMU_INFO_CMD:
+			tx_event_flags_set(&imu_event_flags_group, IMU_GET_ALL_REG_FLAG, TX_OR);
 			break;
 
 		default:

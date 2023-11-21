@@ -110,7 +110,7 @@
 #define MAX17320_CRITICAL_SOC_THR		5
 
 // Cell Balancing Thresholds
-#define MAX17320_CELL_BAL_THR			0b011 // Corresponds to 10.0 mV threshold
+#define MAX17320_CELL_BAL_THR			0b11 // Corresponds to 10.0 mV threshold
 #define MAX17320_CELL_R_BAL_THR			0b111 // Corresponds to 27.34mΩ threshold (based on 20% measured battery nominal resistance)
 
 #define MAX17320_CELL_CHARGE_THR		0x02 // Corresponds to 5mA current charging threshold, -5mA current discharging threshold
@@ -128,6 +128,15 @@
 
 // Event Flags
 #define BMS_OP_DONE_FLAG				0x1
+#define BMS_OP_ERROR_FLAG				0x2
+#define BMS_UNIT_TEST_FLAG				0x4
+#define BMS_NV_SETUP_FLAG				0x8
+#define BMS_CLOSE_MOSFET_FLAG			0x10
+#define BMS_OPEN_MOSFET_FLAG			0x20
+#define BMS_START_CHARGE_FLAG			0x40
+#define BMS_STOP_CHARGE_FLAG			0x80
+#define BMS_READ_FLAG					0x100
+#define BMS_WRITE_FLAG					0x200
 
 // Other Macros
 #define MAX17320_TIMEOUT                1000
@@ -139,7 +148,7 @@
 #define RECALL_TIME_MS					10
 
 #define BMS_WRITES_TOLERANCE			0x0F // corresponds to max 4 writes
-#define BMS_FLAG_TIMEOUT				tx_s_to_ticks(2)
+#define BMS_CMD_WAIT_TIMEOUT			tx_s_to_ticks(2)
 
 // 8-bit to 16-bit conversion
 #define TO_16_BIT(b1, b2)				((uint16_t)(b2 << 8) | (uint16_t)b1)
@@ -182,16 +191,24 @@ typedef struct {
 
 } max17320_Reg_Faults;
 
+typedef struct {
+	bool chg_status;
+	bool dis_status;
+	bool pushbutton_enable;
+	bool chg_pump_voltage;
+	bool cmd_override_enable;
+	bool aoldo_voltage;
 
+} max17320_Reg_Fet_Status;
 
 // Device Struct
 typedef struct __MAX17320_HandleTypeDef {
 
     I2C_HandleTypeDef *i2c_handler;
 
-
     max17320_Reg_Status status;
     max17320_Reg_Faults faults;
+    max17320_Reg_Fet_Status fet_status;
 
     float remaining_capacity; // mAh
     float state_of_charge; // %
@@ -209,6 +226,8 @@ typedef struct __MAX17320_HandleTypeDef {
     float time_to_empty; // h
     float time_to_full; // h
 
+    uint8_t remaining_writes;
+
     uint16_t raw; // buffer for getting bits of any register
 
 
@@ -225,7 +244,8 @@ HAL_StatusTypeDef max17320_configure_cell_balancing(MAX17320_HandleTypeDef *dev)
 HAL_StatusTypeDef max17320_configure_thermistors(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_configure_fets(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_close_fets(MAX17320_HandleTypeDef *dev);
-HAL_StatusTypeDef max17320_open_fets(MAX17320_HandleTypeDef *dev);
+HAL_StatusTypeDef max17320_open_discharge_fet(MAX17320_HandleTypeDef *dev);
+HAL_StatusTypeDef max17320_open_charge_fet(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_start_charge(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_stop_charge(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_clear_alerts(MAX17320_HandleTypeDef *dev);
