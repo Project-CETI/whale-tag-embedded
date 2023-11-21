@@ -78,7 +78,6 @@ void* boardTemperature_thread(void* paramPtr) {
         global_time_us = get_global_time_us();
         rtc_count = getRtcCount();
 
-//        if(getBoardTemperature(&boardTemperature_c) < 0)        
         if(getTemperatures(&boardTemperature_c,&batteryTemperature_c) < 0)
           strcat(boardTemperature_data_file_notes, "ERROR | ");
 
@@ -97,32 +96,14 @@ void* boardTemperature_thread(void* paramPtr) {
             CETI_LOG("Battery charging disabled, outside thermal limits");
           }
         }
-#if 0   
-        else {  //probably want to require operator to reset this condition rather than have it start by itself.
-          if(charging_disabled) {
-            enableCharging();
-            charging_disabled = 0;
-            CETI_LOG("Battery charging re-enabled, back inside thermal limits");
-          }          
-        }
-#endif 
 
-        if( (batteryTemperature_c > MAX_DISCHARGE_TEMP) ||  (batteryTemperature_c < MIN_DISCHARGE_TEMP) ) {
+        if( (batteryTemperature_c > MAX_DISCHARGE_TEMP) ) {
          if (!discharging_disabled){  
             disableDischarging();
             discharging_disabled = 1;
-            CETI_LOG("Battery discharging disabled, outside thermal limits");
+            CETI_LOG("Battery discharging disabled, outside thermal limit");
           }     
         }
-#if 0
-        else {
-          if (discharging_disabled){   // if there is no external supply, this condition will never occur (the device will turn off)
-            enableDischarging();
-            discharging_disabled = 0;
-            CETI_LOG("Battery discharging re-enabled, back inside thermal limits"); 
-          }
-        }
-#endif
       
         // ******************   End Battery Temperature Checks *********************
         
@@ -206,7 +187,7 @@ int getTemperatures(int *pBoardTemp, int *pBattTemp) {
 int resetBattTempFlags() {
     discharging_disabled = 0;
     charging_disabled = 0;
-    enableDischarging();
-    enableCharging();
+    //enableDischarging();
+    //enableCharging();
     return(0);
 }

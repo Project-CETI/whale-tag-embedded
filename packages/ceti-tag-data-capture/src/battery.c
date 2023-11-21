@@ -166,58 +166,111 @@ int getBatteryData(double* battery_v1_v, double* battery_v2_v,
 //-----------------------------------------------------------------------------
 // Charge and Discharge Enabling
 //-----------------------------------------------------------------------------
-int enableCharging() {
+int enableCharging(void) {
   int fd, temp;
   if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
-    CETI_LOG("XXXX Failed to connect to the battery gauge XXXX");
+    CETI_LOG("Failed to connect to the BMS IC on I2C");
     return (-1);
   }
   else {
-    temp = i2cReadByteData(fd,BATT_PROTECT);
-    i2cWriteByteData(fd,BATT_PROTECT, (temp | CE ) ); 
+    if ( (temp = i2cReadByteData(fd,BATT_PROTECT))  >= 0 ) {
+      if ( (i2cWriteByteData(fd,BATT_PROTECT, (temp | CE))) == 0  ) { 
+        CETI_LOG("I2C write succeeded, enabled charging");
+        i2cClose(fd);
+        return(0);
+      }
+      else {
+        CETI_LOG("I2C write to BMS register failed");
+        i2cClose(fd);
+        return(-1);        
+      }
+    }
+    else {
+      CETI_LOG("Failed to read BMS register");
+      i2cClose(fd);
+      return(-1);
+    }
   }
-  return(0);
+}
+
+int disableCharging(void) {
+  int fd, temp;
+  if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
+    CETI_LOG("Failed to connect to the BMS IC on I2C");
+    return (-1);
+  }
+  else {
+    if ( (temp = i2cReadByteData(fd,BATT_PROTECT))  >= 0 ) {
+      if ( (i2cWriteByteData(fd,BATT_PROTECT, (temp & ~CE))) == 0  ) { 
+        CETI_LOG("I2C write succeeded, disabled charging");
+        i2cClose(fd);
+        return(0);
+      }
+      else {
+        CETI_LOG("I2C write to BMS register failed");
+        i2cClose(fd);
+        return(-1);        
+      }
+    }
+    else {
+      CETI_LOG("Failed to read BMS register");
+      i2cClose(fd);
+      return(-1);
+    }
+  }
 }
 
 
-int disableCharging() {
+int enableDischarging(void) {
   int fd, temp;
   if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
-    CETI_LOG("XXXX Failed to connect to the battery gauge XXXX");
+    CETI_LOG("Failed to connect to the BMS IC on I2C");
     return (-1);
   }
   else {
-    temp = i2cReadByteData(fd,BATT_PROTECT);
-    i2cWriteByteData(fd,BATT_PROTECT, (temp & NCE)  ); 
+    if ( (temp = i2cReadByteData(fd,BATT_PROTECT))  >= 0 ) {
+      if ( (i2cWriteByteData(fd,BATT_PROTECT, (temp | DE))) == 0  ) { 
+        CETI_LOG("I2C write succeeded, enabled discharging");
+        i2cClose(fd);
+        return(0);
+      }
+      else {
+        CETI_LOG("I2C write to BMS register failed");
+        i2cClose(fd);
+        return(-1);        
+      }
+    }
+    else {
+      CETI_LOG("Failed to read BMS register");
+      i2cClose(fd);
+      return(-1);
+    }
   }
-  return(0);
-
 }
 
-int enableDischarging() {
+int disableDischarging(void) {
   int fd, temp;
   if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
-    CETI_LOG("XXXX Failed to connect to the battery gauge XXXX");
+    CETI_LOG("Failed to connect to the BMS IC on I2C");
     return (-1);
   }
   else {
-    temp = i2cReadByteData(fd,BATT_PROTECT);
-    i2cWriteByteData(fd,BATT_PROTECT, (temp | DE )  ); 
+    if ( (temp = i2cReadByteData(fd,BATT_PROTECT))  >= 0 ) {
+      if ( (i2cWriteByteData(fd,BATT_PROTECT, (temp & ~DE))) == 0  ) { 
+        CETI_LOG("I2C write succeeded, disabled discharging");
+        i2cClose(fd);
+        return(0);
+      }
+      else {
+        CETI_LOG("I2C write to BMS register failed");
+        i2cClose(fd);
+        return(-1);        
+      }
+    }
+    else {
+      CETI_LOG("Failed to read BMS register");
+      i2cClose(fd);
+      return(-1);
+    }
   }
-  return(0);
-
-}
-
-int disableDischarging() {
-  int fd, temp;
-  if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
-    CETI_LOG("XXXX Failed to connect to the battery gauge XXXX");
-    return (-1);
-  }
-  else {
-    temp = i2cReadByteData(fd,BATT_PROTECT);
-    i2cWriteByteData(fd,BATT_PROTECT, (temp & NDE )  ); 
-  }
-  return(0);
-
 }
