@@ -187,7 +187,7 @@ int getTemperatures(int *pBoardTemp, int *pBattTemp) {
 int resetBattTempFlags() {
     discharging_disabled = 0;
     charging_disabled = 0;
-    //enableDischarging();
-    //enableCharging();
+    enableDischarging();
+    enableCharging();
     return(0);
 }
