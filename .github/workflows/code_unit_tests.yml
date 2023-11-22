@@ -24,7 +24,7 @@ jobs:
       - name: Git Submodule Update
         run: |
         
-          git submodules update --init --recursive
+          git submodule update --init --recursive
 
       # Runs the Super-Linter action
       - name: Compile and run tests
