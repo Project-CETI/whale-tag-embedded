@@ -130,3 +130,7 @@ dmypy.json
 
 out/
 raspbian/
+raspios.img
+packages/ceti-tag-data-capture/bin/
+packages/ceti-tag-data-capture/data
+
