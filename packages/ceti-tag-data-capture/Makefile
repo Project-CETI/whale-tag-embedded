@@ -17,7 +17,7 @@
 SRC        = $(wildcard src/*.c) $(wildcard src/*/*.c) $(wildcard src/*/*/*.c)
 OBJ        = $(SRC:.c=.o)
 CC         = gcc
-CFLAGS     = -Wall -g
+CFLAGS     = -Wall -O2
 LDFLAGS    = -lpthread -lpigpio -lFLAC -lm
 APP        = cetiTagApp
 BINDIR    ?= bin

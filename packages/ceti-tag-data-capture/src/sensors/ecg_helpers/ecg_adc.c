@@ -324,7 +324,8 @@ void ecg_adc_update_data(int* exit_flag, long long timeout_us)
   // Otherwise, acquire the new data sample and timestamp.
   // Will update g_ecg_adc_latest_reading and g_ecg_adc_latest_reading_global_time_us.
   #if !(ECG_ADC_DATA_READY_USE_INTERRUPT || ECG_ADC_DATA_READY_USE_TIMER)
-  ecg_adc_read_singleEnded(ecg_adc_channel, exit_flag, timeout_us);
+  ecg_adc_read_data(exit_flag, timeout_us);
+  // ecg_adc_read_singleEnded(ecg_adc_channel, exit_flag, timeout_us);
   #endif
 }
 
@@ -343,8 +344,11 @@ int ecg_adc_read_data(int* exit_flag, long long timeout_us)
   long long wait_for_data_startTime_us = get_global_time_us();
   while(!data_is_ready
           && !*exit_flag
-          && get_global_time_us() - wait_for_data_startTime_us < timeout_us)
-    data_is_ready = (ecg_adc_read_data_ready() == 0 ? 1 : 0);
+          && get_global_time_us() - wait_for_data_startTime_us < timeout_us
+  ){
+    data_is_ready = (ecg_adc_read_data_ready() == 0);
+  }
+
   if(!data_is_ready)
   {
     // Indicate that there was an error, so the main program will try to set up the ECG again.
@@ -356,25 +360,40 @@ int ecg_adc_read_data(int* exit_flag, long long timeout_us)
   #endif
 
   // Read the data!
-  uint8_t result_length = 3;
-  char result_bytes[3] = {0};
+  uint8_t result_bytes[3] = {0};
   i2cWriteByte(ecg_adc_i2c_device, ECG_ADC_CMD_RREG);
-  i2cReadDevice(ecg_adc_i2c_device, result_bytes, result_length);
+  i2cReadDevice(ecg_adc_i2c_device, (char *)result_bytes, 3);
   #if ECG_ADC_DEBUG_PRINTOUTS
   printf(" \t\t %d %d %d  \t\t ", result_bytes[0], result_bytes[1], result_bytes[2]);
   #endif
 
   // Parse the data bytes into a single long number.
-  long data32 = result_bytes[0];
-  data32 <<= 8;
-  data32 |= result_bytes[1];
-  data32 <<= 8;
-  data32 |= result_bytes[2];
-  g_ecg_adc_latest_reading = (data32 << 8) >> 8;
+  int32_t result_data = (((int32_t) result_bytes[0]) << 24) 
+                      | (((int32_t) result_bytes[1]) << 16) 
+                      | (((int32_t) result_bytes[2]) << 8);
+  result_data >>= 8; //convert to 24-bit value in 32-bit storage
+  g_ecg_adc_latest_reading = result_data;
 
   // Update the data timestamp, which will also trigger the main program to read the new sample/timestamp.
   g_ecg_adc_latest_reading_global_time_us = get_global_time_us();
   return 0;
+}
+
+int32_t ecg_adc_raw_read_data(void){
+    // Read the data!
+  uint8_t result_bytes[3] = {0};
+  i2cWriteByte(ecg_adc_i2c_device, ECG_ADC_CMD_RREG);
+  i2cReadDevice(ecg_adc_i2c_device, (char *)result_bytes, 3);
+  #if ECG_ADC_DEBUG_PRINTOUTS
+  printf(" \t\t %d %d %d  \t\t ", result_bytes[0], result_bytes[1], result_bytes[2]);
+  #endif
+
+  // Parse the data bytes into a single long number.
+  int32_t result_data = (((int32_t) result_bytes[0]) << 24) 
+                      | (((int32_t) result_bytes[1]) << 16) 
+                      | (((int32_t) result_bytes[2]) << 8);
+  result_data >>= 8; //convert to 24-bit value in 32-bit storage
+  return result_data;
 }
 
 // Read a single-ended measurement from the desired channel.
@@ -383,7 +402,7 @@ int ecg_adc_read_data(int* exit_flag, long long timeout_us)
 // @param channel Can be 0, 1, 2, or 3.
 long ecg_adc_read_singleEnded(int channel, int* exit_flag, long long timeout_us)
 {
-  // Update the configuration for the desired channel if needed.
+  // // Update the configuration for the desired channel if needed.
 	ecg_adc_config &= ECG_ADC_MUX_MASK;
 	switch(channel)
 	{
@@ -471,10 +490,11 @@ long ecg_adc_read_shorted(int* exit_flag, long long timeout_us)
 // Read the data-ready bit, either via a direct connection or via the GPIO expander.
 int ecg_adc_read_data_ready()
 {
-  if(ECG_ADC_DATA_READY_PIN >= 0)
+  #if (ECG_ADC_DATA_READY_PIN >= 0)
     return gpioRead(ECG_ADC_DATA_READY_PIN);
-  else
+  #else
     return ecg_gpio_expander_read_dataReady();
+  #endif
 }
 
 

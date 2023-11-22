@@ -131,8 +131,7 @@ int ecg_gpio_expander_parse_leadsOff_n(uint8_t data)
 }
 
 // Turn off all LEDs.
-void ecg_gpio_expander_set_leds_off()
-{
+void __ecg_gpio_expander_set_leds_off(void){
   #if ECG_GPIO_EXPANDER_USE_LEDS
   // Setting all bits to 1 will set them all to inputs (will turn LEDs off).
   i2cWriteByte(ecg_gpio_expander_i2c_device, 0b11111111);
@@ -140,8 +139,7 @@ void ecg_gpio_expander_set_leds_off()
 }
 
 // Turn on the green LED (and turn off the other LEDs).
-void ecg_gpio_expander_set_leds_green()
-{
+void __ecg_gpio_expander_set_leds_green(void){
   #if ECG_GPIO_EXPANDER_USE_LEDS
   // Setting a 0 in the desired position will turn the LED off.
   // Setting all other bits to 1 will keep all other channels as inputs.
@@ -151,8 +149,7 @@ void ecg_gpio_expander_set_leds_green()
 }
 
 // Turn on the yellow LED (and turn off the other LEDs).
-void ecg_gpio_expander_set_leds_yellow()
-{
+void __ecg_gpio_expander_set_leds_yellow(void){
   #if ECG_GPIO_EXPANDER_USE_LEDS
   // Setting a 0 in the desired position will turn the LED off.
   // Setting all other bits to 1 will keep all other channels as inputs.
@@ -162,8 +159,7 @@ void ecg_gpio_expander_set_leds_yellow()
 }
 
 // Turn on the red LED (and turn off the other LEDs).
-void ecg_gpio_expander_set_leds_red()
-{
+void __ecg_gpio_expander_set_leds_red(void){
   #if ECG_GPIO_EXPANDER_USE_LEDS
   // Setting a 0 in the desired position will turn the LED off.
   // Setting all other bits to 1 will keep all other channels as inputs.

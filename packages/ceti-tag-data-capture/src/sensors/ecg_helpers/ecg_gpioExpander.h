@@ -44,10 +44,24 @@ void ecg_gpio_expander_cleanup();
 int ecg_gpio_expander_read_dataReady();
 int ecg_gpio_expander_read_leadsOff_p();
 int ecg_gpio_expander_read_leadsOff_n();
-void ecg_gpio_expander_set_leds_off();
-void ecg_gpio_expander_set_leds_red();
-void ecg_gpio_expander_set_leds_yellow();
-void ecg_gpio_expander_set_leds_green();
+
+// compiler is not able to inline across object files
+#if ECG_GPIO_EXPANDER_USE_LEDS
+    #define ecg_gpio_expander_set_leds_off()    __ecg_gpio_expander_set_leds_off()
+    #define ecg_gpio_expander_set_leds_red()    __ecg_gpio_expander_set_leds_red()
+    #define ecg_gpio_expander_set_leds_yellow() __ecg_gpio_expander_set_leds_yellow()
+    #define ecg_gpio_expander_set_leds_green()  __ecg_gpio_expander_set_leds_green()
+#else
+    #define ecg_gpio_expander_set_leds_off()    {}
+    #define ecg_gpio_expander_set_leds_red()    {}
+    #define ecg_gpio_expander_set_leds_yellow() {}
+    #define ecg_gpio_expander_set_leds_green()  {}
+#endif
+
+void __ecg_gpio_expander_set_leds_off(void);
+void __ecg_gpio_expander_set_leds_red(void);
+void __ecg_gpio_expander_set_leds_yellow(void);
+void __ecg_gpio_expander_set_leds_green(void);
 // Lower-level helpers.
 int ecg_gpio_expander_read();
 int ecg_gpio_expander_parse_dataReady(uint8_t data);
