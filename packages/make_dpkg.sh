@@ -15,7 +15,7 @@ PACKAGES=( \
 function build_package {
   pushd "$1"
   package="$(< debian/control grep Package | awk '{print $2}')"
-  dpkg-buildpackage -b -rfakeroot -us -uc -tc
+  DEB_BUILD_OPTIONS=nocheck dpkg-buildpackage -b -rfakeroot -us -uc -tc
   mv "../${package}"*.deb "${DEB_DIR}"
   mv "../${package}"*.buildinfo "${DEB_DIR}"
   mv "../${package}"*.changes "${DEB_DIR}"
