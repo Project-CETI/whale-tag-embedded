@@ -25,10 +25,10 @@ test: $(TEST_APP)
 	$(CC) $(CFLAGS) -o $@ $< $(OBJ) $(LDFLAGS) 
 
 $(UNITY_DIR)/libunity.a: $(UNITY_DIR)/Makefile
-	$(MAKE) -C lib/Unity
+	$(MAKE) -C $(UNITY_DIR)
 
 $(UNITY_DIR)/Makefile:
-	cmake . -C lib/Unity
+	cd $(UNITY_DIR) && cmake .
 
 clean:
 	rm -f $(OBJ) $(TEST_APP)

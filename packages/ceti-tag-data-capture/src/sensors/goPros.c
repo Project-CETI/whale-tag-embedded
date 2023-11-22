@@ -93,7 +93,7 @@ void *goPros_thread(void *paramPtr)
 
   // Accept the Python connection request.
   CETI_LOG("Waiting for Python client to accept connection");
-  while(client_accepted == 0 && !g_exit)
+  while(client_accepted == 0 && !g_stopAcquisition)
   {
     goPros_python_connected_socket = accept(goPros_python_socket, (struct sockaddr *)&goPros_python_client, &goPros_python_client_length);
     client_accepted = (goPros_python_connected_socket >= 0);
@@ -119,7 +119,7 @@ void *goPros_thread(void *paramPtr)
   long long last_python_heartbeat_us = get_global_time_us();
   long long last_led_heartbeat_us = 0;
   long long led_heartbeat_on_us = -1;
-  while(!g_exit)
+  while(!g_stopAcquisition)
   {
     // Periodically send a heartbeat to let Python know the connection is active.
     if(get_global_time_us() - last_python_heartbeat_us >= GOPRO_PYTHON_HEARTBEAT_PERIOD_US)
@@ -162,7 +162,7 @@ void *goPros_thread(void *paramPtr)
     if(!magnet_detected_debounced && prev_magnet_detected_debounced)
     {
       goPro_command_success = 0;
-      for(int i = 0; i < 3 && !goPro_command_success && !g_exit; i++)
+      for(int i = 0; i < 3 && !goPro_command_success && !g_stopAcquisition; i++)
       {
         if(!goPros_are_recording)
         {
@@ -251,10 +251,10 @@ int send_command_to_all_goPros(int goPro_command)
     {
       CETI_LOG("failed to open data output file: %s", GOPROS_DATA_FILEPATH);
       // Sleep a bit before retrying.
-      for(int i = 0; i < 10 && !g_exit; i++)
+      for(int i = 0; i < 10 && !g_stopAcquisition; i++)
         usleep(500000);
     }
-  } while(goPros_data_file == NULL && !g_exit);
+  } while(goPros_data_file == NULL && !g_stopAcquisition);
 
   // Initialize state.
   int received_client_ack = 0;
