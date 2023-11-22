@@ -431,6 +431,15 @@ int handle_command(void) {
         return 0;
     }
 
+    if (!strncmp(g_command, "resetBattTemp", 13)) {
+        CETI_LOG("Resetting the Battery Temperature Flags");
+        resetBattTempFlags();
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Battery Temperature Flags Reset\n"); // echo it
+        fclose(g_rsp_pipe);
+        return 0;
+    }
+
     if (!strncmp(g_command, "powerdown", 9)) {
         CETI_LOG("Powering down the tag via the FPGA");
         #if ENABLE_FPGA

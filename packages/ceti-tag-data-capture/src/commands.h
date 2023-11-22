@@ -22,6 +22,7 @@
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 
 #include "sensors/audio.h"
+#include "sensors/boardTemperature.h"
 
 #include <signal.h>
 #include <stdio.h>
