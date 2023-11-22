@@ -23,8 +23,8 @@ jobs:
       # update submodules
       - name: Git Submodule Update
         run: |
-          git pull --recursive-submodules
-          git submodules update --remote --recursive
+        
+          git submodules update --init --recursive
 
       # Runs the Super-Linter action
       - name: Compile and run tests
