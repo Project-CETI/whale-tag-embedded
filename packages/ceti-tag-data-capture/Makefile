@@ -24,7 +24,7 @@ BINDIR    ?= bin
 IPCDIR    ?= ipc
 CONFIGDIR ?= config
 DATADIR   ?= data
-DESTDIR   ?= /opt/ceti-tag-data-capture
+DESTDIR   ?= opt/ceti-tag-data-capture
 
 .PHONY: \
 	build \
