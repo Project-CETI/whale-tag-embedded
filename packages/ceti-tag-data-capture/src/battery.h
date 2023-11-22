@@ -40,11 +40,23 @@
 #define BATT_CTL_VAL 0X8E  //SETS UV CUTOFF TO 2.6V
 #define BATT_OV_VAL 0x5A //SETS OV CUTOFF TO 4.2V
 
+#define MIN_CHARGE_TEMP (10)
+#define MAX_CHARGE_TEMP (40)
+#define MIN_DISCHARGE_TEMP (0)
+#define MAX_DISCHARGE_TEMP (50)
+
+#define DE 0x01    //BIT 0 set  discharge enable
+#define CE 0x02    //BIT 1 set  charge enable
+
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
 int init_battery();
 int getBatteryData(double* battery_v1_v, double* battery_v2_v, double* battery_i_mA);
+int enableCharging(void);
+int enableDischarging(void);
+int disableCharging(void);
+int disableDischarging(void);
 void* battery_thread(void* paramPtr);
 
 //-----------------------------------------------------------------------------
