@@ -81,31 +81,34 @@ void* stateMachine_thread(void* paramPtr) {
       updateStateMachine();
 
       // Write state information to the data file.
-      stateMachine_data_file = fopen(STATEMACHINE_DATA_FILEPATH, "at");
-      if(stateMachine_data_file == NULL)
-        CETI_LOG("failed to open data output file: %s", STATEMACHINE_DATA_FILEPATH);
-      else
+      if(!g_stopAcquisition)
       {
-        // Write timing information.
-        fprintf(stateMachine_data_file, "%lld", global_time_us);
-        fprintf(stateMachine_data_file, ",%d", current_rtc_count);
-        // Write any notes, then clear them so they are only written once.
-        fprintf(stateMachine_data_file, ",%s", stateMachine_data_file_notes);
-        strcpy(stateMachine_data_file_notes, "");
-        // Write the sensor data.
-        fprintf(stateMachine_data_file, ",%s", get_state_str(state_to_process));
-        fprintf(stateMachine_data_file, ",%s", get_state_str(presentState));
-        // Finish the row of data and close the file.
-        fprintf(stateMachine_data_file, "\n");
-        fclose(stateMachine_data_file);
-      }
+        stateMachine_data_file = fopen(STATEMACHINE_DATA_FILEPATH, "at");
+        if(stateMachine_data_file == NULL)
+          CETI_LOG("failed to open data output file: %s", STATEMACHINE_DATA_FILEPATH);
+        else
+        {
+          // Write timing information.
+          fprintf(stateMachine_data_file, "%lld", global_time_us);
+          fprintf(stateMachine_data_file, ",%d", current_rtc_count);
+          // Write any notes, then clear them so they are only written once.
+          fprintf(stateMachine_data_file, ",%s", stateMachine_data_file_notes);
+          strcpy(stateMachine_data_file_notes, "");
+          // Write the sensor data.
+          fprintf(stateMachine_data_file, ",%s", get_state_str(state_to_process));
+          fprintf(stateMachine_data_file, ",%s", get_state_str(presentState));
+          // Finish the row of data and close the file.
+          fprintf(stateMachine_data_file, "\n");
+          fclose(stateMachine_data_file);
+        }
 
-      // Delay to implement a desired sampling rate.
-      // Take into account the time it took to process the state.
-      polling_sleep_duration_us = STATEMACHINE_UPDATE_PERIOD_US;
-      polling_sleep_duration_us -= get_global_time_us() - global_time_us;
-      if(polling_sleep_duration_us > 0)
-        usleep(polling_sleep_duration_us);
+        // Delay to implement a desired sampling rate.
+        // Take into account the time it took to process the state.
+        polling_sleep_duration_us = STATEMACHINE_UPDATE_PERIOD_US;
+        polling_sleep_duration_us -= get_global_time_us() - global_time_us;
+        if(polling_sleep_duration_us > 0)
+          usleep(polling_sleep_duration_us);
+      }
     }
     g_stateMachine_thread_is_running = 0;
     CETI_LOG("Done!");
