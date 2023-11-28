@@ -270,6 +270,15 @@ int handle_command(void) {
         return 0;
     }
 
+    if (!strncmp(g_command, "stopDataAcq", 11)) {
+        CETI_LOG("Stopping all data acquisition");
+        g_stopAcquisition = 1;
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Data acquisition stopping\n"); // echo it
+        fclose(g_rsp_pipe);
+        return 0;
+    }
+
     if (!strncmp(g_command, "stopAudioAcq", 12)) {
         CETI_LOG("Stopping audio acquisition");
         #if ENABLE_AUDIO
@@ -283,7 +292,7 @@ int handle_command(void) {
         return 0;
     }
 
-    if (!strncmp(g_command, "resetFPGA", 7)) {
+    if (!strncmp(g_command, "resetFPGA", 9)) {
         CETI_LOG("Resetting the FPGA");
         #if ENABLE_FPGA
         gpioSetMode(RESET, PI_OUTPUT);
@@ -296,6 +305,23 @@ int handle_command(void) {
         #else
         CETI_LOG("XXXX The FPGA is not selected for operation - skipping command XXXX");
         #endif
+        return 0;
+    }
+
+    if (!strncmp(g_command, "simulateAudioOverflow", 21)) {
+        CETI_LOG("Simulating an audio buffer overflow");
+        g_audio_overflow_detected = 1;
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Simulated audio overflow\n"); // echo it
+        fclose(g_rsp_pipe);
+        return 0;
+    }
+    if (!strncmp(g_command, "forceAudioOverflow", 18)) {
+        CETI_LOG("Forcing an audio buffer overflow");
+        g_audio_force_overflow = 1;
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Forcing an audio overflow\n"); // echo it
+        fclose(g_rsp_pipe);
         return 0;
     }
 
@@ -405,6 +431,15 @@ int handle_command(void) {
         return 0;
     }
 
+    if (!strncmp(g_command, "resetBattTemp", 13)) {
+        CETI_LOG("Resetting the Battery Temperature Flags");
+        resetBattTempFlags();
+        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        fprintf(g_rsp_pipe, "handle_command(): Battery Temperature Flags Reset\n"); // echo it
+        fclose(g_rsp_pipe);
+        return 0;
+    }
+
     if (!strncmp(g_command, "powerdown", 9)) {
         CETI_LOG("Powering down the tag via the FPGA");
         #if ENABLE_FPGA
@@ -452,6 +487,8 @@ int handle_command(void) {
     fprintf(g_rsp_pipe, "resetFPGA        Reset FPGA state machines\n");
     fprintf(g_rsp_pipe, "resetAudioFIFO   Reset audio HW FIFO\n");
     fprintf(g_rsp_pipe, "checkCAM         Verify hardware control link\n");
+
+    fprintf(g_rsp_pipe, "stopDataAcq     Stop writing any data to disk\n");
 
     fprintf(g_rsp_pipe, "startAudioAcq    Start acquiring audio samples from the FIFO\n");
     fprintf(g_rsp_pipe, "stopAudioAcq     Stop acquiring audio samples from  the FIFO\n");

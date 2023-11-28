@@ -174,7 +174,7 @@ void* ecg_thread_getData(void* paramPtr)
   long long start_time_ms = get_global_time_ms();
   int previous_leadsoff = 0;
   ecg_gpio_expander_set_leds_green();
-  while(!g_exit)
+  while(!g_stopAcquisition)
   {
     // ecg_adc_update_data(&g_exit, ECG_SAMPLE_TIMEOUT_US);
 
@@ -182,21 +182,12 @@ void* ecg_thread_getData(void* paramPtr)
     // Request an update of the ECG data, then see if new data was received yet.
     //  The new data may be read immediately by this call after waiting for data to be ready,
     //  or nothing may happen if waiting for an interrupt callback to be triggered.
-
-    // if(g_ecg_adc_latest_reading_global_time_us != prev_ecg_adc_latest_reading_global_time_us)
-    if(ecg_adc_read_data_ready() == 0)
+    ecg_adc_update_data(&g_stopAcquisition, ECG_SAMPLE_TIMEOUT_US);
+    if(g_ecg_adc_latest_reading_global_time_us != prev_ecg_adc_latest_reading_global_time_us)
     {
-      ECGSample *current_sample = &ecg_samples[ecg_buffer_select_toLog][ecg_buffer_index_toLog];
-      *current_sample = (ECGSample){
-        .value = ecg_adc_raw_read_data(),         // Store the new data sample and its timestamp.
-        .sys_clock = get_global_time_ms(),
-        .rtc = getRtcCount(),                      //Read the RTC
-        .gpio_expander = ecg_gpio_expander_read(), //Read the GPIO expander for latest leads-off detection.
-        .index = sample_index++,                   // Update indexes.
-        .flags = ecg_restart_flag,
-      };
-      ecg_restart_flag ^= ecg_restart_flag; //clear restart flag
-
+      // Store the new data sample and its timestamp.
+      ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = g_ecg_adc_latest_reading;
+      global_times_us[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = g_ecg_adc_latest_reading_global_time_us;
       // Update the previous timestamp, for checking whether new data is available.
       instantaneous_sampling_period_us = current_sample->sys_clock - prev_ecg_adc_latest_reading_global_time_us;
       prev_ecg_adc_latest_reading_global_time_us = current_sample->sys_clock;
@@ -235,7 +226,8 @@ void* ecg_thread_getData(void* paramPtr)
       first_sample = 0;
       // If the ADC or the GPIO expander had an error,
       //  wait a bit and then try to reconnect to them.
-      if(current_sample->flags && !g_exit) {
+      if(is_invalid && !g_stopAcquisition)
+      {
         ecg_gpio_expander_set_leds_red();
         usleep(1000000);
         init_ecg_electronics();
@@ -331,12 +323,11 @@ void* ecg_thread_writeData(void* paramPtr)
   g_ecg_thread_writeData_is_running = 1;
 
   // Continuously wait for new data and then write it to the file.
-  while(!g_exit)
+  while(!g_stopAcquisition)
   {
     // Wait for new data to be in the buffer.
-    while((ecg_buffer_select_toLog == ecg_buffer_select_toWrite) && !g_exit){
-      usleep(ECG_BUFFER_LENGTH*500);
-    }
+    while(ecg_buffer_select_toLog == ecg_buffer_select_toWrite && !g_stopAcquisition)
+      usleep(250000);
 
     // Write the last buffer to a file.
     #if !(ECG_BINARY_WRITE)
@@ -401,10 +392,8 @@ void* ecg_thread_writeData(void* paramPtr)
       fclose(ecg_data_file);
 
       // If the file size limit has been reached, start a new file.
-      if((ecg_data_file_size_b >= (long)(ECG_MAX_FILE_SIZE_MB)*1024L*1024L || ecg_data_file_size_b < 0) && !g_exit){
-        ecg_data_file_size_b = 0;
-        init_ecg_data_file();
-      }
+      if((ecg_data_file_size_b >= (long)(ECG_MAX_FILE_SIZE_MB)*1024L*1024L || ecg_data_file_size_b < 0) && !g_stopAcquisition)
+        init_ecg_data_file(0);
 
       //CETI_LOG("Wrote %d entries in %lld us", ECG_BUFFER_LENGTH, get_global_time_us() - start_time_us);
     }

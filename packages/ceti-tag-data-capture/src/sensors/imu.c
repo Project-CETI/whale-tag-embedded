@@ -118,13 +118,13 @@ void* imu_thread(void* paramPtr) {
     long long imu_last_data_file_flush_time_us = get_global_time_us();
     g_imu_thread_is_running = 1;
     imu_data_file = fopen(imu_data_filepath, "at");
-    while(!g_exit)
+    while(!g_stopAcquisition)
     {
       if(imu_data_file == NULL)
       {
         CETI_LOG("failed to open data output file: %s", imu_data_filepath);
         // Sleep a bit before retrying.
-        for(int i = 0; i < 10 && !g_exit; i++)
+        for(int i = 0; i < 10 && !g_stopAcquisition; i++)
           usleep(100000);
         imu_data_file = fopen(imu_data_filepath, "at");
       }
@@ -143,7 +143,7 @@ void* imu_thread(void* paramPtr) {
               usleep(50);  // Seems nice to limit the polling frequency a bit to manage CPU usage
           } while(report_id_updated == -1 // no data received yet
                   && get_global_time_us() - global_time_us < 5000000 // timeout not reached
-                  && !g_exit); // program not quitting
+                  && !g_stopAcquisition); // program not quitting
         }
         else
           report_id_updated = -1;
@@ -216,7 +216,7 @@ void* imu_thread(void* paramPtr) {
             fclose(imu_data_file);
 
             // If the file size limit has been reached, start a new file.
-            if((imu_data_file_size_b >= (long)(IMU_MAX_FILE_SIZE_MB)*1024L*1024L || imu_data_file_size_b < 0) && !g_exit)
+            if((imu_data_file_size_b >= (long)(IMU_MAX_FILE_SIZE_MB)*1024L*1024L || imu_data_file_size_b < 0) && !g_stopAcquisition)
               init_imu_data_file(0);
 
             // Open the file again.
@@ -228,7 +228,7 @@ void* imu_thread(void* paramPtr) {
         }
         // If there was an error, try to reset the IMU.
         // Ignore the initial few seconds though, since sometimes it takes a little bit to get in sync.
-        if(report_id_updated == -1 && !g_exit && get_global_time_us() - start_global_time_us > 10000000)
+        if(report_id_updated == -1 && !g_stopAcquisition && get_global_time_us() - start_global_time_us > 10000000)
         {
           CETI_LOG("XXX Error reading from IMU. Waiting and then attempting to reconnect.");
           usleep(5000000);

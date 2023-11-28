@@ -22,6 +22,8 @@ static unsigned long long cpu_prev_system[NUM_CPU_ENTRIES], cpu_prev_idle[NUM_CP
 static unsigned long long cpu_prev_ioWait[NUM_CPU_ENTRIES], cpu_prev_irq[NUM_CPU_ENTRIES], cpu_prev_irqSoft[NUM_CPU_ENTRIES];
 static double cpu_percents[NUM_CPU_ENTRIES];
 static FILE* cpu_proc_stat_file;
+// State for limiting log file sizes.
+static long long last_logrotate_time_us = 0;
 // The main process ID of the program.
 static int cetiApp_pid = -1;
 // Thread IDs, which will be updated by the relevant threads if they are enabled.
@@ -51,9 +53,11 @@ static const char* systemMonitor_data_file_headers[] = {
   "SysMonitor CPU", "GoPros CPU",
   "RAM Free [B]", "RAM Free [%]",
   "Swap Free [B]", "Swap Free [%]",
+  "Root Free [KB]", "Overlay Free [KB]", "Data Free [KB]",
+  "Log Size [KB]", "SysLog Size [KB]",
   "CPU Temperature [C]", "GPU Temperature [C]",
   };
-static const int num_systemMonitor_data_file_headers = 26;
+static const int num_systemMonitor_data_file_headers = 31;
 
 int init_systemMonitor()
 {
@@ -98,6 +102,9 @@ void* systemMonitor_thread(void* paramPtr) {
         CETI_LOG("XXX Failed to set affinity to CPU %d", SYSTEMMONITOR_CPU);
     }
 
+    // Initialize state for limiting log file sizes.
+    last_logrotate_time_us = get_global_time_us();
+
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically check system resources");
     long long ram_free;
@@ -107,12 +114,14 @@ void* systemMonitor_thread(void* paramPtr) {
     long long polling_sleep_duration_us;
     g_systemMonitor_thread_is_running = 1;
     #if TID_PRINT_PERIOD_US >= 0
-    long long last_tid_print_time_us = get_global_time_us();
+    // Set the previous time such that it will print once at most 30s after starting and thereafter according to the desired period.
+    long long last_tid_print_time_us = get_global_time_us() + (TID_PRINT_PERIOD_US > 30000000 ? (30000000 - TID_PRINT_PERIOD_US) : 0);
     #endif
-    while (!g_exit) {
+    while(!g_exit)
+    {
       // Print the thread IDs if desired
       #if TID_PRINT_PERIOD_US >= 0
-      if(get_global_time_us() - last_tid_print_time_us > TID_PRINT_PERIOD_US)
+      if(get_global_time_us() - last_tid_print_time_us >= TID_PRINT_PERIOD_US)
       {
         CETI_LOG("......");
         CETI_LOG("Thread IDs:");
@@ -135,55 +144,78 @@ void* systemMonitor_thread(void* paramPtr) {
         last_tid_print_time_us = get_global_time_us();
       }
       #endif
-      
-      // Acquire timing and system information as close together as possible.
+
+      // Acquire a timestamp for the data about to be read.
       global_time_us = get_global_time_us();
       rtc_count = getRtcCount();
-      ram_free = get_ram_free();
-      swap_free = get_swap_free();
-      update_cpu_usage();
-      
-      // Write system usage information to the data file.
-      systemMonitor_data_file = fopen(SYSTEMMONITOR_DATA_FILEPATH, "at");
-      if(systemMonitor_data_file == NULL)
-        CETI_LOG("failed to open data output file: %s", SYSTEMMONITOR_DATA_FILEPATH);
-      else
-      {
-        // Write timing information.
-        fprintf(systemMonitor_data_file, "%lld", global_time_us);
-        fprintf(systemMonitor_data_file, ",%d", rtc_count);
-        // Write any notes, then clear them so they are only written once.
-        fprintf(systemMonitor_data_file, ",%s", systemMonitor_data_file_notes);
-        strcpy(systemMonitor_data_file_notes, "");
-        // Write the system usage data.
-        for(int cpu_entry_index = 0; cpu_entry_index < NUM_CPU_ENTRIES; cpu_entry_index++)
-          fprintf(systemMonitor_data_file, ",%0.2f", cpu_percents[cpu_entry_index]);
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_audio_thread_spi_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_audio_thread_writeData_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_ecg_thread_getData_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_ecg_thread_writeData_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_imu_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_light_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_pressureTemperature_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_boardTemperature_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_battery_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_recovery_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_stateMachine_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_command_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_rtc_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_systemMonitor_thread_tid));
-        fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_goPros_thread_tid));
-        fprintf(systemMonitor_data_file, ",%lld", ram_free);
-        fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)ram_free)/((double)ram_total));
-        fprintf(systemMonitor_data_file, ",%lld", swap_free);
-        fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)swap_free)/((double)swap_total));
-        fprintf(systemMonitor_data_file, ",%f", get_cpu_temperature_c());
-        fprintf(systemMonitor_data_file, ",%f", get_gpu_temperature_c());
-        // Finish the row of data and close the file.
-        fprintf(systemMonitor_data_file, "\n");
-        fclose(systemMonitor_data_file);
-      }
 
+      if(!g_stopAcquisition)
+      {
+        // Acquire system information as close as possible to the above timestamps.
+        ram_free = get_ram_free();
+        swap_free = get_swap_free();
+        update_cpu_usage();
+
+        // Write system usage information to the data file.
+        systemMonitor_data_file = fopen(SYSTEMMONITOR_DATA_FILEPATH, "at");
+        if(systemMonitor_data_file == NULL)
+          CETI_LOG("failed to open data output file: %s", SYSTEMMONITOR_DATA_FILEPATH);
+        else
+        {
+          // Write timing information.
+          fprintf(systemMonitor_data_file, "%lld", global_time_us);
+          fprintf(systemMonitor_data_file, ",%d", rtc_count);
+          // Write any notes, then clear them so they are only written once.
+          fprintf(systemMonitor_data_file, ",%s", systemMonitor_data_file_notes);
+          strcpy(systemMonitor_data_file_notes, "");
+          // Write the system usage data.
+          for(int cpu_entry_index = 0; cpu_entry_index < NUM_CPU_ENTRIES; cpu_entry_index++)
+            fprintf(systemMonitor_data_file, ",%0.2f", cpu_percents[cpu_entry_index]);
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_audio_thread_spi_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_audio_thread_writeData_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_ecg_thread_getData_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_ecg_thread_writeData_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_imu_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_light_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_pressureTemperature_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_boardTemperature_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_battery_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_recovery_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_stateMachine_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_command_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_rtc_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_systemMonitor_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_goPros_thread_tid));
+          fprintf(systemMonitor_data_file, ",%lld", ram_free);
+          fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)ram_free)/((double)ram_total));
+          fprintf(systemMonitor_data_file, ",%lld", swap_free);
+          fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)swap_free)/((double)swap_total));
+          fprintf(systemMonitor_data_file, ",%ld", get_root_free_kb());
+          fprintf(systemMonitor_data_file, ",%ld", get_overlay_free_kb());
+          fprintf(systemMonitor_data_file, ",%ld", get_dataPartition_free_kb());
+          fprintf(systemMonitor_data_file, ",%ld", get_log_size_kb());
+          fprintf(systemMonitor_data_file, ",%ld", get_syslog_size_kb());
+          fprintf(systemMonitor_data_file, ",%f", get_cpu_temperature_c());
+          fprintf(systemMonitor_data_file, ",%f", get_gpu_temperature_c());
+          // Finish the row of data and close the file.
+          fprintf(systemMonitor_data_file, "\n");
+          fclose(systemMonitor_data_file);
+        }
+      }
+      
+      // Force log rotations, to enforce the size limits specified in firstboot
+      //  and to move logs onto the persistent data partition.
+      // Note that this will continue even after data acquisition is signaled to stop,
+      //  but the logs are generally small (one test indicated about 1.1 MiB over 11 hours,
+      //  which would fill the 1 GiB free space threshold in about 1.2 years).
+      #if LOGROTATE_PERIOD_US >= 0
+      if(get_global_time_us() - last_logrotate_time_us >= LOGROTATE_PERIOD_US)
+      {
+        force_system_log_rotation();
+        last_logrotate_time_us = get_global_time_us();
+      }
+      #endif
+      
       // Delay to implement a desired sampling rate.
       // Take into account the time it took to acquire/save data.
       polling_sleep_duration_us = SYSTEMMONITOR_SAMPLING_PERIOD_US;
@@ -268,6 +300,42 @@ long long get_ram_free()
   //Multiply in next statement to avoid int overflow on right hand side...
   physMemFree *= memInfo.mem_unit;
   return physMemFree;
+}
+
+// Disk usage
+//------------------------------------------
+
+long get_overlay_free_kb()
+{
+  char available_kb[20] = "";
+  int system_success = system_call_with_output(
+    "df --output=source,avail | grep overlay | awk '{print $2}'",
+    available_kb);
+  if(system_success == -1 || strlen(available_kb) == 0)
+    return -1;
+  return (long)atof(available_kb);
+}
+
+long get_root_free_kb()
+{
+  char available_kb[20] = "";
+  int system_success = system_call_with_output(
+    "df --output=source,avail | grep /dev/root | awk '{print $2}'",
+    available_kb);
+  if(system_success == -1 || strlen(available_kb) == 0)
+    return -1;
+  return (long)atof(available_kb);
+}
+
+long get_dataPartition_free_kb()
+{
+  char available_kb[20] = "";
+  int system_success = system_call_with_output(
+    "df --output=target,avail | grep /data | awk '{print $2}'",
+    available_kb);
+  if(system_success == -1 || strlen(available_kb) == 0)
+    return -1;
+  return (long)atof(available_kb);
 }
 
 // CPU usage
@@ -407,6 +475,57 @@ float get_gpu_temperature_c()
   if(system_success == -1)
     return -1;
   return atof(temperature_c_str);
+}
+
+// System logs
+//------------------------------------------
+
+long get_log_size_kb()
+{
+  char log_size_kb[20] = "";
+  int system_success = system_call_with_output(
+    "du /var/log/ 2>/dev/null | grep /var/log/$ | awk '{print $1}'",
+    log_size_kb);
+  if(system_success == -1 || strlen(log_size_kb) == 0)
+    return -1;
+  return (long)atof(log_size_kb);
+}
+
+long get_syslog_size_kb()
+{
+  char syslog_size_kb[20] = "";
+  int system_success = system_call_with_output(
+    "du /var/log/syslog 2>/dev/null | grep /var/log/syslog$ | awk '{print $1}'",
+    syslog_size_kb);
+  if(system_success == -1 || strlen(syslog_size_kb) == 0)
+    return -1;
+  return (long)atof(syslog_size_kb);
+}
+
+void force_system_log_rotation()
+{
+  CETI_LOG("Forcing a log file rotation");
+  char system_command[100];
+  char system_response[100];
+  long long log_rotation_time_us = get_global_time_us();
+  // Rotate the logs.
+  system_call_with_output("sudo logrotate -f /etc/logrotate.d/rsyslog", system_response);
+  // Check if it archived any old logs.
+  // The configuration in firstboot tells it to use /var/log/old_logs for old files.
+  if(system_call_with_output("ls -l /var/log/old_logs/ | wc -l", system_response) != -1)
+  {
+    int num_old_log_files = atof(system_response) - 1; // subtract 1 for the line that lists the total count
+    if(num_old_log_files > 0)
+    {
+      // Make a directory for the old logs on the data partition.
+      system_call_with_output("sudo mkdir /data/logs", system_response);
+      sprintf(system_command, "sudo mkdir /data/logs/logs_copied_%lld", log_rotation_time_us);
+      system_call_with_output(system_command, system_response);
+      // Move the old logs to the data partition.
+      sprintf(system_command, "sudo mv /var/log/old_logs/* /data/logs/logs_copied_%lld", log_rotation_time_us);
+      system_call_with_output(system_command, system_response);
+    }
+  }
 }
 
 // Various
