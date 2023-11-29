@@ -114,7 +114,6 @@ typedef RecPktHeader RecNullPkt;
 #define REC_STRING_PKT(cmd, val)  (RecPkt_string){.header = {.key = RECOVERY_PACKET_KEY_VALUE, .type = cmd, .length =  sizeof(float)}, .msg = {.value = val}}
 
 typedef RecPkt_float    RecCriticalVoltagePkt;  // CRITICAL_VOLTAGE
-typedef RecPkt_uint8_t  RecConfigTxLevelPkt;    // VHF_POWER_LEVEL  
 typedef RecPkt_float    RecAPRSFrequencyPkt;    // APRS_FREQ
 typedef RecPkt_string   RecAPRSCallSignPkt;     // APRS_CALL_SIGN        
  // APRS_MESSAGE     
