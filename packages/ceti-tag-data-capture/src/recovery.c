@@ -78,17 +78,17 @@ typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))
 /* configuration packets */
 typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
     RecPktHeader header;
-    struct msg = { uint8_t value };
+    struct msg { uint8_t value };
 } RecPkt_uint8_t;
 
 typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
     RecPktHeader header;
-    struct msg = { float value };
+    struct msg { float value };
 } RecPkt_float;
 
 typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
     RecPktHeader header;
-    struct msg = { char value[256] };
+    struct msg { char value[256] };
 } RecPkt_string;
 
 typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
@@ -136,7 +136,6 @@ int recovery_getPacket(RecPkt *packet, int64_t timeout_us) {
     bool header_complete = 0;
     packet->common.header.key = 0;
     int expected_bytes = 3;
-    int uart_error = 0;
     do {
         int bytes_avail = serDataAvailable(recovery_fd);
         if (bytes_avail < 0) { // UART Error
@@ -217,7 +216,7 @@ int recovery_getAPRSFreq_MHz(float *p_freq_MHz){
             return -1;
         }
 
-        if(ret_pkt.common.type == REC_CMD_CONFIG_APRS_FREQ) {
+        if(ret_pkt.common.header.type == REC_CMD_CONFIG_APRS_FREQ) {
             *p_freq_MHz = ret_pkt.float_packet.msg.value; 
             return 0;
         }
