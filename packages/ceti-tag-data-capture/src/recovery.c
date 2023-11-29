@@ -78,17 +78,17 @@ typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))
 /* configuration packets */
 typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
     RecPktHeader header;
-    struct { uint8_t value } msg;
+    struct { uint8_t value; } msg;
 } RecPkt_uint8_t;
 
 typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
     RecPktHeader header;
-    struct { float value } msg;
+    struct { float value; } msg;
 } RecPkt_float;
 
 typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
     RecPktHeader header;
-    struct { char value[256] } msg;
+    struct { char value[256]; } msg;
 } RecPkt_string;
 
 typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
