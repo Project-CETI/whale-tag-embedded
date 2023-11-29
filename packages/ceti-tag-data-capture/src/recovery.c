@@ -231,7 +231,7 @@ int recovery_getAPRSFreq_MHz(float *p_freq_MHz){
 int recovery_setAPRSCallSign(const char * call_sign){
     size_t call_sign_len = strlen(call_sign);
     if (call_sign_len > 6) {
-        CETI_ERR("Callsign \"%s\" is too long");
+        CETI_ERR("Callsign \"%s\" is too long", call_sign);
         return -3;
     }
 
