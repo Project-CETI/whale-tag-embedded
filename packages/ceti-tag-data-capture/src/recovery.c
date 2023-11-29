@@ -77,18 +77,18 @@ typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))
 
 /* configuration packets */
 typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
-    RecPktHeader header,
-    struct msg = { uint8_t value },
+    RecPktHeader header;
+    struct msg = { uint8_t value };
 } RecPkt_uint8_t;
 
 typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
-    RecPktHeader header,
-    struct msg = { float value },
+    RecPktHeader header;
+    struct msg = { float value };
 } RecPkt_float;
 
 typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
-    RecPktHeader header,
-    struct msg = { char value[256] },
+    RecPktHeader header;
+    struct msg = { char value[256] };
 } RecPkt_string;
 
 typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
@@ -123,7 +123,7 @@ typedef RecPkt_string   RecAPRSCallSignPkt;     // APRS_CALL_SIGN
 typedef union  {
     struct {
         RecPktHeader header;
-        uint8_t msg[256];
+        char msg[256];
     } common;
     RecNullPkt      null_packet;
     RecPkt_float     float_packet;
@@ -138,7 +138,7 @@ int recovery_getPacket(RecPkt *packet, int64_t timeout_us) {
     int expected_bytes = 3;
     int uart_error = 0;
     do {
-        int bytes_avail = serDataAvailable(fd);
+        int bytes_avail = serDataAvailable(recovery_fd);
         if (bytes_avail < 0) { // UART Error
             CETI_LOG("XXX Recovery board UART error XXX");
             return -1;
@@ -160,7 +160,7 @@ int recovery_getPacket(RecPkt *packet, int64_t timeout_us) {
             bytes_avail--;
         }
 
-        if (packet->common.heder.key != RECOVERY_PACKET_KEY_VALUE) {
+        if (packet->common.header.key != RECOVERY_PACKET_KEY_VALUE) {
             continue;
         }
 
@@ -180,13 +180,13 @@ int recovery_getPacket(RecPkt *packet, int64_t timeout_us) {
         }
 
         // read message if any
-        if(packet->common.length != 0){
-            expected_bytes = packet->common.length;
+        if(packet->common.header.length != 0){
+            expected_bytes = packet->common.header.length;
             if (bytes_avail < expected_bytes){ // not enough bytes to complete msg
                 continue;                             // get more bytes
             }
 
-            int result = serRead(recovery_fd, packet->common.msg, packet->common.length);
+            int result = serRead(recovery_fd, packet->common.msg, packet->common.header.length);
             if (result < 0) { // UART Error
                 CETI_LOG("XXX Recovery board UART error XXX");
                 return -1;
