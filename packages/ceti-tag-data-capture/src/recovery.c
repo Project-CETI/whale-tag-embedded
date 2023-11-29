@@ -278,7 +278,7 @@ int recovery_set_aprs_freq_mhz(float freq_MHz){
 }
 
 int recovery_set_aprs_ssid (uint8_t ssid) {
-    RecPkt_uint8_t = {
+    RecPkt_uint8_t pkt = {
         .header = {
             .key = RECOVERY_PACKET_KEY_VALUE,
             .type = REC_CMD_CONFIG_APRS_CALL_SIGN,
