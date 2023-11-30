@@ -43,6 +43,7 @@ extern int g_recovery_thread_is_running;
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
+int recovery_getAPRSCallSign(char buffer[static 7]);
 int recovery_setCriticalVoltage(float voltage);
 int init_recovery();
 int testRecoverySerial(void);
