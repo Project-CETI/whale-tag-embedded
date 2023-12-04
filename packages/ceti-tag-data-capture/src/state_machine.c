@@ -239,7 +239,7 @@ int updateStateMachine() {
         d_press_2 = atof(cPress_2);
         d_volt_1 = atof(cVolt_1);
         d_volt_2 = atof(cVolt_2);
-        recovery_setCriticalVoltage((float) d_volt_2);
+        recovery_set_critical_voltage((float) d_volt_2);
         timeOut_minutes =
             atol(cTimeOut); // the configuration file units are minutes
         timeout_seconds = timeOut_minutes * 60;

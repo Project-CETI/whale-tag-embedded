@@ -16,7 +16,7 @@
 
 /* TYPE DEFINITIONS **********************************************************/
 typedef enum recovery_commands_e {
-        /* Set recovery state*/
+    /* Set recovery state*/
     REC_CMD_START        = 0x01, //pi --> rec: sets rec into recovery state
     REC_CMD_STOP         = 0x02, //pi --> rec: sets rec into waiting state
     REC_CMD_COLLECT_ONLY = 0x03, //pi --> rec: sets rec into rx gps state
@@ -24,6 +24,7 @@ typedef enum recovery_commands_e {
 
     /* recovery packet */
     REC_CMD_GPS_PACKET   = 0x10, //rec --> pi: raw gps packet
+
 
     /* recovery configuration */
     REC_CMD_CONFIG_CRITICAL_VOLTAGE = 0x20,
@@ -43,6 +44,8 @@ typedef enum recovery_commands_e {
     REC_CMD_QUERY_APRS_CALL_SIGN,   // 0x63,
     REC_CMD_QUERY_APRS_MESSAGE,     // 0x64,
     REC_CMD_QUERY_APRS_TX_INTERVAL, // 0x65,
+
+    REC_CMD_TX_NOW                  = 0xFF,
 }RecoverCommand;
 
 typedef enum __GPS_MESSAGE_TYPES {
@@ -139,7 +142,7 @@ static int recovery_fd = PI_INIT_FAILED;
  *     RecPkt *packet   : ptr to destination packet union.
  *     time_t timout_us : timeout in microsecond, 0 = never.
  */
-int recovery_getPacket(RecPkt *packet, time_t timeout_us) {
+int recovery_get_packet(RecPkt *packet, time_t timeout_us) {
     bool header_complete = 0;
     int expected_bytes = sizeof(RecPktHeader);
     time_t start_time_us = get_global_time_us();
@@ -209,7 +212,7 @@ int recovery_getPacket(RecPkt *packet, time_t timeout_us) {
     return -2;
 }
 
-int recovery_getAPRSCallSign(char buffer[static 7]) {
+int recovery_get_aprs_call_sign(char buffer[static 7]) {
     const uint64_t timeout_us = 5000000;
     //send query cmd
     RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_QUERY_APRS_CALL_SIGN);
@@ -220,7 +223,7 @@ int recovery_getAPRSCallSign(char buffer[static 7]) {
     //wait for response
     int64_t start_time_us = get_global_time_us();
     do {
-        if (recovery_getPacket(&ret_pkt, timeout_us) < -1) {
+        if (recovery_get_packet(&ret_pkt, timeout_us) < -1) {
             CETI_LOG("Recovery board packet reading error");
             return -1;
         }
@@ -241,7 +244,7 @@ int recovery_getAPRSCallSign(char buffer[static 7]) {
     return -2;
 }
 
-int recovery_getAPRSFreq_MHz(float *p_freq_MHz){
+int recovery_get_aprs_freq_mhz(float *p_freq_MHz){
     const uint64_t timeout_us = 5000000;
     //send query cmd
     RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_QUERY_APRS_FREQ);
@@ -252,7 +255,7 @@ int recovery_getAPRSFreq_MHz(float *p_freq_MHz){
     //wait for response
     int64_t start_time_us = get_global_time_us();
     do {
-        if (recovery_getPacket(&ret_pkt, timeout_us) < -1) {
+        if (recovery_get_packet(&ret_pkt, timeout_us) < -1) {
             CETI_LOG("Recovery board packet reading error");
             return -1;
         }
@@ -270,7 +273,7 @@ int recovery_getAPRSFreq_MHz(float *p_freq_MHz){
     return -2;
 }
 
-int recovery_setAPRSCallSign(const char * call_sign){
+int recovery_set_aprs_call_sign(const char * call_sign){
     size_t call_sign_len = strlen(call_sign);
     if (call_sign_len > 6) {
         CETI_ERR("Callsign \"%s\" is too long", call_sign);
@@ -289,7 +292,7 @@ int recovery_setAPRSCallSign(const char * call_sign){
     return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPktHeader) + call_sign_len);
 }
 
-int recovery_setAPRSSSID(uint8_t ssid){
+int recovery_set_aprs_ssid(uint8_t ssid){
     RecPkt_uint8_t pkt = {
         .header = {
             .key = RECOVERY_PACKET_KEY_VALUE,
@@ -337,7 +340,7 @@ int recovery_set_aprs_ssid (uint8_t ssid) {
     return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPkt_uint8_t));
 }
 
-int recovery_setCriticalVoltage(float voltage){
+int recovery_set_critical_voltage(float voltage){
     RecPkt_float pkt = {
         .header = {
             .key = RECOVERY_PACKET_KEY_VALUE,
@@ -349,7 +352,7 @@ int recovery_setCriticalVoltage(float voltage){
     return serWrite(recovery_fd, (char *)&pkt, sizeof(pkt));
 }
 
-int recovery_setPowerLevel(RecoveryPowerLevel power_level){
+int recovery_set_power_level(RecoveryPowerLevel power_level){
     struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
         RecPktHeader header;
         RecConfigTxLevelPkt msg;
@@ -366,6 +369,10 @@ int recovery_setPowerLevel(RecoveryPowerLevel power_level){
 }
 
 
+int recovery_tx_now(const char * message){
+
+}
+
 int init_recovery() {
     char call_sign[7] = {};
     gpioWrite(13, 1); //turn on recovery
@@ -378,12 +385,21 @@ int init_recovery() {
         return (-1);
     }
 
-    if (recovery_getAPRSCallSign(call_sign) == 0){
+    // get call sign to ensure uart
+    if (recovery_get_aprs_call_sign(call_sign) == 0){
         CETI_LOG("Callsign: \"%s\".", call_sign);
     }
     else {
-        CETI_ERR("Recovery board.");
+        CETI_ERR("Did not receive recovery borad response.");
     }
+
+    // send wake message
+    char hostname[1024];
+    hostname[1023] = '\0';
+    gethostname(hostname, 1023);
+    char message[1024];
+    snprintf(message, sizeof(message), "CETI %s ready!", hostname);
+    recovery_tx_now(message, strlen(message));
 
     // Open an output file to write data.
     if(init_data_file(recovery_data_file, RECOVERY_DATA_FILEPATH,
@@ -555,7 +571,7 @@ int recovery_get_GPS_data(char gpsLocation[GPS_LOCATION_LENGTH]){
 
     //wait for GPS packet
     do {
-        if(recovery_getPacket(&pkt, 30000000) != 0){
+        if(recovery_get_packet(&pkt, 30000000) != 0){
             CETI_ERR("Recovery board communication error");
             return -1;
         }
