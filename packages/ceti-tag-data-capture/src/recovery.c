@@ -353,7 +353,7 @@ int recovery_set_power_level(RecoveryPowerLevel power_level){
 
 int recovery_tx_now(const char * message){
     size_t message_len = strlen(message);
-    if (message > 67) {
+    if (message_len > 67) {
         CETI_ERR("Message \"%s\" is too long", message);
         return -3;
     }
