@@ -322,24 +322,6 @@ int recovery_set_aprs_freq_mhz(float freq_MHz){
     return serWrite(recovery_fd, (char *)&pkt, sizeof(pkt));
 }
 
-int recovery_set_aprs_ssid (uint8_t ssid) {
-    RecPkt_uint8_t pkt = {
-        .header = {
-            .key = RECOVERY_PACKET_KEY_VALUE,
-            .type = REC_CMD_CONFIG_APRS_CALL_SIGN,
-            .length = sizeof(uint8_t),
-        },
-        .msg = {.value = ssid}
-    };
-
-    if (ssid > 15) {
-        CETI_ERR("APRS SSID (%d) outside allowable range (0-15)", ssid);
-        return -4;
-    }
-
-    return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPkt_uint8_t));
-}
-
 int recovery_set_critical_voltage(float voltage){
     RecPkt_float pkt = {
         .header = {
@@ -370,7 +352,22 @@ int recovery_set_power_level(RecoveryPowerLevel power_level){
 
 
 int recovery_tx_now(const char * message){
+    size_t message_len = strlen(message);
+    if (message > 67) {
+        CETI_ERR("Message \"%s\" is too long", message);
+        return -3;
+    }
 
+    RecPkt_string pkt = {
+        .header = {
+            .key = RECOVERY_PACKET_KEY_VALUE,
+            .type = REC_CMD_TX_NOW,
+            .length = (uint8_t) message_len,
+        },
+    };
+    memcpy(pkt.msg.value, message, message_len);
+
+    return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPktHeader) + message_len);
 }
 
 int init_recovery() {
@@ -399,7 +396,7 @@ int init_recovery() {
     gethostname(hostname, 1023);
     char message[1024];
     snprintf(message, sizeof(message), "CETI %s ready!", hostname);
-    recovery_tx_now(message, strlen(message));
+    recovery_tx_now(message);
 
     // Open an output file to write data.
     if(init_data_file(recovery_data_file, RECOVERY_DATA_FILEPATH,
@@ -565,7 +562,7 @@ int recoveryCritical(void){
 //-----------------------------------------------------------------------------
 // Get GPS
 //-----------------------------------------------------------------------------
-int recovery_get_GPS_data(char gpsLocation[GPS_LOCATION_LENGTH]){
+int recovery_get_gps_data(char gpsLocation[GPS_LOCATION_LENGTH]){
     RecPkt pkt;
     int result = 0;
 
@@ -578,8 +575,9 @@ int recovery_get_GPS_data(char gpsLocation[GPS_LOCATION_LENGTH]){
     } while(pkt.common.header.type != REC_CMD_GPS_PACKET);
 
     //copy packet into buffer
-    uint_fast8_t len = pkt.string_packet.length;
-    memcpy(gpsLocation, )
+    uint_fast8_t len = pkt.string_packet.header.length;
+    memcpy(gpsLocation, pkt.string_packet.msg.value, len);
+    return 0;
 }
 
 int getGpsLocation(char gpsLocation[GPS_LOCATION_LENGTH]) {
