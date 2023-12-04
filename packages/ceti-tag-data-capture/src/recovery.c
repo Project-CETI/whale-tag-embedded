@@ -60,7 +60,7 @@ typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"
     uint8_t key;        // $
     uint8_t type;       // RecoverCommand
     uint8_t length;     // packet_length
-    uint8_t __reserved; // currently unused. (ensures word alignment of message). May be used for msg CRC  or other error correction in the future
+    uint8_t __res;      // currently unused. (ensures word alignment of message). May be used for msg CRC  or other error correction in the future
 } RecPktHeader;
 
 typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))) __GPS_Data {
@@ -391,8 +391,7 @@ int init_recovery() {
     }
 
     // send wake message
-    char hostname[1024];
-    hostname[1023] = '\0';
+    char hostname[512];
     gethostname(hostname, 1023);
     char message[1024];
     snprintf(message, sizeof(message), "CETI %s ready!", hostname);
