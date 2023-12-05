@@ -12,7 +12,7 @@
 //-----------------------------------------------------------------------------
 /* MACRO DEFINITIONS *********************************************************/
 #define RECOVERY_PACKET_KEY_VALUE '$'
-
+#define RECOVERY_UART_TIMEOUT_US 5000000
 
 /* TYPE DEFINITIONS **********************************************************/
 typedef enum recovery_commands_e {
@@ -44,6 +44,8 @@ typedef enum recovery_commands_e {
     REC_CMD_QUERY_APRS_CALL_SIGN,   // 0x63,
     REC_CMD_QUERY_APRS_MESSAGE,     // 0x64,
     REC_CMD_QUERY_APRS_TX_INTERVAL, // 0x65,
+    REC_CMD_QUERY_APRS_SSID,
+
 
     REC_CMD_TX_NOW                  = 0xFF,
 }RecoverCommand;
@@ -102,11 +104,7 @@ typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"
 
 typedef RecPktHeader RecNullPkt;
 #define REC_EMPTY_PKT(cmd) (RecNullPkt){.key = RECOVERY_PACKET_KEY_VALUE, .type = cmd, .length = 0} 
-#define REC_U8_PKT(cmd, val)  (RecPkt_uint8_t){.header = {.key = RECOVERY_PACKET_KEY_VALUE, .type = cmd, .length =  sizeof(float)}, .msg = {.value = val}}
-#define REC_FLOAT_PKT(cmd, val)  (RecPkt_float){.header = {.key = RECOVERY_PACKET_KEY_VALUE, .type = cmd, .length =  sizeof(float)}, .msg = {.value = val}}
-#define REC_STRING_PKT(cmd, val)  (RecPkt_string){.header = {.key = RECOVERY_PACKET_KEY_VALUE, .type = cmd, .length =  sizeof(float)}, .msg = {.value = val}}
 
-typedef RecPkt_float    RecCriticalVoltagePkt;  // CRITICAL_VOLTAGE
 typedef RecPkt_float    RecAPRSFrequencyPkt;    // APRS_FREQ
 typedef RecPkt_string   RecAPRSCallSignPkt;     // APRS_CALL_SIGN        
  // APRS_MESSAGE     
@@ -117,7 +115,8 @@ typedef union  {
         RecPktHeader header;
         char msg[256];
     } common;
-    RecNullPkt      null_packet;
+    RecNullPkt       null_packet;
+    RecPkt_uint8_t   u8_packet;
     RecPkt_float     float_packet;
     RecPkt_string    string_packet;
 } RecPkt;
@@ -156,8 +155,8 @@ int recovery_get_packet(RecPkt *packet, time_t timeout_us) {
         }
 
         if (bytes_avail < expected_bytes) { // no bytes available
-            usleep(1000);          // wait a bit
-            continue;              // try again
+            usleep(1000); // wait a bit
+            continue;     // try again
         }
 
         // scan bytes until start byte (skip if start byte already found)
@@ -179,9 +178,9 @@ int recovery_get_packet(RecPkt *packet, time_t timeout_us) {
             // read rest of header
             expected_bytes = sizeof(RecPktHeader) - 1;
             if (bytes_avail < expected_bytes) // not enough bytes to complete header
-                continue;        // get more bytes
+                continue;                     // get more bytes
 
-            int result = serRead(recovery_fd, (char *)&(packet->common.header.type), 2); 
+            int result = serRead(recovery_fd, (char *)&(packet->common.header.type), expected_bytes); 
             if (result < 0) { // UART Error
                 CETI_ERR("Recovery board UART error");
                 return -1;
@@ -194,10 +193,10 @@ int recovery_get_packet(RecPkt *packet, time_t timeout_us) {
         if(packet->common.header.length != 0){
             expected_bytes = packet->common.header.length;
             if (bytes_avail < expected_bytes){ // not enough bytes to complete msg
-                continue;                             // get more bytes
+                continue;                      // get more bytes
             }
 
-            int result = serRead(recovery_fd, packet->common.msg, packet->common.header.length);
+            int result = serRead(recovery_fd, packet->common.msg, expected_bytes);
             if (result < 0) { // UART Error
                 CETI_ERR("Recovery board UART error");
                 return -1;
@@ -213,7 +212,6 @@ int recovery_get_packet(RecPkt *packet, time_t timeout_us) {
 }
 
 int recovery_get_aprs_call_sign(char buffer[static 7]) {
-    const uint64_t timeout_us = 5000000;
     //send query cmd
     RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_QUERY_APRS_CALL_SIGN);
     RecPkt ret_pkt = {};
@@ -223,8 +221,8 @@ int recovery_get_aprs_call_sign(char buffer[static 7]) {
     //wait for response
     int64_t start_time_us = get_global_time_us();
     do {
-        if (recovery_get_packet(&ret_pkt, timeout_us) < -1) {
-            CETI_LOG("Recovery board packet reading error");
+        if (recovery_get_packet(&ret_pkt, RECOVERY_UART_TIMEOUT_US) < -1) {
+            CETI_ERR("Recovery board packet reading error");
             return -1;
         }
 
@@ -237,15 +235,14 @@ int recovery_get_aprs_call_sign(char buffer[static 7]) {
         }
         
         //received incorrect packet type, keep reading
-    } while ((get_global_time_us() - start_time_us) < timeout_us);
+    } while ((get_global_time_us() - start_time_us) < RECOVERY_UART_TIMEOUT_US);
 
     //Timeout
-    CETI_LOG("XXX Recovery board response timeout XXX");
+    CETI_ERR("Recovery board response timeout");
     return -2;
 }
 
 int recovery_get_aprs_freq_mhz(float *p_freq_MHz){
-    const uint64_t timeout_us = 5000000;
     //send query cmd
     RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_QUERY_APRS_FREQ);
     RecPkt ret_pkt = {};
@@ -255,8 +252,8 @@ int recovery_get_aprs_freq_mhz(float *p_freq_MHz){
     //wait for response
     int64_t start_time_us = get_global_time_us();
     do {
-        if (recovery_get_packet(&ret_pkt, timeout_us) < -1) {
-            CETI_LOG("Recovery board packet reading error");
+        if (recovery_get_packet(&ret_pkt, RECOVERY_UART_TIMEOUT_US) < -1) {
+            CETI_ERR("Recovery board packet reading error");
             return -1;
         }
 
@@ -266,10 +263,36 @@ int recovery_get_aprs_freq_mhz(float *p_freq_MHz){
         }
         
         //received incorrect packet type, keep reading
-    } while ((get_global_time_us() - start_time_us) < timeout_us);
+    } while ((get_global_time_us() - start_time_us) < RECOVERY_UART_TIMEOUT_US);
 
     //Timeout
-    CETI_LOG("XXX Recovery board response timeout XXX");
+    CETI_ERR("Recovery board response timeout");
+    return -2;
+}
+
+int recovery_get_aprs_ssid(uint8_t *p_ssid){
+    RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_QUERY_APRS_SSID);
+    RecPkt ret_pkt = {};
+    serWrite(recovery_fd, (char *)&q_pkt, sizeof(q_pkt));
+
+
+    int64_t start_time_us = get_global_time_us();
+    do {
+        if (recovery_get_packet(&ret_pkt, RECOVERY_UART_TIMEOUT_US) < -1) {
+            CETI_ERR("Recovery board packet reading error");
+            return -1;
+        }
+
+        if(ret_pkt.common.header.type == REC_CMD_CONFIG_APRS_SSID) {
+            *p_ssid = ret_pkt.u8_packet.msg.value; 
+            return 0;
+        }
+        
+        //received incorrect packet type, keep reading
+    } while ((get_global_time_us() - start_time_us) < RECOVERY_UART_TIMEOUT_US);
+
+    //Timeout
+    CETI_ERR("Recovery board response timeout");
     return -2;
 }
 
@@ -292,11 +315,23 @@ int recovery_set_aprs_call_sign(const char * call_sign){
     return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPktHeader) + call_sign_len);
 }
 
+int recovery_set_aprs_freq_mhz(float freq_MHz){
+    RecPkt_float pkt = {
+        .header = {
+            .key = RECOVERY_PACKET_KEY_VALUE,
+            .type = REC_CMD_CONFIG_APRS_FREQ,
+            .length = sizeof(float)
+        }, 
+        .msg = { .value = freq_MHz}
+    };
+    return serWrite(recovery_fd, (char *)&pkt, sizeof(pkt));
+}
+
 int recovery_set_aprs_ssid(uint8_t ssid){
     RecPkt_uint8_t pkt = {
         .header = {
             .key = RECOVERY_PACKET_KEY_VALUE,
-            .type = REC_CMD_CONFIG_APRS_CALL_SIGN,
+            .type = REC_CMD_CONFIG_APRS_SSID,
             .length = sizeof(uint8_t),
         },
         .msg = {.value = ssid}
@@ -308,18 +343,6 @@ int recovery_set_aprs_ssid(uint8_t ssid){
     }
 
     return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPkt_uint8_t));
-}
-
-int recovery_set_aprs_freq_mhz(float freq_MHz){
-    RecPkt_float pkt = {
-        .header = {
-            .key = RECOVERY_PACKET_KEY_VALUE,
-            .type = REC_CMD_CONFIG_APRS_FREQ,
-            .length = sizeof(float)
-        }, 
-        .msg = { .value = freq_MHz}
-    };
-    return serWrite(recovery_fd, (char *)&pkt, sizeof(pkt));
 }
 
 int recovery_set_critical_voltage(float voltage){
@@ -350,7 +373,6 @@ int recovery_set_power_level(RecoveryPowerLevel power_level){
     return 0;
 }
 
-
 int recovery_tx_now(const char * message){
     size_t message_len = strlen(message);
     if (message_len > 67) {
@@ -378,7 +400,7 @@ int init_recovery() {
     // Open serial communication
     recovery_fd = serOpen("/dev/serial0",115200,0);
     if (recovery_fd < 0) {
-        CETI_LOG("Failed to open the recovery board serial port");
+        CETI_ERR("Failed to open the recovery board serial port");
         return (-1);
     }
 
