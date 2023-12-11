@@ -7,21 +7,32 @@
 
 #include "Sensor Inc/BNO08x.h"
 #include "Sensor Inc/audio.h"
+#include "Lib Inc/threads.h"
+#include "ux_device_cdc_acm.h"
 #include "fx_api.h"
 #include "app_filex.h"
 #include "main.h"
 #include "stm32u5xx_hal_cortex.h"
 #include "stm32u5xx_hal_gpio.h"
 #include "stm32u5xx_hal_spi.h"
-#include "Lib Inc/threads.h"
 #include <stdbool.h>
 
 extern SPI_HandleTypeDef hspi1;
-extern UART_HandleTypeDef huart4;
+extern UART_HandleTypeDef huart2;
 
 extern Thread_HandleTypeDef threads[NUM_THREADS];
 
-// threadX mutex and event flags
+// usb flags
+extern TX_EVENT_FLAGS_GROUP usb_cdc_event_flags_group;
+
+// usb buffers
+extern uint8_t usbReceiveBuf[APP_RX_DATA_SIZE];
+extern uint8_t usbTransmitBuf[APP_RX_DATA_SIZE];
+extern uint8_t usbTransmitLen;
+
+extern IMU_HandleTypeDef imu;
+
+// threadX mutex and flags
 TX_EVENT_FLAGS_GROUP imu_event_flags_group;
 TX_MUTEX imu_first_half_mutex;
 TX_MUTEX imu_second_half_mutex;
@@ -29,8 +40,13 @@ TX_MUTEX imu_second_half_mutex;
 // array split in half for holding IMU data
 IMU_Data imu_data[2][IMU_HALF_BUFFER_SIZE] = {0};
 
-// for debugging
-bool debug = true;
+// uart debug status
+bool imu_get_samples = false;
+uint16_t imu_sample_count = 0;
+bool imu_unit_test = false;
+HAL_StatusTypeDef imu_unit_test_ret = HAL_ERROR;
+
+uint8_t debug = 1;
 
 void imu_thread_entry(ULONG thread_input) {
 
@@ -42,49 +58,70 @@ void imu_thread_entry(ULONG thread_input) {
 	//Enable our interrupt handler that signals data is ready
 	HAL_NVIC_EnableIRQ(EXTI12_IRQn);
 
-	IMU_HandleTypeDef imu;
 	imu_init(&hspi1, &imu);
 
 	tx_thread_resume(&threads[DEPTH_THREAD].thread);
 
 	while (1) {
 		ULONG actual_flags = 0;
+		HAL_StatusTypeDef ret = HAL_ERROR;
 
-		/*
-		tx_event_flags_get(&imu_event_flags_group, IMU_UNIT_TEST_FLAG | IMU_GET_SAMPLE_FLAG | IMU_RESET_FLAG, TX_OR_CLEAR, &actual_flags, IMU_CMD_WAIT_TIMEOUT);
+		// wait for any debugging flag
+		tx_event_flags_get(&imu_event_flags_group, IMU_UNIT_TEST_FLAG | IMU_CMD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
 		if (actual_flags & IMU_UNIT_TEST_FLAG) {
-
-			// get product id
-			HAL_StatusTypeDef ret = imu_get_product_id(&imu);
-
-			//send result over UART
-			HAL_UART_Transmit_IT(&huart4, ret, 1);
+			imu_unit_test = true;
 		}
-		else if (actual_flags & IMU_GET_SAMPLES_FLAG) {
-
-			// get samples from imu
-			HAL_StatusTypeDef ret = imu_get_samples(&imu, 10);
-
-			//send result over UART
-			HAL_UART_Transmit_IT(&huart4, ret, 1);
-		}
-		else if (actual_flags & IMU_RESET_FLAG) {
-
+		else if (actual_flags & IMU_CMD_FLAG) {
 			ULONG actual_events = 0;
 
-			// reset imu
-			imu_reset(&imu);
+			if (usbReceiveBuf[3] == IMU_GET_SAMPLES_CMD) {
 
-			// wait for reset to complete
-			tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
-			if (actual_events & IMU_DATA_READY_FLAG) {
-				HAL_UART_Transmit_IT(&huart4, HAL_OK, 1);
+				// continue normal data collection but also transmit over uart and usb
+				imu_get_samples = true;
 			}
-			else {
-				HAL_UART_Transmit_IT(&huart4, HAL_TIMEOUT, 1);
+			else if (usbReceiveBuf[3] == IMU_RESET_CMD) {
+
+				// reset imu
+				imu_reset(&imu);
+
+				// wait for reset to complete
+				tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
+				if (actual_events & IMU_DATA_READY_FLAG) {
+					ret = HAL_OK;
+				}
+				else {
+					ret = HAL_TIMEOUT;
+				}
+
+				// send result over uart and usb
+				HAL_UART_Transmit_IT(&huart2, &ret, 1);
+
+				if (usbTransmitLen == 0) {
+					memcpy(&usbTransmitBuf[0], &ret, 1);
+					usbTransmitLen = 1;
+					tx_event_flags_set(&usb_cdc_event_flags_group, USB_TRANSMIT_FLAG, TX_OR);
+				}
+			}
+			else if (usbReceiveBuf[3] == IMU_CONFIG_CMD) {
+
+				// enable new report id
+				tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
+				if (actual_events & IMU_DATA_READY_FLAG) {
+					ret = imu_configure_reports(&imu, usbReceiveBuf[4]);
+				}
+				else {
+					ret = HAL_TIMEOUT;
+				}
+				// send result over uart and usb
+				HAL_UART_Transmit_IT(&huart2, &ret, 1);
+
+				if (usbTransmitLen == 0) {
+					memcpy(&usbTransmitBuf[0], &ret, 1);
+					usbTransmitLen = 1;
+					tx_event_flags_set(&usb_cdc_event_flags_group, USB_TRANSMIT_FLAG, TX_OR);
+				}
 			}
 		}
-		*/
 
 		// acquire first half of buffer
 		tx_mutex_get(&imu_first_half_mutex, TX_WAIT_FOREVER);
@@ -146,7 +183,7 @@ void imu_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu) {
 
 	// read startup data
 	imu_configure_startup(imu);
-}
+ }
 
 void imu_reset(IMU_HandleTypeDef* imu) {
 
@@ -159,7 +196,7 @@ void imu_reset(IMU_HandleTypeDef* imu) {
 
 }
 
-void imu_configure_reports(IMU_HandleTypeDef* imu, uint8_t report_id) {
+HAL_StatusTypeDef imu_configure_reports(IMU_HandleTypeDef* imu, uint8_t report_id) {
 
 	uint8_t seq = 1;
 
@@ -170,15 +207,17 @@ void imu_configure_reports(IMU_HandleTypeDef* imu, uint8_t report_id) {
 	config.header.seq = seq;
 	config.feature_report_id = IMU_SET_FEATURE_REPORT_ID;
 	config.report_id = report_id;
-	config.report_interval_lsb = 0x10;
-	config.report_interval_1 = 0x27;
+	config.report_interval_lsb = 0x10;//IMU_REPORT_INTERVAL_0;
+	config.report_interval_1 = 0x27;//IMU_REPORT_INTERVAL_1;
 	config.report_interval_2 = IMU_REPORT_INTERVAL_2;
 	config.report_interval_msb = IMU_REPORT_INTERVAL_3;
 
 	// transmit config frame
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-	HAL_SPI_Transmit(imu->hspi, (uint8_t *) &config, IMU_CONFIG_REPORT_LEN, HAL_MAX_DELAY);
+	HAL_StatusTypeDef ret = HAL_SPI_Transmit(imu->hspi, (uint8_t *) &config, IMU_CONFIG_REPORT_LEN, HAL_MAX_DELAY);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+
+	return ret;
 }
 
 HAL_StatusTypeDef imu_get_product_id(IMU_HandleTypeDef* imu) {
@@ -194,22 +233,26 @@ HAL_StatusTypeDef imu_get_product_id(IMU_HandleTypeDef* imu) {
 
 	// transmit config frame
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-	HAL_SPI_Transmit(imu->hspi, (uint8_t *) &config, IMU_PRODUCT_CONFIG_REPORT_LEN, HAL_MAX_DELAY);
+	HAL_StatusTypeDef ret = HAL_SPI_Transmit(imu->hspi, (uint8_t *) &config, IMU_PRODUCT_CONFIG_REPORT_LEN, HAL_MAX_DELAY);
 	HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+
+	return ret;
 }
 
 void imu_configure_startup(IMU_HandleTypeDef* imu) {
 
-	ULONG actual_events = IMU_DATA_READY_FLAG;
+	ULONG actual_events = 0;
 	uint8_t read_startup = 0;
 	uint16_t dataLen = 0;
 	uint8_t receiveData[IMU_RECEIVE_BUFFER_MAX_LEN] = {0};
 
-	while (read_startup < 2) {
+	while (read_startup < 3) {
 		// read startup header
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
 		HAL_SPI_Receive(imu->hspi, &receiveData[0], IMU_SHTP_HEADER_LEN, IMU_SPI_STARTUP_TIMEOUT_MS);
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+
+		//HAL_UART_Transmit(&huart2, &receiveData[0], IMU_SHTP_HEADER_LEN, HAL_MAX_DELAY);
 
 		// calculate data length
 		dataLen = TO_16_BIT(receiveData[0], receiveData[1]);
@@ -221,16 +264,23 @@ void imu_configure_startup(IMU_HandleTypeDef* imu) {
 		// get interrupt for data
 		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
 
-		// read startup data
-		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-		HAL_SPI_Receive(imu->hspi, &receiveData[0], dataLen, IMU_SPI_STARTUP_TIMEOUT_MS);
-		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+		// reset first element for checking report id
+		receiveData[0] = 0;
 
-		// check interrupt for more startup data
-		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
+		// read startup data and keep requesting data until valid report id received
+		while (receiveData[0] == 0 && dataLen != 0) {
+			HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
+			HAL_SPI_Receive(imu->hspi, &receiveData[0], dataLen, IMU_SPI_STARTUP_TIMEOUT_MS);
+			HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
+
+			//HAL_UART_Transmit(&huart2, &receiveData[0], dataLen, HAL_MAX_DELAY);
+
+			// check interrupt for more startup data
+			tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
+		}
 
 		// send config frame during last startup message
-		if (read_startup == 1) {
+		if (read_startup == 1 && dataLen != 0 && receiveData[0] != 0) {
 			// configure all reports
 			imu_configure_reports(imu, IMU_ROTATION_VECTOR_REPORT_ID);
 			tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
@@ -240,8 +290,13 @@ void imu_configure_startup(IMU_HandleTypeDef* imu) {
 			tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
 			imu_configure_reports(imu, IMU_MAGNETOMETER_REPORT_ID);
 			tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
+
 		}
-		read_startup++;
+
+		if (dataLen != 0 && receiveData[0] != 0) {
+			read_startup++;
+			receiveData[0] = 0;
+		}
 	}
 }
 
@@ -249,6 +304,7 @@ HAL_StatusTypeDef imu_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half) {
 
 	ULONG actual_events = 0;
 	uint8_t receiveData[IMU_RECEIVE_BUFFER_MAX_LEN] = {0};
+	uint8_t imu_error_count = 0;
 
 	for (uint16_t index=0; index<IMU_HALF_BUFFER_SIZE; index++) {
 		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
@@ -261,11 +317,38 @@ HAL_StatusTypeDef imu_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half) {
 		// extract data length from header
 		uint16_t dataLen = TO_16_BIT(receiveData[0], receiveData[1]);
 
+		if (imu_unit_test) {
+			imu_unit_test_ret = ret;
+			imu_unit_test = false;
+			tx_event_flags_set(&imu_event_flags_group, IMU_UNIT_TEST_DONE_FLAG, TX_OR);
+		}
+
+		if (imu_get_samples) {
+			HAL_UART_Transmit_IT(&huart2, &ret, 1);
+			HAL_UART_Transmit_IT(&huart2, (uint8_t *) &receiveData[0], IMU_SHTP_HEADER_LEN);
+
+			if (usbTransmitLen == 0) {
+				memcpy(&usbTransmitBuf[0], &ret, 1);
+				memcpy(&usbTransmitBuf[1], &receiveData[0], IMU_SHTP_HEADER_LEN);
+				usbTransmitLen = IMU_SHTP_HEADER_LEN + 1;
+				tx_event_flags_set(&usb_cdc_event_flags_group, USB_TRANSMIT_FLAG, TX_OR);
+			}
+		}
+
 		if (ret == HAL_TIMEOUT || dataLen <= 0) {
 			index--;
+			imu_error_count++;
 
+			// suspend imu if too many errors
+			if (imu_error_count > IMU_MAX_ERROR_COUNT) {
+				tx_event_flags_set(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR);
+				tx_event_flags_set(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR);
+				tx_thread_suspend(&threads[IMU_THREAD].thread);
+				break;
+			}
 			continue;
 		}
+
 		else if (dataLen > IMU_RECEIVE_BUFFER_MAX_LEN) {
 			dataLen = IMU_RECEIVE_BUFFER_MAX_LEN;
 		}
@@ -273,50 +356,100 @@ HAL_StatusTypeDef imu_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half) {
 		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
 
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-		ret = HAL_SPI_Receive(imu->hspi, &receiveData[0], dataLen, IMU_SPI_READ_TIMEOUT_MS);
+		ret = HAL_SPI_Receive(imu->hspi, &receiveData[IMU_SHTP_HEADER_LEN], dataLen, IMU_SPI_READ_TIMEOUT_MS);
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
 		if (ret == HAL_TIMEOUT) {
 			index--;
+			imu_error_count++;
 
+			// suspend imu if too many errors
+			if (imu_error_count > IMU_MAX_ERROR_COUNT) {
+				tx_event_flags_set(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR);
+				tx_event_flags_set(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR);
+				tx_thread_suspend(&threads[IMU_THREAD].thread);
+				break;
+			}
 			continue;
 		}
 
-		if (debug) {
-			HAL_UART_Transmit_IT(&huart4, &receiveData[0], dataLen);
+		if (imu_get_samples) {
+			// send imu data over uart and usb
+			HAL_UART_Transmit_IT(&huart2, &receiveData[IMU_SHTP_HEADER_LEN], dataLen);
+
+			if (usbTransmitLen == 0) {
+				memcpy(&usbTransmitBuf[IMU_SHTP_HEADER_LEN], &receiveData[IMU_SHTP_HEADER_LEN], dataLen);
+				usbTransmitLen += dataLen;
+				tx_event_flags_set(&usb_cdc_event_flags_group, USB_TRANSMIT_FLAG, TX_OR);
+			}
+
+			imu_sample_count++;
+			if (imu_sample_count < IMU_NUM_SAMPLES) {
+				imu_get_samples = false;
+				imu_sample_count = 0;
+			}
 		}
+
+		//HAL_UART_Transmit(&huart2, &receiveData[0], dataLen+IMU_SHTP_HEADER_LEN, HAL_MAX_DELAY);
 
 		if ((receiveData[2] == IMU_DATA_CHANNEL) && (receiveData[4] == IMU_TIMESTAMP_REPORT_ID)) {
 			uint16_t parsedDataIndex = 9;
 			while (parsedDataIndex < dataLen) {
 				if ((receiveData[parsedDataIndex] == IMU_G_ROTATION_VECTOR_REPORT_ID) || (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID) || (receiveData[parsedDataIndex] == IMU_ACCELEROMETER_REPORT_ID) || (receiveData[parsedDataIndex] == IMU_GYROSCOPE_REPORT_ID) || (receiveData[parsedDataIndex] == IMU_MAGNETOMETER_REPORT_ID)) {
 
+					uint8_t bytesLen = (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID || receiveData[parsedDataIndex] == IMU_G_ROTATION_VECTOR_REPORT_ID) ? IMU_QUAT_USEFUL_BYTES : IMU_3_AXIS_USEFUL_BYTES;
+
 					// store report id
 					imu_data[buffer_half][index].report_id = receiveData[parsedDataIndex];
 
 					// store report data
-					memcpy(imu_data[buffer_half][index].raw_data, &receiveData[parsedDataIndex+4], IMU_QUAT_USEFUL_BYTES);
+					memcpy(imu_data[buffer_half][index].raw_data, &receiveData[parsedDataIndex+4], bytesLen);
+
+					// add padding to data buffer
+					if (bytesLen < IMU_QUAT_USEFUL_BYTES) {
+						imu_data[buffer_half][index].raw_data[6] = 0;
+						imu_data[buffer_half][index].raw_data[7] = 0;
+					}
 
 					// increment index to next report
 					parsedDataIndex += 4 + IMU_QUAT_USEFUL_BYTES;
+
+					if (parsedDataIndex < dataLen) {
+						index++;
+					}
 
 					// check for buffer overflow
 					if (index >= IMU_HALF_BUFFER_SIZE) {
 						return HAL_OK;
 					}
-
-					if (parsedDataIndex < dataLen) {
-						index++;
-					}
 				}
+				// skip over rest of data if not correct report id
 				else {
 					index--;
+					imu_error_count++;
+
+					// suspend imu if too many errors
+					if (imu_error_count > IMU_MAX_ERROR_COUNT) {
+						tx_event_flags_set(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR);
+						tx_event_flags_set(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR);
+						tx_thread_suspend(&threads[IMU_THREAD].thread);
+						break;
+					}
 					parsedDataIndex = dataLen;
 				}
 			}
 		}
 		else {
 			index--;
+			imu_error_count++;
+
+			// suspend imu if too many errors
+			if (imu_error_count > IMU_MAX_ERROR_COUNT) {
+				tx_event_flags_set(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR);
+				tx_event_flags_set(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR);
+				tx_thread_suspend(&threads[IMU_THREAD].thread);
+				break;
+			}
 			continue;
 		}
 	}

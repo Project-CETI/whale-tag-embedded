@@ -49,8 +49,10 @@ extern "C" {
 #define UX_DEVICE_APP_THREAD_PRIO         1
 
 /* USER CODE BEGIN EC */
-#define CDC_ACM_READ_STACK_SIZE 1024
-#define CDC_ACM_READ_PRIO 8
+#define CDC_ACM_READ_STACK_SIZE				1024
+#define CDC_ACM_READ_PRIO					1
+#define CDC_ACM_WRITE_STACK_SIZE			1024
+#define CDC_ACM_WRITE_PRIO					7
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/

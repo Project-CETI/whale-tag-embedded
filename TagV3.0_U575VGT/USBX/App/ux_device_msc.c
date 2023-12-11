@@ -59,7 +59,6 @@ extern TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
 UINT media_status_callback();
-static int32_t check_sd_status();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -77,9 +76,9 @@ VOID USBD_STORAGE_Activate(VOID *storage_instance)
 {
   /* USER CODE BEGIN USBD_STORAGE_Activate */
   UX_PARAMETER_NOT_USED(storage_instance);
+  HAL_GPIO_WritePin(GPIOB, DIAG_LED1_Pin, GPIO_PIN_SET);
 
-  //Signal our state machine that we're going to be in data offloading mode
-  tx_event_flags_set(&state_machine_event_flags_group, STATE_USB_CONNECTED_FLAG, TX_OR);
+  tx_event_flags_set(&state_machine_event_flags_group, STATE_USB_MSB_CONNECTED_FLAG, TX_OR);
   inserted = true;
   /* USER CODE END USBD_STORAGE_Activate */
 
@@ -96,9 +95,9 @@ VOID USBD_STORAGE_Deactivate(VOID *storage_instance)
 {
   /* USER CODE BEGIN USBD_STORAGE_Activate */
   UX_PARAMETER_NOT_USED(storage_instance);
+  HAL_GPIO_WritePin(GPIOB, DIAG_LED1_Pin, GPIO_PIN_SET);
 
-  //Signal our state machine that we're going to be in data offloading mode
-  tx_event_flags_set(&state_machine_event_flags_group, STATE_USB_CONNECTED_FLAG, TX_OR);
+  tx_event_flags_set(&state_machine_event_flags_group, STATE_USB_MSB_CONNECTED_FLAG, TX_OR);
   inserted = true;
   /* USER CODE END USBD_STORAGE_Activate */
 

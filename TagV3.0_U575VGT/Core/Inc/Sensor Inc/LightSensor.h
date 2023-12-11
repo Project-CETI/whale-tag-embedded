@@ -52,6 +52,16 @@ typedef enum {
 //Delay values
 #define LIGHT_DELAY_MS	1000
 
+//Light sensor flags
+#define LIGHT_UNIT_TEST_FLAG		0x1
+#define LIGHT_UNIT_TEST_DONE_FLAG	0x2
+#define LIGHT_READ_FLAG				0x4
+#define LIGHT_WRITE_FLAG			0x8
+#define LIGHT_CMD_FLAG				0x10
+
+//Commands for light sensor
+#define LIGHT_GET_SAMPLES_CMD		0x1
+
 typedef enum {
     GAIN_DEF    = 0b000,    // Gain x1 -> 1 lux to 64k lux
     GAIN_2X     = 0b001,    // Gain x2 -> 0.5 lux to 32k lux

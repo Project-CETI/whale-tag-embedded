@@ -24,6 +24,8 @@
 /* USER CODE BEGIN Includes */
 #include "Sensor Inc/ECG.h"
 #include "Sensor Inc/BNO08x.h"
+#include "Sensor Inc/BMS.h"
+#include "ux_device_cdc_acm.h"
 #include <stdbool.h>
 /* USER CODE END Includes */
 
@@ -44,6 +46,10 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
+
+extern UX_SLAVE_CLASS_CDC_ACM *cdc_acm;
+extern MAX17320_HandleTypeDef bms;
+
 extern TX_EVENT_FLAGS_GROUP imu_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
 /* USER CODE END PV */
@@ -103,10 +109,25 @@ void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
   HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
+
+  ULONG actual_length = 0;
+  uint8_t receiveBuf[32] = {0};
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
   {
     /* USER CODE BEGIN W1_HardFault_IRQn 0 */
+    // constantly listen to commands on uart and usb
+	HAL_StatusTypeDef ret = HAL_UART_Receive(&huart2, &receiveBuf[0], 1, 1000);
+	if ((ret == HAL_OK) & (receiveBuf[0] == 0x24)) {
+		max17320_close_fets(&bms);
+	}
+
+	if (cdc_acm != UX_NULL) {
+		ULONG status = ux_device_class_cdc_acm_read(cdc_acm, (UCHAR *) &receiveBuf[0], 1, &actual_length);
+		if ((status == UX_SUCCESS) & (receiveBuf[0] == 0x24)) {
+		  max17320_close_fets(&bms);
+		}
+	}
     /* USER CODE END W1_HardFault_IRQn 0 */
   }
 }

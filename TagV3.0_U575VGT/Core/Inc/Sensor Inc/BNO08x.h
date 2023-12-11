@@ -46,7 +46,7 @@
 #define IMU_REPORT_INTERVAL_0			0x20
 
 //Bit mask for extracting length from the first two bytes of the header
-#define IMU_LENGTH_BIT_MASK 0x7FFF //neglects MSB
+#define IMU_LENGTH_BIT_MASK				0x7FFF //neglects MSB
 
 #define IMU_CONFIG_REPORT_LEN			0x15
 #define IMU_PRODUCT_CONFIG_REPORT_LEN	0x06
@@ -57,27 +57,33 @@
 #define IMU_NEW_DATA_TIMEOUT_MS 		2000
 #define IMU_DUMMY_PACKET_TIMEOUT_MS		500
 #define IMU_FLAG_WAIT_TIMEOUT			tx_s_to_ticks(10)
-#define IMU_CMD_WAIT_TIMEOUT			tx_s_to_ticks(2)
-#define IMU_MAX_BAD_DATA				50
+#define IMU_MAX_ERROR_COUNT				50
 
 //ThreadX status flags
 #define IMU_DATA_READY_FLAG				0x1
 #define IMU_STOP_SD_THREAD_FLAG			0x2
 #define IMU_STOP_DATA_THREAD_FLAG		0x4
 #define IMU_HALF_BUFFER_FLAG			0x8
-#define IMU_UNIT_TEST_FLAG				0x10
-#define IMU_GET_SAMPLES_FLAG			0x12
-#define IMU_SET_CONFIG_FLAG				0x14
-#define IMU_RESET_FLAG					0x18
 
-//The number of IMU Samples to collect before writing to the SD card. This MUST be an even number.
-#define IMU_BUFFER_SIZE					250
+//UART debugging flags
+#define IMU_UNIT_TEST_FLAG				0x10
+#define IMU_UNIT_TEST_DONE_FLAG			0x12
+#define IMU_CMD_FLAG					0x14
+
+//Commands for IMU
+#define IMU_GET_SAMPLES_CMD				0x1
+#define IMU_NUM_SAMPLES					10
+#define IMU_RESET_CMD					0x2
+#define IMU_CONFIG_CMD					0x3
+
+//Buffer constants
+#define IMU_BUFFER_SIZE					250 // number of samples before writing to SD card (must be even number)
 #define IMU_HALF_BUFFER_SIZE			(IMU_BUFFER_SIZE / 2)
 #define IMU_RECEIVE_BUFFER_MAX_LEN		300
 
 //The useful number of data bytes for each kind of report (quaternion vs 3 axis measurement)
-#define IMU_QUAT_USEFUL_BYTES 10
-#define IMU_3_AXIS_USEFUL_BYTES 6
+#define IMU_QUAT_USEFUL_BYTES			8
+#define IMU_3_AXIS_USEFUL_BYTES			6
 
 //MS timeout for SPI reads
 #define IMU_SPI_READ_TIMEOUT_MS			10
@@ -93,7 +99,7 @@ typedef struct __IMU_Data_Typedef {
 	uint8_t report_id;
 
 	// report data
-	uint8_t raw_data[8];
+	uint8_t raw_data[IMU_QUAT_USEFUL_BYTES];
 
 } IMU_Data;
 
@@ -166,14 +172,14 @@ typedef struct __IMU_Typedef{
 
 } IMU_HandleTypeDef;
 
-
-//Function prototypes
-void imu_thread_entry(ULONG thread_input);
 void imu_init(SPI_HandleTypeDef* hspi, IMU_HandleTypeDef* imu);
 void imu_reset(IMU_HandleTypeDef* imu);
-void imu_configure_reports(IMU_HandleTypeDef* imu, uint8_t report_id);
+HAL_StatusTypeDef imu_configure_reports(IMU_HandleTypeDef* imu, uint8_t report_id);
 HAL_StatusTypeDef imu_get_product_id(IMU_HandleTypeDef* imu);
 void imu_configure_startup(IMU_HandleTypeDef* imu);
 HAL_StatusTypeDef imu_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half);
+
+//Main IMU thread to run on RTOS
+void imu_thread_entry(ULONG thread_input);
 
 #endif /* INC_BNO08X_H_ */

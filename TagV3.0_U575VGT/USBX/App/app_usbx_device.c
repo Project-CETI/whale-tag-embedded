@@ -55,7 +55,8 @@ static TX_THREAD ux_device_app_thread;
 
 /* USER CODE BEGIN PV */
 extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
-static TX_THREAD ux_cdc_read_thread;
+TX_THREAD ux_cdc_read_thread;
+TX_THREAD ux_cdc_write_thread;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -199,7 +200,6 @@ UINT MX_USBX_Device_Init(VOID *memory_ptr)
   cdc_acm_parameter.ux_slave_class_cdc_acm_parameter_change    = USBD_CDC_ACM_ParameterChange;
 
   /* USER CODE BEGIN CDC_ACM_PARAMETER */
-
   /* USER CODE END CDC_ACM_PARAMETER */
 
   /* Get cdc acm configuration number */
@@ -249,10 +249,24 @@ UINT MX_USBX_Device_Init(VOID *memory_ptr)
   }
 
   /* Create the usbx cdc acm read thread */
-  if (tx_thread_create(&ux_cdc_read_thread, "cdc_acm_read_usbx_app_thread_entry",
+  if (tx_thread_create(&ux_cdc_read_thread, "USB CDC Read Thread",
                        usbx_cdc_acm_read_thread_entry, 0, pointer,
 					   CDC_ACM_READ_STACK_SIZE, CDC_ACM_READ_PRIO, CDC_ACM_READ_PRIO, TX_NO_TIME_SLICE,
-                       TX_AUTO_START) != TX_SUCCESS)
+                       TX_DONT_START) != TX_SUCCESS)
+  {
+    return TX_THREAD_ERROR;
+  }
+
+  if (tx_byte_allocate(byte_pool, (VOID **) &pointer, 1024, TX_NO_WAIT) != TX_SUCCESS)
+  {
+    return TX_POOL_ERROR;
+  }
+
+  /* Create the usbx cdc acm read thread */
+  if (tx_thread_create(&ux_cdc_write_thread, "USB CDC Write Thread",
+		               usbx_cdc_acm_write_thread_entry, 0, pointer,
+				       CDC_ACM_WRITE_STACK_SIZE, CDC_ACM_WRITE_PRIO, CDC_ACM_WRITE_PRIO, TX_NO_TIME_SLICE,
+					   TX_DONT_START) != TX_SUCCESS)
   {
     return TX_THREAD_ERROR;
   }
