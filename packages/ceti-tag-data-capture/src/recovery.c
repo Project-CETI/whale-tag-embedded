@@ -171,6 +171,7 @@ int recovery_get_packet(RecPkt *packet, time_t timeout_us) {
         }
 
         if (packet->common.header.key != RECOVERY_PACKET_KEY_VALUE) {
+            //packet key not
             continue;
         }
 
@@ -185,22 +186,23 @@ int recovery_get_packet(RecPkt *packet, time_t timeout_us) {
                 CETI_ERR("Recovery board UART error");
                 return -1;
             }
-
+            bytes_avail -= expected_bytes;
             header_complete = 1;
         }
 
         // read message if any
-        if(packet->common.header.length != 0){
-            expected_bytes = packet->common.header.length;
-            if (bytes_avail < expected_bytes){ // not enough bytes to complete msg
-                continue;                      // get more bytes
-            }
+        if(packet->common.header.length == 0)
+            return 0;
 
-            int result = serRead(recovery_fd, packet->common.msg, expected_bytes);
-            if (result < 0) { // UART Error
-                CETI_ERR("Recovery board UART error");
-                return -1;
-            }
+        expected_bytes = packet->common.header.length;
+        if (bytes_avail < expected_bytes){ // not enough bytes to complete msg
+            continue;                      // get more bytes
+        }
+
+        int result = serRead(recovery_fd, packet->common.msg, expected_bytes);
+        if (result < 0) { // UART Error
+            CETI_ERR("Recovery board UART error");
+            return -1;
         }
 
         return 0; // Success !!! 
@@ -717,5 +719,52 @@ int getGpsLocation(char gpsLocation[GPS_LOCATION_LENGTH]) {
     // gpsLocation[strcspn(gpsLocation, "\r\n")] = 0;
 
 
+
+
     return (0);
+}
+
+static struct recovery_board_state_t state = {};
+
+static inline int __recovery_get_packet(RecPkt *pkt, time_t timeout){
+    /*
+        recovery_get_packet implementation
+        .
+        .
+        .
+    */
+}
+
+int recovery_get_aprs_call_sign(char buffer[static 7]) {
+    int64_t start_time_us;
+    static int call_sign_query_count = 0;
+
+    //send query cmd
+    RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_QUERY_APRS_CALL_SIGN);
+    RecPkt ret_pkt = {};
+    serWrite(recovery_fd, (char *)&q_pkt, sizeof(q_pkt));
+
+
+    //wait for response
+    start_time_us = get_global_time_us();
+    call_sign_query_count++;
+    do {
+        if (__recovery_get_packet(&ret_pkt, RECOVERY_UART_TIMEOUT_US) < -1) {
+            CETI_ERR("Recovery board packet reading error");
+            return -1;
+        }
+
+        if(ret_pkt. .header.type == REC_CMD_CONFIG_APRS_CALL_SIGN) {
+            size_t len = ret_pkt.string_packet.header.length;
+            len = (6 < len) ? 6 : len;
+            memcpy(buffer, ret_pkt.string_packet.msg.value, len);
+            buffer[len] = 0;
+            return 0;
+        }
+        
+        //received incorrect packet type, keep reading
+    } while ((get_global_time_us() - start_time_us) < RECOVERY_UART_TIMEOUT_US);
+    //Timeout
+    CETI_ERR("Recovery board response timeout on query %d", call_sign_query_count);
+    return -2;
 }
