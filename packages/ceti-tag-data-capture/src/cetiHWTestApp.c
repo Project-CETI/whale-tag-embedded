@@ -50,6 +50,7 @@ TestUpdateMethod test_i2cdetect;
 TestUpdateMethod test_internet;
 TestUpdateMethod test_light;
 TestUpdateMethod test_pressure;
+TestUpdateMethod test_ecg;
 
 
 HardwareTest g_test_list[] = {
@@ -62,7 +63,9 @@ HardwareTest g_test_list[] = {
     { .name = "Temperature",      .update = test_ToDo, },
     { .name = "Light",            .update = test_light, },
     { .name = "Communication",    .update = test_internet, },
+    { .name = "Recovery",         .update = test_ToDo, },
 };
+    // ECG 
 
     // Temperature
         // board temp
@@ -85,16 +88,9 @@ HardwareTest g_test_list[] = {
             // switch to sleep mode
             // switch to wake mode
 
-
     // Audio
         // sample noise
             // prompt user to apply signal to each input
-    
-    // ECG
-        // prompt user to touch
-            // all 3
-            // + and GND
-            // - and GND
 
     // Burn wire
         // (require user measurement + pass/fail)
@@ -176,12 +172,19 @@ TestState test_ecg(void){
     int p_pass = 0;
     int n_pass = 0;
     int all_pass = 0;
-    //instructions:
+    int state_count = 0;
+    int state, prev_state;
+    // instructions:
     printf("Instructions: Touch the ECG leads in the following combinations")
     
+    // ToDo: initialize ecg
+
     while((input == 0) && !(none_pass && p_pass && n_pass && all_pass)){
-        
-        //display progress
+        // ToDo implement reading eletrode state
+        // waiting on ECG update approval
+
+
+        // display progress
         printf("\e[4;1H\e[0K     None: %s\n", none_pass ? GREEN("PASS") : YELLOW("Pending..."));
         printf("\e[4;1H\e[0K+,    GND: %s\n", p_pass ? GREEN("PASS") : YELLOW("Pending..."));
         printf("\e[4;1H\e[0K   -, GND: %s\n", n_pass ? GREEN("PASS") : YELLOW("Pending..."));
@@ -190,13 +193,13 @@ TestState test_ecg(void){
         read(STDIN_FILENO, &input, 1); 
     }
 
-    //record results
+    // record results
     fprintf(results_file, "[%s]: None\n", none_pass ? "PASS" : "FAIL");
     fprintf(results_file, "[%s]: + only\n", p_pass ? "PASS" : "FAIL");
     fprintf(results_file, "[%s]: - only\n", n_pass ? "PASS" : "FAIL");
     fprintf(results_file, "[%s]: All\n", all_pass ? "PASS" : "FAIL");
 
-    //wait for user to advance screen
+    // wait for user to advance screen
     while((input == 0)){
         read(STDIN_FILENO, &input, 1);
     }
@@ -279,6 +282,69 @@ TestState test_i2cdetect(void){
         return TEST_STATE_PASSED;
     }
     return TEST_STATE_FAILED;
+}
+
+TestState test_imu(void){
+    char input = '\0';
+
+    //initialize IMU
+    if(setupIMU() < 0) {
+        return -1;
+    }
+
+    //get start angle
+
+
+    while(input == 0){
+        //update test
+        int report_id_updated = imu_read_data();
+        if(report_id_updated == -1) { // no data received yet
+            usleep(2000); // Note that we are streaming 4 reports at 50 Hz, so we expect data to be available at about 200 Hz
+        }
+
+        if(report_id_updated == IMU_SENSOR_REPORTID_ROTATION_VECTOR) {
+            EulerAngles_f64 angles = {};
+            quat2eul(&angles, imu_quaternion);   
+        }
+
+        //update live view
+        /*              -180           0             180
+         *   Roll         |       |    |              |
+         *   Pitch        |            |      |       |
+         *   Yaw          |          | |              |
+         */
+
+        //update current target and instructions
+        //"Instructions: roll tag 90 degrees"
+        //"Instructions: roll tag -90 degrees"
+        //        ROLL Test PASSED
+        //"Instructions: pitch tag 90 degrees"
+        //"Instructions: pitch tag -90 degrees"
+        //        PITCH Test PASSED
+        //"Instructions: rotate tag 90 degrees about yaw"
+        //"Instructions: rotate tag -90 degrees about yaw"
+        //        YAW Test PASSED
+
+        //get user input
+        read(STDIN_FILENO, &input, 1);
+    }
+}
+
+TestState test_recovery(void){
+    /* ToDo: test recovery communication
+     * UART Test:
+     * - query and record recovery board's UID - requires 2 way communmication
+     * APRS Test:
+     * - generate random 4 character string
+     * - transmit string via APRS
+     * - either query APRS-IS, APRS.fi, or have user manually enter code 
+     * GPS Test:
+     * - obtain a gps lock from GPS chip 
+     */
+ 
+    printf("Instructions: Shine a bright light on tag light sensor\n");
+    
+    
 }
 
 // Function to check the status of a network interface
@@ -525,6 +591,7 @@ int main(void) {
 
     char buffer[1024];
     time_t now = time(NULL);
+    srand(now); //seed test randomness
     struct tm *utc_time =  gmtime(&now);
     strftime(buffer, sizeof(buffer)-1, "%b %02d %Y %02H:%02M %Z", utc_time);
     // printf(CLEAR_SCREEN); //clear Screen

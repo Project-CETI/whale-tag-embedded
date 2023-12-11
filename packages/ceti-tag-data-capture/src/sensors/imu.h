@@ -23,7 +23,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include <unistd.h> // for usleep()
-#include <math.h> // for fmin()
+#include <math.h> // for fmin(), sqrt(), atan2(), M_PI
 #include <pthread.h> // to set CPU affinity
 
 //-----------------------------------------------------------------------------
@@ -44,6 +44,20 @@ typedef struct { // To hold rotation vector input report information
     signed short quat_real;
     signed short accEstimate;
 } rotation_t;
+
+typedef struct { // quaternion data type 
+    int16_t i;
+    int16_t j;
+    int16_t k;
+    int16_t real;
+} Quaternion_i16;
+
+
+typedef struct { // euler angles
+    double roll;
+    double pitch;
+    double yaw;
+} EulerAngles_f64;
 
 #define BUS_IMU 0x00   //IMU is only device on i2c0
 #define ADDR_IMU 0x4A
@@ -137,7 +151,7 @@ int setupIMU();
 int imu_enable_feature_report(int report_id, uint32_t report_interval_us);
 int imu_read_data();
 void* imu_thread(void* paramPtr);
-
+void quat2eul(EulerAngles_f64 *e, Quaternion_i16 *q);
 #endif // IMU_H
 
 
