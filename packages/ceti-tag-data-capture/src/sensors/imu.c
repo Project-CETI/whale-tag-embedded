@@ -80,7 +80,7 @@ static bool imu_restarted_log = true;
 static bool imu_new_log = true;
 
 int init_imu() {
-  if (setupIMU() < 0) {
+  if (setupIMU(IMU_ALL_ENABLED) < 0) {
     CETI_LOG("XXXX Failed to set up the IMU XXXX");
     return -1;
   }
@@ -187,7 +187,7 @@ void *imu_thread(void *paramPtr) {
         if (get_global_time_us() - start_global_time_us > 10000000) {
           CETI_ERR("Unable to connect to IMU");
           usleep(5000000);
-          setupIMU();
+          setupIMU(IMU_ALL_ENABLED);
           start_global_time_us = get_global_time_us();
         }
         continue; //restart loop
@@ -201,7 +201,7 @@ void *imu_thread(void *paramPtr) {
         if((get_global_time_us() - global_time_us > 5000000) && (get_global_time_us() - start_global_time_us > 10000000)) {
           CETI_ERR("Unable to reading from IMU");
           usleep(5000000);
-          setupIMU();
+          setupIMU(IMU_ALL_ENABLED);
           start_global_time_us = get_global_time_us();
         }
         usleep(2000); // Note that we are streaming 4 reports at 50 Hz, so we expect data to be available at about 200 Hz
@@ -346,7 +346,7 @@ int resetIMU() {
 }
 
 //-----------------------------------------------------------------------------
-int setupIMU() {
+int setupIMU(uint8_t enabled_features) {
   // Reset the IMU
   if (imu_is_connected)
     bbI2CClose(IMU_BB_I2C_SDA);
@@ -364,25 +364,23 @@ int setupIMU() {
   imu_is_connected = 1;
   CETI_LOG("IMU connection opened\n");
 
-    // Open an I2C connection.
-    int retval = bbI2COpen(IMU_BB_I2C_SDA, IMU_BB_I2C_SCL, 200000);
-    if (retval < 0) {
-        CETI_ERR("Failed to connect to the IMU\n");
-        imu_is_connected = 0;
-        return -1;
-    }
-    imu_is_connected = 1;
-    CETI_LOG("IMU connection opened\n");
-
   // Enable desired feature reports.
-  imu_enable_feature_report(IMU_SENSOR_REPORTID_ROTATION_VECTOR, IMU_SAMPLING_PERIOD_QUAT_US);
-  usleep(100000);
-  imu_enable_feature_report(IMU_SENSOR_REPORTID_ACCELEROMETER, IMU_SAMPLING_PERIOD_9DOF_US);
-  usleep(100000);
-  imu_enable_feature_report(IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED, IMU_SAMPLING_PERIOD_9DOF_US);
-  usleep(100000);
-  imu_enable_feature_report(IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED, IMU_SAMPLING_PERIOD_9DOF_US);
-  usleep(100000);
+  if(enabled_features & IMU_QUAT_ENABLED) {
+    imu_enable_feature_report(IMU_SENSOR_REPORTID_ROTATION_VECTOR, IMU_SAMPLING_PERIOD_QUAT_US);
+    usleep(100000);
+  }
+  if(enabled_features & IMU_ACCEL_ENABLED) {
+    imu_enable_feature_report(IMU_SENSOR_REPORTID_ACCELEROMETER, IMU_SAMPLING_PERIOD_9DOF_US);
+    usleep(100000);
+  }
+  if(enabled_features & IMU_GYRO_ENABLED) {
+    imu_enable_feature_report(IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED, IMU_SAMPLING_PERIOD_9DOF_US);
+    usleep(100000);
+  }
+  if(enabled_features & IMU_MAG_ENABLED) {
+    imu_enable_feature_report(IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED, IMU_SAMPLING_PERIOD_9DOF_US);
+    usleep(100000);
+  }
 
   return 0;
 }
@@ -555,6 +553,15 @@ void quat2eul(EulerAngles_f64 *e, Quaternion_i16 *q){
   double siny_cosp = 2 * ((re * k) + (i * j));
   double cosy_cosp = 1 - 2 * ((j * j) + (k * k));
   e->yaw = atan2(siny_cosp, cosy_cosp);
+}
+
+int imu_get_euler_angles(EulerAngles_f64 *e){
+  int report_id_updated = imu_read_data();
+  if(report_id_updated != IMU_SENSOR_REPORTID_ROTATION_VECTOR);
+    return -1;
+
+  quat2eul(e, imu_quaternion); 
+  return 0;
 }
 
 //-----------------------------------------------------------------------------

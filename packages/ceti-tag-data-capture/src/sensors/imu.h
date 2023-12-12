@@ -146,6 +146,13 @@ typedef struct { // euler angles
 // #define IMU_CALIBRATE_ACCEL_GYRO_MAG 4
 // #define IMU_CALIBRATE_STOP 5
 
+//imu_setup report enable bits
+#define IMU_QUAT_ENABLED  (1 << IMU_SENSOR_REPORTID_ROTATION_VECTOR)
+#define IMU_ACCEL_ENABLED (1 << IMU_SENSOR_REPORTID_ACCELEROMETER)
+#define IMU_GYRO_ENABLED  (1 << IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED)
+#define IMU_MAG_ENABLED   (1 << IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED)
+#define IMU_ALL_ENABLED (IMU_QUAT_ENABLED | IMU_ACCEL_ENABLED | IMU_GYRO_ENABLED | IMU_MAG_ENABLED)
+
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
@@ -157,9 +164,10 @@ extern int g_imu_thread_is_running;
 int init_imu();
 int imu_init_data_files(void);
 int resetIMU();
-int setupIMU();
+int setupIMU(uint8_t enabled_features);
 int imu_enable_feature_report(int report_id, uint32_t report_interval_us);
 int imu_read_data();
+int imu_get_euler_angles(EulerAngles_f64 *e);
 void* imu_thread(void* paramPtr);
 void quat2eul(EulerAngles_f64 *e, Quaternion_i16 *q);
 #endif // IMU_H

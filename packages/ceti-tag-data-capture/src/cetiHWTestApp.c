@@ -20,7 +20,8 @@ int g_stopAcquisition = 0;
 #define UNDERLINE(str) "\e[4m" str "\e[0m"
 #define RED(str)       "\e[31m" str "\e[0m"
 #define GREEN(str)     "\e[32m" str "\e[0m"
-#define YELLOW(str)     "\e[33m" str "\e[0m"
+#define YELLOW(str)    "\e[33m" str "\e[0m"
+#define CYAN(str)      "\e[96m" str "\e[0m"
 #define CLEAR_SCREEN   "\e[1;1H\e[2J"
 #define PASS           "PASS"
 #define FAIL           "!!! FAIL !!!"
@@ -286,48 +287,96 @@ TestState test_i2cdetect(void){
 
 TestState test_imu(void){
     char input = '\0';
+    int roll_pass = 0;
+    int pitch_pass = 0;
+    int yaw_pass = 0;
+    int test_index = 0;
 
     //initialize IMU
-    if(setupIMU() < 0) {
-        return -1;
+    if(setupIMU(IMU_QUAT_ENABLED) < 0) {
+        printf(RED(FAIL) " IMU Communication Failure.\n");
+        while(input == 0){ read(STDIN_FILENO, &input, 1); }
+        return TEST_STATE_FAILED; //imu communication error
     }
 
     //get start angle
+    printf("Instructions: rotate the tag to meet each green target position below\n\n");
 
-
-    while(input == 0){
+    while(read(STDIN_FILENO, &input, 1), input == 0){
+        EulerAngles_f64 euler_angles = {};
+        
         //update test
-        int report_id_updated = imu_read_data();
-        if(report_id_updated == -1) { // no data received yet
-            usleep(2000); // Note that we are streaming 4 reports at 50 Hz, so we expect data to be available at about 200 Hz
-        }
-
-        if(report_id_updated == IMU_SENSOR_REPORTID_ROTATION_VECTOR) {
-            EulerAngles_f64 angles = {};
-            quat2eul(&angles, imu_quaternion);   
+        int report_id_updated = imu_get_euler_angles(&euler_angles);
+        if(report_id_updated == -1) { // no data received or wrong data type
+            continue; // Note that we are streaming 4 reports at 50 Hz, so we expect data to be available at about 200 Hz
         }
 
         //update live view
-        /*              -180           0             180
-         *   Roll         |       |    |              |
-         *   Pitch        |            |      |       |
-         *   Yaw          |          | |              |
-         */
+        int width = (cols - 13) - 2 ;
+        printf("\e[3;11H-180\e[3;%dH0\e[3;%dH180\n", 13 + width/2, cols - 2 - 1);
+        printf("\e[4;1H\e[0KRoll : %4s\e[4;13H|\e[4;%dH|\e[4;%dH|\n", roll_pass ? GREEN(PASS) : "", 13 + width/2, cols - 2);
+        printf("\e[5;1H\e[0KPitch: %4s\e[4;13H|\e[4;%dH|\e[4;%dH|\n", pitch_pass ? GREEN(PASS) : "",13 + width/2, cols - 2);
+        printf("\e[6;1H\e[0KYaw  : %4s\e[4;13H|\e[4;%dH|\e[4;%dH|\n", yaw_pass ? GREEN(PASS) : "", 13 + width/2, cols - 2);
 
-        //update current target and instructions
-        //"Instructions: roll tag 90 degrees"
-        //"Instructions: roll tag -90 degrees"
-        //        ROLL Test PASSED
-        //"Instructions: pitch tag 90 degrees"
-        //"Instructions: pitch tag -90 degrees"
-        //        PITCH Test PASSED
-        //"Instructions: rotate tag 90 degrees about yaw"
-        //"Instructions: rotate tag -90 degrees about yaw"
-        //        YAW Test PASSED
+        switch(test_index){
+            case 0: //-90 roll
+                printf("\e[4;%dH" GREEN("|"), 13 + width/4);
+                if(-95.0 <= (euler_angles.roll*180.0/M_PI) && (euler_angles.roll*180.0/M_PI) < -85.0){
+                    test_index++;
+                }
+                break;
+            case 1: //90 roll
+                printf("\e[4;%dH" GREEN("|"), 13 + (width/4*3));
+                if(85.0 <= (euler_angles.roll*180.0/M_PI) && (euler_angles.roll*180.0/M_PI) < 95.0){
+                    roll_pass = 1;
+                    test_index++;
+                }
+                break;
+            case 2: //-90 pitch
+                printf("\e[5;%dH" GREEN("|"), 13 + width/4);
+                if(-95.0 <= (euler_angles.pitch*180.0/M_PI) && (euler_angles.pitch*180.0/M_PI) < -85.0){
+                    test_index++;
+                }
+                break;
+            case 3: //90 pitch
+                printf("\e[5;%dH" GREEN("|"), 13 + (width/4*3));
+                if(85.0 <= (euler_angles.pitch*180.0/M_PI) && (euler_angles.pitch*180.0/M_PI) < 95.0){
+                    pitch_pass = 1;
+                    test_index++;
+                }
+                break;
+            case 4: //-90 yaw
+                printf("\e[4;%dH" GREEN("|"), 13 + width/4);
+                if(-95.0 <= (euler_angles.yaw*180.0/M_PI) && (euler_angles.yaw*180.0/M_PI) < -85.0){
+                    test_index++;
+                }
+                break;
+            case 5: //90 yaw
+                printf("\e[4;%dH" GREEN("|"), 13 + (width/4*3));
+                if(85.0 <= (euler_angles.yaw*180.0/M_PI) && (euler_angles.yaw*180.0/M_PI) < 95.0){
+                    yaw_pass = 1;
+                    test_index++;
+                }
+                break;
+        }
 
-        //get user input
-        read(STDIN_FILENO, &input, 1);
+        //draw reading position
+        printf("\e[4;%dH" CYAN("|"), 13 + (uint32_t)(euler_angles.roll/(2*M_PI) + 0.5)*width);
+        printf("\e[5;%dH" CYAN("|"), 13 + (uint32_t)(euler_angles.pitch/(2*M_PI) + 0.5)*width);
+        printf("\e[6;%dH" CYAN("|"), 13 + (uint32_t)(euler_angles.yaw/(2*M_PI) + 0.5)*width);
+        fflush(stdout);
     }
+
+    //record results
+    fprintf(results_file, "[%s]: roll\n", roll_pass ? "PASS" : "FAIL");
+    fprintf(results_file, "[%s]: pitch\n", pitch_pass ? "PASS" : "FAIL");
+    fprintf(results_file, "[%s]: yaw\n", yaw_pass ? "PASS" : "FAIL");
+
+    resetIMU();
+    
+    return (input == 27) ? TEST_STATE_TERMINATE
+         : (roll_pass && pitch_pass && yaw_pass) ? TEST_STATE_PASSED
+         : TEST_STATE_FAILED;
 }
 
 TestState test_recovery(void){
