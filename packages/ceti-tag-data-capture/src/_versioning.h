@@ -1,7 +1,9 @@
 //-----------------------------------------------------------------------------
 // Project:      CETI Tag Electronics
-// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
-// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab,
+//               MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto,
+//               [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 //
 // Note - version must correspond with the repository release tag

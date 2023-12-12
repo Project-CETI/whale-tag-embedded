@@ -5,14 +5,14 @@
 # Contributors: Byungchul Kim, Joseph DelPreto [TODO: Add other contributors here]
 #-----------------------------------------------------------------------------
 
-import socket
+import asyncio
 import select
+import socket
 import sys
 import time
-from ctypes import *
-import asyncio
-from typing import Optional
 from binascii import hexlify
+from ctypes import *
+from typing import Optional
 
 from bleak import BleakClient
 from tutorial_modules import GOPRO_BASE_UUID, connect_ble, logger
@@ -127,7 +127,7 @@ async def main() -> None:
     print('Creating the socket')
     c_server_address = ('localhost', goPro_c_port)
     c_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    c_socket.setblocking(0)
+    c_socket.setblocking(False)
 
     # Repeatedly try to connect to the C server.
     print('Waiting for connection to be accepted')

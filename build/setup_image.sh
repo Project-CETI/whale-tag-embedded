@@ -58,6 +58,8 @@ time apt install "${APT_NONINTERACTIVE}" --fix-broken --fix-missing --no-upgrade
 
 apt "${APT_NONINTERACTIVE}" autoremove
 
+# get current date
+date -s "$(curl -s --head http://google.com | grep ^Date: | sed 's/Date: //g')"
 
 # Isolate CPUs that will be used for audio and ECG capture,
 #  so kernel/system processes are scheduled on other cores.
@@ -66,9 +68,11 @@ sed -i '$ s/$/ isolcpus=2,3/' /boot/cmdline.txt
 
 # Setup hardware parameters for i2c
 raspi-config nonint do_i2c 0
-echo "dtparam=i2c_vc=on" >> /boot/config.txt
-echo "dtparam=i2c_vc_baudrate=400000" >> /boot/config.txt
-echo "dtparam=i2c_arm_baudrate=400000" >> /boot/config.txt
+{
+  echo "dtparam=i2c_vc=on"
+  echo "dtparam=i2c_vc_baudrate=400000"
+  echo "dtparam=i2c_arm_baudrate=400000"
+} >> /boot/config.txt
 
 # Set timezone
 raspi-config nonint do_change_timezone "America/Dominica"
@@ -106,7 +110,7 @@ rm /etc/init.d/resize2fs_once
 tar -cf - -C "${OVERLAY_DIR}" --owner=pi --group=pi . | tar -xf - -C /
 
 # Add useful commands to the bash history.
-sudo rm /home/pi/.bash_history
+sudo rm -f /home/pi/.bash_history
 sudo dos2unix /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt
 sudo mv /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt /home/pi/.bash_history
 

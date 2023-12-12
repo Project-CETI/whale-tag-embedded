@@ -1,8 +1,10 @@
 //-----------------------------------------------------------------------------
 // Project:      CETI Tag Electronics
 // Version:      Refer to _versioning.h
-// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
-// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab,
+//               MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto,
+//               [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
 #ifndef BATTERY_H
@@ -11,11 +13,11 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
-#define _GNU_SOURCE   // change how sched.h will be included
+#define _GNU_SOURCE // change how sched.h will be included
 
-#include "launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
-#include "utils/logging.h"
+#include "launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "systemMonitor.h" // for the global CPU assignment variable to update
+#include "utils/logging.h"
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
@@ -34,15 +36,15 @@
 #define BATT_I_LS 0x0F
 #define BATT_R_SENSE 0.025
 
-#define BATT_CTL_VAL 0X8E  //SETS UV CUTOFF TO 2.6V
-#define BATT_OV_VAL 0x5A //SETS OV CUTOFF TO 4.2V
+#define BATT_CTL_VAL 0X8E //SETS UV CUTOFF TO 2.6V
+#define BATT_OV_VAL 0x5A  //SETS OV CUTOFF TO 4.2V
 
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
 int init_battery();
-int getBatteryData(double* battery_v1_v, double* battery_v2_v, double* battery_i_mA);
-void* battery_thread(void* paramPtr);
+int getBatteryData(double *battery_v1_v, double *battery_v2_v, double *battery_i_mA);
+void *battery_thread(void *paramPtr);
 
 //-----------------------------------------------------------------------------
 // Global variables
@@ -54,9 +56,3 @@ extern double g_latest_battery_v2_v;
 extern double g_latest_battery_i_mA;
 
 #endif // BATTERY_H
-
-
-
-
-
-

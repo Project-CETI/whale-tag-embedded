@@ -1,8 +1,10 @@
 //-----------------------------------------------------------------------------
 // Project:      CETI Tag Electronics
 // Version:      Refer to _versioning.h
-// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
-// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab,
+//               MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto,
+//               [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
 #ifndef AUDIO_H
@@ -11,22 +13,22 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
-#define _GNU_SOURCE   // change how sched.h will be included
+#define _GNU_SOURCE // change how sched.h will be included
 
-#include "../utils/logging.h"
-#include "../launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
+#include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
+#include "../utils/logging.h"
 
 #include <FLAC/stream_encoder.h>
 #include <pigpio.h>
+#include <pthread.h> // to set CPU affinity
+#include <sched.h>   // to set process priority
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <pthread.h> // to set CPU affinity
-#include <sched.h>   // to set process priority
 
 //-----------------------------------------------------------------------------
 // Definitions/Configurations
@@ -47,22 +49,19 @@
 // reasons
 
 // SPI Block Size
-#define HWM                                                                   \
-    (256) // High Water Mark from Verilog code - these are 32 byte chunks (2
-          // sample sets)
-#define SPI_BLOCK_SIZE                                                         \
-    (HWM * 32) // make SPI block size <= HWM * 32 otherwise may underflow
+#define HWM (256)                 // High Water Mark from Verilog code - these are 32 byte chunks (2 sample sets)
+#define SPI_BLOCK_SIZE (HWM * 32) // make SPI block size <= HWM * 32 otherwise may underflow
 
-//#define NUM_SPI_BLOCKS (2100*10)   // 5 minute buffer
-#define NUM_SPI_BLOCKS (2100 * 2)    // 1 minute buffer
+//#define NUM_SPI_BLOCKS (2100*10)                 // 5 minute buffer
+#define NUM_SPI_BLOCKS (2100 * 2)                  // 1 minute buffer
 #define RAM_SIZE (NUM_SPI_BLOCKS * SPI_BLOCK_SIZE) // bytes
 
 #define SAMPLE_RATE (96000)
 #define CHANNELS (3)
 #define BITS_PER_SAMPLE (16)
-#define BYTES_PER_SAMPLE  (BITS_PER_SAMPLE/8)
+#define BYTES_PER_SAMPLE (BITS_PER_SAMPLE / 8)
 // At 96 kHz sampling rate; 16-bit; 3 channels 1 minute of data is 33750 KiB
-#define MAX_AUDIO_DATA_FILE_SIZE ( (5-1) * 33750 * 1024) // Yields approx 5 minute files at 96 KSPS
+#define MAX_AUDIO_DATA_FILE_SIZE ((5 - 1) * 33750 * 1024) // Yields approx 5 minute files at 96 KSPS
 #define MAX_SAMPLES_PER_FILE (MAX_AUDIO_DATA_FILE_SIZE / CHANNELS / BYTES_PER_SAMPLE)
 #define SAMPLES_PER_RAM_PAGE (RAM_SIZE / CHANNELS / BYTES_PER_SAMPLE)
 #define AUDIO_DATA_FILENAME_LEN (100)
@@ -100,9 +99,9 @@ void formatRaw(void);
 void formatRawNoHeader3ch16bit(void);
 void audio_createNewFlacFile();
 void audio_createNewRawFile();
-void* audio_thread_spi(void* paramPtr);
-void* audio_thread_writeFlac(void* paramPtr);
-void* audio_thread_writeRaw(void* paramPtr);
+void *audio_thread_spi(void *paramPtr);
+void *audio_thread_writeFlac(void *paramPtr);
+void *audio_thread_writeRaw(void *paramPtr);
 void audio_check_for_overflow(int location_index);
 
 //-----------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 //-----------------------------------------------------------------------------
 // Project:      CETI Tag Electronics
 // Version:      Refer to _versioning.h
-// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, 
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab,
 //               MIT CSAIL
 // Contributors: Michael Salino-Hugg
 //-----------------------------------------------------------------------------

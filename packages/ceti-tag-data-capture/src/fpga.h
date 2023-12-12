@@ -1,8 +1,10 @@
 //-----------------------------------------------------------------------------
 // Project:      CETI Tag Electronics
 // Version:      Refer to _versioning.h
-// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
-// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab,
+//               MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto,
+//               [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
 #ifndef FPGA_H
@@ -26,8 +28,7 @@
 #define CLOCK (21)                         // GPIO 21
 #define DATA (20)                          // GPIO 20
 #define FPGA_BITSTREAM "../config/top.bin" // fpga bitstream
-#define BITSTREAM_SIZE_BYTES                                                   \
-    (243048 * 2) // See Xilinx Configuration User Guide UG332
+#define BITSTREAM_SIZE_BYTES (243048 * 2)  // See Xilinx Configuration User Guide UG332
 
 //-----------------------------------------------------------------------------
 // GPIO For CAM
@@ -42,9 +43,8 @@
 
 #define POWER_FLAG 17
 
-#include "utils/logging.h"
 #include <pigpio.h>
-#include <stdio.h> // for FILE
+#include <stdio.h>  // for FILE
 #include <stdlib.h> // for malloc()
 #include <unistd.h> // for usleep()
 
