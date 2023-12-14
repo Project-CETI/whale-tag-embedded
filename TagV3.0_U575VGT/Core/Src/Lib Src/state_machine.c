@@ -45,6 +45,9 @@ extern ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZ
 //BMS handler
 extern MAX17320_HandleTypeDef bms;
 
+//USB status variable
+extern bool inserted;
+
 //Event flags for signaling changes in state
 TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
 
@@ -125,7 +128,7 @@ void state_machine_thread_entry(ULONG thread_input){
 		}
 
 		ULONG actual_bytes;
-		fx_result = fx_file_read(&config_file, &sleep_state[0], 1, &actual_bytes);
+		fx_result = fx_file_read(&config_file, &sleep_state[0], 2, &actual_bytes);
 
 		//Enter data capture if read error or if current state is not sleep state
 		if ((fx_result != FX_SUCCESS) || (actual_bytes < 1) || (sleep_state[0] == 0)) {
@@ -155,7 +158,11 @@ void state_machine_thread_entry(ULONG thread_input){
 	while (state == STATE_SLEEP) {
 
 		ULONG actual_state_flags = 0;
-		tx_event_flags_get(&state_machine_event_flags_group, STATE_EXIT_SLEEP_MODE_FLAG | STATE_USB_MSB_CONNECTED_FLAG | STATE_USB_MSB_DISCONNECTED_FLAG, TX_OR_CLEAR, &actual_state_flags, TX_WAIT_FOREVER);
+		if (inserted) {
+			tx_event_flags_set(&state_machine_event_flags_group, STATE_USB_MSB_ACTIVATED_FLAG, TX_OR);
+			inserted = false;
+		}
+		tx_event_flags_get(&state_machine_event_flags_group, STATE_EXIT_SLEEP_MODE_FLAG | STATE_USB_MSB_ACTIVATED_FLAG | STATE_USB_MSB_DEACTIVATED_FLAG, TX_OR_CLEAR, &actual_state_flags, TX_WAIT_FOREVER);
 
 		//BMS exit sleep mode flag
 		if (actual_state_flags & STATE_EXIT_SLEEP_MODE_FLAG) {
@@ -208,12 +215,31 @@ void state_machine_thread_entry(ULONG thread_input){
 		}
 
 		//USB connected flag
-		if (actual_state_flags & STATE_USB_MSB_CONNECTED_FLAG) {
+		if (actual_state_flags & STATE_USB_MSB_ACTIVATED_FLAG) {
+
+			//In USB MSB mode (turn off all threads except vital threads)
+			if (!sleep_state[1]) {
+				//Stop data capture and recovery threads
+				if (state == STATE_DATA_CAPTURE) {
+					soft_exit_data_capture();
+				}
+				else if (state == STATE_RECOVERY) {
+					exit_recovery();
+				}
+			}
+			//In USB CDC mode (turn on data capture threads for debugging)
+			else {
+				if (state == STATE_RECOVERY) {
+					exit_recovery();
+				}
+				enter_data_capture();
+			}
+
 			enter_data_offload();
 		}
 
 		//USB disconnected flag
-		if (actual_state_flags & STATE_USB_MSB_DISCONNECTED_FLAG) {
+		if (actual_state_flags & STATE_USB_MSB_DEACTIVATED_FLAG) {
 			exit_data_offload();
 			enter_data_capture();
 		}
@@ -224,6 +250,10 @@ void state_machine_thread_entry(ULONG thread_input){
 		while (1){
 
 			ULONG actual_state_flags = 0;
+			if (inserted) {
+				tx_event_flags_set(&state_machine_event_flags_group, STATE_USB_MSB_ACTIVATED_FLAG, TX_OR);
+				inserted = false;
+			}
 			tx_event_flags_get(&state_machine_event_flags_group, ALL_STATE_FLAGS, TX_OR_CLEAR, &actual_state_flags, TX_WAIT_FOREVER);
 
 			//RTC timeout flag or GPS geofencing flag (outside of Dominica)
@@ -322,32 +352,33 @@ void state_machine_thread_entry(ULONG thread_input){
 			}
 
 			//USB mass storage device connected flag
-			if (actual_state_flags & STATE_USB_MSB_CONNECTED_FLAG) {
+			if (actual_state_flags & STATE_USB_MSB_ACTIVATED_FLAG) {
 
-				//Stop data capture or recovery threads
-				if (state == STATE_DATA_CAPTURE) {
-					soft_exit_data_capture();
+				//In USB MSB mode (turn off all threads except vital threads)
+				if (!sleep_state[1]) {
+					//Stop data capture and recovery threads
+					if (state == STATE_DATA_CAPTURE) {
+						soft_exit_data_capture();
+					}
+					else if (state == STATE_RECOVERY) {
+						exit_recovery();
+					}
 				}
-				else if (state == STATE_RECOVERY) {
-					exit_recovery();
+				//In USB CDC mode (turn on data capture threads for debugging)
+				else {
+					if (state == STATE_RECOVERY) {
+						exit_recovery();
+					}
+					enter_data_capture();
 				}
-
-				//Suspend data logging and audio thread to stop writing to SD card when reading data
-				tx_thread_suspend(&threads[DATA_LOG_THREAD].thread);
-				tx_thread_suspend(&threads[AUDIO_THREAD].thread);
 
 				enter_data_offload();
-				state = STATE_DATA_OFFLOAD;
 			}
 
 			//USB mass storage device disconnected flag
-			if (actual_state_flags & STATE_USB_MSB_DISCONNECTED_FLAG) {
+			if (actual_state_flags & STATE_USB_MSB_DEACTIVATED_FLAG) {
 				exit_data_offload();
-
-				//Continue data logging and audio thread
-				tx_thread_resume(&threads[DATA_LOG_THREAD].thread);
-				tx_thread_resume(&threads[AUDIO_THREAD].thread);
-				state = STATE_DATA_CAPTURE;
+				enter_data_capture();
 			}
 
 			if ((actual_state_flags & STATE_ENTER_SIM_FLAG) | (actual_state_flags & STATE_EXIT_SIM_FLAG)) {

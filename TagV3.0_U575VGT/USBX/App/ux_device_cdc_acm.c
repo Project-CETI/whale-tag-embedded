@@ -136,8 +136,8 @@ VOID USBD_CDC_ACM_Activate(VOID *cdc_acm_instance)
   HAL_GPIO_WritePin(GPIOB, DIAG_LED1_Pin, GPIO_PIN_SET);
 
   // start usb read and write thread
-  tx_thread_resume(&ux_cdc_read_thread);
-  tx_thread_resume(&ux_cdc_write_thread);
+  //tx_thread_resume(&ux_cdc_read_thread);
+  //tx_thread_resume(&ux_cdc_write_thread);
 
   /* USER CODE END USBD_CDC_ACM_Activate */
 
