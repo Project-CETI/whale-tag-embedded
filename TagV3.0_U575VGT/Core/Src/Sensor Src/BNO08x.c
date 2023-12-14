@@ -458,5 +458,3 @@ HAL_StatusTypeDef imu_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half) {
 
 	return HAL_OK;
 }
-
-

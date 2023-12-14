@@ -13,7 +13,7 @@
 #define IS_SIMULATING_DEBUG false
 
 //Should correspond with the state types enum below
-#define SIMULATING_STATE 1
+#define SIMULATING_STATE 0
 
 //Flags inside of our state machine event flags
 #define STATE_TIMEOUT_FLAG				0x1
