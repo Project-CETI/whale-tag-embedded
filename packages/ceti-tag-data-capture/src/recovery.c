@@ -455,7 +455,7 @@ int recovery_thread_init(void) {
     // Open an output file to write data.
     if(init_data_file(recovery_data_file, RECOVERY_DATA_FILEPATH,
                         recovery_data_file_headers,  num_recovery_data_file_headers,
-                        recovery_data_file_notes, __FUNCTION__ "()") < 0) {
+                        recovery_data_file_notes, "init_data_file()") < 0) {
         CETI_LOG("Failed to initialize recovery board thread");              
         return -1;
     }
@@ -589,7 +589,7 @@ int recovery_get_gps_data(char gpsLocation[static GPS_LOCATION_LENGTH]){
 
     //wait for GPS packet
     do {
-        result = recovery_getPacket(&pkt, 1000000);
+        result = recovery_get_packet(&pkt, 1000000);
         switch (result) {
             case -1:
                 CETI_ERR("Recovery board communication error");
@@ -597,7 +597,7 @@ int recovery_get_gps_data(char gpsLocation[static GPS_LOCATION_LENGTH]){
 
             case -2:
                 CETI_LOG("Recovery board pkt timeout");
-                return result
+                return result;
 
             default:
                 break;
