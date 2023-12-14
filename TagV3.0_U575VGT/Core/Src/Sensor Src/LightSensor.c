@@ -8,6 +8,7 @@
  */
 
 #include "Sensor Inc/LightSensor.h"
+#include "Sensor Inc/DataLogging.h"
 #include "util.h"
 #include "main.h"
 #include "ux_device_cdc_acm.h"
@@ -20,6 +21,9 @@ extern UART_HandleTypeDef huart2;
 extern uint8_t usbReceiveBuf[APP_RX_DATA_SIZE];
 extern uint8_t usbTransmitBuf[APP_RX_DATA_SIZE];
 extern uint8_t usbTransmitLen;
+
+// threadx flags for state machine
+extern TX_EVENT_FLAGS_GROUP data_log_event_flags_group;
 
 // light sensor handler
 extern LightSensorHandleTypedef light_sensor;
@@ -142,7 +146,10 @@ void light_thread_entry(ULONG thread_input) {
 			light_unit_test = false;
 			tx_event_flags_set(&light_event_flags_group, LIGHT_UNIT_TEST_DONE_FLAG, TX_OR);
 		}
-		HAL_Delay(1000);
+
+		// Tell data log thread that light sensor has completed data collection
+		tx_event_flags_set(&light_event_flags_group, LIGHT_COMPLETE_FLAG, TX_OR);
+		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 	}
 }
 
@@ -157,7 +164,7 @@ HAL_StatusTypeDef LightSensor_init(I2C_HandleTypeDef *hi2c_device, LightSensorHa
 	HAL_StatusTypeDef ret = LightSensor_wake_up(light_sensor, GAIN_DEF);
 
 	// Uncomment lines below and change
-	LightSensor_set_data_rate(light_sensor, ALS_INTEG_TIME_100_MS, ALS_MEAS_TIME_500_MS);
+	ret = LightSensor_set_data_rate(light_sensor, ALS_INTEG_TIME_100_MS, ALS_MEAS_TIME_500_MS);
 
 	return ret;
 
@@ -177,6 +184,7 @@ HAL_StatusTypeDef LightSensor_wake_up(LightSensorHandleTypedef *light_sensor, AL
 	});
 
 	HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(light_sensor->i2c_handler, ALS_ADDR << 1, ALS_CONTR, I2C_MEMADD_SIZE_8BIT, &control_raw, sizeof(control_raw), 100);
+
 	if(ret != HAL_OK){
 		return ret;
 	}

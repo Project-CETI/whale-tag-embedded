@@ -104,8 +104,8 @@
 #define MAX17320_MAX_SOC_THR			0x00
 
 // State Machine Flag Thresholds
-#define MAX17320_LOW_BATT_VOLT_THR		3.2
-#define MAX17320_CRITICAL_BATT_VOLT_THR	3.1
+#define MAX17320_LOW_BATT_VOLT_THR		3.4
+#define MAX17320_CRITICAL_BATT_VOLT_THR	3.3
 #define MAX17320_LOW_SOC_THR			20
 #define MAX17320_CRITICAL_SOC_THR		5
 
@@ -242,7 +242,7 @@ typedef struct __MAX17320_HandleTypeDef {
 HAL_StatusTypeDef max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev);
 uint8_t max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_full_reset(MAX17320_HandleTypeDef *dev);
-HAL_StatusTypeDef max17320_init(MAX17320_HandleTypeDef *dev, I2C_HandleTypeDef *hi2c_device);
+HAL_StatusTypeDef max17320_init(I2C_HandleTypeDef *hi2c_device, MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_clear_write_protection(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_set_write_protection(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_set_alert_thresholds(MAX17320_HandleTypeDef *dev);

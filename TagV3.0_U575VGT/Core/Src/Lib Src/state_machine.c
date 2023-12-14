@@ -415,8 +415,10 @@ void state_machine_thread_entry(ULONG thread_input){
 void enter_data_capture(){
 
 	//Resume data capture threads
-	//tx_thread_resume(&threads[AUDIO_THREAD].thread);
-	//tx_thread_resume(&threads[IMU_THREAD].thread);
+	tx_thread_resume(&threads[AUDIO_THREAD].thread);
+	tx_thread_resume(&threads[IMU_THREAD].thread);
+	tx_thread_resume(&threads[LIGHT_THREAD].thread);
+	tx_thread_resume(&threads[RTC_THREAD].thread);
 }
 
 

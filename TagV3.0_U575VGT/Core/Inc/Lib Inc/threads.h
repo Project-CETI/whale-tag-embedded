@@ -177,8 +177,8 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.thread_entry_function = rtc_thread_entry,
 			.thread_input = 0x1234,
 			.thread_stack_size = 800,
-			.priority = 7,
-			.preempt_threshold = 7,
+			.priority = 8,
+			.preempt_threshold = 8,
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_DONT_START
 		},
@@ -188,10 +188,10 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.thread_entry_function = bms_thread_entry,
 			.thread_input = 0x1234,
 			.thread_stack_size = 800,
-			.priority = 7, //8
-			.preempt_threshold = 7,
+			.priority = 8,
+			.preempt_threshold = 8,
 			.timeslice = TX_NO_TIME_SLICE,
-			.start = TX_DONT_START
+			.start = TX_AUTO_START
 		},
 		[DATA_LOG_THREAD] = {
 			//Data Log Thread
@@ -210,8 +210,8 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.thread_entry_function = light_thread_entry,
 			.thread_input = 0x1234,
 			.thread_stack_size = 800,
-			.priority = 7,
-			.preempt_threshold = 7,
+			.priority = 9,
+			.preempt_threshold = 9,
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_DONT_START
 		},
@@ -221,8 +221,8 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.thread_entry_function = comms_rx_thread_entry,
 			.thread_input = 0x1234,
 			.thread_stack_size = 800,
-			.priority = 7,
-			.preempt_threshold = 7,
+			.priority = 9,
+			.preempt_threshold = 9,
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_DONT_START
 		},

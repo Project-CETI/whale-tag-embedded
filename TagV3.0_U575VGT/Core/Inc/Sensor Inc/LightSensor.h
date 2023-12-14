@@ -53,11 +53,12 @@ typedef enum {
 #define LIGHT_DELAY_MS	1000
 
 //Light sensor flags
-#define LIGHT_UNIT_TEST_FLAG		0x1
-#define LIGHT_UNIT_TEST_DONE_FLAG	0x2
-#define LIGHT_READ_FLAG				0x4
-#define LIGHT_WRITE_FLAG			0x8
-#define LIGHT_CMD_FLAG				0x10
+#define LIGHT_COMPLETE_FLAG			0x1
+#define LIGHT_UNIT_TEST_FLAG		0x2
+#define LIGHT_UNIT_TEST_DONE_FLAG	0x4
+#define LIGHT_READ_FLAG				0x8
+#define LIGHT_WRITE_FLAG			0x10
+#define LIGHT_CMD_FLAG				0x20
 
 //Commands for light sensor
 #define LIGHT_GET_SAMPLES_CMD		0x1

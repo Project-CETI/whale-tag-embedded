@@ -425,7 +425,7 @@ static void MX_I2C2_Init(void)
 
   /* USER CODE END I2C2_Init 1 */
   hi2c2.Instance = I2C2;
-  hi2c2.Init.Timing = 0x30909DEC;
+  hi2c2.Init.Timing = 0x90303EFE;
   hi2c2.Init.OwnAddress1 = 0;
   hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -502,7 +502,7 @@ static void MX_I2C3_Init(void)
   /* USER CODE BEGIN I2C3_Init 2 */
 
   // initialize bms
-  HAL_StatusTypeDef ret = max17320_init(&bms, &hi2c3);
+  HAL_StatusTypeDef ret = max17320_init(&hi2c3, &bms);
   if (ret != HAL_OK) {
 	// indicate communication with bms has failed (don't enter error handler because tag would be stuck)
 	while (1) {
@@ -1036,7 +1036,7 @@ static void MX_USB_OTG_FS_PCD_Init(void)
   hpcd_USB_OTG_FS.Instance = USB_OTG_FS;
   hpcd_USB_OTG_FS.Init.dev_endpoints = 6;
   hpcd_USB_OTG_FS.Init.phy_itface = PCD_PHY_EMBEDDED;
-  hpcd_USB_OTG_FS.Init.Sof_enable = DISABLE;
+  hpcd_USB_OTG_FS.Init.Sof_enable = ENABLE;
   hpcd_USB_OTG_FS.Init.low_power_enable = DISABLE;
   hpcd_USB_OTG_FS.Init.lpm_enable = DISABLE;
   hpcd_USB_OTG_FS.Init.battery_charging_enable = DISABLE;
@@ -1156,6 +1156,9 @@ static void MX_GPIO_Init(void)
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI12_IRQn, 3, 0);
   HAL_NVIC_EnableIRQ(EXTI12_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI13_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI13_IRQn);
 
   HAL_NVIC_SetPriority(EXTI14_IRQn, 2, 0);
   HAL_NVIC_EnableIRQ(EXTI14_IRQn);

@@ -284,12 +284,12 @@ void imu_configure_startup(IMU_HandleTypeDef* imu) {
 			// configure all reports
 			imu_configure_reports(imu, IMU_ROTATION_VECTOR_REPORT_ID);
 			tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
-			imu_configure_reports(imu, IMU_ACCELEROMETER_REPORT_ID);
-			tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
-			imu_configure_reports(imu, IMU_GYROSCOPE_REPORT_ID);
-			tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
-			imu_configure_reports(imu, IMU_MAGNETOMETER_REPORT_ID);
-			tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
+			//imu_configure_reports(imu, IMU_ACCELEROMETER_REPORT_ID);
+			//tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
+			//imu_configure_reports(imu, IMU_GYROSCOPE_REPORT_ID);
+			//tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
+			//imu_configure_reports(imu, IMU_MAGNETOMETER_REPORT_ID);
+			//tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
 
 		}
 
@@ -353,10 +353,10 @@ HAL_StatusTypeDef imu_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half) {
 			dataLen = IMU_RECEIVE_BUFFER_MAX_LEN;
 		}
 
-		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, TX_WAIT_FOREVER);
+		tx_event_flags_get(&imu_event_flags_group, IMU_DATA_READY_FLAG, TX_OR_CLEAR, &actual_events, IMU_FLAG_WAIT_TIMEOUT);
 
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_RESET);
-		ret = HAL_SPI_Receive(imu->hspi, &receiveData[IMU_SHTP_HEADER_LEN], dataLen, IMU_SPI_READ_TIMEOUT_MS);
+		ret = HAL_SPI_Receive(imu->hspi, &receiveData[0], dataLen, IMU_SPI_READ_TIMEOUT_MS);
 		HAL_GPIO_WritePin(imu->cs_port, imu->cs_pin, GPIO_PIN_SET);
 
 		if (ret == HAL_TIMEOUT) {
@@ -375,11 +375,11 @@ HAL_StatusTypeDef imu_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half) {
 
 		if (imu_get_samples) {
 			// send imu data over uart and usb
-			HAL_UART_Transmit_IT(&huart2, &receiveData[IMU_SHTP_HEADER_LEN], dataLen);
+			HAL_UART_Transmit_IT(&huart2, &receiveData[0], dataLen);
 
 			if (usbTransmitLen == 0) {
-				memcpy(&usbTransmitBuf[IMU_SHTP_HEADER_LEN], &receiveData[IMU_SHTP_HEADER_LEN], dataLen);
-				usbTransmitLen += dataLen;
+				memcpy(&usbTransmitBuf[0], &receiveData[0], dataLen);
+				usbTransmitLen = dataLen;
 				tx_event_flags_set(&usb_cdc_event_flags_group, USB_TRANSMIT_FLAG, TX_OR);
 			}
 
@@ -397,7 +397,7 @@ HAL_StatusTypeDef imu_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half) {
 			while (parsedDataIndex < dataLen) {
 				if ((receiveData[parsedDataIndex] == IMU_G_ROTATION_VECTOR_REPORT_ID) || (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID) || (receiveData[parsedDataIndex] == IMU_ACCELEROMETER_REPORT_ID) || (receiveData[parsedDataIndex] == IMU_GYROSCOPE_REPORT_ID) || (receiveData[parsedDataIndex] == IMU_MAGNETOMETER_REPORT_ID)) {
 
-					uint8_t bytesLen = (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID || receiveData[parsedDataIndex] == IMU_G_ROTATION_VECTOR_REPORT_ID) ? IMU_QUAT_USEFUL_BYTES : IMU_3_AXIS_USEFUL_BYTES;
+					uint8_t bytesLen = IMU_REPORT_HEADER_LEN + ((receiveData[parsedDataIndex] == IMU_G_ROTATION_VECTOR_REPORT_ID) ? IMU_Q_QUAT_USEFUL_BYTES : (receiveData[parsedDataIndex] == IMU_ROTATION_VECTOR_REPORT_ID) ? IMU_QUAT_USEFUL_BYTES : IMU_3_AXIS_USEFUL_BYTES);
 
 					// store report id
 					imu_data[buffer_half][index].report_id = receiveData[parsedDataIndex];
@@ -409,10 +409,12 @@ HAL_StatusTypeDef imu_get_data(IMU_HandleTypeDef* imu, uint8_t buffer_half) {
 					if (bytesLen < IMU_QUAT_USEFUL_BYTES) {
 						imu_data[buffer_half][index].raw_data[6] = 0;
 						imu_data[buffer_half][index].raw_data[7] = 0;
+						imu_data[buffer_half][index].raw_data[8] = 0;
+						imu_data[buffer_half][index].raw_data[9] = 0;
 					}
 
 					// increment index to next report
-					parsedDataIndex += 4 + IMU_QUAT_USEFUL_BYTES;
+					parsedDataIndex += bytesLen;
 
 					if (parsedDataIndex < dataLen) {
 						index++;

@@ -222,7 +222,7 @@ void bms_thread_entry(ULONG thread_input) {
 			max17320_close_fets(&bms);
 		}
 
-		//tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 	}
 }
 
@@ -428,7 +428,7 @@ HAL_StatusTypeDef max17320_full_reset(MAX17320_HandleTypeDef *dev) {
 	return ret;
 }
 
-HAL_StatusTypeDef max17320_init(MAX17320_HandleTypeDef *dev, I2C_HandleTypeDef *hi2c_device) {
+HAL_StatusTypeDef max17320_init(I2C_HandleTypeDef *hi2c_device, MAX17320_HandleTypeDef *dev) {
 
     dev->i2c_handler = hi2c_device;
 

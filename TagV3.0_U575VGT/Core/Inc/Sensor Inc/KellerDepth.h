@@ -29,12 +29,13 @@
 #define TO_BAR(RAW_IN)	(float)((RAW_IN - 16384) * (P_MAX - P_MIN) / 32768 + P_MIN)
 
 //Depth flags
-#define DEPTH_STOP_DATA_THREAD_FLAG		0x1
-#define DEPTH_STOP_SD_THREAD_FLAG		0x2
-#define DEPTH_HALF_BUFFER_FLAG			0x4
-#define DEPTH_UNIT_TEST_FLAG			0x8
+#define DEPTH_DATA_READY_FLAG			0x1
+#define DEPTH_STOP_DATA_THREAD_FLAG		0x2
+#define DEPTH_STOP_SD_THREAD_FLAG		0x4
+#define DEPTH_HALF_BUFFER_FLAG			0x8
+#define DEPTH_UNIT_TEST_FLAG			0x10
 #define DEPTH_UNIT_TEST_DONE_FLAG		0x20
-#define DEPTH_CMD_FLAG					0x10
+#define DEPTH_CMD_FLAG					0x40
 
 //Depth commands
 #define DEPTH_GET_SAMPLES_CMD			0x1
@@ -46,9 +47,9 @@
 #define DEPTH_RECEIVE_BUFFER_MAX_LEN	16
 
 //Timeout constants
-#define DEPTH_TIMEOUT					100
-#define DEPTH_MAX_ERROR_COUNT			50
-#define DEPTH_BUSY_WAIT_TIME_MS			8
+#define DEPTH_TIMEOUT					1000
+#define DEPTH_MAX_ERROR_COUNT			200
+#define DEPTH_BUSY_WAIT_TIME_MS			20
 
 typedef struct __attribute__ ((packed, scalar_storage_order("little-endian")))
 keller_raw_data{

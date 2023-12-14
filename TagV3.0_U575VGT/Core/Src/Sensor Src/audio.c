@@ -237,7 +237,7 @@ void audio_thread_entry(ULONG thread_input){
 		if (abs(eTime.Minutes - sTime.Minutes) % RTC_AUDIO_REFRESH_MINS == 0) {
 
 			//Create new audio file name
-			sprintf(tmp_audio_file_name, "audio_%d_%d_%d.bin", eTime.Hours, eTime.Minutes, eTime.Seconds);
+			sprintf(tmp_audio_file_name, "audio_%d_%d_%d_%d_%d.bin", eDate.Month, eDate.Date, eTime.Hours, eTime.Minutes, eTime.Seconds);
 
 			//Only create new file if minutes is different or minutes is same and hours is different
 			if ((tmp_audio_file_name[AUDIO_FILENAME_MINS_INDEX] != audio_file_name[AUDIO_FILENAME_MINS_INDEX]) || ((tmp_audio_file_name[AUDIO_FILENAME_HOURS_INDEX] != audio_file_name[AUDIO_FILENAME_HOURS_INDEX]) && tmp_audio_file_name[AUDIO_FILENAME_MINS_INDEX] == audio_file_name[AUDIO_FILENAME_MINS_INDEX])) {

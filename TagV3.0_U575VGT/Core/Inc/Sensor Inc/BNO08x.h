@@ -52,6 +52,7 @@
 #define IMU_PRODUCT_CONFIG_REPORT_LEN	0x06
 #define IMU_ROTATION_VECTOR_REPORT_LEN	23
 #define IMU_SHTP_HEADER_LEN				4
+#define IMU_REPORT_HEADER_LEN			4
 
 //Timeout values
 #define IMU_NEW_DATA_TIMEOUT_MS 		2000
@@ -82,7 +83,8 @@
 #define IMU_RECEIVE_BUFFER_MAX_LEN		300
 
 //The useful number of data bytes for each kind of report (quaternion vs 3 axis measurement)
-#define IMU_QUAT_USEFUL_BYTES			8
+#define IMU_QUAT_USEFUL_BYTES			10
+#define IMU_Q_QUAT_USEFUL_BYTES			8
 #define IMU_3_AXIS_USEFUL_BYTES			6
 
 //MS timeout for SPI reads

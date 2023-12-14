@@ -31,6 +31,9 @@
 #define DATA_FILENAME_HOURS_INDEX		10
 #define DATA_FILENAME_MINS_INDEX		12
 
+//Timeout constants
+#define LIGHT_THREAD_TIMEOUT			1000
+
 typedef struct __Header_Typedef {
 
 	//Key value to identify start of frame

@@ -168,6 +168,7 @@ void rtc_thread_entry(ULONG thread_input) {
 		if (!first_pass && (state == STATE_DATA_CAPTURE || state == STATE_DATA_OFFLOAD)) {
 			tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		}
+		// rtc thread needs to run twice at startup
 		else if (state == STATE_DATA_CAPTURE || state == STATE_DATA_OFFLOAD) {
 			first_pass = false;
 		}

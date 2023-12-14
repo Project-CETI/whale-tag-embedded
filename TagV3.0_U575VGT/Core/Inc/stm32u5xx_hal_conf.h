@@ -241,7 +241,7 @@
 #define  USE_HAL_TIM_REGISTER_CALLBACKS        0U /* TIM register callback disabled       */
 #define  USE_HAL_TSC_REGISTER_CALLBACKS        0U /* TSC register callback disabled       */
 #define  USE_HAL_UART_REGISTER_CALLBACKS       1U /* UART register callback enabled      */
-#define  USE_HAL_USART_REGISTER_CALLBACKS      0U /* USART register callback disabled     */
+#define  USE_HAL_USART_REGISTER_CALLBACKS      1U /* USART register callback enabled     */
 #define  USE_HAL_WWDG_REGISTER_CALLBACKS       0U /* WWDG register callback disabled      */
 #define  USE_HAL_OSPI_REGISTER_CALLBACKS       0U /* OSPI register callback disabled      */
 /* ################## SPI peripheral configuration ########################## */

@@ -8,6 +8,7 @@
 #include "Sensor Inc/KellerDepth.h"
 #include "Sensor Inc/BNO08x.h"
 #include "Sensor Inc/ECG.h"
+#include "Sensor Inc/LightSensor.h"
 #include "Sensor Inc/DataLogging.h"
 #include "Lib Inc/threads.h"
 #include "main.h"
@@ -28,8 +29,10 @@ extern uint8_t usbReceiveBuf[APP_RX_DATA_SIZE];
 extern uint8_t usbTransmitBuf[APP_RX_DATA_SIZE];
 extern uint8_t usbTransmitLen;
 
+// sensor event flags
 extern TX_EVENT_FLAGS_GROUP imu_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP light_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP data_log_event_flags_group;
 
 //ThreadX useful variables (defined globally because they're shared with the SD card writing thread)
@@ -38,7 +41,7 @@ TX_MUTEX depth_first_half_mutex;
 TX_MUTEX depth_second_half_mutex;
 
 //Array for holding IMU data. The buffer is split in half and shared with the IMU thread.
-DEPTH_Data depth_data[2][IMU_HALF_BUFFER_SIZE] = {0};
+DEPTH_Data depth_data[2][DEPTH_HALF_BUFFER_SIZE] = {0};
 
 // uart debugging
 bool depth_get_samples = false;
@@ -76,7 +79,6 @@ void depth_thread_entry(ULONG thread_input) {
 
 		//Wait for first half of the buffer to be ready for data
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG | IMU_STOP_DATA_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
-		actual_flags &= ~IMU_HALF_BUFFER_FLAG;
 		tx_mutex_get(&depth_first_half_mutex, TX_WAIT_FOREVER);
 
 		//Fill up the first half of the buffer (this function call fills up the IMU buffer on its own)
@@ -91,7 +93,6 @@ void depth_thread_entry(ULONG thread_input) {
 
 		//Acquire second half (so we can fill it up)
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG | IMU_STOP_DATA_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
-		actual_flags &= ~IMU_HALF_BUFFER_FLAG;
 		tx_mutex_get(&depth_second_half_mutex, TX_WAIT_FOREVER);
 
 		//Call to get data, this handles filling up the second half of the buffer completely
@@ -123,14 +124,15 @@ void depth_init(I2C_HandleTypeDef *hi2c_device, Keller_HandleTypedef *keller_sen
 
 HAL_StatusTypeDef depth_get_data(Keller_HandleTypedef* keller_sensor, uint8_t buffer_half) {
 
-	//Receive data buffer
-	uint8_t receiveData[DEPTH_RECEIVE_BUFFER_MAX_LEN] = {0};
+	ULONG actual_flags = 0;
+	uint8_t data_buf[DEPTH_RECEIVE_BUFFER_MAX_LEN] = {0};
 	uint8_t depth_error_count = 0;
+
+	tx_event_flags_get(&light_event_flags_group, LIGHT_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 
 	for (uint16_t index=0; index<DEPTH_HALF_BUFFER_SIZE; index++) {
 
 		// request depth data
-		uint8_t data_buf[1] = {0};
 		data_buf[0] = DEPTH_REQ_DATA_ADDR;
 		HAL_StatusTypeDef ret = HAL_I2C_Master_Transmit(keller_sensor->i2c_handler, DEPTH_ADDR << 1, &data_buf[0], 1, DEPTH_TIMEOUT);
 
@@ -145,9 +147,9 @@ HAL_StatusTypeDef depth_get_data(Keller_HandleTypedef* keller_sensor, uint8_t bu
 			depth_error_count++;
 
 			if (depth_error_count > DEPTH_MAX_ERROR_COUNT) {
-				tx_event_flags_set(&depth_event_flags_group, DEPTH_STOP_DATA_THREAD_FLAG, TX_OR);
-				tx_event_flags_set(&depth_event_flags_group, DEPTH_STOP_SD_THREAD_FLAG, TX_OR);
-				tx_thread_suspend(&threads[DEPTH_THREAD].thread);
+				// stop collecting data instead of terminating thread and delete data
+				memset(depth_data[buffer_half], 0, sizeof(depth_data[buffer_half]));
+				break;
 			}
 
 			//Return to start of loop
@@ -156,17 +158,18 @@ HAL_StatusTypeDef depth_get_data(Keller_HandleTypedef* keller_sensor, uint8_t bu
 
 		// await end of conversion (wait 8ms or check busy flag in status byte or wait for EOC to be high)
 		HAL_Delay(DEPTH_BUSY_WAIT_TIME_MS);
+		tx_event_flags_get(&depth_event_flags_group, DEPTH_DATA_READY_FLAG, TX_OR_CLEAR, &actual_flags, DEPTH_BUSY_WAIT_TIME_MS);
 
-		ret = HAL_I2C_Master_Receive(keller_sensor->i2c_handler, DEPTH_ADDR << 1, &receiveData[0], DEPTH_DATA_LEN, DEPTH_TIMEOUT);
+		ret = HAL_I2C_Master_Receive(keller_sensor->i2c_handler, DEPTH_ADDR << 1, &data_buf[0], DEPTH_DATA_LEN, DEPTH_TIMEOUT);
 
 		if (depth_get_samples) {
 			// send depth data over uart and usb
 			HAL_UART_Transmit_IT(&huart2, &ret, 1);
-			HAL_UART_Transmit_IT(&huart2, &receiveData[0], DEPTH_DATA_LEN);
+			HAL_UART_Transmit_IT(&huart2, &data_buf[0], DEPTH_DATA_LEN);
 
 			if (usbTransmitLen == 0) {
 				memcpy(&usbTransmitBuf[0], &ret, 1);
-				memcpy(&usbTransmitBuf[1], &receiveData[0], DEPTH_DATA_LEN);
+				memcpy(&usbTransmitBuf[1], &data_buf[0], DEPTH_DATA_LEN);
 				usbTransmitLen = DEPTH_DATA_LEN + 1;
 				tx_event_flags_set(&usb_cdc_event_flags_group, USB_TRANSMIT_FLAG, TX_OR);
 			}
@@ -192,9 +195,9 @@ HAL_StatusTypeDef depth_get_data(Keller_HandleTypedef* keller_sensor, uint8_t bu
 			continue;
 		}
 
-		depth_data[buffer_half][index].status = receiveData[0];
-		depth_data[buffer_half][index].raw_pressure = ((uint16_t) receiveData[1] << 8) | receiveData[2];
-		depth_data[buffer_half][index].raw_temp = ((uint16_t) receiveData[3] << 8) | receiveData[4];
+		depth_data[buffer_half][index].status = data_buf[0];
+		depth_data[buffer_half][index].raw_pressure = ((uint16_t) data_buf[1] << 8) | data_buf[2];
+		depth_data[buffer_half][index].raw_temp = ((uint16_t) data_buf[3] << 8) | data_buf[4];
 
 		// check index to prevent buffer overflow
 		if (index >= IMU_HALF_BUFFER_SIZE){
