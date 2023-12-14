@@ -450,10 +450,12 @@ void enter_data_capture(){
 	tx_thread_resume(&threads[IMU_THREAD].thread);
 	tx_thread_resume(&threads[LIGHT_THREAD].thread);
 	tx_thread_resume(&threads[RTC_THREAD].thread);
+	tx_thread_resume(&threads[BMS_THREAD].thread);
 }
 
 
 void soft_exit_data_capture(){
+	HAL_GPIO_WritePin(GPIOB, DIAG_LED1_Pin, GPIO_PIN_RESET);
 
 	//Suspend the data collection threads so we can just resume them later if needed
 	tx_thread_suspend(&threads[AUDIO_THREAD].thread);
@@ -464,6 +466,7 @@ void soft_exit_data_capture(){
 }
 
 void hard_exit_data_capture(){
+	HAL_GPIO_WritePin(GPIOB, DIAG_LED1_Pin, GPIO_PIN_RESET);
 
 	//Signal data collection threads to stop running (and they should never run again)
 	tx_event_flags_set(&audio_event_flags_group, AUDIO_STOP_THREAD_FLAG, TX_OR);
@@ -473,17 +476,25 @@ void hard_exit_data_capture(){
 }
 
 void enter_data_offload(){
+	tx_thread_suspend(&threads[BMS_THREAD].thread);
+	tx_thread_suspend(&threads[LIGHT_THREAD].thread);
+
 	//Data offloading is always running, so we dont need to stop or start any threads, just adjust our SD card clock division to be a little slower
 	MX_SDMMC1_SD_Fake_Init(DATA_OFFLOADING_SD_CLK_DIV);
 }
 
 void exit_data_offload(){
+	tx_thread_resume(&threads[BMS_THREAD].thread);
+	tx_thread_resume(&threads[LIGHT_THREAD].thread);
+
 	//Data offloading is always running, so we dont need to stop or start any threads, just adjust our SD card back to the original clock divider
 	MX_SDMMC1_SD_Fake_Init(NORMAL_SD_CLK_DIV);
 }
 
 void enter_recovery(){
-	HAL_GPIO_WritePin(GPIOB, DIAG_LED1_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOB, DIAG_LED1_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin, GPIO_PIN_SET);
+
 	//Start APRS thread
 	//tx_thread_reset(&threads[APRS_THREAD].thread);
 	//tx_thread_resume(&threads[APRS_THREAD].thread);
@@ -493,7 +504,9 @@ void enter_recovery(){
 }
 
 void exit_recovery(){
-	HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOB, DIAG_LED1_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin, GPIO_PIN_RESET);
+
 	//Stop all remaining threads in recovery mode: APRS, GPS
 	//tx_thread_terminate(&threads[APRS_THREAD].thread);
 	//tx_thread_terminate(&threads[GPS_THREAD].thread);
