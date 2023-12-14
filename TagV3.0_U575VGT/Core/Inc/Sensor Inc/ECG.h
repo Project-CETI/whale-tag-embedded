@@ -21,6 +21,7 @@
 
 #include "main.h"
 #include "tx_api.h"
+#include "Lib Inc/timing.h"
 
 #define ECG_ADC_I2C_ADDRESS 0b1000100
 
@@ -49,15 +50,20 @@
 #define ECG_ADC_READ_STATUS_REG 		0b00100100
 #define ECG_ADC_WRITE_CONFIG_REG 		0b01000000
 
-//Timeouts for polling data ready
-#define ECG_ADC_DATA_TIMEOUT 2000
+//ThreadX status flags
+#define ECG_DATA_READY_FLAG				0x1
+#define ECG_STOP_DATA_THREAD_FLAG		0x2
+#define ECG_STOP_SD_THREAD_FLAG			0x4
+#define ECG_HALF_BUFFER_FLAG			0x8
+#define ECG_UNIT_TEST_FLAG				0x10
+#define ECG_UNIT_TEST_DONE_FLAG			0x20
+#define ECG_READ_FLAG					0x40
+#define ECG_WRITE_FLAG					0x80
+#define ECG_CMD_FLAG					0x100
 
-//ThreadX flag bit for when data is ready
-#define ECG_DATA_READY_FLAG 0x1
-
-//ThreadX flag bit for stopping the ecg data and SD writing threads
-#define ECG_STOP_DATA_THREAD_FLAG 0x2
-#define ECG_STOP_SD_THREAD_FLAG 0x4
+//ECG commands
+#define ECG_GET_SAMPLES_CMD				0x1
+#define ECG_NUM_SAMPLES					100
 
 //ECG configuration register has the following structure:
 // Bit 7-5: MUX Electrode Selection
@@ -65,20 +71,24 @@
 // Bit 3-2: Data Rate (00 = 20hz, 01 = 90hz, 10 = 330hz, 11 = 1000hz)
 // Bit 1: Conversion mode (0 = single, 1 = continuous)
 // Bit 0: Vref (0 = internal/2.048V, 1 = external reference)
-#define ECG_ADC_DEFAULT_CONFIG_REGISTER 0b00001110
+#define ECG_ADC_DEFAULT_CONFIG_REGISTER	0b00001110
 
-//The number of ECG Samples to collect before writing to the SD card. This should ALWAYS be an even number.
-#define ECG_BUFFER_SIZE 1000
+//Buffer constants
+#define ECG_BUFFER_SIZE					250 // number of samples before writing to SD card (must be even number)
+#define ECG_HALF_BUFFER_SIZE			(ECG_BUFFER_SIZE / 2)
+#define ECG_DATA_LEN					3
 
-//A half buffer size, since our buffer is split in half
-#define ECG_HALF_BUFFER_SIZE (ECG_BUFFER_SIZE / 2)
+//Timeout values
+#define ECG_ADC_DATA_TIMEOUT			2000
+#define ECG_FLAG_TIMEOUT				tx_s_to_ticks(10)
+#define ECG_MAX_ERROR_COUNT				50
 
 //Struct for holding ECG data (data and timestamps)
 typedef struct __ECG_Data_Typedef {
 
 	//Raw data buffer for 24 bit data from ECG
 	uint8_t raw_data[3];
-}ECG_Data;
+} ECG_Data;
 
 //Struct for holding ECG variabels
 typedef struct __ECG_TypeDef {
@@ -93,43 +103,16 @@ typedef struct __ECG_TypeDef {
 
 } ECG_HandleTypeDef;
 
-//Our ECG function that serves as the entry point for the thread. It manages the entire ECG.
-void ecg_thread_entry(ULONG thread_input);
-
-/*
- * Initializes the ECG ADC so we can begin sampling data and retrieving it.
- *
- * Resets the chip and writes the appropriate registers to start continuous conversions.
- *
- * Parameters:
- * 			-hi2c: an I2C handler for communication
- * 			-ecg: an ECG handler to store data
- */
 HAL_StatusTypeDef ecg_init(I2C_HandleTypeDef* hi2c, ECG_HandleTypeDef* ecg);
-
-//Read the ADC for the newest data and stores it in the ECG struct
+HAL_StatusTypeDef ecg_get_data(ECG_HandleTypeDef* ecg, uint8_t buffer_half);
 HAL_StatusTypeDef ecg_read_adc(ECG_HandleTypeDef* ecg);
-
-//Writes to "data" to the ecg configuration register
 HAL_StatusTypeDef ecg_write_configuration_register(ECG_HandleTypeDef* ecg, uint8_t data);
-
-//Reads the configuration register and stores it in "data".
 HAL_StatusTypeDef ecg_read_configuration_register(ECG_HandleTypeDef* ecg, uint8_t * data);
-
-/*
- * Configures the ADC MUX to toggle which electrodes to read from.
- *
- * Parameters:
- * 			-ecg: the ecg handler
- * 			-electrode_config: the bits of the 3-8 MUX to appropriately set the correct electrodes.
- * 								The MUX only has 3 control bits, but this is an 8 bit number. Use the 3 least significant bits.
- */
 HAL_StatusTypeDef ecg_configure_electrodes(ECG_HandleTypeDef* ecg, uint8_t electrode_config);
-
-//Polls the ECG data ready pin for new data. Will timeout if no new data.
 HAL_StatusTypeDef ecg_poll_data_ready(ECG_HandleTypeDef* ecg);
-
-//Resets the ECG sensor (should be done before initialization)
 HAL_StatusTypeDef ecg_reset_adc(ECG_HandleTypeDef* ecg);
+
+//Main ECG thread to run on RTOS
+void ecg_thread_entry(ULONG thread_input);
 
 #endif /* INC_SENSOR_INC_ECG_H_ */

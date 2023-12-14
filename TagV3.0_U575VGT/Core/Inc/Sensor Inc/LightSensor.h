@@ -11,6 +11,7 @@
 #define LIGHTSENSOR_H
 
 #include "stm32u5xx_hal.h"
+#include "tx_port.h"
 
 // ALS == Ambient Light Sensor
 // Light sensor I2C address
@@ -47,6 +48,20 @@ typedef enum {
 #define ALS_MANUFAC_ID   0b00000101
 #define ALS_PART_ID      0b1010
 #define ALS_REVISION_ID  0b0000
+
+//Delay values
+#define LIGHT_DELAY_MS	1000
+
+//Light sensor flags
+#define LIGHT_COMPLETE_FLAG			0x1
+#define LIGHT_UNIT_TEST_FLAG		0x2
+#define LIGHT_UNIT_TEST_DONE_FLAG	0x4
+#define LIGHT_READ_FLAG				0x8
+#define LIGHT_WRITE_FLAG			0x10
+#define LIGHT_CMD_FLAG				0x20
+
+//Commands for light sensor
+#define LIGHT_GET_SAMPLES_CMD		0x1
 
 typedef enum {
     GAIN_DEF    = 0b000,    // Gain x1 -> 1 lux to 64k lux
@@ -136,7 +151,8 @@ typedef struct __LightSensor_TypeDef
     ALSDataRegister data;
 } LightSensorHandleTypedef;
 
-HAL_StatusTypeDef LightSensor_init(LightSensorHandleTypedef *light_sensor, I2C_HandleTypeDef *hi2c_device);
+void light_thread_entry(ULONG thread_input);
+HAL_StatusTypeDef LightSensor_init(I2C_HandleTypeDef *hi2c_device, LightSensorHandleTypedef *light_sensor);
 HAL_StatusTypeDef LightSensor_wake_up(LightSensorHandleTypedef *light_sensor, ALSGain gain);
 HAL_StatusTypeDef LightSensor_sleep(LightSensorHandleTypedef *light_sensor);
 HAL_StatusTypeDef LightSensor_get_data(LightSensorHandleTypedef *light_sensor);

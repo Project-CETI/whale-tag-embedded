@@ -58,6 +58,8 @@ void MX_SDMMC1_SD_Fake_Init(uint8_t newClockDiv);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define IMU_RESET_Pin GPIO_PIN_5
+#define IMU_RESET_GPIO_Port GPIOE
 #define BURNWIRE_ON_Pin GPIO_PIN_6
 #define BURNWIRE_ON_GPIO_Port GPIOE
 #define BMS_ALRT_Pin GPIO_PIN_2
@@ -83,6 +85,7 @@ void MX_SDMMC1_SD_Fake_Init(uint8_t newClockDiv);
 #define IMU_CS_GPIO_Port GPIOB
 #define KELLER_EOC_Pin GPIO_PIN_13
 #define KELLER_EOC_GPIO_Port GPIOB
+#define KELLER_EOC_EXTI_IRQn EXTI13_IRQn
 #define ECG_LOD__Pin GPIO_PIN_10
 #define ECG_LOD__GPIO_Port GPIOD
 #define ECG_LOD_D11_Pin GPIO_PIN_11
@@ -92,6 +95,18 @@ void MX_SDMMC1_SD_Fake_Init(uint8_t newClockDiv);
 #define ECG_NDRDY_EXTI_IRQn EXTI14_IRQn
 #define ECG_NSDN_Pin GPIO_PIN_15
 #define ECG_NSDN_GPIO_Port GPIOD
+#define ADC_ENABLE_NEG_5_Pin GPIO_PIN_6
+#define ADC_ENABLE_NEG_5_GPIO_Port GPIOD
+#define ADC_ENABLE_POS_5_Pin GPIO_PIN_7
+#define ADC_ENABLE_POS_5_GPIO_Port GPIOD
+#define DIAG_LED2_Pin GPIO_PIN_4
+#define DIAG_LED2_GPIO_Port GPIOB
+#define DIAG_LED1_Pin GPIO_PIN_5
+#define DIAG_LED1_GPIO_Port GPIOB
+#define DIAG_LED4_Pin GPIO_PIN_6
+#define DIAG_LED4_GPIO_Port GPIOB
+#define DIAG_LED3_Pin GPIO_PIN_7
+#define DIAG_LED3_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

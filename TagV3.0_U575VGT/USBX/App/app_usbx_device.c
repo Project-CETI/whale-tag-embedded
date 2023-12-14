@@ -47,12 +47,16 @@
 
 static ULONG storage_interface_number;
 static ULONG storage_configuration_number;
+static ULONG cdc_acm_interface_number;
+static ULONG cdc_acm_configuration_number;
 static UX_SLAVE_CLASS_STORAGE_PARAMETER storage_parameter;
+static UX_SLAVE_CLASS_CDC_ACM_PARAMETER cdc_acm_parameter;
 static TX_THREAD ux_device_app_thread;
 
 /* USER CODE BEGIN PV */
 extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
-TX_EVENT_FLAGS_GROUP usb_event_flags_group;
+TX_THREAD ux_cdc_read_thread;
+TX_THREAD ux_cdc_write_thread;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -190,6 +194,32 @@ UINT MX_USBX_Device_Init(VOID *memory_ptr)
     /* USER CODE END USBX_DEVICE_STORAGE_REGISTER_ERROR */
   }
 
+  /* Initialize the cdc acm class parameters for the device */
+  cdc_acm_parameter.ux_slave_class_cdc_acm_instance_activate   = USBD_CDC_ACM_Activate;
+  cdc_acm_parameter.ux_slave_class_cdc_acm_instance_deactivate = USBD_CDC_ACM_Deactivate;
+  cdc_acm_parameter.ux_slave_class_cdc_acm_parameter_change    = USBD_CDC_ACM_ParameterChange;
+
+  /* USER CODE BEGIN CDC_ACM_PARAMETER */
+  /* USER CODE END CDC_ACM_PARAMETER */
+
+  /* Get cdc acm configuration number */
+  cdc_acm_configuration_number = USBD_Get_Configuration_Number(CLASS_TYPE_CDC_ACM, 0);
+
+  /* Find cdc acm interface number */
+  cdc_acm_interface_number = USBD_Get_Interface_Number(CLASS_TYPE_CDC_ACM, 0);
+
+  /* Initialize the device cdc acm class */
+  if (ux_device_stack_class_register(_ux_system_slave_class_cdc_acm_name,
+                                     ux_device_class_cdc_acm_entry,
+                                     cdc_acm_configuration_number,
+                                     cdc_acm_interface_number,
+                                     &cdc_acm_parameter) != UX_SUCCESS)
+  {
+    /* USER CODE BEGIN USBX_DEVICE_CDC_ACM_REGISTER_ERROR */
+    return UX_ERROR;
+    /* USER CODE END USBX_DEVICE_CDC_ACM_REGISTER_ERROR */
+  }
+
   /* Allocate the stack for device application main thread */
   if (tx_byte_allocate(byte_pool, (VOID **) &pointer, UX_DEVICE_APP_THREAD_STACK_SIZE,
                        TX_NO_WAIT) != TX_SUCCESS)
@@ -212,6 +242,35 @@ UINT MX_USBX_Device_Init(VOID *memory_ptr)
 
   /* USER CODE BEGIN MX_USBX_Device_Init1 */
 
+  /* Allocate the stack for usbx cdc acm read thread */
+  if (tx_byte_allocate(byte_pool, (VOID **) &pointer, 1024, TX_NO_WAIT) != TX_SUCCESS)
+  {
+    return TX_POOL_ERROR;
+  }
+
+  /* Create the usbx cdc acm read thread */
+  if (tx_thread_create(&ux_cdc_read_thread, "USB CDC Read Thread",
+                       usbx_cdc_acm_read_thread_entry, 0, pointer,
+					   CDC_ACM_READ_STACK_SIZE, CDC_ACM_READ_PRIO, CDC_ACM_READ_PRIO, TX_NO_TIME_SLICE,
+                       TX_DONT_START) != TX_SUCCESS)
+  {
+    return TX_THREAD_ERROR;
+  }
+
+  if (tx_byte_allocate(byte_pool, (VOID **) &pointer, 1024, TX_NO_WAIT) != TX_SUCCESS)
+  {
+    return TX_POOL_ERROR;
+  }
+
+  /* Create the usbx cdc acm read thread */
+  if (tx_thread_create(&ux_cdc_write_thread, "USB CDC Write Thread",
+		               usbx_cdc_acm_write_thread_entry, 0, pointer,
+				       CDC_ACM_WRITE_STACK_SIZE, CDC_ACM_WRITE_PRIO, CDC_ACM_WRITE_PRIO, TX_NO_TIME_SLICE,
+					   TX_DONT_START) != TX_SUCCESS)
+  {
+    return TX_THREAD_ERROR;
+  }
+
   /* USER CODE END MX_USBX_Device_Init1 */
 
   return ret;
@@ -228,7 +287,6 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
   TX_PARAMETER_NOT_USED(thread_input);
 
   USBX_APP_Device_Init();
-
   /* USER CODE END app_ux_device_thread_entry */
 }
 
@@ -251,6 +309,19 @@ VOID USBX_APP_Device_Init(VOID){
 	  /* Set Tx FIFO 1 */
 	  HAL_PCDEx_SetTxFiFo(&hpcd_USB_OTG_FS, 1, 0x60);
 
+	  /* Set Rx FIFO */
+	  //HAL_PCDEx_SetRxFiFo(&hpcd_USB_OTG_FS, 0x200);
+
+	  /* Set Tx FIFO 0 */
+	  //HAL_PCDEx_SetTxFiFo(&hpcd_USB_OTG_FS, 0, 0x10);
+
+	  /* Set Tx FIFO 2 */
+	  //HAL_PCDEx_SetTxFiFo(&hpcd_USB_OTG_FS, 1, 0x10);
+
+	  /* Set Tx FIFO 3 */
+	  //HAL_PCDEx_SetTxFiFo(&hpcd_USB_OTG_FS, 2, 0x20);
+
+
 	  /* USER CODE END USB_Device_Init_PreTreatment_1 */
 
 	  /* Initialize and link controller HAL driver */
@@ -264,4 +335,6 @@ VOID USBX_APP_Device_Init(VOID){
 	  /* USER CODE END USB_Device_Init_PostTreatment */
 
 }
+
+
 /* USER CODE END 1 */

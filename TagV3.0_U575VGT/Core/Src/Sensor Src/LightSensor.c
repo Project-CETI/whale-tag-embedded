@@ -7,8 +7,34 @@
  *      Datasheet: optoelectronics.liteon.com/upload/download/DS86-2014-0006/LTR-329ALS-01_DS_V1.pdf
  */
 
-#include "LightSensor.h"
+#include "Sensor Inc/LightSensor.h"
+#include "Sensor Inc/DataLogging.h"
 #include "util.h"
+#include "main.h"
+#include "ux_device_cdc_acm.h"
+#include <stdbool.h>
+
+extern I2C_HandleTypeDef hi2c2;
+extern UART_HandleTypeDef huart2;
+
+// usb buffers
+extern uint8_t usbReceiveBuf[APP_RX_DATA_SIZE];
+extern uint8_t usbTransmitBuf[APP_RX_DATA_SIZE];
+extern uint8_t usbTransmitLen;
+
+// threadx flags for state machine
+extern TX_EVENT_FLAGS_GROUP data_log_event_flags_group;
+
+// light sensor handler
+extern LightSensorHandleTypedef light_sensor;
+
+// threadX flags for light sensor
+TX_EVENT_FLAGS_GROUP light_event_flags_group;
+
+// uart debugging
+bool light_get_samples = false;
+bool light_unit_test = false;
+HAL_StatusTypeDef light_unit_test_ret = HAL_ERROR;
 
 /*** PRIVATE ***/
 
@@ -85,20 +111,62 @@ static inline ALSMeasureTime __ALSMeasureTime_get_max_from_freq_Hz(float freq_Hz
 }
 
 /*** PUBLIC ***/
+
+void light_thread_entry(ULONG thread_input) {
+
+	//Create event flags
+	tx_event_flags_create(&light_event_flags_group, "Light Event Flags");
+
+	//Initalize chip
+	LightSensor_init(&hi2c2, &light_sensor);
+
+	while (1) {
+		ULONG actual_flags = 0;
+		HAL_StatusTypeDef ret = HAL_ERROR;
+
+		tx_event_flags_get(&light_event_flags_group, LIGHT_UNIT_TEST_FLAG | LIGHT_CMD_FLAG , TX_OR_CLEAR, &actual_flags, 1);
+		if (actual_flags & LIGHT_UNIT_TEST_FLAG) {
+			light_unit_test = true;
+		}
+		else if (actual_flags & LIGHT_READ_FLAG) {
+
+		}
+		else if (actual_flags & LIGHT_WRITE_FLAG) {
+
+		}
+		else if (actual_flags & LIGHT_CMD_FLAG) {
+			if (usbReceiveBuf[3] == LIGHT_GET_SAMPLES_CMD) {
+				light_get_samples = true;
+			}
+		}
+
+		ret = LightSensor_get_data(&light_sensor);
+		if (light_unit_test) {
+			light_unit_test_ret = ret;
+			light_unit_test = false;
+			tx_event_flags_set(&light_event_flags_group, LIGHT_UNIT_TEST_DONE_FLAG, TX_OR);
+		}
+
+		// Tell data log thread that light sensor has completed data collection
+		tx_event_flags_set(&light_event_flags_group, LIGHT_COMPLETE_FLAG, TX_OR);
+		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+	}
+}
+
 // Wait 100ms minimum after VDD is supplied to light sensor
-HAL_StatusTypeDef LightSensor_init(LightSensorHandleTypedef *light_sensor, I2C_HandleTypeDef *hi2c_device) {
+HAL_StatusTypeDef LightSensor_init(I2C_HandleTypeDef *hi2c_device, LightSensorHandleTypedef *light_sensor) {
 	
 	light_sensor->i2c_handler = hi2c_device;
 	
 	// Maximum initial startup time is 1000 ms
 	HAL_Delay(1000);
 
-	HAL_StatusTypeDef ret_val = LightSensor_wake_up(light_sensor, GAIN_DEF);
+	HAL_StatusTypeDef ret = LightSensor_wake_up(light_sensor, GAIN_DEF);
 
 	// Uncomment lines below and change
-	LightSensor_set_data_rate(light_sensor, ALS_INTEG_TIME_100_MS, ALS_MEAS_TIME_500_MS);
+	ret = LightSensor_set_data_rate(light_sensor, ALS_INTEG_TIME_100_MS, ALS_MEAS_TIME_500_MS);
 
-	return ret_val;
+	return ret;
 
 }
 
@@ -115,9 +183,10 @@ HAL_StatusTypeDef LightSensor_wake_up(LightSensorHandleTypedef *light_sensor, AL
 		.als_mode = LIGHT_WAKEUP
 	});
 
-	HAL_StatusTypeDef ret_val = HAL_I2C_Mem_Write(light_sensor->i2c_handler, ALS_ADDR << 1, ALS_CONTR, I2C_MEMADD_SIZE_8BIT, &control_raw, sizeof(control_raw), 100);
-	if(ret_val != HAL_OK){
-		return ret_val;
+	HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(light_sensor->i2c_handler, ALS_ADDR << 1, ALS_CONTR, I2C_MEMADD_SIZE_8BIT, &control_raw, sizeof(control_raw), 100);
+
+	if(ret != HAL_OK){
+		return ret;
 	}
 	// Waits 10ms maximum for wakeup time of light sensor
 	// A non-blocking solution can be found
@@ -133,9 +202,9 @@ HAL_StatusTypeDef LightSensor_set_data_rate(LightSensorHandleTypedef *light_sens
         .measurement_time = meas_rate
     });
 
-	HAL_StatusTypeDef ret_val = HAL_I2C_Mem_Write(light_sensor->i2c_handler, ALS_ADDR << 1, ALS_MEAS_RATE, I2C_MEMADD_SIZE_8BIT, &raw, sizeof(raw), 100);
+	HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(light_sensor->i2c_handler, ALS_ADDR << 1, ALS_MEAS_RATE, I2C_MEMADD_SIZE_8BIT, &raw, sizeof(raw), 100);
 
-	return ret_val;
+	return ret;
 }
 
 
@@ -143,9 +212,9 @@ HAL_StatusTypeDef LightSensor_get_data(LightSensorHandleTypedef *light_sensor) {
 	uint8_t status_raw;
 
 	//read values and status together
-    HAL_StatusTypeDef ret_val = HAL_I2C_Mem_Read(light_sensor->i2c_handler, ALS_ADDR << 1, ALS_DATA, I2C_MEMADD_SIZE_8BIT, &status_raw, 1, 100);
-	if(ret_val != HAL_OK){
-		return ret_val;
+    HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(light_sensor->i2c_handler, ALS_ADDR << 1, ALS_STATUS, I2C_MEMADD_SIZE_8BIT, &status_raw, 1, 100);
+	if(ret != HAL_OK){
+		return ret;
 	}
 
 	light_sensor->status = __statusRegister_from_raw(status_raw);
@@ -159,9 +228,23 @@ HAL_StatusTypeDef LightSensor_get_data(LightSensorHandleTypedef *light_sensor) {
 		return HAL_ERROR;
 	}
 
-	ret_val = HAL_I2C_Mem_Read(light_sensor->i2c_handler, ALS_ADDR << 1, ALS_DATA, I2C_MEMADD_SIZE_8BIT, (uint8_t *)&light_sensor->data, 4, 100);
+	ret = HAL_I2C_Mem_Read(light_sensor->i2c_handler, ALS_ADDR << 1, ALS_DATA, I2C_MEMADD_SIZE_8BIT, (uint8_t *)&light_sensor->data, 4, 100);
 
-	return ret_val;
+	if (light_get_samples) {
+
+		// send light data over uart and usb
+		HAL_UART_Transmit_IT(&huart2, &ret, 1);
+		HAL_UART_Transmit_IT(&huart2, (uint8_t *) &light_sensor->data, sizeof(light_sensor->data));
+
+		if (usbTransmitLen == 0) {
+			memcpy(&usbTransmitBuf[0], &ret, 1);
+			memcpy(&usbTransmitBuf[1], &light_sensor->data, sizeof(light_sensor->data));
+			usbTransmitLen = sizeof(light_sensor->data) + 1;
+		}
+		light_get_samples = false;
+	}
+
+	return ret;
 }
 
 HAL_StatusTypeDef LightSensor_sleep(LightSensorHandleTypedef *light_sensor){

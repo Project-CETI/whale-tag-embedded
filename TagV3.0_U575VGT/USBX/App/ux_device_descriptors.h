@@ -29,6 +29,7 @@ extern "C" {
 #include "ux_api.h"
 #include "ux_stm32_config.h"
 #include "ux_device_class_storage.h"
+#include "ux_device_class_cdc_acm.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -42,9 +43,10 @@ extern "C" {
 #define USBD_MAX_CLASS_INTERFACES                      11U
 
 #define USBD_MSC_CLASS_ACTIVATED                       1U
+#define USBD_CDC_ACM_CLASS_ACTIVATED                   1U
 
-#define USBD_CONFIG_MAXPOWER                           25U
-#define USBD_COMPOSITE_USE_IAD                         0U
+#define USBD_CONFIG_MAXPOWER                           50U
+#define USBD_COMPOSITE_USE_IAD                         1U
 #define USBD_DEVICE_FRAMEWORK_BUILDER_ENABLED          1U
 
 #define USBD_FRAMEWORK_MAX_DESC_SZ                     200U
@@ -201,6 +203,47 @@ typedef struct
   uint8_t bReserved;
 } __PACKED USBD_DevQualiDescTypedef;
 
+#if (USBD_CDC_ACM_CLASS_ACTIVATED == 1) || (USBD_RNDIS_CLASS_ACTIVATED == 1) || (USBD_CDC_ECM_CLASS_ACTIVATED == 1)
+typedef struct
+{
+  /* Header Functional Descriptor*/
+  uint8_t bLength;
+  uint8_t bDescriptorType;
+  uint8_t bDescriptorSubtype;
+  uint16_t bcdCDC;
+} __PACKED USBD_CDCHeaderFuncDescTypedef;
+
+typedef struct
+{
+  /* Call Management Functional Descriptor*/
+  uint8_t bLength;
+  uint8_t bDescriptorType;
+  uint8_t bDescriptorSubtype;
+  uint8_t bmCapabilities;
+  uint8_t bDataInterface;
+} __PACKED USBD_CDCCallMgmFuncDescTypedef;
+
+typedef struct
+{
+  /* ACM Functional Descriptor*/
+  uint8_t bLength;
+  uint8_t bDescriptorType;
+  uint8_t bDescriptorSubtype;
+  uint8_t bmCapabilities;
+} __PACKED USBD_CDCACMFuncDescTypedef;
+
+typedef struct
+{
+  /* Union Functional Descriptor*/
+  uint8_t bLength;
+  uint8_t bDescriptorType;
+  uint8_t bDescriptorSubtype;
+  uint8_t bMasterInterface;
+  uint8_t bSlaveInterface;
+} __PACKED USBD_CDCUnionFuncDescTypedef;
+
+#endif /* (USBD_CDC_ACM_CLASS_ACTIVATED == 1) || (USBD_RNDIS_CLASS_ACTIVATED == 1)  || (USBD_CDC_ECM_CLASS_ACTIVATED == 1)*/
+
 /* Exported functions prototypes ---------------------------------------------*/
 /* USER CODE BEGIN EFP */
 
@@ -218,7 +261,7 @@ uint16_t USBD_Get_Configuration_Number(uint8_t class_type, uint8_t interface_typ
 /* USER CODE END Private_defines */
 
 #define USBD_VID                                      1155
-#define USBD_PID                                      22288
+#define USBD_PID                                      22304
 #define USBD_LANGID_STRING                            1033
 #define USBD_MANUFACTURER_STRING                      "STMicroelectronics"
 #define USBD_PRODUCT_STRING                           "STM32 USB Device"
@@ -256,6 +299,19 @@ uint16_t USBD_Get_Configuration_Number(uint8_t class_type, uint8_t interface_typ
 #define USBD_MSC_EPOUT_HS_MPS                         512U
 #define USBD_MSC_EPIN_FS_MPS                          64U
 #define USBD_MSC_EPIN_HS_MPS                          512U
+
+/* Device CDC-ACM Class */
+#define USBD_CDCACM_EPINCMD_ADDR                      0x83U
+#define USBD_CDCACM_EPINCMD_FS_MPS                    8U
+#define USBD_CDCACM_EPINCMD_HS_MPS                    8U
+#define USBD_CDCACM_EPIN_ADDR                         0x84U
+#define USBD_CDCACM_EPOUT_ADDR                        0x04U
+#define USBD_CDCACM_EPIN_FS_MPS                       64U
+#define USBD_CDCACM_EPIN_HS_MPS                       512U
+#define USBD_CDCACM_EPOUT_FS_MPS                      64U
+#define USBD_CDCACM_EPOUT_HS_MPS                      512U
+#define USBD_CDCACM_EPINCMD_FS_BINTERVAL              5U
+#define USBD_CDCACM_EPINCMD_HS_BINTERVAL              5U
 
 #ifndef USBD_CONFIG_STR_DESC_IDX
 #define USBD_CONFIG_STR_DESC_IDX                      0U

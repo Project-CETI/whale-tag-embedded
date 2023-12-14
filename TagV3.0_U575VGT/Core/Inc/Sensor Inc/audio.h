@@ -16,28 +16,43 @@
  * ADC Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/ad7768-7768-4.pdf
  */
 #include <stdint.h>
+#include "Lib Inc/timing.h"
 #include "main.h"
 #include "ad7768.h"
 #include "config.h"
 #include "app_filex.h"
 
-#define AUDIO_CIRCULAR_BUFFER_SIZE_MAX (UINT16_MAX/2)
-#define AUDIO_CIRCULAR_BUFFER_SIZE  (32256)
+//Buffer constants
+#define AUDIO_CIRCULAR_BUFFER_SIZE_MAX	(UINT16_MAX/2)
+#define AUDIO_CIRCULAR_BUFFER_SIZE 		32256
 
-//ThreadX flag bits to show when the buffer is half full or completely full
-#define AUDIO_BUFFER_HALF_FULL_FLAG 0x1
-#define AUDIO_BUFFER_FULL_FLAG 0x2
+//Audio flags
+#define AUDIO_BUFFER_HALF_FULL_FLAG		0x1
+#define AUDIO_BUFFER_FULL_FLAG			0x2
+#define AUDIO_STOP_THREAD_FLAG			0x4
+#define AUDIO_UNIT_TEST_FLAG			0x8
+#define AUDIO_UNIT_TEST_DONE_FLAG		0x10
+#define AUDIO_READ_FLAG					0x20
+#define AUDIO_CMD_FLAG					0x40
 
-//ThreadX flag to stop the audio sensor (exit data collection)
-#define AUDIO_STOP_THREAD_FLAG 0x4
+//Audio commands
+#define AUDIO_GET_SAMPLES_CMD			0x1
+#define AUDIO_NUM_SAMPLES				100
 
-//Do not change
-#define DMA_BUF_BLOCK_LENGTH 2
+//DMA block length
+#define DMA_BUF_BLOCK_LENGTH			2 //DO NOT CHANGE
 
 //Number of blocks the temp buffer should use. This MUST be an even number.
-#define TEMP_BUF_BLOCK_LENGTH 18
+#define TEMP_BUF_BLOCK_LENGTH			18
+#define TEMP_BUF_HALF_BLOCK_LENGTH		((TEMP_BUF_BLOCK_LENGTH) / 2)
 
-#define TEMP_BUF_HALF_BLOCK_LENGTH ((TEMP_BUF_BLOCK_LENGTH) / 2)
+//Time interval to create new logging file in minutes
+#define RTC_AUDIO_REFRESH_MINS			5
+#define RTC_AUDIO_REFRESH_TOL			1
+
+//String indices for file name
+#define AUDIO_FILENAME_HOURS_INDEX		7
+#define AUDIO_FILENAME_MINS_INDEX		9
 
 typedef enum {
     AUDIO_BUF_STATE_EMPTY,
@@ -70,39 +85,13 @@ typedef struct audio_manager_s {
 
 } AudioManager;
 
-
-/* audio_setup
-//attach adc, filex
-// audio_configure()
-//setup file_x
-*/
 HAL_StatusTypeDef audio_init(AudioManager *self, ad7768_dev *adc, SAI_HandleTypeDef *hsai, TagConfig *config, FX_FILE *file);
-
-/* Desc: set the audio sample rate */
 HAL_StatusTypeDef audio_set_sample_rate(AudioManager *self, TagConfigAudioSampleRate audio_rate);
-
 HAL_StatusTypeDef audio_configure(AudioManager *self, TagConfig *config);
-
-/* audio_configure()
-//setup adc
-//apply config settings to adc and sai
-*/
-
 HAL_StatusTypeDef audio_record(AudioManager *self);
-// start audio circular buffer
-// enable RAM->SRAM_ext DMA
-// enable SRAM_ext->SD Card
-
-
-void audio_thread_entry(ULONG thread_input);
-/* audio_halt()
-// stop circular buffer
-// write SRAM_ext to SD_Card
-*/
-
-/* audio_unit_test()
-*/
-
 HAL_StatusTypeDef audio_tick(AudioManager *self);
+
+//Main audio thread to run on RTOS
+void audio_thread_entry(ULONG thread_input);
 
 #endif /*__AUDIO_INC_H__*/

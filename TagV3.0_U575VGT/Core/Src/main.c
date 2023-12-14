@@ -22,13 +22,18 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "config.h"
-#include "UnitTests.h"
-#include "KellerDepth.h"
-#include "LightSensor.h"
-#include "ad7768.h"
-#include "audio.h"
+//#include "config.h"
+//#include "UnitTests.h"
+#include "Sensor Inc/BNO08x.h"
+#include "Sensor Inc/BMS.h"
+#include "Sensor Inc/audio.h"
+#include "Sensor Inc/ECG.h"
+#include "Sensor Inc/KellerDepth.h"
+#include "Sensor Inc/LightSensor.h"
+#include "Sensor Inc/ad7768.h"
 #include "app_filex.h"
+#include "ux_device_cdc_acm.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -53,8 +58,6 @@ DMA_NodeTypeDef Node_GPDMA1_Channel1;
 DMA_QListTypeDef List_GPDMA1_Channel1;
 DMA_HandleTypeDef handle_GPDMA1_Channel1;
 
-DCMI_HandleTypeDef hdcmi;
-
 I2C_HandleTypeDef hi2c2;
 I2C_HandleTypeDef hi2c3;
 I2C_HandleTypeDef hi2c4;
@@ -74,14 +77,24 @@ SPI_HandleTypeDef hspi2;
 TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart4;
+UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /* USER CODE BEGIN PV */
+
+// usb handler
+extern UX_SLAVE_CLASS_CDC_ACM *cdc_acm;
+
+// define all sensor handlers
+IMU_HandleTypeDef imu;
+MAX17320_HandleTypeDef bms;
+AudioManager audio;
+ECG_HandleTypeDef ecg;
 Keller_HandleTypedef depth_sensor;
 LightSensorHandleTypedef light_sensor;
-AudioManager audio;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -89,15 +102,15 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_GPDMA1_Init(void);
 static void MX_I2C4_Init(void);
+static void MX_I2C3_Init(void);
+static void MX_USART2_UART_Init(void);
+static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_SDMMC1_SD_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_UART4_Init(void);
-static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_RTC_Init(void);
-static void MX_DCMI_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_SAI1_Init(void);
-static void MX_I2C3_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_DAC1_Init(void);
@@ -108,6 +121,19 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+HAL_StatusTypeDef max17320_read(MAX17320_HandleTypeDef *dev, uint16_t MemAddress, uint8_t *pData, uint16_t ByteSize) {
+
+	uint16_t DevAddress = 0;
+	if (MemAddress > 0x0FF) {
+		DevAddress = MAX17320_DEV_ADDR_EXT;
+	}
+	else {
+		DevAddress = MAX17320_DEV_ADDR;
+	}
+
+	HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, DevAddress, MemAddress, I2C_MEMADD_SIZE_8BIT, pData, ByteSize, MAX17320_TIMEOUT);
+	return ret;
+}
 /* USER CODE END 0 */
 
 /**
@@ -126,54 +152,56 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  // disable interrupts (enabled later)
+  HAL_NVIC_DisableIRQ(EXTI12_IRQn);
+  HAL_NVIC_DisableIRQ(EXTI14_IRQn);
   /* USER CODE END Init */
 
   /* Configure the system clock */
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_GPDMA1_Init();
   MX_I2C4_Init();
+  MX_I2C3_Init();
+  MX_USART2_UART_Init();
+  MX_USB_OTG_FS_PCD_Init();
   MX_SDMMC1_SD_Init();
   MX_SPI1_Init();
   MX_UART4_Init();
-  MX_USB_OTG_FS_PCD_Init();
   MX_RTC_Init();
-  MX_DCMI_Init();
   MX_I2C2_Init();
   MX_SAI1_Init();
-  MX_I2C3_Init();
   MX_SPI2_Init();
   MX_USART3_UART_Init();
   MX_DAC1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
-  //Keller_init(&depth_sensor, &hi2c2);
-  //LightSensor_init(&light_sensor, &hi2c2);
+  // check status of battery
+  HAL_StatusTypeDef ret = max17320_get_status(&bms);
+  if (ret != HAL_OK) {
+    while (1) {
+	  HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
+	  HAL_Delay(2000);
+	  HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_RESET);
+	  HAL_Delay(2000);
+	}
+  }
 
-  //HAL_Delay(15000);
+  // Indicate hardware issue or connector plugged in before battery
+  while (bms.status.protection_alert) {
+    HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
+    max17320_clear_alerts(&bms);
+    HAL_Delay(2000);
+    max17320_get_status(&bms);
+  }
+  HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_RESET);
 
-  //SDcard_UT();
-  //Keller_UT(&depth_sensor);
-  //Light_UT(&light_sensor);
-
-//  Keller_init(&depth_sensor, &hi2c2);
-//  LightSensor_init(&light_sensor, &hi2c2);
-
-  //AD7768_UT(&audio_adc);
-//  SDcard_UT();
-//  Keller_UT(&depth_sensor);
-//  Light_UT(&light_sensor);
-
-  HAL_NVIC_DisableIRQ(EXTI12_IRQn);
-  HAL_NVIC_DisableIRQ(EXTI14_IRQn);
   /* USER CODE END 2 */
 
   MX_ThreadX_Init();
@@ -181,15 +209,57 @@ int main(void)
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+
+  /*
+  uint16_t value = 0;
+  float voltage = 0;
+  max17320_Reg_Status status = {0};
+  max17320_Reg_Alerts fault = {0};
+  max17320_Reg_Fet_Status fet_status = {0};
+
+
+  ret = max17320_get_status(&bms);
+  status = bms.status;
+
+  ret = max17320_get_alerts(&bms);
+  fault = bms.alerts;
+
+  max17320_get_voltages(&bms);
+  voltage = bms.cell_1_voltage;
+  voltage = bms.cell_2_voltage;
+  */
+
+  //ret = max17320_clear_write_protection(&bms);
+  //if (ret == HAL_OK) {
+	//  value = 1;
+  //}
+
+  //max17320_nonvolatile_write(&bms);
+
+  //ret = max17320_configure_fets(&bms);
+  //ret = max17320_read(&bms, MAX17320_REG_PROT_CFG, &bms.raw, 2);
+  //value = bms.raw;
+
+  //ret = max17320_configure_cell_balancing(&bms);
+  //ret = max17320_read(&bms, MAX17320_REG_CELL_BAL_THR, &bms.raw, 2);
+  //value = bms.raw;
+
+  uint8_t data_buf[2] = {0};
+  max17320_read(&bms, MAX17320_REG_COMM_STAT, &data_buf[0], 2);
+
+  ret = max17320_start_charge(&bms);
+
+  max17320_read(&bms, MAX17320_REG_COMM_STAT, &data_buf[0], 2);
+
+
+
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
-
-  //fx_file_write(audio.file, audio.temp_buffer[1], AUDIO_CIRCULAR_BUFFER_SIZE);
-
 
   /* USER CODE END 3 */
 }
@@ -310,43 +380,6 @@ static void MX_DAC1_Init(void)
 }
 
 /**
-  * @brief DCMI Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_DCMI_Init(void)
-{
-
-  /* USER CODE BEGIN DCMI_Init 0 */
-
-  /* USER CODE END DCMI_Init 0 */
-
-  /* USER CODE BEGIN DCMI_Init 1 */
-
-  /* USER CODE END DCMI_Init 1 */
-  hdcmi.Instance = DCMI;
-  hdcmi.Init.SynchroMode = DCMI_SYNCHRO_HARDWARE;
-  hdcmi.Init.PCKPolarity = DCMI_PCKPOLARITY_FALLING;
-  hdcmi.Init.VSPolarity = DCMI_VSPOLARITY_LOW;
-  hdcmi.Init.HSPolarity = DCMI_HSPOLARITY_LOW;
-  hdcmi.Init.CaptureRate = DCMI_CR_ALL_FRAME;
-  hdcmi.Init.ExtendedDataMode = DCMI_EXTEND_DATA_8B;
-  hdcmi.Init.JPEGMode = DCMI_JPEG_DISABLE;
-  hdcmi.Init.ByteSelectMode = DCMI_BSM_ALL;
-  hdcmi.Init.ByteSelectStart = DCMI_OEBS_ODD;
-  hdcmi.Init.LineSelectMode = DCMI_LSM_ALL;
-  hdcmi.Init.LineSelectStart = DCMI_OELS_ODD;
-  if (HAL_DCMI_Init(&hdcmi) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN DCMI_Init 2 */
-
-  /* USER CODE END DCMI_Init 2 */
-
-}
-
-/**
   * @brief GPDMA1 Initialization Function
   * @param None
   * @retval None
@@ -392,7 +425,7 @@ static void MX_I2C2_Init(void)
 
   /* USER CODE END I2C2_Init 1 */
   hi2c2.Instance = I2C2;
-  hi2c2.Init.Timing = 0x30909DEC;
+  hi2c2.Init.Timing = 0x90303EFE;
   hi2c2.Init.OwnAddress1 = 0;
   hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -467,6 +500,30 @@ static void MX_I2C3_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN I2C3_Init 2 */
+
+  // initialize bms
+  HAL_StatusTypeDef ret = max17320_init(&hi2c3, &bms);
+  if (ret != HAL_OK) {
+	// indicate communication with bms has failed (don't enter error handler because tag would be stuck)
+	while (1) {
+	  HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
+	  HAL_Delay(2000);
+	  HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_RESET);
+	  HAL_Delay(2000);
+	}
+  }
+
+  // enable discharging from battery
+  ret = max17320_start_discharge(&bms);
+  if (ret != HAL_OK) {
+	// indicate communication with bms has failed (don't enter error handler because tag would be stuck)
+    while (1) {
+	  HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
+	  HAL_Delay(2000);
+	  HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_RESET);
+	  HAL_Delay(2000);
+	}
+  }
 
   /* USER CODE END I2C3_Init 2 */
 
@@ -679,10 +736,10 @@ static void MX_SPI1_Init(void)
   hspi1.Init.Mode = SPI_MODE_MASTER;
   hspi1.Init.Direction = SPI_DIRECTION_2LINES;
   hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_HIGH;
+  hspi1.Init.CLKPhase = SPI_PHASE_2EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -866,6 +923,54 @@ static void MX_UART4_Init(void)
 }
 
 /**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 9600;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart2.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&huart2, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&huart2, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_EnableFifoMode(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
   * @brief USART3 Initialization Function
   * @param None
   * @retval None
@@ -931,12 +1036,12 @@ static void MX_USB_OTG_FS_PCD_Init(void)
   hpcd_USB_OTG_FS.Instance = USB_OTG_FS;
   hpcd_USB_OTG_FS.Init.dev_endpoints = 6;
   hpcd_USB_OTG_FS.Init.phy_itface = PCD_PHY_EMBEDDED;
-  hpcd_USB_OTG_FS.Init.Sof_enable = DISABLE;
+  hpcd_USB_OTG_FS.Init.Sof_enable = ENABLE;
   hpcd_USB_OTG_FS.Init.low_power_enable = DISABLE;
   hpcd_USB_OTG_FS.Init.lpm_enable = DISABLE;
   hpcd_USB_OTG_FS.Init.battery_charging_enable = DISABLE;
   hpcd_USB_OTG_FS.Init.use_dedicated_ep1 = DISABLE;
-  hpcd_USB_OTG_FS.Init.vbus_sensing_enable = ENABLE;
+  hpcd_USB_OTG_FS.Init.vbus_sensing_enable = DISABLE;
   if (HAL_PCD_Init(&hpcd_USB_OTG_FS) != HAL_OK)
   {
     Error_Handler();
@@ -967,6 +1072,9 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOE, IMU_RESET_Pin|IMU_WAKE_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(BURNWIRE_ON_GPIO_Port, BURNWIRE_ON_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
@@ -979,14 +1087,17 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, ADC_CS_Pin|IMU_CS_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(IMU_WAKE_GPIO_Port, IMU_WAKE_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOD, ADC_ENABLE_NEG_5_Pin|ADC_ENABLE_POS_5_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : BURNWIRE_ON_Pin */
-  GPIO_InitStruct.Pin = BURNWIRE_ON_Pin;
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin|DIAG_LED1_Pin|DIAG_LED4_Pin|DIAG_LED3_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pins : IMU_RESET_Pin BURNWIRE_ON_Pin */
+  GPIO_InitStruct.Pin = IMU_RESET_Pin|BURNWIRE_ON_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(BURNWIRE_ON_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pin : BMS_ALRT_Pin */
   GPIO_InitStruct.Pin = BMS_ALRT_Pin;
@@ -1007,8 +1118,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : ADC_CS_Pin IMU_CS_Pin */
-  GPIO_InitStruct.Pin = ADC_CS_Pin|IMU_CS_Pin;
+  /*Configure GPIO pins : ADC_CS_Pin IMU_CS_Pin DIAG_LED2_Pin DIAG_LED1_Pin
+                           DIAG_LED4_Pin DIAG_LED3_Pin */
+  GPIO_InitStruct.Pin = ADC_CS_Pin|IMU_CS_Pin|DIAG_LED2_Pin|DIAG_LED1_Pin
+                          |DIAG_LED4_Pin|DIAG_LED3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -1033,14 +1146,27 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : ADC_ENABLE_NEG_5_Pin ADC_ENABLE_POS_5_Pin */
+  GPIO_InitStruct.Pin = ADC_ENABLE_NEG_5_Pin|ADC_ENABLE_POS_5_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI12_IRQn, 3, 0);
   HAL_NVIC_EnableIRQ(EXTI12_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI13_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI13_IRQn);
 
   HAL_NVIC_SetPriority(EXTI14_IRQn, 2, 0);
   HAL_NVIC_EnableIRQ(EXTI14_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
+  HAL_GPIO_WritePin(GPIOD, ADC_ENABLE_NEG_5_Pin, GPIO_PIN_SET);
+  HAL_Delay(100);
+  HAL_GPIO_WritePin(GPIOD, ADC_ENABLE_POS_5_Pin, GPIO_PIN_SET);
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
@@ -1103,6 +1229,7 @@ void MX_SDMMC1_SD_Fake_Init(uint8_t newClockDiv)
   /* USER CODE END SDMMC1_Init 2 */
 
 }
+
 /* USER CODE END 4 */
 
 /**
@@ -1135,8 +1262,25 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
+  HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
+
+  ULONG actual_length = 0;
+  uint8_t receiveBuf[32] = {0};
+
   while (1)
   {
+    // constantly listen to commands on uart and usb
+	HAL_StatusTypeDef ret = HAL_UART_Receive(&huart2, &receiveBuf[0], 1, 1000);
+	if ((ret == HAL_OK) & (receiveBuf[0] == 0x24)) {
+	  max17320_close_fets(&bms);
+	}
+
+	if (cdc_acm != UX_NULL) {
+		ULONG status = ux_device_class_cdc_acm_read(cdc_acm, (UCHAR *) &receiveBuf[0], 1, &actual_length);
+		if ((status == UX_SUCCESS) & (receiveBuf[0] == 0x24)) {
+		  max17320_close_fets(&bms);
+		}
+	}
   }
   /* USER CODE END Error_Handler_Debug */
 }

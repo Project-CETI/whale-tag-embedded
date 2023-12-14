@@ -103,7 +103,7 @@
    https://www.microsoft.com/en-us/legal/intellectualproperty/mtl/exfat-licensing.aspx
 */
 
-/* #define FX_ENABLE_EXFAT */
+#define FX_ENABLE_EXFAT
 
 /* Defined, enables FileX fault tolerant service.  */
 

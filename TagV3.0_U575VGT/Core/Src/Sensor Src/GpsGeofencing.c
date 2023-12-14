@@ -13,17 +13,17 @@
 extern UART_HandleTypeDef huart3;
 extern TX_EVENT_FLAGS_GROUP state_machine_event_flags_group;
 
+//GPS data
+GPS_HandleTypeDef gps;
+GPS_Data gps_data;
+
 void gps_thread_entry(ULONG thread_input){
 
 	//Initialize GPS struct
-	GPS_HandleTypeDef gps;
 	initialize_gps(&huart3, &gps);
 
 	//Thread infinite loop entry
 	while (1){
-
-		//Create struct to hold gps data
-		GPS_Data gps_data;
 
 		//Try to get a GPS lock
 		if (get_gps_lock(&gps, &gps_data)){
@@ -32,7 +32,7 @@ void gps_thread_entry(ULONG thread_input){
 			if (!gps_data.is_dominica){
 
 				//Signal the state machine to enter recovery mode
-				tx_event_flags_set(&state_machine_event_flags_group, STATE_GPS_FLAG, TX_OR);
+				tx_event_flags_set(&state_machine_event_flags_group, STATE_GPS_FENCE_FLAG, TX_OR);
 			}
 		}
 
