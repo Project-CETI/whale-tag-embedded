@@ -24,6 +24,7 @@
 #include "utils/logging.h"
 
 #include "sensors/audio.h"
+#include "sensors/boardTemperature.h"
 
 #include <pthread.h> // to set CPU affinity
 #include <signal.h>
