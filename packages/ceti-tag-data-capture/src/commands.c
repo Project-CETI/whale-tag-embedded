@@ -56,18 +56,18 @@ int handle_command(void) {
         return 0;
     }
 
-    if (!strncmp(g_command, "testSerial", 10)) {
-        CETI_LOG("Testing Recovery Serial Link");
-        #if ENABLE_RECOVERY
-        testRecoverySerial();
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
-        fprintf(g_rsp_pipe, "handle_command(): Tested Recovery Serial Link\n");
-        fclose(g_rsp_pipe);
-        #else
-        CETI_LOG("XXXX Recovery is not selected for operation - skipping command XXXX");
-        #endif
-        return 0;
-    }
+    // if (!strncmp(g_command, "testSerial", 10)) {
+    //     CETI_LOG("Testing Recovery Serial Link");
+    //     #if ENABLE_RECOVERY
+    //     testRecoverySerial();
+    //     g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+    //     fprintf(g_rsp_pipe, "handle_command(): Tested Recovery Serial Link\n");
+    //     fclose(g_rsp_pipe);
+    //     #else
+    //     CETI_LOG("XXXX Recovery is not selected for operation - skipping command XXXX");
+    //     #endif
+    //     return 0;
+    // }
 
     if (!strncmp(g_command, "bwOn", 4)) {
         CETI_LOG("Turning on burnwire");
