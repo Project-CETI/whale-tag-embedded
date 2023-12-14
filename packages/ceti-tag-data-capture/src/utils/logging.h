@@ -14,6 +14,7 @@
 #include <string.h>
 
 extern void init_logging();
+
 #define CETI_LOG(FMT_STR, ...) syslog(LOG_DEBUG, ("%s(): " FMT_STR), __FUNCTION__ __VA_OPT__(,) __VA_ARGS__)
 #define CETI_WARN(FMT_STR, ...) CETI_LOG("[WARN]: " FMT_STR __VA_OPT__(,) __VA_ARGS__)
 #define CETI_ERR(FMT_STR, ...) CETI_LOG("[ERROR]: " FMT_STR __VA_OPT__(,) __VA_ARGS__)
