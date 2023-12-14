@@ -41,15 +41,20 @@ typedef enum recovery_power_level_e {
 extern int g_recovery_thread_is_running;
 
 //-----------------------------------------------------------------------------
-// Methods
+// Hardware Methods
 //-----------------------------------------------------------------------------
+int recovery_init(void);
+int recovery_restart(void);
 int recovery_getAPRSCallSign(char buffer[static 7]);
 int recovery_setCriticalVoltage(float voltage);
-int init_recovery();
 int testRecoverySerial(void);
 int getGpsLocation(char* gpsLocation);
 int recoveryOn(void);
 int recoveryOff(void);
+//-----------------------------------------------------------------------------
+// Thread Methods
+//-----------------------------------------------------------------------------
+int recovery_thread_init();
 void* recovery_thread(void* paramPtr);
 
 #endif // RECOVERY_H

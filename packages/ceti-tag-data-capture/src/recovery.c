@@ -205,7 +205,7 @@ int recovery_getPacket(RecPkt *packet, time_t timeout_us) {
     } while ((timeout_us == 0)  || ((get_global_time_us() - start_time_us) < timeout_us));
 
     //Timeout
-    CETI_LOG("XXX Recovery board timeout XXX");
+    CETI_ERR("Recovery board timeout");
     return -2;
 }
 
@@ -221,7 +221,7 @@ int recovery_getAPRSCallSign(char buffer[static 7]) {
     int64_t start_time_us = get_global_time_us();
     do {
         if (recovery_getPacket(&ret_pkt, timeout_us) < -1) {
-            CETI_LOG("Recovery board packet reading error");
+            CETI_ERR("Recovery board packet reading error");
             return -1;
         }
 
@@ -237,7 +237,7 @@ int recovery_getAPRSCallSign(char buffer[static 7]) {
     } while ((get_global_time_us() - start_time_us) < timeout_us);
 
     //Timeout
-    CETI_LOG("XXX Recovery board response timeout XXX");
+    CETI_ERR("Recovery board timeout");
     return -2;
 }
 
@@ -253,7 +253,7 @@ int recovery_getAPRSFreq_MHz(float *p_freq_MHz){
     int64_t start_time_us = get_global_time_us();
     do {
         if (recovery_getPacket(&ret_pkt, timeout_us) < -1) {
-            CETI_LOG("Recovery board packet reading error");
+            CETI_ERR("Recovery board packet reading error");
             return -1;
         }
 
@@ -266,7 +266,7 @@ int recovery_getAPRSFreq_MHz(float *p_freq_MHz){
     } while ((get_global_time_us() - start_time_us) < timeout_us);
 
     //Timeout
-    CETI_LOG("XXX Recovery board response timeout XXX");
+    CETI_ERR("Recovery board timeout");
     return -2;
 }
 
@@ -366,7 +366,7 @@ int recovery_setPowerLevel(RecoveryPowerLevel power_level){
 }
 
 
-int init_recovery() {
+int recovery_init(void) {
     char call_sign[7] = {};
     gpioWrite(13, 1); //turn on recovery
     usleep(50000); // sleep a bit
@@ -374,10 +374,11 @@ int init_recovery() {
     // Open serial communication
     recovery_fd = serOpen("/dev/serial0",115200,0);
     if (recovery_fd < 0) {
-        CETI_LOG("Failed to open the recovery board serial port");
+        CETI_ERR("Failed to open the recovery board serial port");
         return (-1);
     }
 
+    //sanity check that communication is working
     if (recovery_getAPRSCallSign(call_sign) == 0){
         CETI_LOG("Callsign: \"%s\".", call_sign);
     }
@@ -385,19 +386,42 @@ int init_recovery() {
         CETI_ERR("Recovery board.");
     }
 
-    // Open an output file to write data.
-    if(init_data_file(recovery_data_file, RECOVERY_DATA_FILEPATH,
-                        recovery_data_file_headers,  num_recovery_data_file_headers,
-                        recovery_data_file_notes, "init_recovery()") < 0)
-    return -1;
+    recoveryOn();
 
     CETI_LOG("Successfully initialized the recovery board");
     return 0;
 }
 
+int recovery_restart(void) {
+    serClose(recovery_fd); // close serial port 
+    gpioWrite(13, 0);      // turn off recovery
+    usleep(50000);
+    return recovery_init();
+}
+
 //-----------------------------------------------------------------------------
 // Main thread
 //-----------------------------------------------------------------------------
+int recovery_thread_init(void) {
+    int result = recovery_init();
+    if(result != 0){
+        CETI_ERR("Failed to initalize recovery board heardware");
+        return result;
+    }
+
+
+    // Open an output file to write data.
+    if(init_data_file(recovery_data_file, RECOVERY_DATA_FILEPATH,
+                        recovery_data_file_headers,  num_recovery_data_file_headers,
+                        recovery_data_file_notes, __FUNCTION__ "()") < 0) {
+        CETI_LOG("Failed to initialize recovery board thread");              
+        return -1;
+    }
+
+    CETI_LOG("Successfully initialized recovery board thread");
+    return 0;
+}
+
 void* recovery_thread(void* paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_recovery_thread_tid = gettid();
@@ -413,7 +437,7 @@ void* recovery_thread(void* paramPtr) {
       if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
         CETI_LOG("Successfully set affinity to CPU %d", RECOVERY_CPU);
       else
-        CETI_LOG("XXX Failed to set affinity to CPU %d", RECOVERY_CPU);
+        CETI_ERR("Failed to set affinity to CPU %d", RECOVERY_CPU);
     }
 
     // Main loop while application is running.
@@ -421,12 +445,13 @@ void* recovery_thread(void* paramPtr) {
     long long global_time_us;
     int rtc_count;
     long long polling_sleep_duration_us;
+    int result;
     g_recovery_thread_is_running = 1;
     while (!g_exit) {
       recovery_data_file = fopen(RECOVERY_DATA_FILEPATH, "at");
       if(recovery_data_file == NULL)
       {
-        CETI_LOG("failed to open data output file: %s", RECOVERY_DATA_FILEPATH);
+        CETI_ERR("Failed to open data output file: %s", RECOVERY_DATA_FILEPATH);
         // Sleep a bit before retrying.
         for(int i = 0; i < 10 && !g_exit; i++)
           usleep(100000);
@@ -436,8 +461,16 @@ void* recovery_thread(void* paramPtr) {
         // Acquire timing and sensor information as close together as possible.
         global_time_us = get_global_time_us();
         rtc_count = getRtcCount();
-        if(getGpsLocation(gps_location) < 0)
-          strcat(recovery_data_file_notes, "ERROR | ");
+        if (result == -2) { //timeout
+            // no gps packet available
+            // nothing to do
+            continue;
+        } else if (result == -1) {
+            CETI_ERR("Recovery board communication Error");
+            recovery_restart();
+            sleep(10);
+            continue;
+        }   
 
         // Write timing information.
         fprintf(recovery_data_file, "%lld", global_time_us);
@@ -555,15 +588,25 @@ int recovery_get_GPS_data(char gpsLocation[GPS_LOCATION_LENGTH]){
 
     //wait for GPS packet
     do {
-        if(recovery_getPacket(&pkt, 30000000) != 0){
-            CETI_ERR("Recovery board communication error");
-            return -1;
+        result = recovery_getPacket(&pkt, 1000000);
+        switch (result) {
+            case -1:
+                CETI_ERR("Recovery board communication error");
+                return result;
+
+            case -2:
+                CETI_LOG("Recovery board pkt timeout");
+                return result
+
+            default:
+                break;
         }
     } while(pkt.common.header.type != REC_CMD_GPS_PACKET);
 
     //copy packet into buffer
     uint_fast8_t len = pkt.string_packet.length;
-    memcpy(gpsLocation, )
+    memcpy(gpsLocation, pkt.string_packet.msg.value, len);
+    return 0;
 }
 
 int getGpsLocation(char gpsLocation[GPS_LOCATION_LENGTH]) {

@@ -262,7 +262,7 @@ int init_tag() {
   #endif
 
   #if ENABLE_RECOVERY
-  result += init_recovery() == 0 ? 0 : -1;
+  result += recovery_thread_init() == 0 ? 0 : -1;
   #endif
 
   #if ENABLE_BOARDTEMPERATURE_SENSOR
