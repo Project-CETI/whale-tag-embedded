@@ -46,11 +46,10 @@ extern int g_recovery_thread_is_running;
 int recovery_init(void);
 int recovery_restart(void);
 int recovery_get_aprs_call_sign(char buffer[static 7]);
+int recovery_get_gps_data(char gpsLocation[static GPS_LOCATION_LENGTH]);
 int recovery_set_critical_voltage(float voltage);
-int testRecoverySerial(void);
-int recovery_get_gps_data(char* gpsLocation);
-int recoveryOn(void);
-int recoveryOff(void);
+int recovery_on(void);
+int recovery_off(void);
 //-----------------------------------------------------------------------------
 // Thread Methods
 //-----------------------------------------------------------------------------

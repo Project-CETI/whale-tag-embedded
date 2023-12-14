@@ -138,7 +138,7 @@ int stateMachine_set_state(wt_state_t new_state){
             break;
 
         case ST_RETRIEVE:
-            recoveryOff();
+            recovery_off();
             break;
 
         default:
@@ -148,15 +148,15 @@ int stateMachine_set_state(wt_state_t new_state){
     //actions performed when entering the new state
     switch(new_state){
         case ST_DEPLOY:
-            recoveryOn();
+            recovery_on();
             break;
 
         case ST_REC_SUB:
-            recoveryOff();
+            recovery_off();
             break;
 
         case ST_REC_SURF:
-            recoveryOn();
+            recovery_on();
             break;
 
         case ST_BRN_ON:
@@ -165,7 +165,7 @@ int stateMachine_set_state(wt_state_t new_state){
             break;
 
         case ST_RETRIEVE:
-            recoveryOn();
+            recovery_on();
             break;
 
         default:
@@ -314,7 +314,7 @@ int updateStateMachine() {
         }
         #endif
 
-        recoveryOff();
+        recovery_off();
         break;
 
     case (ST_REC_SURF):
@@ -389,7 +389,7 @@ int updateStateMachine() {
         //  reduce file system corruption risk
         CETI_LOG("!!! Battery critical");
         burnwireOff();
-        recoveryOff();
+        recovery_off();
 
         // 221026 The following system("halt") call has never actually worked - it does
         // not shutoff the Pi as intended. This is being changed so

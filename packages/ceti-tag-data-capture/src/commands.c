@@ -98,7 +98,7 @@ int handle_command(void) {
     if (!strncmp(g_command, "rcvryOn", 7)) {
         CETI_LOG("Turning ON power to the Recovery Board");
         #if ENABLE_RECOVERY
-        recoveryOn();
+        recovery_on();
         g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
         fprintf(g_rsp_pipe, "handle_command(): Turned Recovery Board ON\n");
         fclose(g_rsp_pipe);
@@ -111,7 +111,7 @@ int handle_command(void) {
     if (!strncmp(g_command, "rcvryOff", 8)) {
         CETI_LOG("Turning OFF power to the Recovery Board");
         #if ENABLE_RECOVERY
-        recoveryOff();
+        recovery_off();
         g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
         fprintf(g_rsp_pipe, "handle_command(): Turned Recovery Board OFF\n");
         fclose(g_rsp_pipe);

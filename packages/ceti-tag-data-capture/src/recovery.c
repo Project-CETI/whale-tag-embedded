@@ -414,7 +414,7 @@ int recovery_init(void) {
         CETI_ERR("Did not receive recovery borad response.");
     }
 
-    recoveryOn();
+    recovery_on();
 
     // send wake message
     char hostname[512];
@@ -503,6 +503,7 @@ void* recovery_thread(void* paramPtr) {
         // Acquire timing and sensor information as close together as possible.
         global_time_us = get_global_time_us();
         rtc_count = getRtcCount();
+        result = recovery_get_gps_data(gps_location);
         if (result == -2) { //timeout
             // no gps packet available
             // nothing to do
@@ -534,7 +535,7 @@ void* recovery_thread(void* paramPtr) {
           usleep(polling_sleep_duration_us);
       }
     }
-    recoveryOff();
+    recovery_off();
     serClose(recovery_fd);
     g_recovery_thread_is_running = 0;
     CETI_LOG("Done!");
@@ -542,52 +543,10 @@ void* recovery_thread(void* paramPtr) {
 }
 
 //-----------------------------------------------------------------------------
-// Testing
-//-----------------------------------------------------------------------------
-int testRecoverySerial(void) {
-
-//Tx a test message on UART, loopback to confirm FPGA and IO connectivity
-
-    int i;
-
-    char buf[4096];
-    char testbuf[16]= "Hello Whales!\n";
-
-    int fd;
-    int bytes_avail;
-
-    fd = serOpen("/dev/serial0",9600,0);
-
-    if(fd < 0) {
-        CETI_LOG("Failed to open the serial port");
-        return (-1);
-    }
-    else {
-        CETI_LOG("Successfully opened the serial port");
-    }
-
-    for(i=0;i<128;i++) {
-        usleep (1000000);
-
-        bytes_avail = (serDataAvailable(fd));
-        CETI_LOG("%d bytes are available from the serial port",bytes_avail);
-        serRead(fd,buf,bytes_avail);
-        CETI_LOG("%s",buf);
-
-        CETI_LOG("Trying to write to the serial port with pigpio");
-        serWrite(fd,testbuf,14); //test transmission
-
-    }
-
-
-    return (0);
-}
-
-//-----------------------------------------------------------------------------
 // On/Off
 //-----------------------------------------------------------------------------
 
-int recoveryOn(void) {
+int recovery_on(void) {
     RecPktHeader start_pkt = {
         .key = RECOVERY_PACKET_KEY_VALUE,
         .type = REC_CMD_START,
@@ -598,7 +557,7 @@ int recoveryOn(void) {
     return 0;
 }
 
-int recoveryOff(void) {
+int recovery_off(void) {
     RecPktHeader stop_pkt = {
         .key = RECOVERY_PACKET_KEY_VALUE,
         .type = REC_CMD_STOP,
@@ -624,7 +583,7 @@ int recoveryCritical(void){
 //-----------------------------------------------------------------------------
 // Get GPS
 //-----------------------------------------------------------------------------
-int recovery_get_gps_data(char gpsLocation[GPS_LOCATION_LENGTH]){
+int recovery_get_gps_data(char gpsLocation[static GPS_LOCATION_LENGTH]){
     RecPkt pkt;
     int result = 0;
 
@@ -651,120 +610,3 @@ int recovery_get_gps_data(char gpsLocation[GPS_LOCATION_LENGTH]){
     return 0;
 }
 
-int getGpsLocation(char gpsLocation[GPS_LOCATION_LENGTH]) {
-
-//    The Recovery Board sends the GPS location sentence as an ASCII string
-//    about once per second automatically via the serial
-//    port. This function monitors the serial port and extracts the sentence for
-//    reporting in the .csv record.
-//
-//    The Recovery Board may not be on at all times. Depending on the state
-//    of the tag, it may be turned off to save power. See the state machine
-//    function for current design. If the recovery board is off, the gps field
-//    in the .csv file will indicate "No GPS update available"
-//
-//    The messages coming in from the Recovery Board are asynchronous relative to
-//    the timing of execution of this function. So, partial messages will occur
-//    if they are provided at a rate less than 2x the frequency of this
-//    routine  - see SNS_SMPL_PERIOD which is nominally 1 second per cycle.
-
-    static char buf[GPS_LOCATION_LENGTH];   //working buffer for serial data
-    static char *pTempWr=buf;     //these need to be static in case of a partial message
-    static int bytes_total=0;
-
-    char *msg_start=NULL, *msg_end=NULL;
-    int bytes_avail,i,complete=0,pending=0;
-
-    // Check if any bytes are waiting in the UART buffer and store them temporarily.
-    // It is possible to receive a partial message - no synch or handshaking in protocol
-    bytes_avail = serDataAvailable(recovery_fd);
-    bytes_total += bytes_avail; //keep a running count
-
-    //copy available bytes into buffer
-    if (bytes_avail && (bytes_total < GPS_LOCATION_LENGTH) ) {
-        serRead(recovery_fd,pTempWr,bytes_avail);   //add the new bytes to the buffer
-        pTempWr = pTempWr + bytes_avail;   //advance the write pointer
-    } else { //defensive - something went wrong, reset the buffer
-        memset(buf,0,GPS_LOCATION_LENGTH);         // reset entire buffer conents
-        bytes_total = 0;                   // reset the static byte counter
-        pTempWr = buf;                     // reset the static write pointer
-    }
-
-    
-    //find message start
-    char *gps_msg_ptr = NULL;
-    size_t gps_msg_len = 0;
-    for(char *i_ptr = buf; i_ptr < buf + sizeof(buf) - 3; i_ptr++){
-        if(i_ptr[0] == RECOVERY_PACKET_KEY_VALUE && i_ptr[1] == REC_CMD_GPS_PACKET){
-            gps_msg_len = i_ptr[2];
-            gps_msg_ptr = i_ptr + 3;
-            break;
-        }
-    }
-
-    //no gps message found
-    if(gps_msg_ptr == NULL){
-        strcpy(gpsLocation,"No GPS update available");
-        CETI_LOG("XXX No GPS update available");
-        return -1;
-    }
-
-    //remove \n and \r at end of message
-    char *end_ptr = gps_msg_ptr + gps_msg_len - 1;
-    while((*end_ptr == '\n' || *end_ptr == '\r') && end_ptr >= gps_msg_ptr){
-        end_ptr--;
-    }
-
-   //copy the message from the buffer
-    memmove(gpsLocation, gps_msg_ptr, end_ptr - gps_msg_ptr);
-
-    size_t bytes_used = ((gps_msg_ptr - buf) + gps_msg_len);
-    if(bytes_used < bytes_total){
-        memcpy(buf, buf + bytes_used, bytes_total - bytes_used);
-        bytes_total -= bytes_used;
-    }
-
-    // // Scan the whole buffer for a GPS message - delimited by 'g' and '\n'
-    // for (i=0; (i<=bytes_total && !complete); i++) {
-    //     if( buf[i] == 'g' && !pending) {
-    //             msg_start =  buf + i;
-    //             pending = 1;
-    //     }
-
-    //     if ( buf[i] == '\n' && pending) {
-    //             msg_end = buf + i - 1; //don't include the '/n'
-    //             complete = 1;
-    //     }
-    // }
-
-    // find message starting character
-    // for(msg_start = buf; msg_start < &buf[GPS_LOCATION_LENGTH - (sizeof(GPS_Data) + 3 - 1)]; msg_start++){
-    //     if(*msg_start == '$'){
-    //         uint8_t msg_len = msg_start[2];
-    //         if((msg_start[1] == REC_CMD_GPS_PACKET) && (msg_len == sizeof(GPS_Data))){
-    //             complete = 1;
-    //             msg_end = msg_start + msg_len;
-    //             break;
-    //         }
-    //         else{
-    //             msg_start += (3 + msg_len) - 1;
-    //         }
-    //     }
-    // }
-
-    // if(!complete){
-    //     strcpy(gpsLocation,"No GPS update available");
-    //     CETI_LOG("XXX No GPS update available");
-    //     return -1;
-    // }
-
-    
-    // memset(gpsLocation,0,GPS_LOCATION_LENGTH);
-    // strncpy(gpsLocation,msg_start+1,(msg_end-buf));
-    // memset(buf,0,GPS_LOCATION_LENGTH);             // reset buffer conents
-    // bytes_total = 0;                        // reset the static byte counter
-    // pTempWr = buf;                          // reset the static write pointer
-    // gpsLocation[strcspn(gpsLocation, "\r\n")] = 0;
-
-    return (0);
-}
