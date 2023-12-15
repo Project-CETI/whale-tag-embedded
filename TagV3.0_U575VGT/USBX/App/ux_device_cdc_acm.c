@@ -132,9 +132,6 @@ VOID USBD_CDC_ACM_Activate(VOID *cdc_acm_instance)
   // create the events flag
   tx_event_flags_create(&usb_cdc_event_flags_group, "USB CDC Event Flags");
 
-  // indicate usb is configured
-  HAL_GPIO_WritePin(GPIOB, DIAG_LED1_Pin, GPIO_PIN_SET);
-
   // start usb read and write thread
   //tx_thread_resume(&ux_cdc_read_thread);
   //tx_thread_resume(&ux_cdc_write_thread);
@@ -161,9 +158,6 @@ VOID USBD_CDC_ACM_Deactivate(VOID *cdc_acm_instance)
   tx_thread_suspend(&ux_cdc_read_thread);
   tx_thread_suspend(&ux_cdc_write_thread);
 
-  // indiciate usb is not configured
-  HAL_Delay(500);
-  HAL_GPIO_WritePin(GPIOB, DIAG_LED1_Pin, GPIO_PIN_RESET);
   /* USER CODE END USBD_CDC_ACM_Deactivate */
 
   return;

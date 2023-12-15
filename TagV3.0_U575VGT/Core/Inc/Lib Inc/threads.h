@@ -191,7 +191,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.priority = 8,
 			.preempt_threshold = 8,
 			.timeslice = TX_NO_TIME_SLICE,
-			.start = TX_AUTO_START
+			.start = TX_DONT_START
 		},
 		[DATA_LOG_THREAD] = {
 			//Data Log Thread

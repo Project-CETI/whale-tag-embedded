@@ -39,9 +39,10 @@
 /* USER CODE BEGIN PD */
 #define STORAGE_LUN_NBR 1
 #define STORAGE_BLK_SIZE 0x200
+
 #define SD_CARD_TIMEOUT 10000
-#define MEDIA_INSERTED  0;
-#define MEDIA_REMOVED  1;
+#define MEDIA_INSERTED  1; //0
+#define MEDIA_REMOVED  0;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -92,12 +93,16 @@ VOID USBD_STORAGE_Activate(VOID *storage_instance)
   */
 VOID USBD_STORAGE_Deactivate(VOID *storage_instance)
 {
-  /* USER CODE BEGIN USBD_STORAGE_Activate */
+  /* USER CODE BEGIN USBD_STORAGE_Deactivate */
   UX_PARAMETER_NOT_USED(storage_instance);
 
   tx_event_flags_set(&state_machine_event_flags_group, STATE_USB_MSB_DEACTIVATED_FLAG, TX_OR);
   inserted = false;
-  /* USER CODE END USBD_STORAGE_Activate */
+
+  // indiciate usb is not configured
+  HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin, GPIO_PIN_RESET);
+
+  /* USER CODE END USBD_STORAGE_Deactivate */
 
   return;
 }
