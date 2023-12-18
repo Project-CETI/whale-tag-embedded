@@ -104,13 +104,13 @@
 #define MAX17320_MAX_SOC_THR			0x00
 
 // State Machine Flag Thresholds
-#define MAX17320_LOW_BATT_VOLT_THR		3.2
-#define MAX17320_CRITICAL_BATT_VOLT_THR	3.1
+#define MAX17320_LOW_BATT_VOLT_THR		3.4
+#define MAX17320_CRITICAL_BATT_VOLT_THR	3.3
 #define MAX17320_LOW_SOC_THR			20
 #define MAX17320_CRITICAL_SOC_THR		5
 
 // Cell Balancing Thresholds
-#define MAX17320_CELL_BAL_THR			0b011 // Corresponds to 10.0 mV threshold
+#define MAX17320_CELL_BAL_THR			0b11 // Corresponds to 10.0 mV threshold
 #define MAX17320_CELL_R_BAL_THR			0b111 // Corresponds to 27.34mΩ threshold (based on 20% measured battery nominal resistance)
 
 #define MAX17320_CELL_CHARGE_THR		0x02 // Corresponds to 5mA current charging threshold, -5mA current discharging threshold
@@ -123,11 +123,27 @@
 // FET Settings
 #define MAX17320_PROT_CFG_DEFAULT		0x09
 #define MAX17320_ENABLE_FET_OVERRIDE	0b100 // Enable manual control of FETs
-#define MAX17320_FET_DISOFF				0b10 // Disable discharge FET
-#define MAX17320_FET_CHGOFF				0b1 // Disable charge FET
+#define MAX17320_FET_CHG_ONLY			0b10 // Enable charge FET, disable discharge FET
+#define MAX17320_FET_DIS_ONLY			0b01 // Disable charge FET, enable discharge FET
 
-// Event Flags
+// ThreadX Event Flags
 #define BMS_OP_DONE_FLAG				0x1
+#define BMS_OP_ERROR_FLAG				0x2
+#define BMS_NV_WRITE_FLAG				0x4
+#define BMS_CLOSE_MOSFET_FLAG			0x8
+
+// Event Flags for UART Debugging
+#define BMS_UNIT_TEST_FLAG				0x10
+#define BMS_UNIT_TEST_DONE_FLAG			0x20
+#define BMS_READ_FLAG					0x40
+#define BMS_WRITE_FLAG					0x80
+#define BMS_CMD_FLAG					0x100
+
+// Commands for BMS
+#define BMS_START_CHARGE_CMD			0x1
+#define BMS_START_DISCHARGE_CMD			0x2
+#define BMS_NV_WRITE_CMD				0x3
+#define BMS_GET_NUM_WRITES_CMD			0x4
 
 // Other Macros
 #define MAX17320_TIMEOUT                1000
@@ -138,8 +154,7 @@
 #define BLOCK_PROG_TIME_MS				1000
 #define RECALL_TIME_MS					10
 
-#define BMS_WRITES_TOLERANCE			0x0F // corresponds to max 4 writes
-#define BMS_FLAG_TIMEOUT				tx_s_to_ticks(2)
+#define BMS_WRITES_TOLERANCE			0xFF // corresponds to max 7 writes
 
 // 8-bit to 16-bit conversion
 #define TO_16_BIT(b1, b2)				((uint16_t)(b2 << 8) | (uint16_t)b1)
@@ -180,18 +195,26 @@ typedef struct {
 	bool too_hot_charge_alert;
 	bool charge_watchdog_timer_alert;
 
-} max17320_Reg_Faults;
+} max17320_Reg_Alerts;
 
+typedef struct {
+	bool chg_status;
+	bool dis_status;
+	bool pushbutton_enable;
+	uint8_t chg_pump_voltage;
+	bool cmd_override_enable;
+	uint8_t aoldo_voltage;
 
+} max17320_Reg_Fet_Status;
 
 // Device Struct
 typedef struct __MAX17320_HandleTypeDef {
 
     I2C_HandleTypeDef *i2c_handler;
 
-
     max17320_Reg_Status status;
-    max17320_Reg_Faults faults;
+    max17320_Reg_Alerts alerts;
+    max17320_Reg_Fet_Status fet_status;
 
     float remaining_capacity; // mAh
     float state_of_charge; // %
@@ -209,6 +232,8 @@ typedef struct __MAX17320_HandleTypeDef {
     float time_to_empty; // h
     float time_to_full; // h
 
+    uint8_t remaining_writes;
+
     uint16_t raw; // buffer for getting bits of any register
 
 
@@ -217,20 +242,22 @@ typedef struct __MAX17320_HandleTypeDef {
 HAL_StatusTypeDef max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev);
 uint8_t max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_full_reset(MAX17320_HandleTypeDef *dev);
-HAL_StatusTypeDef max17320_init(MAX17320_HandleTypeDef *dev, I2C_HandleTypeDef *hi2c_device);
+HAL_StatusTypeDef max17320_init(I2C_HandleTypeDef *hi2c_device, MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_clear_write_protection(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_set_write_protection(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_set_alert_thresholds(MAX17320_HandleTypeDef *dev);
+HAL_StatusTypeDef max17320_verify_nonvolatile(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_configure_cell_balancing(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_configure_thermistors(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_configure_fets(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_close_fets(MAX17320_HandleTypeDef *dev);
-HAL_StatusTypeDef max17320_open_fets(MAX17320_HandleTypeDef *dev);
+HAL_StatusTypeDef max17320_start_discharge(MAX17320_HandleTypeDef *dev);
+HAL_StatusTypeDef max17320_start_charge(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_start_charge(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_stop_charge(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_clear_alerts(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_get_status(MAX17320_HandleTypeDef *dev);
-HAL_StatusTypeDef max17320_get_faults(MAX17320_HandleTypeDef *dev);
+HAL_StatusTypeDef max17320_get_alerts(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_get_fet_status(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_get_remaining_capacity(MAX17320_HandleTypeDef *dev);
 HAL_StatusTypeDef max17320_get_state_of_charge(MAX17320_HandleTypeDef *dev);

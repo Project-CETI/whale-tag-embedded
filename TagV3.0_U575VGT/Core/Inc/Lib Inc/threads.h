@@ -30,6 +30,7 @@
 #include "Lib Inc/state_machine.h"
 #include "Recovery Inc/Aprs.h"
 #include "Recovery Inc/Burnwire.h"
+#include "Comms Inc/Comms_rx.h"
 
 //Enum for all threads so we can easily keep track of the list + total number of threads.
 // If adding a new thread to the list, put it before the "NUM_THREADS" element, as it must always be the last element in the enum.
@@ -46,7 +47,7 @@ typedef enum __TX_THREAD_LIST {
 	BMS_THREAD,
 	DATA_LOG_THREAD,
 	LIGHT_THREAD,
-	//COMMS_RX_THREAD,
+	COMMS_RX_THREAD,
 	NUM_THREADS //DO NOT ADD THREAD ENUMS BELOW THIS
 } Thread;
 
@@ -109,7 +110,7 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.thread_name = "IMU Thread",
 			.thread_entry_function = imu_thread_entry,
 			.thread_input = 0x1234,
-			.thread_stack_size = 800,
+			.thread_stack_size = 1024,
 			.priority = 4,
 			.preempt_threshold = 4,
 			.timeslice = TX_NO_TIME_SLICE,
@@ -187,10 +188,10 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.thread_entry_function = bms_thread_entry,
 			.thread_input = 0x1234,
 			.thread_stack_size = 800,
-			.priority = 7, //8
-			.preempt_threshold = 7,
+			.priority = 8,
+			.preempt_threshold = 8,
 			.timeslice = TX_NO_TIME_SLICE,
-			.start = TX_AUTO_START
+			.start = TX_DONT_START
 		},
 		[DATA_LOG_THREAD] = {
 			//Data Log Thread
@@ -214,7 +215,6 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.timeslice = TX_NO_TIME_SLICE,
 			.start = TX_DONT_START
 		},
-		/*
 		[COMMS_RX_THREAD] = {
 			// Comms RX Thread
 			.thread_name = "Comms RX Thread",
@@ -224,9 +224,8 @@ static Thread_ConfigTypeDef threadConfigList[NUM_THREADS] = {
 			.priority = 9,
 			.preempt_threshold = 9,
 			.timeslice = TX_NO_TIME_SLICE,
-			.start = TX_AUTO_START
+			.start = TX_DONT_START
 		},
-		*/
 };
 
 //An array to hold all the threads. We do NOT need to touch this at all the add new threads, only edit the config list (above).
