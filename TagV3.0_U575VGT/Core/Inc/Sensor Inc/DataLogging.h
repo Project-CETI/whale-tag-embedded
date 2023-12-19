@@ -24,12 +24,8 @@
 #define BYTES_PER_FRAME					(BYTES_PER_HEADER + sizeof(IMU_Data) * IMU_HALF_BUFFER_SIZE + sizeof(DEPTH_Data) * DEPTH_HALF_BUFFER_SIZE + sizeof(ECG_Data) * ECG_HALF_BUFFER_SIZE)
 
 //Time interval to create new logging file in minutes
-#define RTC_AUDIO_REFRESH_MINS			5
-#define RTC_AUDIO_REFRESH_TOL			1
-
-//String indices for file name
-#define DATA_FILENAME_HOURS_INDEX		10
-#define DATA_FILENAME_MINS_INDEX		12
+#define RTC_REFRESH_MINS				2
+#define RTC_REFRESH_TOL					1
 
 //Timeout constants
 #define LIGHT_THREAD_TIMEOUT			1000
@@ -37,7 +33,7 @@
 typedef struct __Header_Typedef {
 
 	//Key value to identify start of frame
-	uint8_t key_value;
+	uint16_t key_value;
 
 	//Number of bytes per frame
 	uint16_t bytes_count;

@@ -76,8 +76,11 @@ extern ULONG actual_state_flags;
 
 //Arrays for holding sensor data. The buffer is split in half and shared with the IMU thread.
 extern IMU_Data imu_data[2][IMU_HALF_BUFFER_SIZE];
-extern IMU_Data depth_data[2][IMU_HALF_BUFFER_SIZE];
-extern IMU_Data ecg_data[2][IMU_HALF_BUFFER_SIZE];
+extern DEPTH_Data depth_data[2][DEPTH_HALF_BUFFER_SIZE];
+extern ECG_Data ecg_data[2][ECG_HALF_BUFFER_SIZE];
+
+//RTC old time for tracking file names
+RTC_TimeTypeDef old_eTime = {0};
 
 //Preamble bytes to indicate end of sensor data in each frame
 uint8_t preamble_bytes[SENSOR_PREAMBLE_LEN] = {SENSOR_PREAMBLE, SENSOR_PREAMBLE, SENSOR_PREAMBLE, SENSOR_PREAMBLE};
@@ -95,7 +98,6 @@ void SDWriteComplete_Callback(FX_FILE *file){
 void sd_thread_entry(ULONG thread_input) {
 	ULONG actual_flags = 0;
 	char data_file_name[30] = {0};
-	char tmp_data_file_name[30] = {0};
 	sprintf(data_file_name, "data_%d_%d_%d_%d_%d.bin", eDate.Month, eDate.Date, eTime.Hours, eTime.Minutes, eTime.Seconds);
 
 	//Initialize header
@@ -139,7 +141,7 @@ void sd_thread_entry(ULONG thread_input) {
 	//fx_result |= fx_file_write(&data_file, &ecg_data[0], sizeof(ECG_Data) * ECG_HALF_BUFFER_SIZE);
 	fx_result |= fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
 	if (fx_result == FX_NO_MORE_SPACE) {
-		HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(GPIOB, DIAG_LED4_Pin, GPIO_PIN_SET);
 		tx_event_flags_set(&state_machine_event_flags_group, STATE_SD_CARD_FULL_FLAG, TX_OR);
 	}
 	while (sd_writing);
@@ -152,16 +154,14 @@ void sd_thread_entry(ULONG thread_input) {
 		actual_flags = 0;
 
 		// check time to create new file
-		if (abs(eTime.Minutes - sTime.Minutes) % RTC_AUDIO_REFRESH_MINS == 0) {
-
-			//Create new audio file name
-			sprintf(tmp_data_file_name, "data_%d_%d_%d_%d_%d.bin", eDate.Month, eDate.Date, eTime.Hours, eTime.Minutes, eTime.Seconds);
+		if (abs(eTime.Minutes - sTime.Minutes) % RTC_REFRESH_MINS == 0) {
 
 			//Only create new file if minutes is different or minutes is same and hours is different
-			if ((tmp_data_file_name[DATA_FILENAME_MINS_INDEX] != data_file_name[DATA_FILENAME_MINS_INDEX]) || ((tmp_data_file_name[DATA_FILENAME_HOURS_INDEX] != data_file_name[DATA_FILENAME_HOURS_INDEX]) && tmp_data_file_name[DATA_FILENAME_MINS_INDEX] == data_file_name[DATA_FILENAME_MINS_INDEX])) {
+			if (old_eTime.Minutes != eTime.Minutes) {
 
-				//Name new audio file
-				strcpy(data_file_name, tmp_data_file_name);
+				//Create new data file name
+				sprintf(data_file_name, "data_%d_%d_%d_%d_%d.bin", eDate.Month, eDate.Date, eTime.Hours, eTime.Minutes, eTime.Seconds);
+				old_eTime = eTime;
 
 				//Close previous data file
 				fx_result = fx_file_close(&data_file);
@@ -169,13 +169,13 @@ void sd_thread_entry(ULONG thread_input) {
 					Error_Handler();
 				}
 
-				//Create new audio file
+				//Create new data file
 				fx_result = fx_file_create(&sdio_disk, data_file_name);
 				if ((fx_result != FX_SUCCESS) && (fx_result != FX_ALREADY_CREATED)) {
 					Error_Handler();
 				}
 
-				//Open new audio file for writing
+				//Open new data file for writing
 				fx_result = fx_file_open(&sdio_disk, &data_file, data_file_name, FX_OPEN_FOR_WRITE);
 				if (fx_result != FX_SUCCESS) {
 					Error_Handler();
@@ -188,11 +188,6 @@ void sd_thread_entry(ULONG thread_input) {
 				}
 			}
 		}
-
-		//Wait for light thread to complete
-		//tx_event_flags_get(&light_event_flags_group, LIGHT_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, LIGHT_THREAD_TIMEOUT);
-		//tx_event_flags_get(&bms_event_flags_group, BMS_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, BMS_THREAD_TIMEOUT);
-		//tx_event_flags_get(&rtc_event_flags_group, RTC_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, LIGHT_THREAD_TIMEOUT);
 
 		//Save current state of tag
 		header.state = state;
@@ -231,7 +226,7 @@ void sd_thread_entry(ULONG thread_input) {
 		fx_result = fx_file_write(&data_file, &header, sizeof(Header_Data));
 		fx_result = fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
 		if (fx_result == FX_NO_MORE_SPACE) {
-			HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(GPIOB, DIAG_LED4_Pin, GPIO_PIN_SET);
 			tx_event_flags_set(&state_machine_event_flags_group, STATE_SD_CARD_FULL_FLAG, TX_OR);
 		}
 		while (sd_writing);
@@ -252,8 +247,9 @@ void sd_thread_entry(ULONG thread_input) {
 			sd_writing = true;
 			fx_result = fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
 			fx_result = fx_file_write(&data_file, &imu_data[0], sizeof(IMU_Data) * IMU_HALF_BUFFER_SIZE);
+			fx_result = fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
 			if (fx_result == FX_NO_MORE_SPACE) {
-				HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, DIAG_LED4_Pin, GPIO_PIN_SET);
 				tx_event_flags_set(&state_machine_event_flags_group, STATE_SD_CARD_FULL_FLAG, TX_OR);
 			}
 			while (sd_writing);
@@ -273,8 +269,9 @@ void sd_thread_entry(ULONG thread_input) {
 			sd_writing = true;
 			fx_result = fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
 			fx_result = fx_file_write(&data_file, &depth_data[0], sizeof(DEPTH_Data) * DEPTH_HALF_BUFFER_SIZE);
+			fx_result = fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
 			if (fx_result == FX_NO_MORE_SPACE) {
-				HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, DIAG_LED4_Pin, GPIO_PIN_SET);
 				tx_event_flags_set(&state_machine_event_flags_group, STATE_SD_CARD_FULL_FLAG, TX_OR);
 			}
 			while (sd_writing);
@@ -296,7 +293,7 @@ void sd_thread_entry(ULONG thread_input) {
 			fx_result = fx_file_write(&data_file, &ecg_data[0], sizeof(ECG_Data) * ECG_HALF_BUFFER_SIZE);
 			fx_result = fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
 			if (fx_result == FX_NO_MORE_SPACE) {
-				HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, DIAG_LED4_Pin, GPIO_PIN_SET);
 				tx_event_flags_set(&state_machine_event_flags_group, STATE_SD_CARD_FULL_FLAG, TX_OR);
 			}
 			while (sd_writing);
@@ -351,8 +348,9 @@ void sd_thread_entry(ULONG thread_input) {
 			sd_writing = true;
 			fx_result = fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
 			fx_result = fx_file_write(&data_file, &imu_data[1], sizeof(IMU_Data) * IMU_HALF_BUFFER_SIZE);
+			fx_result = fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
 			if (fx_result == FX_NO_MORE_SPACE) {
-				HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, DIAG_LED4_Pin, GPIO_PIN_SET);
 				tx_event_flags_set(&state_machine_event_flags_group, STATE_SD_CARD_FULL_FLAG, TX_OR);
 			}
 			while (sd_writing);
@@ -372,8 +370,9 @@ void sd_thread_entry(ULONG thread_input) {
 			sd_writing = true;
 			fx_result = fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
 			fx_result = fx_file_write(&data_file, &depth_data[1], sizeof(DEPTH_Data) * DEPTH_HALF_BUFFER_SIZE);
+			fx_result = fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
 			if (fx_result == FX_NO_MORE_SPACE) {
-				HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, DIAG_LED4_Pin, GPIO_PIN_SET);
 				tx_event_flags_set(&state_machine_event_flags_group, STATE_SD_CARD_FULL_FLAG, TX_OR);
 			}
 			while (sd_writing);
@@ -395,7 +394,7 @@ void sd_thread_entry(ULONG thread_input) {
 			fx_result = fx_file_write(&data_file, &ecg_data[1], sizeof(ECG_Data) * ECG_HALF_BUFFER_SIZE);
 			fx_result = fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
 			if (fx_result == FX_NO_MORE_SPACE) {
-				HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, DIAG_LED4_Pin, GPIO_PIN_SET);
 				tx_event_flags_set(&state_machine_event_flags_group, STATE_SD_CARD_FULL_FLAG, TX_OR);
 			}
 			while (sd_writing);

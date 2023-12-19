@@ -15,8 +15,8 @@
 #include <stdbool.h>
 
 // rtc timeout settings
-#define RTC_SHUTDOWN_LIMIT_MINS		20
-#define RTC_SHUTDOWN_LIMIT_HOUR		1
+#define RTC_SHUTDOWN_LIMIT_MINS		0
+#define RTC_SHUTDOWN_LIMIT_HOUR		30
 
 // rtc initialization timeout
 #define RTC_GPS_TIMEOUT_MINS		1 // timeout in minutes before initializing rtc without gps timestamp

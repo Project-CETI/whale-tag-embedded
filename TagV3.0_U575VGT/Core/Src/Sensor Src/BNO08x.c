@@ -7,6 +7,7 @@
 
 #include "Sensor Inc/BNO08x.h"
 #include "Sensor Inc/audio.h"
+#include "Sensor Inc/DataLogging.h"
 #include "Lib Inc/threads.h"
 #include "ux_device_cdc_acm.h"
 #include "fx_api.h"
@@ -31,6 +32,9 @@ extern uint8_t usbTransmitBuf[APP_RX_DATA_SIZE];
 extern uint8_t usbTransmitLen;
 
 extern IMU_HandleTypeDef imu;
+
+// sensor flags
+extern TX_EVENT_FLAGS_GROUP data_log_event_flags_group;
 
 // threadX mutex and flags
 TX_EVENT_FLAGS_GROUP imu_event_flags_group;
@@ -132,6 +136,7 @@ void imu_thread_entry(ULONG thread_input) {
 		// release mutex to allow sd thread to run
 		tx_mutex_put(&imu_first_half_mutex);
 		tx_event_flags_set(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR);
+		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 
 		// acquire second half of buffer
 		tx_mutex_get(&imu_second_half_mutex, TX_WAIT_FOREVER);
@@ -142,6 +147,7 @@ void imu_thread_entry(ULONG thread_input) {
 		// release mutex to allow sd thread to run
 		tx_mutex_put(&imu_second_half_mutex);
 		tx_event_flags_set(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR);
+		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 
 		// wait for stop thread flag
 		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);

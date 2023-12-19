@@ -28,7 +28,9 @@ extern uint8_t usbReceiveBuf[APP_RX_DATA_SIZE];
 extern uint8_t usbTransmitBuf[APP_RX_DATA_SIZE];
 extern uint8_t usbTransmitLen;
 
+// sensor event flags
 extern TX_EVENT_FLAGS_GROUP imu_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP depth_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP data_log_event_flags_group;
 
 extern ECG_HandleTypeDef ecg;
@@ -87,7 +89,7 @@ void ecg_thread_entry(ULONG thread_input){
 
 		//Acquire first half mutex to start collecting data
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG | IMU_STOP_DATA_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
-		actual_flags &= ~IMU_HALF_BUFFER_FLAG;
+		tx_event_flags_get(&depth_event_flags_group, DEPTH_HALF_BUFFER_FLAG | DEPTH_STOP_DATA_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
 		tx_mutex_get(&ecg_first_half_mutex, TX_WAIT_FOREVER);
 
 		//Fill up the first half of the buffer (this function call fills up the IMU buffer on its own)
@@ -101,7 +103,7 @@ void ecg_thread_entry(ULONG thread_input){
 
 		//Acquire the second half mutex to fill it up
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG | IMU_STOP_DATA_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
-		actual_flags &= ~IMU_HALF_BUFFER_FLAG;
+		tx_event_flags_get(&depth_event_flags_group, DEPTH_HALF_BUFFER_FLAG | DEPTH_STOP_DATA_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
 		tx_mutex_get(&ecg_second_half_mutex, TX_WAIT_FOREVER);
 
 		//Call to get data, this handles filling up the second half of the buffer completely

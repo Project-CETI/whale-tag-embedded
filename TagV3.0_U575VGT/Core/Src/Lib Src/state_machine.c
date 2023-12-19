@@ -157,6 +157,13 @@ void state_machine_thread_entry(ULONG thread_input){
 	//Wait for exit sleep command to return to main loop
 	while (state == STATE_SLEEP) {
 
+		// shut off power from battery (initialization automatically starts discharge)
+	    HAL_StatusTypeDef ret = max17320_close_fets(&bms);
+	    if (ret != HAL_OK) {
+		  // indicate communication with bms has failed
+		  Error_Handler();
+	    }
+
 		ULONG actual_state_flags = 0;
 		if (inserted) {
 			tx_event_flags_set(&state_machine_event_flags_group, STATE_USB_MSB_ACTIVATED_FLAG, TX_OR);
@@ -377,6 +384,8 @@ void state_machine_thread_entry(ULONG thread_input){
 
 			//USB mass storage device disconnected flag
 			if (actual_state_flags & STATE_USB_MSB_DEACTIVATED_FLAG) {
+				HAL_GPIO_WritePin(GPIOB, DIAG_LED1_Pin, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin, GPIO_PIN_RESET);
 				exit_data_offload();
 				enter_data_capture();
 			}
@@ -448,11 +457,11 @@ void enter_data_capture(){
 	HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin, GPIO_PIN_RESET);
 
 	//Resume data capture threads
+	tx_thread_resume(&threads[BMS_THREAD].thread);
+	tx_thread_resume(&threads[RTC_THREAD].thread);
+	tx_thread_resume(&threads[LIGHT_THREAD].thread);
 	tx_thread_resume(&threads[AUDIO_THREAD].thread);
 	tx_thread_resume(&threads[IMU_THREAD].thread);
-	tx_thread_resume(&threads[LIGHT_THREAD].thread);
-	tx_thread_resume(&threads[RTC_THREAD].thread);
-	tx_thread_resume(&threads[BMS_THREAD].thread);
 }
 
 
@@ -503,7 +512,7 @@ void enter_recovery(){
 	//tx_thread_resume(&threads[APRS_THREAD].thread);
 
 	//Start Burnwire thread to release tag
-	//tx_thread_resume(&threads[BURNWIRE_THREAD].thread);
+	tx_thread_resume(&threads[BURNWIRE_THREAD].thread);
 }
 
 void exit_recovery(){
@@ -511,8 +520,8 @@ void exit_recovery(){
 	HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin, GPIO_PIN_RESET);
 
 	//Stop all remaining threads in recovery mode: APRS, GPS
-	//tx_thread_terminate(&threads[APRS_THREAD].thread);
-	//tx_thread_terminate(&threads[GPS_THREAD].thread);
+	tx_thread_terminate(&threads[APRS_THREAD].thread);
+	tx_thread_terminate(&threads[GPS_THREAD].thread);
 }
 
 

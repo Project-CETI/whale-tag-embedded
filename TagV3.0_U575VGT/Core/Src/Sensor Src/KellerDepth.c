@@ -7,7 +7,6 @@
 
 #include "Sensor Inc/KellerDepth.h"
 #include "Sensor Inc/BNO08x.h"
-#include "Sensor Inc/ECG.h"
 #include "Sensor Inc/LightSensor.h"
 #include "Sensor Inc/DataLogging.h"
 #include "Lib Inc/threads.h"
@@ -31,7 +30,6 @@ extern uint8_t usbTransmitLen;
 
 // sensor event flags
 extern TX_EVENT_FLAGS_GROUP imu_event_flags_group;
-extern TX_EVENT_FLAGS_GROUP ecg_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP light_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP data_log_event_flags_group;
 
@@ -83,12 +81,12 @@ void depth_thread_entry(ULONG thread_input) {
 
 		//Fill up the first half of the buffer (this function call fills up the IMU buffer on its own)
 		depth_get_data(&depth, 0);
+		tx_event_flags_set(&depth_event_flags_group, DEPTH_COMPLETE_FLAG, TX_OR);
 
 		//Release the mutex to allow for SD card writing thread to run
 		tx_mutex_put(&depth_first_half_mutex);
 
 		tx_event_flags_set(&depth_event_flags_group, DEPTH_HALF_BUFFER_FLAG, TX_OR);
-		tx_event_flags_get(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG | ECG_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 
 		//Acquire second half (so we can fill it up)
@@ -97,12 +95,12 @@ void depth_thread_entry(ULONG thread_input) {
 
 		//Call to get data, this handles filling up the second half of the buffer completely
 		depth_get_data(&depth, 1);
+		tx_event_flags_set(&depth_event_flags_group, DEPTH_COMPLETE_FLAG, TX_OR);
 
 		//Release mutex
 		tx_mutex_put(&depth_second_half_mutex);
 
 		tx_event_flags_set(&depth_event_flags_group, DEPTH_HALF_BUFFER_FLAG, TX_OR);
-		tx_event_flags_get(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG | ECG_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 
 		//Check to see if there was a stop flag raised
@@ -147,8 +145,8 @@ HAL_StatusTypeDef depth_get_data(Keller_HandleTypedef* keller_sensor, uint8_t bu
 			depth_error_count++;
 
 			if (depth_error_count > DEPTH_MAX_ERROR_COUNT) {
-				// stop collecting data instead of terminating thread and delete data
-				memset(depth_data[buffer_half], 0, sizeof(depth_data[buffer_half]));
+				// stop collecting data instead of terminating thread
+				//memset(depth_data[buffer_half], 0, sizeof(depth_data[buffer_half]));
 				break;
 			}
 
