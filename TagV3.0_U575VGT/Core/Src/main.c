@@ -172,9 +172,7 @@ int main(void)
   // check status of battery
   HAL_StatusTypeDef ret = max17320_get_status(&bms);
   if (ret != HAL_OK) {
-    while (1) {
 	  Error_Handler();
-	}
   }
 
   // Indicate hardware issue or connector plugged in before battery

@@ -133,10 +133,10 @@ void light_thread_entry(ULONG thread_input) {
 			light_unit_test = true;
 		}
 		else if (actual_flags & LIGHT_READ_FLAG) {
-
+			// TODO
 		}
 		else if (actual_flags & LIGHT_WRITE_FLAG) {
-
+			// TODO
 		}
 		else if (actual_flags & LIGHT_CMD_FLAG) {
 			if (usbReceiveBuf[3] == LIGHT_GET_SAMPLES_CMD) {

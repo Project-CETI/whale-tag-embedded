@@ -131,13 +131,14 @@
 #define BMS_OP_ERROR_FLAG				0x2
 #define BMS_NV_WRITE_FLAG				0x4
 #define BMS_CLOSE_MOSFET_FLAG			0x8
+#define BMS_START_DISCHARGE_FLAG		0x10
 
 // Event Flags for UART Debugging
-#define BMS_UNIT_TEST_FLAG				0x10
-#define BMS_UNIT_TEST_DONE_FLAG			0x20
-#define BMS_READ_FLAG					0x40
-#define BMS_WRITE_FLAG					0x80
-#define BMS_CMD_FLAG					0x100
+#define BMS_UNIT_TEST_FLAG				0x20
+#define BMS_UNIT_TEST_DONE_FLAG			0x40
+#define BMS_READ_FLAG					0x80
+#define BMS_WRITE_FLAG					0x100
+#define BMS_CMD_FLAG					0x200
 
 // Commands for BMS
 #define BMS_START_CHARGE_CMD			0x1

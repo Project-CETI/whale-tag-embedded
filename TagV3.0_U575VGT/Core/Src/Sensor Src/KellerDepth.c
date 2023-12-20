@@ -65,7 +65,14 @@ void depth_thread_entry(ULONG thread_input) {
 		ULONG actual_flags = 0;
 
 		// wait for any debugging flag
-		tx_event_flags_get(&depth_event_flags_group, DEPTH_UNIT_TEST_FLAG | DEPTH_CMD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
+		tx_event_flags_get(&depth_event_flags_group, DEPTH_UNIT_TEST_FLAG | DEPTH_CMD_FLAG | DEPTH_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
+		// check for stop thread flag
+		if (actual_flags & DEPTH_STOP_DATA_THREAD_FLAG) {
+
+			//Signal SD card thread to stop, and terminate this thread
+			tx_event_flags_set(&depth_event_flags_group, DEPTH_STOP_SD_THREAD_FLAG, TX_OR);
+			tx_thread_terminate(&threads[DEPTH_THREAD].thread);
+		}
 		if (actual_flags & DEPTH_UNIT_TEST_FLAG) {
 			depth_unit_test = true;
 		}
@@ -102,17 +109,6 @@ void depth_thread_entry(ULONG thread_input) {
 
 		tx_event_flags_set(&depth_event_flags_group, DEPTH_HALF_BUFFER_FLAG, TX_OR);
 		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
-
-		//Check to see if there was a stop flag raised
-		tx_event_flags_get(&depth_event_flags_group, DEPTH_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
-
-		//If there was something set cleanup the thread
-		if (actual_flags & DEPTH_STOP_DATA_THREAD_FLAG){
-
-			//Signal SD card thread to stop, and terminate this thread
-			tx_event_flags_set(&depth_event_flags_group, DEPTH_STOP_SD_THREAD_FLAG, TX_OR);
-			tx_thread_terminate(&threads[DEPTH_THREAD].thread);
-		}
 	}
 }
 

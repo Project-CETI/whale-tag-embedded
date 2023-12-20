@@ -134,11 +134,6 @@ void sd_thread_entry(ULONG thread_input) {
 	//Dummy write at start since first write is usually slow
 	sd_writing = true;
 	fx_result = fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
-	//fx_result |= fx_file_write(&data_file, &imu_data[0], sizeof(IMU_Data) * IMU_HALF_BUFFER_SIZE);
-	//fx_result |= fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
-	//fx_result |= fx_file_write(&data_file, &depth_data[0], sizeof(DEPTH_Data) * DEPTH_HALF_BUFFER_SIZE);
-	//fx_result |= fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
-	//fx_result |= fx_file_write(&data_file, &ecg_data[0], sizeof(ECG_Data) * ECG_HALF_BUFFER_SIZE);
 	fx_result |= fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
 	if (fx_result == FX_NO_MORE_SPACE) {
 		HAL_GPIO_WritePin(GPIOB, DIAG_LED4_Pin, GPIO_PIN_SET);
@@ -189,6 +184,15 @@ void sd_thread_entry(ULONG thread_input) {
 			}
 		}
 
+		// write preamble before header
+		sd_writing = true;
+		fx_result = fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
+		if (fx_result == FX_NO_MORE_SPACE) {
+			HAL_GPIO_WritePin(GPIOB, DIAG_LED4_Pin, GPIO_PIN_SET);
+			tx_event_flags_set(&state_machine_event_flags_group, STATE_SD_CARD_FULL_FLAG, TX_OR);
+		}
+		while (sd_writing);
+
 		//Save current state of tag
 		header.state = state;
 		header.state_flags = actual_flags;
@@ -234,9 +238,6 @@ void sd_thread_entry(ULONG thread_input) {
 		//Wait for the sensor threads to be done filling the first half of buffer
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG | IMU_STOP_DATA_THREAD_FLAG | IMU_STOP_SD_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
 
-		//Reset buffer full flag for next sensor
-		//actual_flags &= ~IMU_HALF_BUFFER_FLAG;
-
 		if (actual_flags & IMU_STOP_SD_THREAD_FLAG) {
 			//Terminate the IMU thread
 			tx_thread_terminate(&threads[IMU_THREAD].thread);
@@ -257,7 +258,6 @@ void sd_thread_entry(ULONG thread_input) {
 		}
 
 		tx_event_flags_get(&depth_event_flags_group, DEPTH_HALF_BUFFER_FLAG | DEPTH_STOP_DATA_THREAD_FLAG | DEPTH_STOP_SD_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
-		//actual_flags &= ~DEPTH_HALF_BUFFER_FLAG;
 
 		if (actual_flags & DEPTH_STOP_SD_THREAD_FLAG) {
 			//Terminate the keller depth thread
@@ -279,7 +279,6 @@ void sd_thread_entry(ULONG thread_input) {
 		}
 
 		tx_event_flags_get(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG | ECG_STOP_DATA_THREAD_FLAG | ECG_STOP_SD_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
-		//actual_flags &= ~ECG_HALF_BUFFER_FLAG;
 
 		if (actual_flags & ECG_STOP_SD_THREAD_FLAG) {
 			//Terminate the ECG thread
@@ -335,8 +334,16 @@ void sd_thread_entry(ULONG thread_input) {
 		header.infrared = light_sensor.data.infrared;
 		header.visible = light_sensor.data.visible;
 
+		sd_writing = true;
+		fx_result = fx_file_write(&data_file, &header, sizeof(Header_Data));
+		fx_result = fx_file_write(&data_file, &preamble_bytes[0], SENSOR_PREAMBLE_LEN);
+		if (fx_result == FX_NO_MORE_SPACE) {
+			HAL_GPIO_WritePin(GPIOB, DIAG_LED4_Pin, GPIO_PIN_SET);
+			tx_event_flags_set(&state_machine_event_flags_group, STATE_SD_CARD_FULL_FLAG, TX_OR);
+		}
+		while (sd_writing);
+
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG | IMU_STOP_DATA_THREAD_FLAG | IMU_STOP_SD_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
-		//actual_flags &= ~IMU_HALF_BUFFER_FLAG;
 
 		if (actual_flags & IMU_STOP_SD_THREAD_FLAG) {
 			//Terminate the IMU thread
@@ -358,7 +365,6 @@ void sd_thread_entry(ULONG thread_input) {
 		}
 
 		tx_event_flags_get(&depth_event_flags_group, DEPTH_HALF_BUFFER_FLAG | DEPTH_STOP_DATA_THREAD_FLAG | DEPTH_STOP_SD_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
-		//actual_flags &= ~DEPTH_HALF_BUFFER_FLAG;
 
 		if (actual_flags & DEPTH_STOP_SD_THREAD_FLAG) {
 			//Terminate the keller depth thread
@@ -380,7 +386,6 @@ void sd_thread_entry(ULONG thread_input) {
 		}
 
 		tx_event_flags_get(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG | ECG_STOP_DATA_THREAD_FLAG | ECG_STOP_SD_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
-		//actual_flags &= ~ECG_HALF_BUFFER_FLAG;
 
 		if (actual_flags & ECG_STOP_SD_THREAD_FLAG) {
 			//Terminate the ECG thread
@@ -399,26 +404,6 @@ void sd_thread_entry(ULONG thread_input) {
 			}
 			while (sd_writing);
 			tx_mutex_put(&ecg_second_half_mutex);
-		}
-
-		//Check to see if a stop flag was raised
-		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
-		tx_event_flags_get(&depth_event_flags_group, DEPTH_STOP_SD_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
-		tx_event_flags_get(&ecg_event_flags_group, ECG_STOP_SD_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
-
-		//If the stop flag was raised
-		if ((actual_flags & IMU_STOP_SD_THREAD_FLAG) && (actual_flags & DEPTH_STOP_SD_THREAD_FLAG) && (actual_flags & ECG_STOP_SD_THREAD_FLAG)) {
-
-			//close the file
-			fx_file_close(&data_file);
-
-			//Delete the event flag group
-			tx_event_flags_delete(&imu_event_flags_group);
-			tx_event_flags_delete(&depth_event_flags_group);
-			tx_event_flags_delete(&ecg_event_flags_group);
-
-			//Terminate the thread
-			tx_thread_terminate(&threads[DATA_LOG_THREAD].thread);
 		}
 
 		tx_event_flags_set(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR);

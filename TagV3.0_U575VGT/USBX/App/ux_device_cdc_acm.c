@@ -86,6 +86,9 @@ extern HAL_StatusTypeDef depth_unit_test_ret;
 extern HAL_StatusTypeDef light_unit_test_ret;
 extern HAL_StatusTypeDef rtc_unit_test_ret;
 
+// configuration
+extern bool sleep_state[10];
+
 // usb configuration
 UX_SLAVE_CLASS_CDC_ACM_LINE_CODING_PARAMETER CDC_VCP_LineCoding =
 {
@@ -118,23 +121,26 @@ VOID USBD_CDC_ACM_Activate(VOID *cdc_acm_instance)
   /* USER CODE BEGIN USBD_CDC_ACM_Activate */
   //UX_PARAMETER_NOT_USED(cdc_acm_instance);
 
-  cdc_acm = (UX_SLAVE_CLASS_CDC_ACM*) cdc_acm_instance;
+  // check if tag in USB CDC mode
+  if (sleep_state[1]) {
+    cdc_acm = (UX_SLAVE_CLASS_CDC_ACM*) cdc_acm_instance;
 
-  CDC_VCP_LineCoding.ux_slave_class_cdc_acm_parameter_baudrate = USB_UART_BAUDRATE;
-  CDC_VCP_LineCoding.ux_slave_class_cdc_acm_parameter_data_bit = VCP_WORDLENGTH8;
-  CDC_VCP_LineCoding.ux_slave_class_cdc_acm_parameter_parity = UART_PARITY_NONE;
-  CDC_VCP_LineCoding.ux_slave_class_cdc_acm_parameter_stop_bit = UART_STOPBITS_1;
+    CDC_VCP_LineCoding.ux_slave_class_cdc_acm_parameter_baudrate = USB_UART_BAUDRATE;
+    CDC_VCP_LineCoding.ux_slave_class_cdc_acm_parameter_data_bit = VCP_WORDLENGTH8;
+    CDC_VCP_LineCoding.ux_slave_class_cdc_acm_parameter_parity = UART_PARITY_NONE;
+    CDC_VCP_LineCoding.ux_slave_class_cdc_acm_parameter_stop_bit = UART_STOPBITS_1;
 
-  if (ux_device_class_cdc_acm_ioctl(cdc_acm, UX_SLAVE_CLASS_CDC_ACM_IOCTL_SET_LINE_CODING, &CDC_VCP_LineCoding) != UX_SUCCESS) {
-    Error_Handler();
+    if (ux_device_class_cdc_acm_ioctl(cdc_acm, UX_SLAVE_CLASS_CDC_ACM_IOCTL_SET_LINE_CODING, &CDC_VCP_LineCoding) != UX_SUCCESS) {
+      Error_Handler();
+    }
+
+    // create the events flag
+    tx_event_flags_create(&usb_cdc_event_flags_group, "USB CDC Event Flags");
+
+    // start usb read and write thread
+    //tx_thread_resume(&ux_cdc_read_thread);
+    //tx_thread_resume(&ux_cdc_write_thread);
   }
-
-  // create the events flag
-  tx_event_flags_create(&usb_cdc_event_flags_group, "USB CDC Event Flags");
-
-  // start usb read and write thread
-  //tx_thread_resume(&ux_cdc_read_thread);
-  //tx_thread_resume(&ux_cdc_write_thread);
 
   /* USER CODE END USBD_CDC_ACM_Activate */
 
@@ -238,11 +244,7 @@ VOID usbx_cdc_acm_read_thread_entry(ULONG thread_input) {
 
       #endif
 
-      ULONG status = 0;
       ULONG actual_length = 0;
-
-	  //status = ux_device_class_cdc_acm_write_with_callback(cdc_acm, &usbTransmitBuf[0], 1);
-	  status = ux_device_class_cdc_acm_write(cdc_acm, &usbTransmitBuf[0], 1, &actual_length);
 
       // read received data in blocking mode
       ux_device_class_cdc_acm_read(cdc_acm, (UCHAR *) &usbReceiveBuf[0], 7, &actual_length);
@@ -458,36 +460,15 @@ VOID usbx_cdc_acm_write_thread_entry(ULONG thread_input) {
 
 	#endif
 
-	// initialize write callback
-	UX_SLAVE_CLASS_CDC_ACM_CALLBACK_PARAMETER callback_info;
-	callback_info.ux_device_class_cdc_acm_parameter_write_callback = ux_cdc_write_callback;
-
-	// set usb to use transmission with callback
-	ux_device_class_cdc_acm_ioctl(cdc_acm, UX_SLAVE_CLASS_CDC_ACM_IOCTL_TRANSMISSION_START, &callback_info);
-
 	while (1) {
 		ULONG actual_flags = 0;
 
 		tx_event_flags_get(&usb_cdc_event_flags_group, USB_TRANSMIT_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
-		if (!(actual_flags & USB_TRANSMIT_FLAG)) {
-			if (usbTransmitLen >= 0) {
+		if (actual_flags & USB_TRANSMIT_FLAG) {
+			if (usbTransmitLen > 0) {
 				ULONG actual_length = 0;
-				ULONG status = 0;
-
-				usbTransmitBuf[0] = 0x21;
-				usbTransmitLen = 1;
-
-				//HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin, GPIO_PIN_SET);
-
-				status = ux_device_class_cdc_acm_write_with_callback(cdc_acm, &usbTransmitBuf[0], 1);
-				//HAL_UART_Transmit(&huart2, &status, 1, 1000);
-				if (status) {
+				if (ux_device_class_cdc_acm_write(cdc_acm, &usbTransmitBuf[0], usbTransmitLen, &actual_length)) {
 					usbTransmitLen = 0;
-					HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin, GPIO_PIN_RESET);
-					HAL_Delay(100);
-					HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin, GPIO_PIN_SET);
-					HAL_Delay(100);
-					HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin, GPIO_PIN_RESET);
 				}
 			}
 			else {
@@ -498,17 +479,6 @@ VOID usbx_cdc_acm_write_thread_entry(ULONG thread_input) {
 			tx_thread_sleep(MS_TO_TICK(10));
 		}
 	}
-}
-
-UINT ux_cdc_write_callback(UX_SLAVE_CLASS_CDC_ACM *cdc_acm, UINT status, ULONG length) {
-	UX_PARAMETER_NOT_USED(length);
-	UINT ret = UX_ERROR;
-
-	if (status == UX_SUCCESS) {
-		ret = UX_SUCCESS;
-	}
-
-	return ret;
 }
 
 /* USER CODE END 1 */

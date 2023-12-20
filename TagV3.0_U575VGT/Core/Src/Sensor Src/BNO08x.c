@@ -71,7 +71,17 @@ void imu_thread_entry(ULONG thread_input) {
 		HAL_StatusTypeDef ret = HAL_ERROR;
 
 		// wait for any debugging flag
-		tx_event_flags_get(&imu_event_flags_group, IMU_UNIT_TEST_FLAG | IMU_CMD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
+		tx_event_flags_get(&imu_event_flags_group, IMU_UNIT_TEST_FLAG | IMU_CMD_FLAG | IMU_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
+		// check for stop thread flag
+		if (actual_flags & IMU_STOP_DATA_THREAD_FLAG) {
+
+			// suspend imu interrupt
+			HAL_NVIC_DisableIRQ(EXTI12_IRQn);
+
+			// signal sd thread to stop saving imu data and terminate thread
+			tx_event_flags_set(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR);
+			tx_thread_terminate(&threads[IMU_THREAD].thread);
+		}
 		if (actual_flags & IMU_UNIT_TEST_FLAG) {
 			imu_unit_test = true;
 		}
@@ -148,20 +158,6 @@ void imu_thread_entry(ULONG thread_input) {
 		tx_mutex_put(&imu_second_half_mutex);
 		tx_event_flags_set(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG, TX_OR);
 		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
-
-		// wait for stop thread flag
-		tx_event_flags_get(&imu_event_flags_group, IMU_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
-
-		// check for stop thread flag
-		if (actual_flags & IMU_STOP_DATA_THREAD_FLAG) {
-
-			// suspend imu interrupt
-			HAL_NVIC_DisableIRQ(EXTI12_IRQn);
-
-			// signal sd thread to stop saving imu data and terminate thread
-			tx_event_flags_set(&imu_event_flags_group, IMU_STOP_SD_THREAD_FLAG, TX_OR);
-			tx_thread_terminate(&threads[IMU_THREAD].thread);
-		}
 	}
 
 }

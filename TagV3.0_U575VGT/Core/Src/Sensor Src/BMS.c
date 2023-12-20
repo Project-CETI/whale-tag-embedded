@@ -48,7 +48,7 @@ void bms_thread_entry(ULONG thread_input) {
 		HAL_StatusTypeDef ret = HAL_ERROR;
 
 		// wait for any debugging flag
-		tx_event_flags_get(&bms_event_flags_group, BMS_NV_WRITE_FLAG | BMS_CLOSE_MOSFET_FLAG | BMS_UNIT_TEST_FLAG | BMS_WRITE_FLAG | BMS_READ_FLAG | BMS_CMD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
+		tx_event_flags_get(&bms_event_flags_group, BMS_NV_WRITE_FLAG | BMS_CLOSE_MOSFET_FLAG | BMS_START_DISCHARGE_FLAG | BMS_UNIT_TEST_FLAG | BMS_WRITE_FLAG | BMS_READ_FLAG | BMS_CMD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
 		if (actual_flags & BMS_NV_WRITE_FLAG) {
 
 			// check remaining writes
@@ -83,6 +83,15 @@ void bms_thread_entry(ULONG thread_input) {
 		}
 		else if (actual_flags & BMS_CLOSE_MOSFET_FLAG) {
 			ret = max17320_close_fets(&bms);
+			if (ret == HAL_OK) {
+				tx_event_flags_set(&bms_event_flags_group, BMS_OP_DONE_FLAG, TX_OR);
+			}
+			else {
+				tx_event_flags_set(&bms_event_flags_group, BMS_OP_ERROR_FLAG, TX_OR);
+			}
+		}
+		else if (actual_flags & BMS_START_DISCHARGE_FLAG) {
+			ret = max17320_start_discharge(&bms);
 			if (ret == HAL_OK) {
 				tx_event_flags_set(&bms_event_flags_group, BMS_OP_DONE_FLAG, TX_OR);
 			}
@@ -317,18 +326,21 @@ HAL_StatusTypeDef max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
 		data_buf[1] = 0;
 
 		// clear NVError bit in Comm Stat register
-		ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+		//ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+		ret |= max17320_write(dev, MAX17320_REG_COMM_STAT, (uint8_t*)&data_buf, 2);
 
 		// nonvolatile block copy command
 		data_buf[0] = 0x04;
 		data_buf[1] = 0xE9;
-		ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CMD, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+		//ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CMD, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+		ret |= max17320_write(dev, MAX17320_REG_CMD, (uint8_t*)&data_buf, 2);
 
 		// wait for copy to complete
 		HAL_Delay(BLOCK_PROG_TIME_MS);
 
 		// check for NVError
-	    ret |= HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	    //ret |= HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+		ret |= max17320_read(dev, MAX17320_REG_COMM_STAT, (uint8_t*)&data_buf, 2);
 
 		if ((HAL_GetTick() - start_time) > MAX17320_CHECK_TIMEOUT) {
 			return HAL_TIMEOUT;
@@ -342,7 +354,8 @@ HAL_StatusTypeDef max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
 	// full reset command
 	data_buf[0] = 0x0F;
 	data_buf[1] = 0;
-	ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CMD, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CMD, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	ret |= max17320_write(dev, MAX17320_REG_CMD, (uint8_t*)&data_buf, 2);
 
 	// wait for reset
 	HAL_Delay(RESET_DELAY_MS);
@@ -353,14 +366,17 @@ HAL_StatusTypeDef max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
 	// reset firmware
 	data_buf[0] = 0;
 	data_buf[1] = 0x80;
-	ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CFG2, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CFG2, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	ret |= max17320_write(dev, MAX17320_REG_CFG2, (uint8_t*)&data_buf, 2);
 
 	// wait for POR_CMD bit to be cleared for POR sequence to complete
-	ret |= HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CFG2, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//ret |= HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CFG2, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	ret |= max17320_read(dev, MAX17320_REG_CFG2, (uint8_t*)&data_buf, 2);
 
 	start_time = HAL_GetTick();
 	while (data_buf[1] & 0b10000000) {
-		ret |= HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CFG2, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+		//ret |= HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CFG2, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+		ret |= max17320_read(dev, MAX17320_REG_CFG2, (uint8_t*)&data_buf, 2);
 		if ((HAL_GetTick() - start_time) > MAX17320_CHECK_TIMEOUT) {
 			return HAL_TIMEOUT;
 		}
@@ -379,12 +395,14 @@ uint8_t max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
 	// send command to update remaining writes
 	data_buf[0] = 0x9B;
 	data_buf[1] = 0xE2;
-	ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CMD, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CMD, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	ret |= max17320_write(dev, MAX17320_REG_CMD, (uint8_t*)&data_buf, 2);
 
 	HAL_Delay(RECALL_TIME_MS);
 
 	// read number of remaining writes
-	ret |= HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR_EXT, MAX17320_REG_REMAIN_WRITES, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 1, MAX17320_TIMEOUT);
+	//ret |= HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR_EXT, MAX17320_REG_REMAIN_WRITES, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 1, MAX17320_TIMEOUT);
+	ret |= max17320_read(dev, MAX17320_REG_REMAIN_WRITES, (uint8_t*)&data_buf, 1);
 
 	dev->remaining_writes = data_buf[0];
 
@@ -398,7 +416,8 @@ HAL_StatusTypeDef max17320_full_reset(MAX17320_HandleTypeDef *dev) {
 	// full reset command
 	data_buf[0] = 0x0F;
 	data_buf[1] = 0;
-	HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CMD, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CMD, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	HAL_StatusTypeDef ret = max17320_write(dev, MAX17320_REG_CMD, (uint8_t*)&data_buf, 2);
 
 	// wait for reset
 	HAL_Delay(RESET_DELAY_MS);
@@ -409,14 +428,17 @@ HAL_StatusTypeDef max17320_full_reset(MAX17320_HandleTypeDef *dev) {
 	// reset firmware
 	data_buf[0] = 0;
 	data_buf[1] = 0x80;
-	ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CFG2, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CFG2, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	ret |= max17320_write(dev, MAX17320_REG_CFG2, (uint8_t*)&data_buf, 2);
 
 	// wait for POR_CMD bit to be cleared for POR sequence to complete
-	ret |= HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CFG2, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//ret |= HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CFG2, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	ret |= max17320_write(dev, MAX17320_REG_CFG2, (uint8_t*)&data_buf, 2);
 
 	uint32_t start_time = HAL_GetTick();
 	while (data_buf[1] & 0b10000000) {
-		ret |= HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CFG2, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+		//ret |= HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CFG2, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+		ret |= max17320_write(dev, MAX17320_REG_CFG2, (uint8_t*)&data_buf, 2);
 		if ((HAL_GetTick() - start_time) > MAX17320_CHECK_TIMEOUT) {
 			return HAL_BUSY;
 		}
@@ -445,10 +467,10 @@ HAL_StatusTypeDef max17320_clear_write_protection(MAX17320_HandleTypeDef *dev) {
 
 	uint8_t data_buf[2] = {0};
 
-	HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
-	ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
-	//HAL_StatusTypeDef ret = max17320_write(dev, MAX17320_REG_COMM_STAT, (uint8_t*)&data_buf, 2);
-	//ret |= max17320_write(dev, MAX17320_REG_COMM_STAT, (uint8_t*)&data_buf, 2);
+	//HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	HAL_StatusTypeDef ret = max17320_write(dev, MAX17320_REG_COMM_STAT, (uint8_t*)&data_buf, 2);
+	ret |= max17320_write(dev, MAX17320_REG_COMM_STAT, (uint8_t*)&data_buf, 2);
 
 	return ret;
 }
@@ -458,8 +480,10 @@ HAL_StatusTypeDef max17320_set_write_protection(MAX17320_HandleTypeDef *dev) {
 	uint8_t data_buf[2] = {0};
 	data_buf[0] = 0xF9;
 
-	HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
-	ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	HAL_StatusTypeDef ret = max17320_write(dev, MAX17320_REG_COMM_STAT, (uint8_t*)&data_buf, 2);
+	ret |= max17320_write(dev, MAX17320_REG_COMM_STAT, (uint8_t*)&data_buf, 2);
 
 	return ret;
 }
@@ -471,22 +495,26 @@ HAL_StatusTypeDef max17320_set_alert_thresholds(MAX17320_HandleTypeDef *dev) {
 	data_buf[0] = MAX17320_MIN_VOLTAGE_THR / VOLTAGE_ALT_LSB;
 	data_buf[1] = MAX17320_MAX_VOLTAGE_THR / VOLTAGE_ALT_LSB;
 
-	HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_VOLTAGE_ALT_THR, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_VOLTAGE_ALT_THR, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	HAL_StatusTypeDef ret = max17320_write(dev, MAX17320_REG_VOLTAGE_ALT_THR, (uint8_t*)&data_buf, 2);
 
 	data_buf[0] = MAX17320_MIN_CURRENT_THR / CURRENT_ALT_LSB;
 	data_buf[1] = MAX17320_MAX_CURRENT_THR / CURRENT_ALT_LSB;
 
-	ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CURRENT_ALT_THR, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CURRENT_ALT_THR, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	ret |= max17320_write(dev, MAX17320_REG_CURRENT_ALT_THR, (uint8_t*)&data_buf, 2);
 
 	data_buf[0] = MAX17320_MIN_TEMP_THR / TEMP_ALT_LSB;
 	data_buf[1] = MAX17320_MAX_TEMP_THR / TEMP_ALT_LSB;
 
-	ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_TEMP_ALT_THR, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_TEMP_ALT_THR, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	ret |= max17320_write(dev, MAX17320_REG_TEMP_ALT_THR, (uint8_t*)&data_buf, 2);
 
 	data_buf[0] = MAX17320_MIN_SOC_THR / SOC_ALT_LSB;
 	data_buf[1] = MAX17320_MAX_SOC_THR / SOC_ALT_LSB;
 
-	ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_SOC_ALT_THR, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//ret |= HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_SOC_ALT_THR, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	ret |= max17320_write(dev, MAX17320_REG_SOC_ALT_THR, (uint8_t*)&data_buf, 2);
 
 	return ret;
 }
@@ -534,7 +562,8 @@ HAL_StatusTypeDef max17320_configure_thermistors(MAX17320_HandleTypeDef *dev) {
     data_buf[0] |= (MAX17320_NUM_THERMISTORS << 2);
     data_buf[1] |= (MAX17320_THERMISTOR_TYPE << 3);
 
-    HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR_EXT, MAX17320_REG_PACK_CFG, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+    //HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR_EXT, MAX17320_REG_PACK_CFG, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+    HAL_StatusTypeDef ret = max17320_write(dev, MAX17320_REG_PACK_CFG, (uint8_t*)&data_buf, 2);
 
 	return ret;
 }
@@ -555,7 +584,8 @@ HAL_StatusTypeDef max17320_close_fets(MAX17320_HandleTypeDef *dev) {
     uint8_t data_buf[2] = {0};
     data_buf[1] = (MAX17320_FET_DIS_ONLY | MAX17320_FET_CHG_ONLY);
 
-    HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+    //HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+    HAL_StatusTypeDef ret = max17320_write(dev, MAX17320_REG_COMM_STAT, (uint8_t*)&data_buf, 2);
 
 	return ret;
 }
@@ -565,7 +595,8 @@ HAL_StatusTypeDef max17320_start_discharge(MAX17320_HandleTypeDef *dev) {
     uint8_t data_buf[2] = {0};
     data_buf[1] = MAX17320_FET_DIS_ONLY;
 
-    HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+    //HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+    HAL_StatusTypeDef ret = max17320_write(dev, MAX17320_REG_COMM_STAT, (uint8_t*)&data_buf, 2);
 
 	return ret;
 }
@@ -575,9 +606,10 @@ HAL_StatusTypeDef max17320_start_charge(MAX17320_HandleTypeDef *dev) {
     uint8_t data_buf[2] = {0};
     //data_buf[1] = MAX17320_FET_CHG_ONLY | MAX17320_FET_DIS_ONLY;
 
-    HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+    //HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_COMM_STAT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+    HAL_StatusTypeDef ret = max17320_write(dev, MAX17320_REG_COMM_STAT, (uint8_t*)&data_buf, 2);
 
-	return ret;
+    return ret;
 }
 
 HAL_StatusTypeDef max17320_clear_alerts(MAX17320_HandleTypeDef *dev) {
@@ -585,10 +617,12 @@ HAL_StatusTypeDef max17320_clear_alerts(MAX17320_HandleTypeDef *dev) {
     uint8_t data_buf[2] = {0};
 
     // clear ProtAlrt register
-    HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_PROT_ALRT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+    //HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_PROT_ALRT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+    HAL_StatusTypeDef ret = max17320_write(dev, MAX17320_REG_PROT_ALRT, (uint8_t*)&data_buf, 2);
 
     // clear status register
-    ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_STATUS, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+    //ret = HAL_I2C_Mem_Write(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_STATUS, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+    ret = max17320_write(dev, MAX17320_REG_STATUS, (uint8_t*)&data_buf, 2);
 
 	return ret;
 }
@@ -609,7 +643,8 @@ HAL_StatusTypeDef max17320_get_alerts(MAX17320_HandleTypeDef *dev) {
 
     uint8_t data_buf[2] = {0};
 
-    HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_PROT_ALRT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+    //HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_PROT_ALRT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+    HAL_StatusTypeDef ret = max17320_read(dev, MAX17320_REG_PROT_ALRT, (uint8_t*)&data_buf, 2);
 
     dev->alerts = __protAlertRegister_from_raw(TO_16_BIT(data_buf[0], data_buf[1]));
 
@@ -620,7 +655,8 @@ HAL_StatusTypeDef max17320_get_fet_status(MAX17320_HandleTypeDef *dev) {
 
     uint8_t data_buf[2] = {0};
 
-    HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR_EXT, MAX17320_REG_PROT_CFG2, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+    //HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR_EXT, MAX17320_REG_PROT_CFG2, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+    HAL_StatusTypeDef ret = max17320_read(dev, MAX17320_REG_PROT_CFG2, (uint8_t*)&data_buf, 2);
 
     dev->fet_status = __protCfg2Register_from_raw(TO_16_BIT(data_buf[0], data_buf[1]));
 
@@ -631,7 +667,8 @@ HAL_StatusTypeDef max17320_get_remaining_capacity(MAX17320_HandleTypeDef *dev) {
 
 	uint8_t data_buf[2] = {0};
 
-	HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_REP_CAPACITY, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_REP_CAPACITY, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	HAL_StatusTypeDef ret = max17320_read(dev, MAX17320_REG_REP_CAPACITY, (uint8_t*)&data_buf, 2);
 
 	dev->remaining_capacity = TO_16_BIT(data_buf[0], data_buf[1]) * CAPACITY_LSB/R_SENSE_VAL;
 
@@ -642,7 +679,8 @@ HAL_StatusTypeDef max17320_get_state_of_charge(MAX17320_HandleTypeDef *dev) {
 
 	uint8_t data_buf[2] = {0};
 
-	HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_REP_SOC, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_REP_SOC, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	HAL_StatusTypeDef ret = max17320_read(dev, MAX17320_REG_REP_SOC, (uint8_t*)&data_buf, 2);
 
 	dev->state_of_charge = TO_16_BIT(data_buf[0], data_buf[1]) * PERCENTAGE_LSB;
 
@@ -653,23 +691,28 @@ HAL_StatusTypeDef max17320_get_voltages(MAX17320_HandleTypeDef *dev) {
 
 	uint8_t data_buf[2] = {0};
 
-	HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CELL1_VOLTAGE, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CELL1_VOLTAGE, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	HAL_StatusTypeDef ret = max17320_read(dev, MAX17320_REG_CELL1_VOLTAGE, (uint8_t*)&data_buf, 2);
 
 	dev->cell_1_voltage = TO_16_BIT(data_buf[0], data_buf[1]) * CELL_VOLTAGE_LSB;
 
-	ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CELL2_VOLTAGE, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_CELL2_VOLTAGE, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	ret = max17320_read(dev, MAX17320_REG_CELL2_VOLTAGE, (uint8_t*)&data_buf, 2);
 
 	dev->cell_2_voltage = TO_16_BIT(data_buf[0], data_buf[1]) * CELL_VOLTAGE_LSB;
 
-	ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_TOTAL_BAT_VOLTAGE, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_TOTAL_BAT_VOLTAGE, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	ret = max17320_read(dev, MAX17320_REG_TOTAL_BAT_VOLTAGE, (uint8_t*)&data_buf, 2);
 
 	dev->total_battery_voltage = TO_16_BIT(data_buf[0], data_buf[1]) * PACK_VOLTAGE_LSB;
 
-	ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_PACK_SIDE_VOLTAGE, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_PACK_SIDE_VOLTAGE, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	ret = max17320_read(dev, MAX17320_REG_PACK_SIDE_VOLTAGE, (uint8_t*)&data_buf, 2);
 
 	dev->pack_side_voltage = TO_16_BIT(data_buf[0], data_buf[1]) * PACK_VOLTAGE_LSB;
 
-	ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_OC_VOLTAGE, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_OC_VOLTAGE, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	ret = max17320_read(dev, MAX17320_REG_OC_VOLTAGE, (uint8_t*)&data_buf, 2);
 
 	dev->total_battery_voltage = TO_16_BIT(data_buf[0], data_buf[1]) * CELL_VOLTAGE_LSB;
 
@@ -680,7 +723,8 @@ HAL_StatusTypeDef max17320_get_temperature(MAX17320_HandleTypeDef *dev) {
 
 	uint8_t data_buf[2] = {0};
 
-	HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_TEMPERATURE, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_TEMPERATURE, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	HAL_StatusTypeDef ret = max17320_read(dev, MAX17320_REG_TEMPERATURE, (uint8_t*)&data_buf, 2);
 
 	dev->temperature = TO_16_BIT(data_buf[0], data_buf[1]) * TEMPERATURE_LSB;
 
@@ -692,7 +736,8 @@ HAL_StatusTypeDef max17320_get_battery_current(MAX17320_HandleTypeDef *dev) {
 
 	uint8_t data_buf[2] = {0};
 
-	HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_BATT_CURRENT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_BATT_CURRENT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	HAL_StatusTypeDef ret = max17320_read(dev, MAX17320_REG_BATT_CURRENT, (uint8_t*)&data_buf, 2);
 
 	int16_t x = TO_16_BIT(data_buf[0], data_buf[1]);
 
@@ -705,7 +750,8 @@ HAL_StatusTypeDef max17320_get_average_battery_current(MAX17320_HandleTypeDef *d
 
 	uint8_t data_buf[2] = {0};
 
-	HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_AVG_BATT_CURRENT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_AVG_BATT_CURRENT, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	HAL_StatusTypeDef ret = max17320_read(dev, MAX17320_REG_AVG_BATT_CURRENT, (uint8_t*)&data_buf, 2);
 
 	int16_t x = TO_16_BIT(data_buf[0], data_buf[1]);
 
@@ -718,7 +764,8 @@ HAL_StatusTypeDef max17320_get_time_to_empty(MAX17320_HandleTypeDef *dev) {
 
 	uint8_t data_buf[2] = {0};
 
-	HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_TIME_TO_EMPTY, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_TIME_TO_EMPTY, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	HAL_StatusTypeDef ret = max17320_read(dev, MAX17320_REG_TIME_TO_EMPTY, (uint8_t*)&data_buf, 2);
 
 	dev->time_to_empty = TO_16_BIT(data_buf[0], data_buf[1]) * TIME_LSB/SECOND_TO_HOUR;
 
@@ -729,9 +776,12 @@ HAL_StatusTypeDef max17320_get_time_to_full(MAX17320_HandleTypeDef *dev) {
 
 	uint8_t data_buf[2] = {0};
 
-	HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_TIME_TO_FULL, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	//HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, MAX17320_DEV_ADDR, MAX17320_REG_TIME_TO_FULL, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&data_buf, 2, MAX17320_TIMEOUT);
+	HAL_StatusTypeDef ret = max17320_read(dev, MAX17320_REG_TIME_TO_FULL, (uint8_t*)&data_buf, 2);
 
 	dev->time_to_full = TO_16_BIT(data_buf[0], data_buf[1]) * TIME_LSB/SECOND_TO_HOUR;
 
 	return ret;
 }
+
+// kevin was here
