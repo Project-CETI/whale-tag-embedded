@@ -157,6 +157,10 @@ void state_machine_thread_entry(ULONG thread_input){
 	//Wait for exit sleep command to return to main loop
 	while (state == STATE_SLEEP) {
 
+		// shut off power from battery (initialization automatically starts discharge)
+		tx_event_flags_set(&bms_event_flags_group, BMS_CLOSE_MOSFET_FLAG, TX_OR);
+		tx_event_flags_get(&bms_event_flags_group, BMS_OP_DONE_FLAG | BMS_OP_ERROR_FLAG, TX_OR_CLEAR, &actual_state_flags, TX_WAIT_FOREVER);
+
 		ULONG actual_state_flags = 0;
 		if (inserted) {
 			tx_event_flags_set(&state_machine_event_flags_group, STATE_USB_MSB_ACTIVATED_FLAG, TX_OR);
@@ -168,7 +172,7 @@ void state_machine_thread_entry(ULONG thread_input){
 		if (actual_state_flags & STATE_EXIT_SLEEP_MODE_FLAG) {
 
 			//Tell BMS thread to start discharging from battery to power on tag
-			tx_event_flags_set(&bms_event_flags_group, BMS_CLOSE_MOSFET_FLAG, TX_OR);
+			tx_event_flags_set(&bms_event_flags_group, BMS_START_DISCHARGE_FLAG, TX_OR);
 			tx_event_flags_get(&bms_event_flags_group, BMS_OP_DONE_FLAG | BMS_OP_ERROR_FLAG, TX_OR_CLEAR, &actual_state_flags, TX_WAIT_FOREVER);
 
 			//Exit data offload
@@ -226,6 +230,7 @@ void state_machine_thread_entry(ULONG thread_input){
 				else if (state == STATE_RECOVERY) {
 					exit_recovery();
 				}
+				enter_data_offload();
 			}
 			//In USB CDC mode (turn on data capture threads for debugging)
 			else {
@@ -234,8 +239,6 @@ void state_machine_thread_entry(ULONG thread_input){
 				}
 				enter_data_capture();
 			}
-
-			enter_data_offload();
 		}
 
 		//USB disconnected flag
@@ -272,9 +275,10 @@ void state_machine_thread_entry(ULONG thread_input){
 
 				if (state == STATE_DATA_CAPTURE) {
 					hard_exit_data_capture();
-					enter_recovery();
-					state = STATE_RECOVERY;
 				}
+
+				enter_recovery();
+				state = STATE_RECOVERY;
 			}
 
 			//BMS critical battery flag
@@ -288,6 +292,10 @@ void state_machine_thread_entry(ULONG thread_input){
 				}
 
 				state = STATE_FISHTRACKER;
+
+				//Tell BMS thread to close BMS mosfets to power off tag
+				tx_event_flags_set(&bms_event_flags_group, BMS_CLOSE_MOSFET_FLAG, TX_OR);
+				tx_event_flags_get(&bms_event_flags_group, BMS_OP_DONE_FLAG | BMS_OP_ERROR_FLAG, TX_OR_CLEAR, &actual_state_flags, TX_WAIT_FOREVER);
 			}
 
 			//BMS sleep mode flag
@@ -363,6 +371,7 @@ void state_machine_thread_entry(ULONG thread_input){
 					else if (state == STATE_RECOVERY) {
 						exit_recovery();
 					}
+					enter_data_offload();
 				}
 				//In USB CDC mode (turn on data capture threads for debugging)
 				else {
@@ -371,8 +380,6 @@ void state_machine_thread_entry(ULONG thread_input){
 					}
 					enter_data_capture();
 				}
-
-				enter_data_offload();
 			}
 
 			//USB mass storage device disconnected flag
@@ -448,17 +455,19 @@ void enter_data_capture(){
 	HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin, GPIO_PIN_RESET);
 
 	//Resume data capture threads
+	tx_thread_resume(&threads[BMS_THREAD].thread);
+	tx_thread_resume(&threads[RTC_THREAD].thread);
+	tx_thread_resume(&threads[LIGHT_THREAD].thread);
 	tx_thread_resume(&threads[AUDIO_THREAD].thread);
 	tx_thread_resume(&threads[IMU_THREAD].thread);
-	tx_thread_resume(&threads[LIGHT_THREAD].thread);
-	tx_thread_resume(&threads[RTC_THREAD].thread);
-	tx_thread_resume(&threads[BMS_THREAD].thread);
+	tx_thread_resume(&threads[COMMS_RX_THREAD].thread);
 }
 
 
 void soft_exit_data_capture(){
 
 	//Suspend the data collection threads so we can just resume them later if needed
+	tx_thread_suspend(&threads[COMMS_RX_THREAD].thread);
 	tx_thread_suspend(&threads[AUDIO_THREAD].thread);
 	tx_thread_suspend(&threads[IMU_THREAD].thread);
 	tx_thread_suspend(&threads[ECG_THREAD].thread);
@@ -498,21 +507,27 @@ void enter_recovery(){
 	HAL_GPIO_WritePin(GPIOB, DIAG_LED1_Pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin, GPIO_PIN_SET);
 
-	//Start APRS thread
+	//Start Burnwire thread to release tag
+	tx_thread_resume(&threads[BURNWIRE_THREAD].thread);
+
+	tx_thread_terminate(&threads[LIGHT_THREAD].thread);
+	tx_thread_terminate(&threads[RTC_THREAD].thread);
+
+	//Start APRS and GPS thread
 	//tx_thread_reset(&threads[APRS_THREAD].thread);
 	//tx_thread_resume(&threads[APRS_THREAD].thread);
-
-	//Start Burnwire thread to release tag
-	//tx_thread_resume(&threads[BURNWIRE_THREAD].thread);
+	//tx_thread_resume(&threads[GPS_THREAD].thread);
 }
 
 void exit_recovery(){
 	HAL_GPIO_WritePin(GPIOB, DIAG_LED1_Pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(GPIOB, DIAG_LED2_Pin, GPIO_PIN_RESET);
 
-	//Stop all remaining threads in recovery mode: APRS, GPS
-	//tx_thread_terminate(&threads[APRS_THREAD].thread);
-	//tx_thread_terminate(&threads[GPS_THREAD].thread);
+	//Stop all remaining threads in recovery mode
+	tx_thread_terminate(&threads[DATA_LOG_THREAD].thread);
+	tx_thread_terminate(&threads[COMMS_RX_THREAD].thread);
+	tx_thread_terminate(&threads[APRS_THREAD].thread);
+	tx_thread_terminate(&threads[GPS_THREAD].thread);
 }
 
 

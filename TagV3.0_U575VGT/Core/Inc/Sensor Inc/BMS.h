@@ -131,13 +131,14 @@
 #define BMS_OP_ERROR_FLAG				0x2
 #define BMS_NV_WRITE_FLAG				0x4
 #define BMS_CLOSE_MOSFET_FLAG			0x8
+#define BMS_START_DISCHARGE_FLAG		0x10
 
 // Event Flags for UART Debugging
-#define BMS_UNIT_TEST_FLAG				0x10
-#define BMS_UNIT_TEST_DONE_FLAG			0x20
-#define BMS_READ_FLAG					0x40
-#define BMS_WRITE_FLAG					0x80
-#define BMS_CMD_FLAG					0x100
+#define BMS_UNIT_TEST_FLAG				0x20
+#define BMS_UNIT_TEST_DONE_FLAG			0x40
+#define BMS_READ_FLAG					0x80
+#define BMS_WRITE_FLAG					0x100
+#define BMS_CMD_FLAG					0x200
 
 // Commands for BMS
 #define BMS_START_CHARGE_CMD			0x1
@@ -154,7 +155,7 @@
 #define BLOCK_PROG_TIME_MS				1000
 #define RECALL_TIME_MS					10
 
-#define BMS_WRITES_TOLERANCE			0xFF // corresponds to max 7 writes
+#define BMS_WRITES_TOLERANCE			0x01 // corresponds to max 1 write
 
 // 8-bit to 16-bit conversion
 #define TO_16_BIT(b1, b2)				((uint16_t)(b2 << 8) | (uint16_t)b1)

@@ -101,9 +101,9 @@ LightSensorHandleTypedef light_sensor;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_GPDMA1_Init(void);
+static void MX_USART2_UART_Init(void);
 static void MX_I2C4_Init(void);
 static void MX_I2C3_Init(void);
-static void MX_USART2_UART_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_SDMMC1_SD_Init(void);
 static void MX_SPI1_Init(void);
@@ -121,19 +121,6 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-HAL_StatusTypeDef max17320_read(MAX17320_HandleTypeDef *dev, uint16_t MemAddress, uint8_t *pData, uint16_t ByteSize) {
-
-	uint16_t DevAddress = 0;
-	if (MemAddress > 0x0FF) {
-		DevAddress = MAX17320_DEV_ADDR_EXT;
-	}
-	else {
-		DevAddress = MAX17320_DEV_ADDR;
-	}
-
-	HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(dev->i2c_handler, DevAddress, MemAddress, I2C_MEMADD_SIZE_8BIT, pData, ByteSize, MAX17320_TIMEOUT);
-	return ret;
-}
 /* USER CODE END 0 */
 
 /**
@@ -166,9 +153,9 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_GPDMA1_Init();
+  MX_USART2_UART_Init();
   MX_I2C4_Init();
   MX_I2C3_Init();
-  MX_USART2_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
   MX_SDMMC1_SD_Init();
   MX_SPI1_Init();
@@ -185,12 +172,7 @@ int main(void)
   // check status of battery
   HAL_StatusTypeDef ret = max17320_get_status(&bms);
   if (ret != HAL_OK) {
-    while (1) {
-	  HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
-	  HAL_Delay(2000);
-	  HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_RESET);
-	  HAL_Delay(2000);
-	}
+	  Error_Handler();
   }
 
   // Indicate hardware issue or connector plugged in before battery
@@ -209,49 +191,6 @@ int main(void)
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
-
-  /*
-  uint16_t value = 0;
-  float voltage = 0;
-  max17320_Reg_Status status = {0};
-  max17320_Reg_Alerts fault = {0};
-  max17320_Reg_Fet_Status fet_status = {0};
-
-
-  ret = max17320_get_status(&bms);
-  status = bms.status;
-
-  ret = max17320_get_alerts(&bms);
-  fault = bms.alerts;
-
-  max17320_get_voltages(&bms);
-  voltage = bms.cell_1_voltage;
-  voltage = bms.cell_2_voltage;
-  */
-
-  //ret = max17320_clear_write_protection(&bms);
-  //if (ret == HAL_OK) {
-	//  value = 1;
-  //}
-
-  //max17320_nonvolatile_write(&bms);
-
-  //ret = max17320_configure_fets(&bms);
-  //ret = max17320_read(&bms, MAX17320_REG_PROT_CFG, &bms.raw, 2);
-  //value = bms.raw;
-
-  //ret = max17320_configure_cell_balancing(&bms);
-  //ret = max17320_read(&bms, MAX17320_REG_CELL_BAL_THR, &bms.raw, 2);
-  //value = bms.raw;
-
-  uint8_t data_buf[2] = {0};
-  max17320_read(&bms, MAX17320_REG_COMM_STAT, &data_buf[0], 2);
-
-  ret = max17320_start_charge(&bms);
-
-  max17320_read(&bms, MAX17320_REG_COMM_STAT, &data_buf[0], 2);
-
 
 
   while (1)
@@ -504,25 +443,15 @@ static void MX_I2C3_Init(void)
   // initialize bms
   HAL_StatusTypeDef ret = max17320_init(&hi2c3, &bms);
   if (ret != HAL_OK) {
-	// indicate communication with bms has failed (don't enter error handler because tag would be stuck)
-	while (1) {
-	  HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
-	  HAL_Delay(2000);
-	  HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_RESET);
-	  HAL_Delay(2000);
-	}
+	// indicate communication with bms has failed
+	Error_Handler();
   }
 
   // enable discharging from battery
   ret = max17320_start_discharge(&bms);
   if (ret != HAL_OK) {
-	// indicate communication with bms has failed (don't enter error handler because tag would be stuck)
-    while (1) {
-	  HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_SET);
-	  HAL_Delay(2000);
-	  HAL_GPIO_WritePin(GPIOB, DIAG_LED3_Pin, GPIO_PIN_RESET);
-	  HAL_Delay(2000);
-	}
+	// indicate communication with bms has failed
+    Error_Handler();
   }
 
   /* USER CODE END I2C3_Init 2 */
@@ -1042,6 +971,7 @@ static void MX_USB_OTG_FS_PCD_Init(void)
   hpcd_USB_OTG_FS.Init.battery_charging_enable = DISABLE;
   hpcd_USB_OTG_FS.Init.use_dedicated_ep1 = DISABLE;
   hpcd_USB_OTG_FS.Init.vbus_sensing_enable = DISABLE;
+  hpcd_USB_OTG_FS.Init.dma_enable = DISABLE;
   if (HAL_PCD_Init(&hpcd_USB_OTG_FS) != HAL_OK)
   {
     Error_Handler();

@@ -56,6 +56,9 @@ extern uint8_t usbReceiveBuf[APP_RX_DATA_SIZE];
 extern uint8_t usbTransmitBuf[APP_RX_DATA_SIZE];
 extern uint8_t usbTransmitLen;
 
+//RTC old time for tracking file names
+RTC_TimeTypeDef old_audio_eTime = {0};
+
 //Statically declare ADC at runtime
 ad7768_dev audio_adc = {
     .spi_handler = &hspi1,
@@ -167,7 +170,6 @@ void audio_thread_entry(ULONG thread_input){
 	  	  	  	  	  	  	  	  .audio_depth = CFG_AUDIO_DEPTH_16_BIT};
 
 	char audio_file_name[30] = {0};
-	char tmp_audio_file_name[30] = {0};
 	sprintf(audio_file_name, "audio_%d_%d_%d_%d_%d.bin", eDate.Month, eDate.Date, eTime.Hours, eTime.Minutes, eTime.Seconds);
 
 	//Create our binary file for dumping audio data
@@ -236,14 +238,12 @@ void audio_thread_entry(ULONG thread_input){
 		// check time to create new file
 		if (abs(eTime.Minutes - sTime.Minutes) % RTC_AUDIO_REFRESH_MINS == 0) {
 
-			//Create new audio file name
-			sprintf(tmp_audio_file_name, "audio_%d_%d_%d_%d_%d.bin", eDate.Month, eDate.Date, eTime.Hours, eTime.Minutes, eTime.Seconds);
+			//Only create new file if minutes is different
+			if (old_audio_eTime.Minutes != eTime.Minutes) {
 
-			//Only create new file if minutes is different or minutes is same and hours is different
-			if ((tmp_audio_file_name[AUDIO_FILENAME_MINS_INDEX] != audio_file_name[AUDIO_FILENAME_MINS_INDEX]) || ((tmp_audio_file_name[AUDIO_FILENAME_HOURS_INDEX] != audio_file_name[AUDIO_FILENAME_HOURS_INDEX]) && tmp_audio_file_name[AUDIO_FILENAME_MINS_INDEX] == audio_file_name[AUDIO_FILENAME_MINS_INDEX])) {
-
-				//Name new audio file
-				strcpy(audio_file_name, tmp_audio_file_name);
+				//Create new audio file name
+				sprintf(audio_file_name, "audio_%d_%d_%d_%d_%d.bin", eDate.Month, eDate.Date, eTime.Hours, eTime.Minutes, eTime.Seconds);
+				old_audio_eTime = eTime;
 
 				//Close previous audio file
 				fx_result = fx_file_close(&audio_file);
@@ -333,7 +333,7 @@ void audio_thread_entry(ULONG thread_input){
 		  fx_file_close(audio.file);
 
 		  //Terminate thread so it needs to be fully reset to start again
-		  //tx_event_flags_delete(&audio_event_flags_group);
+		  tx_event_flags_delete(&audio_event_flags_group);
 		  tx_thread_terminate(&threads[AUDIO_THREAD].thread);
 	  }
 

@@ -28,7 +28,9 @@ extern uint8_t usbReceiveBuf[APP_RX_DATA_SIZE];
 extern uint8_t usbTransmitBuf[APP_RX_DATA_SIZE];
 extern uint8_t usbTransmitLen;
 
+// sensor event flags
 extern TX_EVENT_FLAGS_GROUP imu_event_flags_group;
+extern TX_EVENT_FLAGS_GROUP depth_event_flags_group;
 extern TX_EVENT_FLAGS_GROUP data_log_event_flags_group;
 
 extern ECG_HandleTypeDef ecg;
@@ -68,16 +70,26 @@ void ecg_thread_entry(ULONG thread_input){
 		HAL_StatusTypeDef ret = HAL_ERROR;
 
 		// wait for any debugging flag
-		tx_event_flags_get(&ecg_event_flags_group, ECG_UNIT_TEST_FLAG | ECG_READ_FLAG | ECG_WRITE_FLAG | ECG_CMD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
+		tx_event_flags_get(&ecg_event_flags_group, ECG_UNIT_TEST_FLAG | ECG_READ_FLAG | ECG_WRITE_FLAG | ECG_CMD_FLAG | ECG_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
+		// check for stop thread flag
+		if (actual_flags & ECG_STOP_DATA_THREAD_FLAG){
+
+			//Suspend our interrupt to stop new data from coming in
+			HAL_NVIC_DisableIRQ(EXTI14_IRQn);
+
+			//Signal SD card thread to stop, and terminate this thread
+			tx_event_flags_set(&ecg_event_flags_group, ECG_STOP_SD_THREAD_FLAG, TX_OR);
+			tx_thread_terminate(&threads[ECG_THREAD].thread);
+		}
 		if (actual_flags & ECG_UNIT_TEST_FLAG) {
 			ecg_unit_test = true;
 			tx_event_flags_set(&ecg_event_flags_group, ECG_UNIT_TEST_DONE_FLAG, TX_OR);
 		}
 		else if (actual_flags & ECG_READ_FLAG) {
-
+			// TODO
 		}
 		else if (actual_flags & ECG_WRITE_FLAG) {
-
+			// TODO
 		}
 		else if (actual_flags & ECG_CMD_FLAG) {
 			if (usbReceiveBuf[3] == ECG_GET_SAMPLES_CMD) {
@@ -87,7 +99,7 @@ void ecg_thread_entry(ULONG thread_input){
 
 		//Acquire first half mutex to start collecting data
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG | IMU_STOP_DATA_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
-		actual_flags &= ~IMU_HALF_BUFFER_FLAG;
+		tx_event_flags_get(&depth_event_flags_group, DEPTH_HALF_BUFFER_FLAG | DEPTH_STOP_DATA_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
 		tx_mutex_get(&ecg_first_half_mutex, TX_WAIT_FOREVER);
 
 		//Fill up the first half of the buffer (this function call fills up the IMU buffer on its own)
@@ -101,7 +113,7 @@ void ecg_thread_entry(ULONG thread_input){
 
 		//Acquire the second half mutex to fill it up
 		tx_event_flags_get(&imu_event_flags_group, IMU_HALF_BUFFER_FLAG | IMU_STOP_DATA_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
-		actual_flags &= ~IMU_HALF_BUFFER_FLAG;
+		tx_event_flags_get(&depth_event_flags_group, DEPTH_HALF_BUFFER_FLAG | DEPTH_STOP_DATA_THREAD_FLAG, TX_OR, &actual_flags, TX_WAIT_FOREVER);
 		tx_mutex_get(&ecg_second_half_mutex, TX_WAIT_FOREVER);
 
 		//Call to get data, this handles filling up the second half of the buffer completely
@@ -112,20 +124,6 @@ void ecg_thread_entry(ULONG thread_input){
 
 		tx_event_flags_set(&ecg_event_flags_group, ECG_HALF_BUFFER_FLAG, TX_OR);
 		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
-
-		//Check to see if there was a stop thread request. Put very little wait time so its essentially an instant check
-		tx_event_flags_get(&ecg_event_flags_group, ECG_STOP_DATA_THREAD_FLAG, TX_OR_CLEAR, &actual_flags, 1);
-
-		//If there was something set cleanup the thread
-		if (actual_flags & ECG_STOP_DATA_THREAD_FLAG){
-
-			//Suspend our interrupt to stop new data from coming in
-			HAL_NVIC_DisableIRQ(EXTI14_IRQn);
-
-			//Signal SD card thread to stop, and terminate this thread
-			tx_event_flags_set(&ecg_event_flags_group, ECG_STOP_SD_THREAD_FLAG, TX_OR);
-			tx_thread_terminate(&threads[ECG_THREAD].thread);
-		}
 	}
 }
 HAL_StatusTypeDef ecg_init(I2C_HandleTypeDef* hi2c, ECG_HandleTypeDef* ecg){

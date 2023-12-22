@@ -8,6 +8,7 @@
  */
 
 #include "Sensor Inc/LightSensor.h"
+#include "Sensor Inc/kellerDepth.h"
 #include "Sensor Inc/DataLogging.h"
 #include "util.h"
 #include "main.h"
@@ -16,6 +17,9 @@
 
 extern I2C_HandleTypeDef hi2c2;
 extern UART_HandleTypeDef huart2;
+
+// sensor flags
+extern TX_EVENT_FLAGS_GROUP depth_event_flags_group;
 
 // usb buffers
 extern uint8_t usbReceiveBuf[APP_RX_DATA_SIZE];
@@ -129,10 +133,10 @@ void light_thread_entry(ULONG thread_input) {
 			light_unit_test = true;
 		}
 		else if (actual_flags & LIGHT_READ_FLAG) {
-
+			// TODO
 		}
 		else if (actual_flags & LIGHT_WRITE_FLAG) {
-
+			// TODO
 		}
 		else if (actual_flags & LIGHT_CMD_FLAG) {
 			if (usbReceiveBuf[3] == LIGHT_GET_SAMPLES_CMD) {
@@ -149,6 +153,7 @@ void light_thread_entry(ULONG thread_input) {
 
 		// Tell data log thread that light sensor has completed data collection
 		tx_event_flags_set(&light_event_flags_group, LIGHT_COMPLETE_FLAG, TX_OR);
+		tx_event_flags_get(&depth_event_flags_group, DEPTH_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 		tx_event_flags_get(&data_log_event_flags_group, DATA_LOG_COMPLETE_FLAG, TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
 	}
 }

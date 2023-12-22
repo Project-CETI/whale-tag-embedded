@@ -310,7 +310,7 @@ uint16_t USBD_Get_Configuration_Number(uint8_t class_type, uint8_t interface_typ
 #define USBD_CDCACM_EPIN_HS_MPS                       512U
 #define USBD_CDCACM_EPOUT_FS_MPS                      64U
 #define USBD_CDCACM_EPOUT_HS_MPS                      512U
-#define USBD_CDCACM_EPINCMD_FS_BINTERVAL              5U
+#define USBD_CDCACM_EPINCMD_FS_BINTERVAL              6U
 #define USBD_CDCACM_EPINCMD_HS_BINTERVAL              5U
 
 #ifndef USBD_CONFIG_STR_DESC_IDX

@@ -47,12 +47,8 @@
 #define TEMP_BUF_HALF_BLOCK_LENGTH		((TEMP_BUF_BLOCK_LENGTH) / 2)
 
 //Time interval to create new logging file in minutes
-#define RTC_AUDIO_REFRESH_MINS			5
+#define RTC_AUDIO_REFRESH_MINS			2
 #define RTC_AUDIO_REFRESH_TOL			1
-
-//String indices for file name
-#define AUDIO_FILENAME_HOURS_INDEX		7
-#define AUDIO_FILENAME_MINS_INDEX		9
 
 typedef enum {
     AUDIO_BUF_STATE_EMPTY,
