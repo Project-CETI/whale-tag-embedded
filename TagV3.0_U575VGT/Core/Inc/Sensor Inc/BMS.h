@@ -155,7 +155,7 @@
 #define BLOCK_PROG_TIME_MS				1000
 #define RECALL_TIME_MS					10
 
-#define BMS_WRITES_TOLERANCE			0xFF // corresponds to max 7 writes
+#define BMS_WRITES_TOLERANCE			0x01 // corresponds to max 1 write
 
 // 8-bit to 16-bit conversion
 #define TO_16_BIT(b1, b2)				((uint16_t)(b2 << 8) | (uint16_t)b1)
