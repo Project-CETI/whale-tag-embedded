@@ -66,8 +66,8 @@ extern int g_ecg_thread_writeData_is_running;
 //-----------------------------------------------------------------------------
 int init_ecg();
 int init_ecg_electronics();
-int init_ecg_data_file(int restarted_program);
-void *ecg_thread_getData(void *paramPtr);
-void *ecg_thread_writeData(void *paramPtr);
+int init_ecg_data_file();
+void* ecg_thread_getData(void* paramPtr);
+void* ecg_thread_writeData(void* paramPtr);
 
 #endif // ECG_H

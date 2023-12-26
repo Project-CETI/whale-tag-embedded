@@ -109,7 +109,7 @@ int imu_init_data_files(void) {
       data_file_exists = (access(imu_data_filepath[i_type], F_OK) != -1);
     }
     data_file_postfix_count++;
-  } while (data_file_exists);
+  } while(data_file_exists);
 
   int init_data_file_success = 0;
   for (int i_type = 0; i_type < IMU_DATA_TYPE_COUNT; i_type++) {
@@ -201,7 +201,7 @@ void *imu_thread(void *paramPtr) {
         if((get_global_time_us() - global_time_us > 5000000) && (get_global_time_us() - start_global_time_us > 10000000)) {
           CETI_ERR("Unable to reading from IMU");
           usleep(5000000);
-          setupIMU(IMU_ALL_ENABLED);
+          setupIMU();
           start_global_time_us = get_global_time_us();
         }
         usleep(2000); // Note that we are streaming 4 reports at 50 Hz, so we expect data to be available at about 200 Hz
@@ -364,8 +364,21 @@ int setupIMU(uint8_t enabled_features) {
   imu_is_connected = 1;
   CETI_LOG("IMU connection opened\n");
 
-  // Enable desired feature reports.
-  if(enabled_features & IMU_QUAT_ENABLED) {
+    // Open an I2C connection.
+    int retval = bbI2COpen(IMU_BB_I2C_SDA, IMU_BB_I2C_SCL, 200000);
+    if (retval < 0) {
+        CETI_ERR("Failed to connect to the IMU\n");
+        imu_is_connected = 0;
+        return -1;
+    }
+    imu_is_connected = 1;
+    CETI_LOG("IMU connection opened\n");
+
+    // Reset the message counters for each channel.
+    for(int channel_index = 0; channel_index < sizeof(imu_sequence_numbers)/sizeof(uint8_t); channel_index++)
+      imu_sequence_numbers[channel_index] = 0;
+
+    // Enable desired feature reports.
     imu_enable_feature_report(IMU_SENSOR_REPORTID_ROTATION_VECTOR, IMU_SAMPLING_PERIOD_QUAT_US);
     usleep(100000);
   }

@@ -1,10 +1,8 @@
 //-----------------------------------------------------------------------------
 // Project:      CETI Tag Electronics
 // Version:      Refer to _versioning.h
-// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab,
-//               MIT CSAIL
-// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto,
-//               [TODO: Add other contributors here]
+// Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
 #include "recovery.h"
@@ -12,243 +10,603 @@
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
+/* MACRO DEFINITIONS *********************************************************/
+#define RECOVERY_PACKET_KEY_VALUE '$'
+#define RECOVERY_UART_TIMEOUT_US 5000000
 
-// Global/static variables
+/* TYPE DEFINITIONS **********************************************************/
+typedef enum recovery_commands_e {
+    /* Set recovery state*/
+    REC_CMD_START        = 0x01, //pi --> rec: sets rec into recovery state
+    REC_CMD_STOP         = 0x02, //pi --> rec: sets rec into waiting state
+    REC_CMD_COLLECT_ONLY = 0x03, //pi --> rec: sets rec into rx gps state
+    REC_CMD_CRITICAL     = 0x04, //pi --> rec: sets rec into critical state
+
+    /* recovery packet */
+    REC_CMD_GPS_PACKET   = 0x10, //rec --> pi: raw gps packet
+
+
+    /* recovery configuration */
+    REC_CMD_CONFIG_CRITICAL_VOLTAGE = 0x20,
+    REC_CMD_CONFIG_VHF_POWER_LEVEL,  // 0x21,
+    REC_CMD_CONFIG_APRS_FREQ,        // 0x22,
+    REC_CMD_CONFIG_APRS_CALL_SIGN,   // 0x23,
+    REC_CMD_CONFIG_APRS_MESSAGE,     // 0x24,
+    REC_CMD_CONFIG_APRS_TX_INTERVAL, // 0x25,
+    REC_CMD_CONFIG_APRS_SSID,
+    
+    /* recovery query */
+    REC_CMD_QUERY_STATE             = 0x40,
+
+    REC_CMD_QUERY_CRITICAL_VOLTAGE  = 0x60,
+    REC_CMD_QUERY_VHF_POWER_LEVEL,  // 0x61,
+    REC_CMD_QUERY_APRS_FREQ,        // 0x62,
+    REC_CMD_QUERY_APRS_CALL_SIGN,   // 0x63,
+    REC_CMD_QUERY_APRS_MESSAGE,     // 0x64,
+    REC_CMD_QUERY_APRS_TX_INTERVAL, // 0x65,
+    REC_CMD_QUERY_APRS_SSID,
+
+
+    REC_CMD_TX_NOW                  = 0xFF,
+}RecoverCommand;
+
+typedef enum __GPS_MESSAGE_TYPES {
+	GPS_SIM = 0, //simulated GPS message
+	GPS_GLL = 1,
+	GPS_GGA = 2,
+	GPS_RMC = 3,
+	GPS_NUM_MSG_TYPES //Should always be the last element in the enum. Represents the number of message types. If you need to add a new type, put it before this element.
+}GPS_MsgTypes;
+
+typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
+    uint8_t key;        // $
+    uint8_t type;       // RecoverCommand
+    uint8_t length;     // packet_length
+    uint8_t __res;      // currently unused. (ensures word alignment of message). May be used for msg CRC  or other error correction in the future
+} RecPktHeader;
+
+typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))) __GPS_Data {
+
+	float latitude; //h00-h03
+	float longitude; //h04-h07
+
+	uint16_t timestamp[3]; //h08- h0E //0 is hour, 1 is minute, 2 is second
+
+	uint8_t is_dominica; //bool //h0e
+
+	uint8_t is_valid_data; //bool //h0f
+
+	uint8_t msg_type; //GPS_MsgTypes //h10
+
+	uint32_t quality; //h11-h14
+
+} GPS_Data;
+
+/* configuration packets */
+typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
+    RecPktHeader header;
+    struct { uint8_t value; } msg;
+} RecPkt_uint8_t;
+
+typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
+    RecPktHeader header;
+    struct { float value; } msg;
+} RecPkt_float;
+
+typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
+    RecPktHeader header;
+    struct { char value[256]; } msg;
+} RecPkt_string;
+
+typedef struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
+    uint8_t value;
+} RecConfigTxLevelPkt;
+
+typedef RecPktHeader RecNullPkt;
+#define REC_EMPTY_PKT(cmd) (RecNullPkt){.key = RECOVERY_PACKET_KEY_VALUE, .type = cmd, .length = 0} 
+
+typedef RecPkt_float    RecAPRSFrequencyPkt;    // APRS_FREQ
+typedef RecPkt_string   RecAPRSCallSignPkt;     // APRS_CALL_SIGN        
+ // APRS_MESSAGE     
+ // APRS_TX_INTERVAL 
+
+typedef union  {
+    struct {
+        RecPktHeader header;
+        char msg[256];
+    } common;
+    RecNullPkt       null_packet;
+    RecPkt_uint8_t   u8_packet;
+    RecPkt_float     float_packet;
+    RecPkt_string    string_packet;
+} RecPkt;
+
+/* GLOBAL/STATIC VARIABLES ******************************************************/
+
 int g_recovery_thread_is_running = 0;
-static FILE *recovery_data_file = NULL;
+static FILE* recovery_data_file = NULL;
 static char recovery_data_file_notes[256] = "";
-static const char *recovery_data_file_headers[] = {
-    "GPS",
-};
+static const char* recovery_data_file_headers[] = {
+  "GPS",
+  };
 static const int num_recovery_data_file_headers = 1;
 static char gps_location[GPS_LOCATION_LENGTH];
+static int recovery_fd = PI_INIT_FAILED;
 
-int init_recovery() {
-  CETI_LOG("Successfully initialized the recovery board [did nothing]");
+/* FUCNTION DEFINITIONS ******************************************************/
 
-  // Open an output file to write data.
-  if (init_data_file(recovery_data_file, RECOVERY_DATA_FILEPATH,
-                     recovery_data_file_headers, num_recovery_data_file_headers,
-                     recovery_data_file_notes, "init_recovery()") < 0)
+/* Descritpion: 
+ *    gets the next received communication packet from the recovery board.
+ * Arguments: 
+ *     RecPkt *packet   : ptr to destination packet union.
+ *     time_t timout_us : timeout in microsecond, 0 = never.
+ */
+int recovery_get_packet(RecPkt *packet, time_t timeout_us) {
+    bool header_complete = 0;
+    int expected_bytes = sizeof(RecPktHeader);
+    time_t start_time_us = get_global_time_us();
+
+    packet->common.header.key = 0;
+    do {
+        int bytes_avail = serDataAvailable(recovery_fd);
+        if (bytes_avail < 0) { // UART Error
+            CETI_ERR("Recovery board UART error");
+            return -1;
+        }
+
+        if (bytes_avail < expected_bytes) { // no bytes available
+            usleep(1000); // wait a bit
+            continue;     // try again
+        }
+
+        // scan bytes until start byte (skip if start byte already found)
+        while ((bytes_avail) && (packet->common.header.key != RECOVERY_PACKET_KEY_VALUE)) {
+            int result = serRead(recovery_fd, (char *)&(packet->common.header.key), 1); 
+            if (result < 0) { // UART Error
+                CETI_ERR("Recovery board UART error");
+                return -1;
+            }
+
+            bytes_avail--;
+        }
+
+        if (packet->common.header.key != RECOVERY_PACKET_KEY_VALUE) {
+            //packet key not
+            continue;
+        }
+
+        if(!header_complete){
+            // read rest of header
+            expected_bytes = sizeof(RecPktHeader) - 1;
+            if (bytes_avail < expected_bytes) // not enough bytes to complete header
+                continue;                     // get more bytes
+
+            int result = serRead(recovery_fd, (char *)&(packet->common.header.type), expected_bytes); 
+            if (result < 0) { // UART Error
+                CETI_ERR("Recovery board UART error");
+                return -1;
+            }
+            bytes_avail -= expected_bytes;
+            header_complete = 1;
+        }
+
+        // read message if any
+        if(packet->common.header.length == 0)
+            return 0;
+
+        expected_bytes = packet->common.header.length;
+        if (bytes_avail < expected_bytes){ // not enough bytes to complete msg
+            continue;                      // get more bytes
+        }
+
+        int result = serRead(recovery_fd, packet->common.msg, expected_bytes);
+        if (result < 0) { // UART Error
+            CETI_ERR("Recovery board UART error");
+            return -1;
+        }
+
+        return 0; // Success !!! 
+    } while ((timeout_us == 0)  || ((get_global_time_us() - start_time_us) < timeout_us));
+
+    //Timeout
+    CETI_ERR("Recovery board timeout");
+    return -2;
+}
+
+int recovery_get_aprs_call_sign(char buffer[static 7]) {
+    //send query cmd
+    RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_QUERY_APRS_CALL_SIGN);
+    RecPkt ret_pkt = {};
+    serWrite(recovery_fd, (char *)&q_pkt, sizeof(q_pkt));
+
+
+    //wait for response
+    int64_t start_time_us = get_global_time_us();
+    do {
+        if (recovery_get_packet(&ret_pkt, RECOVERY_UART_TIMEOUT_US) < -1) {
+            CETI_ERR("Recovery board packet reading error");
+            return -1;
+        }
+
+        if(ret_pkt.common.header.type == REC_CMD_CONFIG_APRS_CALL_SIGN) {
+            size_t len = ret_pkt.string_packet.header.length;
+            len = (6 < len) ? 6 : len;
+            memcpy(buffer, ret_pkt.string_packet.msg.value, len);
+            buffer[len] = 0;
+            return 0;
+        }
+        
+        //received incorrect packet type, keep reading
+    } while ((get_global_time_us() - start_time_us) < RECOVERY_UART_TIMEOUT_US);
+
+    //Timeout
+    CETI_ERR("Recovery board timeout");
+    return -2;
+}
+
+int recovery_get_aprs_freq_mhz(float *p_freq_MHz){
+    //send query cmd
+    RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_QUERY_APRS_FREQ);
+    RecPkt ret_pkt = {};
+    serWrite(recovery_fd, (char *)&q_pkt, sizeof(q_pkt));
+
+
+    //wait for response
+    int64_t start_time_us = get_global_time_us();
+    do {
+        if (recovery_get_packet(&ret_pkt, RECOVERY_UART_TIMEOUT_US) < -1) {
+            CETI_ERR("Recovery board packet reading error");
+            return -1;
+        }
+
+        if(ret_pkt.common.header.type == REC_CMD_CONFIG_APRS_FREQ) {
+            *p_freq_MHz = ret_pkt.float_packet.msg.value; 
+            return 0;
+        }
+        
+        //received incorrect packet type, keep reading
+    } while ((get_global_time_us() - start_time_us) < RECOVERY_UART_TIMEOUT_US);
+
+    //Timeout
+    CETI_ERR("Recovery board timeout");
+    return -2;
+}
+
+int recovery_get_aprs_ssid(uint8_t *p_ssid){
+    RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_QUERY_APRS_SSID);
+    RecPkt ret_pkt = {};
+    serWrite(recovery_fd, (char *)&q_pkt, sizeof(q_pkt));
+
+
+    int64_t start_time_us = get_global_time_us();
+    do {
+        if (recovery_get_packet(&ret_pkt, RECOVERY_UART_TIMEOUT_US) < -1) {
+            CETI_ERR("Recovery board packet reading error");
+            return -1;
+        }
+
+        if(ret_pkt.common.header.type == REC_CMD_CONFIG_APRS_SSID) {
+            *p_ssid = ret_pkt.u8_packet.msg.value; 
+            return 0;
+        }
+        
+        //received incorrect packet type, keep reading
+    } while ((get_global_time_us() - start_time_us) < RECOVERY_UART_TIMEOUT_US);
+
+    //Timeout
+    CETI_ERR("Recovery board response timeout");
+    return -2;
+}
+
+int recovery_set_aprs_call_sign(const char * call_sign){
+    size_t call_sign_len = strlen(call_sign);
+    if (call_sign_len > 6) {
+        CETI_ERR("Callsign \"%s\" is too long", call_sign);
+        return -3;
+    }
+
+    RecPkt_string pkt = {
+        .header = {
+            .key = RECOVERY_PACKET_KEY_VALUE,
+            .type = REC_CMD_CONFIG_APRS_CALL_SIGN,
+            .length = (uint8_t) call_sign_len,
+        },
+    };
+    memcpy(pkt.msg.value, call_sign, call_sign_len);
+
+    return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPktHeader) + call_sign_len);
+}
+
+int recovery_set_aprs_freq_mhz(float freq_MHz){
+    RecPkt_float pkt = {
+        .header = {
+            .key = RECOVERY_PACKET_KEY_VALUE,
+            .type = REC_CMD_CONFIG_APRS_FREQ,
+            .length = sizeof(float)
+        }, 
+        .msg = { .value = freq_MHz}
+    };
+    return serWrite(recovery_fd, (char *)&pkt, sizeof(pkt));
+}
+
+int recovery_set_aprs_ssid(uint8_t ssid){
+    RecPkt_uint8_t pkt = {
+        .header = {
+            .key = RECOVERY_PACKET_KEY_VALUE,
+            .type = REC_CMD_CONFIG_APRS_SSID,
+            .length = sizeof(uint8_t),
+        },
+        .msg = {.value = ssid}
+    };
+
+    if (ssid > 15) {
+        CETI_ERR("APRS SSID (%d) outside allowable range (0-15)", ssid);
+        return -4;
+    }
+
+    return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPkt_uint8_t));
+}
+
+int recovery_set_critical_voltage(float voltage){
+    RecPkt_float pkt = {
+        .header = {
+            .key = RECOVERY_PACKET_KEY_VALUE,
+            .type = REC_CMD_CONFIG_CRITICAL_VOLTAGE,
+            .length = sizeof(float)
+        }, 
+        .msg = { .value = voltage}
+    };
+    return serWrite(recovery_fd, (char *)&pkt, sizeof(pkt));
+}
+
+int recovery_set_power_level(RecoveryPowerLevel power_level){
+    struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
+        RecPktHeader header;
+        RecConfigTxLevelPkt msg;
+    } pkt = {
+        .header = {
+            .key = RECOVERY_PACKET_KEY_VALUE,
+            .type = REC_CMD_CONFIG_VHF_POWER_LEVEL,
+            .length = sizeof(RecConfigTxLevelPkt)
+        },
+        .msg = {.value = power_level},
+    };
+    serWrite(recovery_fd, (char *)&pkt, sizeof(pkt));
+    return 0;
+}
+
+int recovery_tx_now(const char * message){
+    size_t message_len = strlen(message);
+    if (message_len > 67) {
+        CETI_ERR("Message \"%s\" is too long", message);
+        return -3;
+    }
+
+    RecPkt_string pkt = {
+        .header = {
+            .key = RECOVERY_PACKET_KEY_VALUE,
+            .type = REC_CMD_TX_NOW,
+            .length = (uint8_t) message_len,
+        },
+    };
+    memcpy(pkt.msg.value, message, message_len);
+
+    return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPktHeader) + message_len);
+}
+
+int recovery_init(void) {
+    char call_sign[7] = {};
+    gpioWrite(13, 1); //turn on recovery
+    usleep(50000); // sleep a bit
+
+    // Open serial communication
+    recovery_fd = serOpen("/dev/serial0",115200,0);
+    if (recovery_fd < 0) {
+        CETI_ERR("Failed to open the recovery board serial port");
+        return (-1);
+    }
+
+    // get call sign to ensure uart
+    if (recovery_get_aprs_call_sign(call_sign) == 0){
+        CETI_LOG("Callsign: \"%s\".", call_sign);
+    }
+    else {
+        CETI_ERR("Did not receive recovery borad response.");
+    }
+
+    recovery_on();
+
+    // send wake message
+    char hostname[512];
+    gethostname(hostname, 511);
+    
+    char message[1024];
+    snprintf(message, sizeof(message), "CETI %s ready!", hostname);
+    recovery_tx_now(message);
+
+    // Open an output file to write data.
+    if(init_data_file(recovery_data_file, RECOVERY_DATA_FILEPATH,
+                        recovery_data_file_headers,  num_recovery_data_file_headers,
+                        recovery_data_file_notes, "init_recovery()") < 0)
     return -1;
 
-  return 0;
+    CETI_LOG("Successfully initialized the recovery board");
+    return 0;
+}
+
+int recovery_restart(void) {
+    serClose(recovery_fd); // close serial port 
+    gpioWrite(13, 0);      // turn off recovery
+    usleep(50000);
+    return recovery_init();
 }
 
 //-----------------------------------------------------------------------------
 // Main thread
 //-----------------------------------------------------------------------------
-void *recovery_thread(void *paramPtr) {
-  // Get the thread ID, so the system monitor can check its CPU assignment.
-  g_recovery_thread_tid = gettid();
-
-  // Set the thread CPU affinity.
-  if (RECOVERY_CPU >= 0) {
-    pthread_t thread;
-    thread = pthread_self();
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(RECOVERY_CPU, &cpuset);
-    if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-      CETI_LOG("Successfully set affinity to CPU %d", RECOVERY_CPU);
-    else
-      CETI_LOG("XXX Failed to set affinity to CPU %d", RECOVERY_CPU);
-  }
-
-  // Main loop while application is running.
-  CETI_LOG("Starting loop to periodically acquire data");
-  int64_t global_time_us;
-  int rtc_count;
-  int64_t polling_sleep_duration_us;
-  g_recovery_thread_is_running = 1;
-  while (!g_stopAcquisition) {
-    recovery_data_file = fopen(RECOVERY_DATA_FILEPATH, "at");
-    if (recovery_data_file == NULL) {
-      CETI_LOG("failed to open data output file: %s", RECOVERY_DATA_FILEPATH);
-      // Sleep a bit before retrying.
-      for (int i = 0; i < 10 && !g_stopAcquisition; i++)
-        usleep(100000);
-    } else {
-      bool gps_error = false;
-
-      // Acquire timing and sensor information as close together as possible.
-      global_time_us = get_global_time_us();
-      rtc_count = getRtcCount();
-      gps_error = (getGpsLocation(gps_location) < 0);
-
-      // Write timing information.
-      fprintf(recovery_data_file, "%lld", global_time_us);
-      fprintf(recovery_data_file, ",%d", rtc_count);
-      // Write any notes, then clear them so they are only written once.
-      fprintf(recovery_data_file, ",%s", recovery_data_file_notes);
-      if (gps_error)
-        fprintf(recovery_data_file, "ERROR | ");
-      recovery_data_file_notes[0] = '\0';
-      // Write the sensor data.
-      fprintf(recovery_data_file, "\"%s\"", gps_location);
-      // Finish the row of data and close the file.
-      fprintf(recovery_data_file, "\n");
-      fclose(recovery_data_file);
-
-      // Delay to implement a desired sampling rate.
-      // Take into account the time it took to acquire/save data.
-      polling_sleep_duration_us = RECOVERY_SAMPLING_PERIOD_US;
-      polling_sleep_duration_us -= get_global_time_us() - global_time_us;
-      if (polling_sleep_duration_us > 0)
-        usleep(polling_sleep_duration_us);
+int recovery_thread_init(void) {
+    int result = recovery_init();
+    if(result != 0){
+        CETI_ERR("Failed to initalize recovery board heardware");
+        return result;
     }
-  }
-  g_recovery_thread_is_running = 0;
-  CETI_LOG("Done!");
-  return NULL;
+
+
+    // Open an output file to write data.
+    if(init_data_file(recovery_data_file, RECOVERY_DATA_FILEPATH,
+                        recovery_data_file_headers,  num_recovery_data_file_headers,
+                        recovery_data_file_notes, "init_data_file()") < 0) {
+        CETI_LOG("Failed to initialize recovery board thread");              
+        return -1;
+    }
+
+    CETI_LOG("Successfully initialized recovery board thread");
+    return 0;
 }
 
-//-----------------------------------------------------------------------------
-// Testing
-//-----------------------------------------------------------------------------
-// Tx a test message on UART, loopback to confirm FPGA and IO connectivity
-int testRecoverySerial(void) {
-  int i;
+void* recovery_thread(void* paramPtr) {
+    // Get the thread ID, so the system monitor can check its CPU assignment.
+    g_recovery_thread_tid = gettid();
 
-  char buf[4096];
-  char testbuf[16] = "Hello Whales!\n";
+    // Set the thread CPU affinity.
+    if(RECOVERY_CPU >= 0)
+    {
+      pthread_t thread;
+      thread = pthread_self();
+      cpu_set_t cpuset;
+      CPU_ZERO(&cpuset);
+      CPU_SET(RECOVERY_CPU, &cpuset);
+      if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
+        CETI_LOG("Successfully set affinity to CPU %d", RECOVERY_CPU);
+      else
+        CETI_ERR("Failed to set affinity to CPU %d", RECOVERY_CPU);
+    }
 
-  int fd;
-  int bytes_avail;
+    // Main loop while application is running.
+    CETI_LOG("Starting loop to periodically acquire data");
+    long long global_time_us;
+    int rtc_count;
+    long long polling_sleep_duration_us;
+    int result;
+    g_recovery_thread_is_running = 1;
+    while (!g_exit) {
+      recovery_data_file = fopen(RECOVERY_DATA_FILEPATH, "at");
+      if(recovery_data_file == NULL)
+      {
+        CETI_ERR("Failed to open data output file: %s", RECOVERY_DATA_FILEPATH);
+        // Sleep a bit before retrying.
+        for(int i = 0; i < 10 && !g_exit; i++)
+          usleep(100000);
+      }
+      else
+      {
+        // Acquire timing and sensor information as close together as possible.
+        global_time_us = get_global_time_us();
+        rtc_count = getRtcCount();
+        result = recovery_get_gps_data(gps_location);
+        if (result == -2) { //timeout
+            // no gps packet available
+            // nothing to do
+            continue;
+        } else if (result == -1) {
+            CETI_ERR("Recovery board communication Error");
+            recovery_restart();
+            sleep(10);
+            continue;
+        }   
 
-  fd = serOpen("/dev/serial0", 9600, 0);
+        // Write timing information.
+        fprintf(recovery_data_file, "%lld", global_time_us);
+        fprintf(recovery_data_file, ",%d", rtc_count);
+        // Write any notes, then clear them so they are only written once.
+        fprintf(recovery_data_file, ",%s", recovery_data_file_notes);
+        strcpy(recovery_data_file_notes, "");
+        // Write the sensor data.
+        fprintf(recovery_data_file, "\"%s\"", gps_location);
+        // Finish the row of data and close the file.
+        fprintf(recovery_data_file, "\n");
+        fclose(recovery_data_file);
 
-  if (fd < 0) {
-    CETI_LOG("Failed to open the serial port");
-    return (-1);
-  } else {
-    CETI_LOG("Successfully opened the serial port");
-  }
-
-  for (i = 0; i < 128; i++) {
-    usleep(1000000);
-
-    bytes_avail = (serDataAvailable(fd));
-    CETI_LOG("%d bytes are available from the serial port", bytes_avail);
-    serRead(fd, buf, bytes_avail);
-    CETI_LOG("%s", buf);
-
-    CETI_LOG("Trying to write to the serial port with pigpio");
-    serWrite(fd, testbuf, 14); // test transmission
-  }
-
-  return (0);
+        // Delay to implement a desired sampling rate.
+        // Take into account the time it took to acquire/save data.
+        polling_sleep_duration_us = RECOVERY_SAMPLING_PERIOD_US;
+        polling_sleep_duration_us -= get_global_time_us() - global_time_us;
+        if(polling_sleep_duration_us > 0)
+          usleep(polling_sleep_duration_us);
+      }
+    }
+    recovery_off();
+    serClose(recovery_fd);
+    g_recovery_thread_is_running = 0;
+    CETI_LOG("Done!");
+    return NULL;
 }
 
 //-----------------------------------------------------------------------------
 // On/Off
 //-----------------------------------------------------------------------------
-int recoveryOn(void) {
-  int fd, result;
 
-  if ((fd = i2cOpen(1, ADDR_MAINTAG_IOX, 0)) < 0) {
-    CETI_LOG("XXXX Failed to open I2C connection for IO Expander XXXX");
-    return -1;
-  }
-  result = i2cReadByte(fd);
-  result = result & (~RCVRY_RP_nEN & ~nRCVRY_SWARM_nEN & ~nRCVRY_VHF_nEN);
-  i2cWriteByte(fd, result);
-  i2cClose(fd);
-  return 0;
+int recovery_on(void) {
+    RecPktHeader start_pkt = {
+        .key = RECOVERY_PACKET_KEY_VALUE,
+        .type = REC_CMD_START,
+        .length = 0,
+    };
+
+    serWrite(recovery_fd, (char *)&start_pkt, sizeof(start_pkt));
+    return 0;
 }
 
-int recoveryOff(void) {
-  int fd, result;
+int recovery_off(void) {
+    RecPktHeader stop_pkt = {
+        .key = RECOVERY_PACKET_KEY_VALUE,
+        .type = REC_CMD_STOP,
+        .length = 0,
+    };
 
-  if ((fd = i2cOpen(1, ADDR_MAINTAG_IOX, 0)) < 0) {
-    CETI_LOG("XXXX Failed to open I2C connection for IO Expander XXXX");
-    return -1;
-  }
-  result = i2cReadByte(fd);
-  result = result | (RCVRY_RP_nEN | nRCVRY_SWARM_nEN | nRCVRY_VHF_nEN);
-  i2cWriteByte(fd, result);
-  i2cClose(fd);
-  return 0;
+    serWrite(recovery_fd, (char *)&stop_pkt, sizeof(stop_pkt));
+    return 0;
+}
+
+int recoveryCritical(void){
+     RecPktHeader critical_pkt = {
+        .key = RECOVERY_PACKET_KEY_VALUE,
+        .type = REC_CMD_CRITICAL,
+        .length = 0,
+    };
+
+    serWrite(recovery_fd, (char *)&critical_pkt, sizeof(critical_pkt));
+
+    return 0;
 }
 
 //-----------------------------------------------------------------------------
 // Get GPS
 //-----------------------------------------------------------------------------
+int recovery_get_gps_data(char gpsLocation[static GPS_LOCATION_LENGTH]){
+    RecPkt pkt;
+    int result = 0;
 
-//    The Recovery Board sends the GPS location sentence as an ASCII string
-//    about once per second automatically via the serial
-//    port. This function monitors the serial port and extracts the sentence for
-//    reporting in the .csv record.
-//
-//    The Recovery Board may not be on at all times. Depending on the state
-//    of the tag, it may be turned off to save power. See the state machine
-//    function for current design. If the recovery board is off, the gps field
-//    in the .csv file will indicate "No GPS update available"
-//
-//    The messages coming in from the Recovery Board are asynchronous relative to
-//    the timing of execution of this function. So, partial messages will occur
-//    if they are provided at a rate less than 2x the frequency of this
-//    routine  - see SNS_SMPL_PERIOD which is nominally 1 second per cycle.
-int getGpsLocation(char *gpsLocation) {
-  static int fd = PI_INIT_FAILED;       // handle for serial port. The port is left open for the life of the app
-  static char buf[GPS_LOCATION_LENGTH]; // working buffer for serial data
-  static char *pTempWr = buf;           // these need to be static in case of a partial message
-  static int bytes_total = 0;
+    //wait for GPS packet
+    do {
+        result = recovery_get_packet(&pkt, 1000000);
+        switch (result) {
+            case -1:
+                CETI_ERR("Recovery board communication error");
+                return result;
 
-  char *msg_start = NULL, *msg_end = NULL;
-  int bytes_avail, i, complete = 0, pending = 0;
+            case -2:
+                CETI_LOG("Recovery board pkt timeout");
+                return result;
 
-  // Open the serial port using the pigpio lib
+            default:
+                break;
+        }
+    } while(pkt.common.header.type != REC_CMD_GPS_PACKET);
 
-  if (fd <= PI_INIT_FAILED) {
-    fd = serOpen("/dev/serial0", 115200, 0);
-    if (fd < 0) {
-      CETI_LOG("Failed to open the serial port");
-      return (-1);
-    }
-    CETI_LOG("Successfully opened the serial port");
-  }
-
-  // Check if any bytes are waiting in the UART buffer and store them temporarily.
-  // It is possible to receive a partial message - no synch or handshaking in protocol
-
-  bytes_avail = serDataAvailable(fd);
-  bytes_total += bytes_avail; // keep a running count
-
-  if (bytes_avail && (bytes_total < GPS_LOCATION_LENGTH)) {
-    serRead(fd, pTempWr, bytes_avail);   // add the new bytes to the buffer
-    pTempWr = pTempWr + bytes_avail;     // advance the write pointer
-  } else {                               // defensive - something went wrong, reset the buffer
-    memset(buf, 0, GPS_LOCATION_LENGTH); // reset entire buffer conents
-    bytes_total = 0;                     // reset the static byte counter
-    pTempWr = buf;                       // reset the static write pointer
-  }
-
-  // Scan the whole buffer for a GPS message - delimited by 'g' and '\n'
-  for (i = 0; (i <= bytes_total && !complete); i++) {
-    if (buf[i] == 'g' && !pending) {
-      msg_start = buf + i;
-      pending = 1;
-    }
-
-    if (buf[i] == '\n' && pending) {
-      msg_end = buf + i - 1; // don't include the '/n'
-      complete = 1;
-    }
-  }
-
-  if (complete) { // copy the message from the buffer
-    memset(gpsLocation, 0, GPS_LOCATION_LENGTH);
-    strncpy(gpsLocation, msg_start + 1, (msg_end - buf));
-    memset(buf, 0, GPS_LOCATION_LENGTH); // reset buffer conents
-    bytes_total = 0;                     // reset the static byte counter
-    pTempWr = buf;                       // reset the static write pointer
-    gpsLocation[strcspn(gpsLocation, "\r\n")] = 0;
-  } else { // No complete sentence was available on this cycle, try again next time through
-    strcpy(gpsLocation, "No GPS update available");
-    CETI_LOG("XXX No GPS update available");
-    return -1;
-  }
-
-  return (0);
+    //copy packet into buffer
+    uint_fast8_t len = pkt.string_packet.header.length;
+    memcpy(gpsLocation, pkt.string_packet.msg.value, len);
+    return 0;
 }
+
