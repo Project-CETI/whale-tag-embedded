@@ -298,7 +298,7 @@ int recovery_get_aprs_ssid(uint8_t *p_ssid){
     return -2;
 }
 
-int recovery_set_aprs_call_sign(const char * call_sign){
+int __recovery_set_aprs_call_sign(const char * call_sign){
     size_t call_sign_len = strlen(call_sign);
     if (call_sign_len > 6) {
         CETI_ERR("Callsign \"%s\" is too long", call_sign);
@@ -329,7 +329,7 @@ int recovery_set_aprs_freq_mhz(float freq_MHz){
     return serWrite(recovery_fd, (char *)&pkt, sizeof(pkt));
 }
 
-int recovery_set_aprs_ssid(uint8_t ssid){
+int __recovery_set_aprs_ssid(uint8_t ssid){
     RecPkt_uint8_t pkt = {
         .header = {
             .key = RECOVERY_PACKET_KEY_VALUE,
@@ -345,6 +345,13 @@ int recovery_set_aprs_ssid(uint8_t ssid){
     }
 
     return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPkt_uint8_t));
+}
+
+int recovery_set_aprs_call_sign(const APRSCallsign *callsign){
+    int result;
+    result = __recovery_set_aprs_call_sign(callsign->callsign);
+    result |= __recovery_set_aprs_ssid(callsign->ssid);
+    return result;
 }
 
 int recovery_set_critical_voltage(float voltage){
@@ -393,6 +400,11 @@ int recovery_tx_now(const char * message){
 
     return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPktHeader) + message_len);
 }
+
+int recovery_message(const APRSCallsign *addressee, const char *message){
+    
+}
+
 
 int recovery_init(void) {
     char call_sign[7] = {};
@@ -503,7 +515,7 @@ void* recovery_thread(void* paramPtr) {
         // Acquire timing and sensor information as close together as possible.
         global_time_us = get_global_time_us();
         rtc_count = getRtcCount();
-        result = recovery_get_gps_data(gps_location);
+        result = recovery_get_gps_data(gps_location, 1000000);
         if (result == -2) { //timeout
             // no gps packet available
             // nothing to do
@@ -583,13 +595,13 @@ int recoveryCritical(void){
 //-----------------------------------------------------------------------------
 // Get GPS
 //-----------------------------------------------------------------------------
-int recovery_get_gps_data(char gpsLocation[static GPS_LOCATION_LENGTH]){
+int recovery_get_gps_data(char gpsLocation[static GPS_LOCATION_LENGTH], time_t timeout_us){
     RecPkt pkt;
     int result = 0;
 
     //wait for GPS packet
     do {
-        result = recovery_get_packet(&pkt, 1000000);
+        result = recovery_get_packet(&pkt, timeout_us);
         switch (result) {
             case -1:
                 CETI_ERR("Recovery board communication error");
@@ -609,4 +621,3 @@ int recovery_get_gps_data(char gpsLocation[static GPS_LOCATION_LENGTH]){
     memcpy(gpsLocation, pkt.string_packet.msg.value, len);
     return 0;
 }
-

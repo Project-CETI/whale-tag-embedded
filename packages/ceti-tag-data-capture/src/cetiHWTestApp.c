@@ -48,10 +48,12 @@ typedef struct hardware_test_t{
 TestUpdateMethod test_ToDo;
 TestUpdateMethod test_batteries;
 TestUpdateMethod test_i2cdetect;
+TestUpdateMethod test_imu;
 TestUpdateMethod test_internet;
 TestUpdateMethod test_light;
 TestUpdateMethod test_pressure;
 TestUpdateMethod test_ecg;
+TestUpdateMethod test_recovery;
 
 
 HardwareTest g_test_list[] = {
@@ -64,7 +66,7 @@ HardwareTest g_test_list[] = {
     { .name = "Temperature",      .update = test_ToDo, },
     { .name = "Light",            .update = test_light, },
     { .name = "Communication",    .update = test_internet, },
-    { .name = "Recovery",         .update = test_ToDo, },
+    { .name = "Recovery",         .update = test_recovery, },
 };
     // ECG 
 
@@ -169,14 +171,15 @@ TestState test_batteries(void){
 }
 
 TestState test_ecg(void){
-    int none_pass = 0;
-    int p_pass = 0;
-    int n_pass = 0;
-    int all_pass = 0;
+    char input;
+    bool none_pass = false;
+    bool p_pass = false;
+    bool n_pass = false;
+    bool all_pass = false;
     int state_count = 0;
-    int state, prev_state;
+
     // instructions:
-    printf("Instructions: Touch the ECG leads in the following combinations")
+    printf("Instructions: Touch the ECG leads in the following combinations");
     
     // ToDo: initialize ecg
 
@@ -379,21 +382,121 @@ TestState test_imu(void){
          : TEST_STATE_FAILED;
 }
 
+/* ToDo: test recovery communication */
 TestState test_recovery(void){
-    /* ToDo: test recovery communication
-     * UART Test:
-     * - query and record recovery board's UID - requires 2 way communmication
-     * APRS Test:
-     * - generate random 4 character string
-     * - transmit string via APRS
-     * - either query APRS-IS, APRS.fi, or have user manually enter code 
-     * GPS Test:
-     * - obtain a gps lock from GPS chip 
-     */
- 
-    printf("Instructions: Shine a bright light on tag light sensor\n");
+    char input;
+    int vhf_pass = false;
+    int gps_pass = false;
+    time_t last_tx_time;
+    char rand_str[5] = {};
+    char user_input[5] = {};
+    int cursor = 0;
+    char sentence[GPS_LOCATION_LENGTH];
+    APRSCallsign src_callsign = {
+        .callsign = "KC1TUJ",
+        .ssid = 3,
+    };
     
-    
+    sentence[0] = 0;
+
+    if (recovery_init()  != 0) {
+        printf(RED(FAIL) "UART Communication Failure.\n");
+        while(input == 0){ read(STDIN_FILENO, &input, 1); }
+        fprintf(results_file, "[FAIL]: UART communication failure.\n");
+        return TEST_STATE_FAILED; //imu communication error
+    }
+
+    // UART Communication test:
+    // - query and record recovery board's UID - requires 2 way communmication
+    char callsign[7] = {};
+    if ( recovery_get_aprs_call_sign(callsign) != 0 ) {
+        printf(RED(FAIL) "Recovery query failure.\n");
+        while(input == 0){ read(STDIN_FILENO, &input, 1); }
+        fprintf(results_file, "[FAIL]: Recovery query failure.\n");
+        return TEST_STATE_FAILED; //imu communication error
+    }
+
+    // Set callsign:
+    recovery_set_aprs_call_sign(&src_callsign);
+
+    // VHF/APRS TEST
+    // generate random 4 character string
+    for (int i = 0; i < sizeof(rand_str) - 1; i++){
+        char val = rand() % (10 + 26 + 26);
+        if (val < 10) {
+            val = '0' + val;
+        } else if (val < (10 + 26)) {
+            val = 'A' + (val - 10);
+        } else {
+            val = 'a' + (val - (10 + 26));
+        }
+        rand_str[i] = val;
+    }
+    rand_str[4] = 0;
+    recovery_tx_now(rand_str);
+    last_tx_time = get_global_time_us();
+
+    printf("Instructions:\n");
+    printf("    APRS: Write 4 character comment being transmitted via APRS every minute by KC1TUJ-3.\n");
+    printf("    GPS:  Take tag somewhere it can receive GPS signal.\n");
+    printf(rand_str);
+
+
+    while((input == 0) && !(vhf_pass && gps_pass)){
+        time_t current_time = get_global_time_us();
+
+        printf("\e[6;1H\e[0KAPRS: %s\n", vhf_pass ? GREEN(PASS) : YELLOW("Enter code:  "));
+        printf("\e[6;24H\e[0K%s\n", user_input);
+
+        // - transmit string via APRS
+        if( !vhf_pass
+            && ((current_time - last_tx_time) > (60 * 1000000))
+        ){
+            recovery_tx_now(rand_str);
+            last_tx_time = current_time;
+        }
+
+        //check if gps pass
+        //offload to subprocess?
+        int result = recovery_get_gps_data(sentence, 10000);
+        if (result == 0) {
+            gps_pass = true;
+        }
+        printf("\e[9;1H\e[0KGPS: %s\n", gps_pass ? GREEN(PASS) : YELLOW("Waiting for lock... "));
+        printf("\e[10;4H\e[0K%s\n", sentence);
+
+
+        // get user input
+        read(STDIN_FILENO, &input, 1);
+        if(!vhf_pass){
+            if( (('0' <= input) && (input <= '9')) 
+                || (('A' <= input) && (input <= 'Z')) 
+                || (('a' <= input) && (input <= 'z')) 
+            ){ //character
+                user_input[cursor] = input;
+                if (cursor < 3) {
+                    cursor += 1;
+                } 
+                input = 0;
+                if(memcmp(rand_str, user_input, 5) == 0){
+                    vhf_pass = true;
+                }
+            } else if ( input == '\177') { //backspace
+                if(cursor != 0) {
+                    cursor -= 1;
+                }
+                user_input[cursor] = 0;
+                input = 0;
+            }
+        }
+    }
+    //record results
+    fprintf(results_file, "[%s]: aprs\n", vhf_pass ? "PASS" : "FAIL");
+    fprintf(results_file, "[%s]: gps\n", gps_pass ? "PASS" : "FAIL");
+
+    return (input == 27) ? TEST_STATE_TERMINATE
+         : (vhf_pass && gps_pass) ? TEST_STATE_PASSED
+         : TEST_STATE_FAILED;
 }
 
 // Function to check the status of a network interface
@@ -614,8 +717,12 @@ void draw_horzontal_bar(double value, double val_max, int x, int y, int w){
  * main
  */
 int main(void) {
-
-    gpioInitialise();
+    if (gpioInitialise() < 0) {
+        CETI_LOG("XXXX Failed to initialize pigpio XXXX");
+        return 1;
+    } else {
+        CETI_LOG("Successfully initialized pigpio");
+    }
     atexit(gpioTerminate);
 
     light_wake();

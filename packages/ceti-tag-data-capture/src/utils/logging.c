@@ -42,7 +42,7 @@ int init_data_file(FILE *data_file, const char *data_filepath,
     for(int header_index = 0; header_index < num_data_file_headers; header_index++)
     {
       strcat(header, ",");
-      strcat(header, data_file_headers[i]);
+      strcat(header, data_file_headers[header_index]);
     }
     strcat(header, "\n");
     fprintf(data_file, "%s", header);

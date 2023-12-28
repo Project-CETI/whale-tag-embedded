@@ -392,7 +392,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
 
     if (!g_stopAcquisition && !g_audio_overflow_detected) {
       // Log that a write is starting.
-      int64_t global_time_us = get_global_time_us();
+      long long global_time_us = get_global_time_us();
       while (audio_writing_to_status_file)
         usleep(10);
       audio_writing_to_status_file = 1;
@@ -485,7 +485,7 @@ void audio_createNewFlacFile() {
   // filename is the time in ms at the start of audio recording
   struct timeval te;
   gettimeofday(&te, NULL);
-  int64_t milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
+  long long milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
   snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%lld.flac", milliseconds);
   audio_acqDataFileLength = 0;
 
@@ -561,7 +561,7 @@ void *audio_thread_writeRaw(void *paramPtr) {
 
     if (!g_stopAcquisition && !g_audio_overflow_detected) {
       // Log that a write is starting.
-      int64_t global_time_us = get_global_time_us();
+      long long global_time_us = get_global_time_us();
       while (audio_writing_to_status_file)
         usleep(10);
       audio_writing_to_status_file = 1;
@@ -637,7 +637,7 @@ void audio_createNewRawFile() {
   // filename is the time in ms at the start of audio recording
   struct timeval te;
   gettimeofday(&te, NULL);
-  int64_t milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
+  long long milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
   snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%lld.raw", milliseconds);
   acqData = fopen(audio_acqDataFileName, "wb");
   audio_acqDataFileLength = 0;
@@ -658,7 +658,7 @@ void audio_check_for_overflow(int location_index) {
   if (g_audio_overflow_detected) {
     CETI_LOG("*** OVERFLOW detected at location %d ***", location_index);
     audio_overflow_detected_location = location_index;
-    int64_t global_time_us = get_global_time_us();
+    long long global_time_us = get_global_time_us();
     while (audio_writing_to_status_file)
       usleep(10);
     audio_writing_to_status_file = 1;

@@ -35,6 +35,12 @@ typedef enum recovery_power_level_e {
 	RECOVERY_POWER_LOW,
 	RECOVERY_POWER_HIGH,
 }RecoveryPowerLevel;
+
+typedef struct aprs_callsign_t {
+	char callsign[7];
+	uint8_t ssid;
+} APRSCallsign;
+
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
@@ -46,8 +52,10 @@ extern int g_recovery_thread_is_running;
 int recovery_init(void);
 int recovery_restart(void);
 int recovery_get_aprs_call_sign(char buffer[static 7]);
-int recovery_get_gps_data(char gpsLocation[static GPS_LOCATION_LENGTH]);
+int recovery_get_gps_data(char gpsLocation[static GPS_LOCATION_LENGTH], time_t timeout_us);
 int recovery_set_critical_voltage(float voltage);
+int recovery_set_aprs_call_sign(const APRSCallsign *callsign);
+int recovery_message(const APRSCallsign *addressee, const char *message);
 int recovery_on(void);
 int recovery_off(void);
 //-----------------------------------------------------------------------------
@@ -55,6 +63,7 @@ int recovery_off(void);
 //-----------------------------------------------------------------------------
 int recovery_thread_init();
 void* recovery_thread(void* paramPtr);
+void *recovery_gps_test_thread(void *paramPtr);
 
 #endif // RECOVERY_H
 

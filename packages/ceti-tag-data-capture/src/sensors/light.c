@@ -68,7 +68,7 @@ void *light_thread(void *paramPtr) {
 
   // Main loop while application is running.
   CETI_LOG("Starting loop to periodically acquire data");
-  int64_t global_time_us;
+  long long global_time_us;
   int rtc_count;
   int64_t polling_sleep_duration_us;
   g_light_thread_is_running = 1;

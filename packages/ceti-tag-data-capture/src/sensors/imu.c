@@ -67,7 +67,7 @@ static const char* imu_data_names[IMU_DATA_TYPE_COUNT] = {
 };
 static int imu_is_connected = 0;
 static uint8_t imu_sequence_numbers[6] = {0}; // Each of the 6 channels has a sequence number (a message counter)
-static int16_t imu_quaternion[4]; // i, j, k, real
+static Quaternion_i16 imu_quaternion; // i, j, k, real
 static int16_t imu_accel_m_ss[3]; // x, y, z
 static int16_t imu_gyro_rad_s[3]; // x, y, z
 static int16_t imu_mag_ut[3];     // x, y, z
@@ -201,7 +201,7 @@ void *imu_thread(void *paramPtr) {
         if((get_global_time_us() - global_time_us > 5000000) && (get_global_time_us() - start_global_time_us > 10000000)) {
           CETI_ERR("Unable to reading from IMU");
           usleep(5000000);
-          setupIMU();
+          setupIMU(IMU_QUAT_ENABLED | IMU_ACCEL_ENABLED | IMU_MAG_ENABLED | IMU_GYRO_ENABLED);
           start_global_time_us = get_global_time_us();
         }
         usleep(2000); // Note that we are streaming 4 reports at 50 Hz, so we expect data to be available at about 200 Hz
@@ -253,10 +253,10 @@ void *imu_thread(void *paramPtr) {
       switch (report_id_updated) {
         case IMU_SENSOR_REPORTID_ROTATION_VECTOR: 
           // Write quaternion data
-          fprintf(cur_file, ",%d", imu_quaternion[0]);
-          fprintf(cur_file, ",%d", imu_quaternion[1]);
-          fprintf(cur_file, ",%d", imu_quaternion[2]);
-          fprintf(cur_file, ",%d", imu_quaternion[3]);
+          fprintf(cur_file, ",%d", imu_quaternion.i);
+          fprintf(cur_file, ",%d", imu_quaternion.j);
+          fprintf(cur_file, ",%d", imu_quaternion.k);
+          fprintf(cur_file, ",%d", imu_quaternion.real);
           fprintf(cur_file, ",%d", imu_quaternion_accuracy);
           break;
 
@@ -365,7 +365,7 @@ int setupIMU(uint8_t enabled_features) {
   CETI_LOG("IMU connection opened\n");
 
     // Open an I2C connection.
-    int retval = bbI2COpen(IMU_BB_I2C_SDA, IMU_BB_I2C_SCL, 200000);
+    retval = bbI2COpen(IMU_BB_I2C_SDA, IMU_BB_I2C_SCL, 200000);
     if (retval < 0) {
         CETI_ERR("Failed to connect to the IMU\n");
         imu_is_connected = 0;
@@ -374,14 +374,16 @@ int setupIMU(uint8_t enabled_features) {
     imu_is_connected = 1;
     CETI_LOG("IMU connection opened\n");
 
-    // Reset the message counters for each channel.
-    for(int channel_index = 0; channel_index < sizeof(imu_sequence_numbers)/sizeof(uint8_t); channel_index++)
-      imu_sequence_numbers[channel_index] = 0;
+  // Reset the message counters for each channel.
+  for(int channel_index = 0; channel_index < sizeof(imu_sequence_numbers)/sizeof(uint8_t); channel_index++)
+    imu_sequence_numbers[channel_index] = 0;
 
-    // Enable desired feature reports.
+  // Enable desired feature reports.
+  if(enabled_features & IMU_QUAT_ENABLED) {
     imu_enable_feature_report(IMU_SENSOR_REPORTID_ROTATION_VECTOR, IMU_SAMPLING_PERIOD_QUAT_US);
     usleep(100000);
   }
+  
   if(enabled_features & IMU_ACCEL_ENABLED) {
     imu_enable_feature_report(IMU_SENSOR_REPORTID_ACCELEROMETER, IMU_SAMPLING_PERIOD_9DOF_US);
     usleep(100000);
@@ -508,39 +510,24 @@ int imu_read_data() {
 
       // Parse the data in the report.
       uint8_t status = pktBuff[11] & 0x03; // Get status bits
-      uint16_t data1 = (uint16_t)pktBuff[14] << 8 | pktBuff[13];
-      uint16_t data2 = (uint16_t)pktBuff[16] << 8 | pktBuff[15];
-      uint16_t data3 = (uint16_t)pktBuff[18] << 8 | pktBuff[17];
-      uint16_t data4 = 0;
-      uint16_t data5 = 0; // We would need to change this to uin32_t to capture time stamp value on Raw Accel/Gyro/Mag reports
-      // uint16_t data6 = 0;
-      if (numBytesAvail > 18)
-        data4 = (uint16_t)pktBuff[20] << 8 | pktBuff[19];
-      if (numBytesAvail > 20)
-        data5 = (uint16_t)pktBuff[22] << 8 | pktBuff[21];
-      // if (numBytesAvail > 22)
-      // data6 = (uint16_t)pktBuff[24] << 8 | pktBuff[23];
+      uint16_t data[3] = {
+        ((uint16_t)pktBuff[14] << 8 | pktBuff[13]),
+        ((uint16_t)pktBuff[16] << 8 | pktBuff[15]),
+        ((uint16_t)pktBuff[18] << 8 | pktBuff[17])
+      };
 
       if (report_id == IMU_SENSOR_REPORTID_ROTATION_VECTOR) {
-        imu_quaternion[0] = data1;       // (int)((((uint16_t)pktBuff[14]) << 8) + (uint16_t)pktBuff[13]);
-        imu_quaternion[1] = data2;       // (int)((((uint16_t)pktBuff[16]) << 8) + (uint16_t)pktBuff[15]);
-        imu_quaternion[2] = data3;       // (int)((((uint16_t)pktBuff[18]) << 8) + (uint16_t)pktBuff[17]);
-        imu_quaternion[3] = data4;       // (int)((((uint16_t)pktBuff[20]) << 8) + (uint16_t)pktBuff[19]);
-        imu_quaternion_accuracy = data5; // (int)((((uint16_t)pktBuff[22]) << 8) + (uint16_t)pktBuff[21]);
+        memcpy(&imu_quaternion, data, 3*sizeof(int16_t));
+        imu_quaternion.real = (uint16_t)pktBuff[20] << 8 | pktBuff[19];
+        imu_quaternion_accuracy = (uint16_t)pktBuff[22] << 8 | pktBuff[21];; // (int)((((uint16_t)pktBuff[22]) << 8) + (uint16_t)pktBuff[21]);
       } else if (report_id == IMU_SENSOR_REPORTID_ACCELEROMETER) {
-        imu_accel_m_ss[0] = data1; // (int)((((uint16_t)pktBuff[14]) << 8) + (uint16_t)pktBuff[13]);
-        imu_accel_m_ss[1] = data2; // (int)((((uint16_t)pktBuff[16]) << 8) + (uint16_t)pktBuff[15]);
-        imu_accel_m_ss[2] = data3; // (int)((((uint16_t)pktBuff[18]) << 8) + (uint16_t)pktBuff[17]);
+        memcpy(imu_accel_m_ss, data, 3*sizeof(int16_t));
         imu_accel_accuracy = status;
       } else if (report_id == IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED) {
-        imu_gyro_rad_s[0] = data1; // (int)((((uint16_t)pktBuff[14]) << 8) + (uint16_t)pktBuff[13]);
-        imu_gyro_rad_s[1] = data2; // (int)((((uint16_t)pktBuff[16]) << 8) + (uint16_t)pktBuff[15]);
-        imu_gyro_rad_s[2] = data3; // (int)((((uint16_t)pktBuff[18]) << 8) + (uint16_t)pktBuff[17]);
+        memcpy(imu_gyro_rad_s, data, 3*sizeof(int16_t));
         imu_gyro_accuracy = status;
       } else if (report_id == IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED) {
-        imu_mag_ut[0] = data1; // (int)((((uint16_t)pktBuff[14]) << 8) + (uint16_t)pktBuff[13]);
-        imu_mag_ut[1] = data2; // (int)((((uint16_t)pktBuff[16]) << 8) + (uint16_t)pktBuff[15]);
-        imu_mag_ut[2] = data3; // (int)((((uint16_t)pktBuff[18]) << 8) + (uint16_t)pktBuff[17]);
+        memcpy(imu_mag_ut, data, 3*sizeof(int16_t));
         imu_mag_accuracy = status;
       }
       return (int)report_id;
@@ -559,8 +546,8 @@ void quat2eul(EulerAngles_f64 *e, Quaternion_i16 *q){
   double cosr_cosp = 1 - 2 * ((i * i) + (j * j));
   e->roll = atan2(sinr_cosp, cosr_cosp);
 
-  double sinp = sqrt(1 + 2 * ((real * j) - (i * k)));
-  double cosp = sqrt(1 - 2 * ((real * j) - (i * k)));
+  double sinp = sqrt(1 + 2 * ((re * j) - (i * k)));
+  double cosp = sqrt(1 - 2 * ((re * j) - (i * k)));
   e->pitch = atan2(sinp, cosp) - M_PI / 2;
 
   double siny_cosp = 2 * ((re * k) + (i * j));
@@ -570,10 +557,11 @@ void quat2eul(EulerAngles_f64 *e, Quaternion_i16 *q){
 
 int imu_get_euler_angles(EulerAngles_f64 *e){
   int report_id_updated = imu_read_data();
-  if(report_id_updated != IMU_SENSOR_REPORTID_ROTATION_VECTOR);
+  if (report_id_updated != IMU_SENSOR_REPORTID_ROTATION_VECTOR){
     return -1;
+  } 
 
-  quat2eul(e, imu_quaternion); 
+  quat2eul(e, &imu_quaternion); 
   return 0;
 }
 
