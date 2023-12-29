@@ -63,7 +63,7 @@ HardwareTest g_test_list[] = {
     { .name = "Audio",            .update = test_ToDo, },
     { .name = "Pressure",         .update = test_pressure, },
     { .name = "ECG Connectivity", .update = test_ToDo, },
-    { .name = "IMU",              .update = test_ToDo, },
+    { .name = "IMU",              .update = test_imu, },
     { .name = "Temperature",      .update = test_ToDo, },
     { .name = "Light",            .update = test_light, },
     { .name = "Communication",    .update = test_internet, },
@@ -106,6 +106,7 @@ int lines = 24;
 #define TEST_COUNT (sizeof(g_test_list)/sizeof(g_test_list[0]))
 
 void draw_horzontal_bar(double value, double val_max, int x, int y, int w);
+void draw_inv_horzontal_bar(double value, double val_min, int x, int y, int w);
 
 /*******************************************
  * TESTS
@@ -315,59 +316,81 @@ TestState test_imu(void){
             continue; // Note that we are streaming 4 reports at 50 Hz, so we expect data to be available at about 200 Hz
         }
 
+        euler_angles.yaw *= -1.0;
+
         //update live view
         int width = (cols - 13) - 2 ;
         printf("\e[3;11H-180\e[3;%dH0\e[3;%dH180\n", 13 + width/2, cols - 2 - 1);
-        printf("\e[4;1H\e[0KRoll : %4s\e[4;13H|\e[4;%dH|\e[4;%dH|\n", roll_pass ? GREEN(PASS) : "", 13 + width/2, cols - 2);
-        printf("\e[5;1H\e[0KPitch: %4s\e[4;13H|\e[4;%dH|\e[4;%dH|\n", pitch_pass ? GREEN(PASS) : "",13 + width/2, cols - 2);
-        printf("\e[6;1H\e[0KYaw  : %4s\e[4;13H|\e[4;%dH|\e[4;%dH|\n", yaw_pass ? GREEN(PASS) : "", 13 + width/2, cols - 2);
+        printf("\e[4;1H\e[0KPitch: %4s\e[4;13H|\e[4;%dH|\e[4;%dH|\n", pitch_pass ? GREEN(PASS) : "",13 + width/2, cols - 2);
+        printf("\e[5;1H\e[0KYaw  : %4s\e[5;13H|\e[5;%dH|\e[5;%dH|\n", yaw_pass ? GREEN(PASS) : "", 13 + width/2, cols - 2);
+        printf("\e[6;1H\e[0KRoll : %4s\e[6;13H|\e[6;%dH|\e[6;%dH|\n", roll_pass ? GREEN(PASS) : "", 13 + width/2, cols - 2);
+
+        //draw reading position
+        if(euler_angles.pitch > 0){
+            draw_horzontal_bar(euler_angles.pitch, M_PI, 13 + width/2, 4, width/2);
+        }
+        else if (euler_angles.pitch < 0) {
+            draw_inv_horzontal_bar(euler_angles.pitch, -M_PI, 13, 4, width/2);
+        }
+
+        if(euler_angles.yaw > 0){
+            draw_horzontal_bar(euler_angles.yaw, M_PI, 13 + width/2, 5, width/2);
+        }
+        else if (euler_angles.yaw < 0) {
+            draw_inv_horzontal_bar(euler_angles.yaw, -M_PI, 13, 5, width/2);
+        }
+
+        if(euler_angles.roll > 0){
+            draw_horzontal_bar(euler_angles.roll, M_PI, 13 + width/2, 6, width/2);
+        }
+        else if (euler_angles.roll < 0) {
+            draw_inv_horzontal_bar(euler_angles.roll, -M_PI, 13, 6, width/2);
+        }
 
         switch(test_index){
-            case 0: //-90 roll
+            case 0: //-90 pitch
                 printf("\e[4;%dH" GREEN("|"), 13 + width/4);
-                if(-95.0 <= (euler_angles.roll*180.0/M_PI) && (euler_angles.roll*180.0/M_PI) < -85.0){
-                    test_index++;
-                }
-                break;
-            case 1: //90 roll
-                printf("\e[4;%dH" GREEN("|"), 13 + (width/4*3));
-                if(85.0 <= (euler_angles.roll*180.0/M_PI) && (euler_angles.roll*180.0/M_PI) < 95.0){
-                    roll_pass = 1;
-                    test_index++;
-                }
-                break;
-            case 2: //-90 pitch
-                printf("\e[5;%dH" GREEN("|"), 13 + width/4);
                 if(-95.0 <= (euler_angles.pitch*180.0/M_PI) && (euler_angles.pitch*180.0/M_PI) < -85.0){
                     test_index++;
                 }
                 break;
-            case 3: //90 pitch
-                printf("\e[5;%dH" GREEN("|"), 13 + (width/4*3));
+            case 1: //90 pitch
+                printf("\e[4;%dH" GREEN("|"), 13 + (width/4*3));
                 if(85.0 <= (euler_angles.pitch*180.0/M_PI) && (euler_angles.pitch*180.0/M_PI) < 95.0){
                     pitch_pass = 1;
                     test_index++;
                 }
                 break;
-            case 4: //-90 yaw
-                printf("\e[4;%dH" GREEN("|"), 13 + width/4);
+            case 2: //-90 yaw
+                printf("\e[5;%dH" GREEN("|"), 13 + width/4);
                 if(-95.0 <= (euler_angles.yaw*180.0/M_PI) && (euler_angles.yaw*180.0/M_PI) < -85.0){
                     test_index++;
                 }
                 break;
-            case 5: //90 yaw
-                printf("\e[4;%dH" GREEN("|"), 13 + (width/4*3));
+            case 3: //90 yaw
+                printf("\e[5;%dH" GREEN("|"), 13 + (width/4*3));
                 if(85.0 <= (euler_angles.yaw*180.0/M_PI) && (euler_angles.yaw*180.0/M_PI) < 95.0){
                     yaw_pass = 1;
                     test_index++;
                 }
                 break;
+            case 4: //-90 roll
+                printf("\e[6;%dH" GREEN("|"), 13 + width/4);
+                if(-95.0 <= (euler_angles.roll*180.0/M_PI) && (euler_angles.roll*180.0/M_PI) < -85.0){
+                    test_index++;
+                    roll_pass = 1;
+                }
+                break;
+            case 5: //90 roll
+                printf("\e[6;%dH" GREEN("|"), 13 + (width/4*3));
+                if(85.0 <= (euler_angles.roll*180.0/M_PI) && (euler_angles.roll*180.0/M_PI) < 95.0){
+                    test_index++;
+                }
+                break;
         }
 
-        //draw reading position
-        printf("\e[4;%dH" CYAN("|"), 13 + (uint32_t)(euler_angles.roll/(2*M_PI) + 0.5)*width);
-        printf("\e[5;%dH" CYAN("|"), 13 + (uint32_t)(euler_angles.pitch/(2*M_PI) + 0.5)*width);
-        printf("\e[6;%dH" CYAN("|"), 13 + (uint32_t)(euler_angles.yaw/(2*M_PI) + 0.5)*width);
+
+
         fflush(stdout);
     }
 
@@ -702,14 +725,21 @@ void enableRawMode(void) {
 
 void draw_horzontal_bar(double value, double val_max, int x, int y, int w){
     printf("\e[%d;%dH", y, x);
-    for(int i = 0; i < w; i++){
-        if((i*val_max/w) < value) {
-            printf("\e[106m ");
-        } else {
-            printf("\e[0m\e[0K");
-            break;
-        }
+    printf("\e[106m");
+    for(int i = 0; i < w*value/val_max; i++){
+        printf(" ");
     }
+    printf("\e[0m\e[0K");
+}
+
+void draw_inv_horzontal_bar(double value, double val_min, int x, int y, int w){
+    printf("\e[%d;%dH", y, (uint32_t)(x + w*(1.0 - (value/val_min))));
+    printf("\e[106m");
+    for(int i = w*(1.0 - (value/val_min)); i < w; i++){
+        printf(" ");
+
+    }
+    printf("\e[0m\e[0K");
 }
 
 

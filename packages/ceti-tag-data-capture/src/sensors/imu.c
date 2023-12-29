@@ -370,7 +370,7 @@ int setupIMU(uint8_t enabled_features) {
 
   // Enable desired feature reports.
   if(enabled_features & IMU_QUAT_ENABLED) {
-    imu_enable_feature_report(IMU_SENSOR_REPORTID_ROTATION_VECTOR, IMU_SAMPLING_PERIOD_QUAT_US);
+    imu_enable_feature_report(IMU_SENSOR_REPORTID_ROTATION_VECTOR, 1000000);
     usleep(100000);
   }
   
@@ -534,11 +534,11 @@ void quat2eul(EulerAngles_f64 *e, Quaternion_i16 *q){
 
   double sinr_cosp = 2 * ((re * i) + (j * k));
   double cosr_cosp = 1 - 2 * ((i * i) + (j * j));
-  e->roll = atan2(sinr_cosp, cosr_cosp);
+  e->pitch = atan2(sinr_cosp, cosr_cosp);
 
   double sinp = sqrt(1 + 2 * ((re * j) - (i * k)));
   double cosp = sqrt(1 - 2 * ((re * j) - (i * k)));
-  e->pitch = atan2(sinp, cosp) - M_PI / 2;
+  e->roll = (2.0 * atan2(sinp, cosp)) - (M_PI / 2.0);
 
   double siny_cosp = 2 * ((re * k) + (i * j));
   double cosy_cosp = 1 - 2 * ((j * j) + (k * k));
