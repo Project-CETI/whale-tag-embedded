@@ -85,12 +85,12 @@ int init_imu() {
     return -1;
   }
 
-  CETI_LOG("Successfully initialized the IMU");
 
   imu_new_log = true;
   // Open an output file to write data.
   if(imu_init_data_files() < 0)
     return -1;
+  CETI_LOG("Successfully initialized the IMU");
 
   return 0;
 }
@@ -201,7 +201,7 @@ void *imu_thread(void *paramPtr) {
         if((get_global_time_us() - global_time_us > 5000000) && (get_global_time_us() - start_global_time_us > 10000000)) {
           CETI_ERR("Unable to reading from IMU");
           usleep(5000000);
-          setupIMU(IMU_QUAT_ENABLED | IMU_ACCEL_ENABLED | IMU_MAG_ENABLED | IMU_GYRO_ENABLED);
+          setupIMU(IMU_ALL_ENABLED);
           start_global_time_us = get_global_time_us();
         }
         usleep(2000); // Note that we are streaming 4 reports at 50 Hz, so we expect data to be available at about 200 Hz
@@ -357,22 +357,12 @@ int setupIMU(uint8_t enabled_features) {
   // Open an I2C connection.
   int retval = bbI2COpen(IMU_BB_I2C_SDA, IMU_BB_I2C_SCL, 200000);
   if (retval < 0) {
-    CETI_LOG("XXX Failed to connect to the IMU XXX\n");
-    imu_is_connected = 0;
-    return -1;
+      CETI_ERR("Failed to connect to the IMU\n");
+      imu_is_connected = 0;
+      return -1;
   }
   imu_is_connected = 1;
   CETI_LOG("IMU connection opened\n");
-
-    // Open an I2C connection.
-    retval = bbI2COpen(IMU_BB_I2C_SDA, IMU_BB_I2C_SCL, 200000);
-    if (retval < 0) {
-        CETI_ERR("Failed to connect to the IMU\n");
-        imu_is_connected = 0;
-        return -1;
-    }
-    imu_is_connected = 1;
-    CETI_LOG("IMU connection opened\n");
 
   // Reset the message counters for each channel.
   for(int channel_index = 0; channel_index < sizeof(imu_sequence_numbers)/sizeof(uint8_t); channel_index++)

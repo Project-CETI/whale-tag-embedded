@@ -9,8 +9,9 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "sensors/light.h"
 #include "battery.h"
+#include "fpga.h"
+#include "sensors/light.h"
 
 int g_exit = 0;
 int g_stopAcquisition = 0;
@@ -408,8 +409,8 @@ TestState test_recovery(void){
 
     // UART Communication test:
     // - query and record recovery board's UID - requires 2 way communmication
-    char callsign[7] = {};
-    if ( recovery_get_aprs_call_sign(callsign) != 0 ) {
+    APRSCallsign callsign;
+    if ( recovery_get_aprs_callsign(&callsign) != 0 ) {
         printf(RED(FAIL) "Recovery query failure.\n");
         while(input == 0){ read(STDIN_FILENO, &input, 1); }
         fprintf(results_file, "[FAIL]: Recovery query failure.\n");
@@ -417,7 +418,8 @@ TestState test_recovery(void){
     }
 
     // Set callsign:
-    recovery_set_aprs_call_sign(&src_callsign);
+    recovery_on();
+    recovery_set_aprs_callsign(&src_callsign);
 
     // VHF/APRS TEST
     // generate random 4 character string
@@ -433,14 +435,12 @@ TestState test_recovery(void){
         rand_str[i] = val;
     }
     rand_str[4] = 0;
-    recovery_tx_now(rand_str);
+    recovery_message(rand_str);
     last_tx_time = get_global_time_us();
 
     printf("Instructions:\n");
     printf("    APRS: Write 4 character comment being transmitted via APRS every minute by KC1TUJ-3.\n");
     printf("    GPS:  Take tag somewhere it can receive GPS signal.\n");
-    printf(rand_str);
-
 
     while((input == 0) && !(vhf_pass && gps_pass)){
         time_t current_time = get_global_time_us();
@@ -452,7 +452,7 @@ TestState test_recovery(void){
         if( !vhf_pass
             && ((current_time - last_tx_time) > (60 * 1000000))
         ){
-            recovery_tx_now(rand_str);
+            recovery_message(rand_str);
             last_tx_time = current_time;
         }
 
@@ -725,6 +725,7 @@ int main(void) {
     }
     atexit(gpioTerminate);
 
+    init_fpga();
     light_wake();
     enableRawMode();
 #ifdef TIOCGSIZE

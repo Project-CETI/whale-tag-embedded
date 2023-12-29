@@ -157,7 +157,7 @@ int handle_command(void) {
     if (!strncmp(g_command, "setupIMU", 8)) {
         CETI_LOG("Setting up the IMU");
         #if ENABLE_IMU
-        setupIMU();
+        setupIMU(IMU_ALL_ENABLED);
         g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
         fprintf(g_rsp_pipe, "handle_command(): Finished setting up the IMU\n");
         fclose(g_rsp_pipe);
