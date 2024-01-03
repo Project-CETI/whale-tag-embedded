@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 #include <time.h>
-#include "recovery.h"
+#include "../aprs.h"
 
 #define CONFIG_DEFAULT_SURFACE_PRESSURE_BAR        (0.04)
 #define CONFIG_DEFAULT_DIVE_PRESSURE_BAR           (0.10)
@@ -36,7 +36,7 @@ typedef struct tag_configuration {
     time_t  timeout_s;
     time_t  burn_interval_s;
     struct  {
-        bool enabled;
+        int enabled;
         APRSCallsign callsign;
         APRSCallsign recipient;
         float freq_MHz;

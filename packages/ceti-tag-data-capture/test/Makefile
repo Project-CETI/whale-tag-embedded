@@ -1,6 +1,7 @@
-TEST_SRC        = $(wildcard src/*.c) $(wildcard src/*/*.c) $(wildcard src/*/*/*.c)
+TEST_SRC        = $(shell find src -type f -iname '*.c' 2> /dev/null)
+ 
 # SRC        = $(filter-out ../src/launcher.c, $(wildcard ../src/*.c) $(wildcard ../src/*/*.c) $(wildcard ../src/*/*/*.c))
-SRC			= ../src/utils/config.c
+SRC			= ../src/utils/config.c ../src/aprs.c
 TEST_APP        = $(TEST_SRC:.c=.test)
 OBJ        = $(SRC:.c=.o)
 CC         = gcc

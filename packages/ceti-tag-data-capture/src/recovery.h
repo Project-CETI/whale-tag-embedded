@@ -13,6 +13,7 @@
 //-----------------------------------------------------------------------------
 #define _GNU_SOURCE   // change how sched.h will be included
 
+#include "aprs.h"
 #include "launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "utils/logging.h"
 #include "systemMonitor.h" // for the global CPU assignment variable to update
@@ -36,11 +37,6 @@ typedef enum recovery_power_level_e {
 	RECOVERY_POWER_HIGH,
 }RecoveryPowerLevel;
 
-typedef struct aprs_callsign_t {
-	char callsign[7];
-	uint8_t ssid;
-} APRSCallsign;
-
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
@@ -49,17 +45,6 @@ extern int g_recovery_thread_is_running;
 //-----------------------------------------------------------------------------
 // Helper Methods
 //-----------------------------------------------------------------------------
-
-/**
- *  Tries parsing a string into an APRSCallsign
- *
- * @params:     dst:   _O: destination callsign pointer. Only set if valid callsign;
- *          _String:   _I: pointer to str to be parsed
- *          _EndPtr: [_O]: set to end of callsign if valid
- * @return:  0 if valid callsign string
- *          -1 if invalid callsign string
- */
-int callsign_try_from_str(APRSCallsign *dst, const char *_String, char **_EndPtr);
 
 //-----------------------------------------------------------------------------
 // Hardware Methods

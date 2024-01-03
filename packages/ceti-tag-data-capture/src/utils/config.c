@@ -219,7 +219,7 @@ static ConfigError __config_parse_recovery_freq_value(const char *_String){
     char *end_ptr;
     float f_MHz = strtof(_String, &end_ptr);
     if ( (f_MHz < 134.0000) || (f_MHz > 174.0000)){
-        return CONFIG_ERR_INVALID_VALUE
+        return CONFIG_ERR_INVALID_VALUE;
     }
     
     g_config.recovery.freq_MHz = f_MHz;

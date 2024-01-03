@@ -333,11 +333,11 @@ int updateStateMachine() {
     case (ST_RETRIEVE):
         //  Waiting to be retrieved.
         #if ENABLE_BATTERY_GAUGE
-            // critical battery
-            if (g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.critical_voltage_v) {
-                stateMachine_set_state(ST_SHUTDOWN);
-                break;
-            }
+        // critical battery
+        if (g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.critical_voltage_v) {
+            stateMachine_set_state(ST_SHUTDOWN);
+            break;
+        }
         #endif // ENABLE_BATTERY_GAUGE
 
         break;
@@ -347,12 +347,12 @@ int updateStateMachine() {
         //  reduce file system corruption risk
         CETI_ERR("!!! Battery critical !!!");
         #if ENABLE_BURNWIRE
-            burnwireOff();
+        burnwireOff();
         #endif // ENABLE_BURNWIRE
         #if ENABLE_RECOVERY
-            if (g_config.recovery.enabled) {
-                recovery_off();
-            }
+        if (g_config.recovery.enabled) {
+            recovery_off();
+        }
         #endif // ENABLE_RECOVERY
 
         // 221026 The following system("halt") call has never actually worked - it does
