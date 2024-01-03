@@ -28,7 +28,18 @@ TagConfig g_config = {
     .critical_voltage_v = CONFIG_DEFAULT_CRITICAL_VOLTAGE_V,
     .timeout_s          = CONFIG_DEFAULT_TIMEOUT_S,
     .burn_interval_s    = CONFIG_DEFAULT_BURN_INTERVAL_S,
-    .recovery_enabled   = CONFIG_DEFAULT_RECOVERY_ENABLED,
+    .recovery           = {
+        .enabled = CONFIG_DEFAULT_RECOVERY_ENABLED,
+        .freq_MHz = CONFIG_DEFAULT_RECOVERY_FREQUENCY_MHZ,
+        .callsign = {
+            .callsign = CONFIG_DEFAULT_RECOVERY_CALLSIGN,
+            .ssid = CONFIG_DEFAULT_RECOVERY_SSID,
+        },
+        .recipient = {
+            .callsign = CONFIG_DEFAULT_RECOVERY_RECIPIENT_CALLSIGN,
+            .ssid = CONFIG_DEFAULT_RECOVERY_RECIPIENT_SSID,
+        },
+    },
 };
 
 typedef enum config_error_e {
@@ -55,19 +66,25 @@ static ConfigError __config_parse_release_voltage(const char *_String);
 static ConfigError __config_parse_critical_voltage(const char *_String);
 static ConfigError __config_parse_timeout(const char *_String);
 static ConfigError __config_parse_burn_interval_value(const char *_String);
-// static int __config_parse_recovery_enable_value(const char *_String);
+static ConfigError __config_parse_recovery_enable_value(const char *_String);
+static ConfigError __config_parse_recovery_callsign_value(const char *_String);
+static ConfigError __config_parse_recovery_recipient_value(const char *_String);
+static ConfigError __config_parse_recovery_freq_value(const char *_String);
 
 /* key is the value compared to*/
 /* method is what to do with the value*/
 //This would have more efficient lookup as a hash table
 const ConfigList config_keys[] = {
-    {.key = STR_FROM("P1"), .parse = __config_parse_surface_pressure},
-    {.key = STR_FROM("P2"), .parse = __config_parse_dive_pressure},
-    {.key = STR_FROM("V1"), .parse = __config_parse_release_voltage},
-    {.key = STR_FROM("V2"), .parse = __config_parse_critical_voltage},
-    {.key = STR_FROM("T0"), .parse = __config_parse_timeout},
-    {.key = STR_FROM("BT"), .parse = __config_parse_burn_interval_value},
-    //{.key = STR_FROM("Recovery_Enable"), .parse = __config_parse_recovery_enable_value},
+    {.key = STR_FROM("P1"),            .parse = __config_parse_surface_pressure},
+    {.key = STR_FROM("P2"),            .parse = __config_parse_dive_pressure},
+    {.key = STR_FROM("V1"),            .parse = __config_parse_release_voltage},
+    {.key = STR_FROM("V2"),            .parse = __config_parse_critical_voltage},
+    {.key = STR_FROM("T0"),            .parse = __config_parse_timeout},
+    {.key = STR_FROM("BT"),            .parse = __config_parse_burn_interval_value},
+    {.key = STR_FROM("rec_enabled"),   .parse = __config_parse_recovery_enable_value},
+    {.key = STR_FROM("rec_callsign"),  .parse = __config_parse_recovery_callsign_value},
+    {.key = STR_FROM("rec_recipient"), .parse = __config_parse_recovery_recipient_value},
+    {.key = STR_FROM("rec_freq"),      .parse = __config_parse_recovery_freq_value},
 };
 
 /* Private Methods ***********************************************************/
@@ -182,12 +199,32 @@ static ConfigError __config_parse_burn_interval_value(const char *_String){
     return CONFIG_OK;
 }
 
-// static
-// int __config_parse_recovery_enable_value(const char *_String){
-//     //ToDo: Parse True/False
-//     //ToDo: Error Checking
-//     return 0;
-// }
+static ConfigError __config_parse_recovery_enable_value(const char *_String){
+    
+
+    return CONFIG_OK;
+}
+
+static ConfigError __config_parse_recovery_callsign_value(const char *_String) {
+    int result = callsign_try_from_str(&g_config.recovery.callsign, _String, NULL);
+    return (result == 0) ? CONFIG_OK : CONFIG_ERR_INVALID_VALUE;
+}
+
+static ConfigError __config_parse_recovery_recipient_value(const char *_String) {
+    int result = callsign_try_from_str(&g_config.recovery.recipient, _String, NULL);
+    return (result == 0) ? CONFIG_OK : CONFIG_ERR_INVALID_VALUE;
+}
+
+static ConfigError __config_parse_recovery_freq_value(const char *_String){
+    char *end_ptr;
+    float f_MHz = strtof(_String, &end_ptr);
+    if ( (f_MHz < 134.0000) || (f_MHz > 174.0000)){
+        return CONFIG_ERR_INVALID_VALUE
+    }
+    
+    g_config.recovery.freq_MHz = f_MHz;
+    return CONFIG_OK;
+}
 
 time_t strtotime_s(const char *_String, char **_EndPtr){
     char *unit_str_ptr;

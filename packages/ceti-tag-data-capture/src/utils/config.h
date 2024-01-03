@@ -11,14 +11,21 @@
 
 #include <stdint.h>
 #include <time.h>
+#include "recovery.h"
 
-#define CONFIG_DEFAULT_SURFACE_PRESSURE_BAR (0.04)
-#define CONFIG_DEFAULT_DIVE_PRESSURE_BAR    (0.10)
-#define CONFIG_DEFAULT_RELEASE_VOLTAGE_V    (6.4)
-#define CONFIG_DEFAULT_CRITICAL_VOLTAGE_V   (6.2)
-#define CONFIG_DEFAULT_TIMEOUT_S            (4*24*60*60)
-#define CONFIG_DEFAULT_BURN_INTERVAL_S      (5*60)
-#define CONFIG_DEFAULT_RECOVERY_ENABLED     0
+#define CONFIG_DEFAULT_SURFACE_PRESSURE_BAR        (0.04)
+#define CONFIG_DEFAULT_DIVE_PRESSURE_BAR           (0.10)
+#define CONFIG_DEFAULT_RELEASE_VOLTAGE_V           (6.4)
+#define CONFIG_DEFAULT_CRITICAL_VOLTAGE_V          (6.2)
+#define CONFIG_DEFAULT_TIMEOUT_S                   (4*24*60*60)
+#define CONFIG_DEFAULT_BURN_INTERVAL_S             (5*60)
+#define CONFIG_DEFAULT_RECOVERY_ENABLED            0
+#define CONFIG_DEFAULT_RECOVERY_FREQUENCY_MHZ      144.390
+#define CONFIG_DEFAULT_RECOVERY_CALLSIGN           "J75Y"
+#define CONFIG_DEFAULT_RECOVERY_SSID               1
+#define CONFIG_DEFAULT_RECOVERY_RECIPIENT_CALLSIGN "J75Y"
+#define CONFIG_DEFAULT_RECOVERY_RECIPIENT_SSID     2
+
 
 
 typedef struct tag_configuration {
@@ -28,7 +35,12 @@ typedef struct tag_configuration {
     float   critical_voltage_v;
     time_t  timeout_s;
     time_t  burn_interval_s;
-    uint8_t recovery_enabled;
+    struct  {
+        bool enabled;
+        APRSCallsign callsign;
+        APRSCallsign recipient;
+        float freq_MHz;
+    } recovery;
 } TagConfig;
 
 extern TagConfig g_config;

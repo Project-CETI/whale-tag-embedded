@@ -138,8 +138,58 @@ static int recovery_fd = PI_INIT_FAILED;
 
 /* FUCNTION DEFINITIONS ******************************************************/
 
-/* Descritpion: 
- *    gets the next received communication packet from the recovery board.
+/* Tries parsing a string into an APRSCallsign
+ *
+ * @params:     dst:   _O: destination callsign pointer. Only set if valid callsign;
+ *          _String:   _I: pointer to str to be parsed
+ *          _EndPtr: [_O]: set to end of callsign if valid
+ * @return:  0 if valid callsign string
+ *          -1 if invalid callsign string
+ */
+int callsign_try_from_str(APRSCallsign *dst, const char *_String, char **_EndPtr) {
+    APRSCallsign tmp = {};
+    if(_EndPtr != NULL){
+        *_EndPtr = _String;
+    }
+	// skip white space
+    while(isspace(*_String)){_String++;} 
+    
+    // get callsign
+    char *callsign_start = _String;
+    char *callsign_end;
+    size_t callsign_len = 0;
+
+    while(isalnum(*_String)){_String++;}
+    callsign_end = _String;
+    callsign_len = (callsign_end - callsign_start);
+    if( (callsign_len == 0) || (callsign_len > 6)){
+        return -1; //invalid callsign
+    }
+
+    memcpy(tmp.callsign, callsign_start, callsign_len);
+    tmp.callsign[callsign_len] = '\0';
+
+    // get optional ssid
+    if(*_String != '-'){
+        if(_EndPtr != NULL){
+            *_EndPtr = _String;
+        }
+        tmp.ssid = 0;
+    } else {
+        uint32_t ssid = 0;
+        _String++;
+        ssid = strtoul(_String, _EndPtr, 0);
+        if(ssid > 15){
+            return -1; //invalid ssid
+        }
+        tmp.ssid = ssid;
+    }
+    *dst = tmp;
+    return 0;
+}
+
+
+/* Get the next received communication packet from the recovery board.
  * Arguments: 
  *     RecPkt *packet   : ptr to destination packet union.
  *     time_t timout_us : timeout in microsecond, 0 = never.
@@ -216,7 +266,7 @@ int recovery_get_packet(RecPkt *packet, time_t timeout_us) {
     return -2;
 }
 
-int __recovery_get_aprs_callsign(char buffer[static 7]) {
+static int __recovery_get_aprs_callsign(char buffer[static 7]) {
     //send query cmd
     RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_QUERY_APRS_CALLSIGN);
     RecPkt ret_pkt = {};
@@ -247,7 +297,7 @@ int __recovery_get_aprs_callsign(char buffer[static 7]) {
     return -2;
 }
 
-int __recovery_get_aprs_ssid(uint8_t *ssid){
+static int __recovery_get_aprs_ssid(uint8_t *ssid){
     RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_QUERY_APRS_SSID);
     RecPkt ret_pkt = {};
 
@@ -335,7 +385,7 @@ int recovery_get_aprs_ssid(uint8_t *p_ssid){
     return -2;
 }
 
-int __recovery_set_aprs_callsign(const char * callsign){
+static int __recovery_set_aprs_callsign(const char * callsign){
     size_t callsign_len = strlen(callsign);
     if (callsign_len > 6) {
         CETI_ERR("Callsign \"%s\" is too long", callsign);
@@ -354,19 +404,7 @@ int __recovery_set_aprs_callsign(const char * callsign){
     return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPktHeader) + callsign_len);
 }
 
-int recovery_set_aprs_freq_mhz(float freq_MHz){
-    RecPkt_float pkt = {
-        .header = {
-            .key = RECOVERY_PACKET_KEY_VALUE,
-            .type = REC_CMD_CONFIG_APRS_FREQ,
-            .length = sizeof(float)
-        }, 
-        .msg = { .value = freq_MHz}
-    };
-    return serWrite(recovery_fd, (char *)&pkt, sizeof(pkt));
-}
-
-int __recovery_set_aprs_ssid(uint8_t ssid){
+static int __recovery_set_aprs_ssid(uint8_t ssid){
     RecPkt_uint8_t pkt = {
         .header = {
             .key = RECOVERY_PACKET_KEY_VALUE,
@@ -388,6 +426,62 @@ int recovery_set_aprs_callsign(const APRSCallsign *callsign){
     int result;
     result = __recovery_set_aprs_callsign(callsign->callsign);
     result |= __recovery_set_aprs_ssid(callsign->ssid);
+    return result;
+}
+
+int recovery_set_aprs_freq_mhz(float freq_MHz){
+    RecPkt_float pkt = {
+        .header = {
+            .key = RECOVERY_PACKET_KEY_VALUE,
+            .type = REC_CMD_CONFIG_APRS_FREQ,
+            .length = sizeof(float)
+        }, 
+        .msg = { .value = freq_MHz}
+    };
+    return serWrite(recovery_fd, (char *)&pkt, sizeof(pkt));
+}
+
+static int __recovery_set_aprs_rx_callsign(const char * callsign){
+    size_t callsign_len = strlen(callsign);
+    if (callsign_len > 6) {
+        CETI_ERR("Callsign \"%s\" is too long", callsign);
+        return -3;
+    }
+
+    RecPkt_string pkt = {
+        .header = {
+            .key = RECOVERY_PACKET_KEY_VALUE,
+            .type = REC_CMD_CONFIG_MSG_RCPT_CALLSIGN,
+            .length = (uint8_t) callsign_len,
+        },
+    };
+    memcpy(pkt.msg.value, callsign, callsign_len);
+
+    return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPktHeader) + callsign_len);
+}
+
+static int __recovery_set_aprs_rx_ssid(uint8_t ssid){
+    RecPkt_uint8_t pkt = {
+        .header = {
+            .key = RECOVERY_PACKET_KEY_VALUE,
+            .type = REC_CMD_CONFIG_MSG_RCPT_SSID,
+            .length = sizeof(uint8_t),
+        },
+        .msg = {.value = ssid}
+    };
+
+    if (ssid > 15) {
+        CETI_ERR("APRS SSID (%d) outside allowable range (0-15)", ssid);
+        return -4;
+    }
+
+    return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPkt_uint8_t));
+}
+
+int recovery_set_aprs_message_recipient(const APRSCallsign *callsign){
+    int result;
+    result = __recovery_set_aprs_rx_callsign(callsign->callsign);
+    result |= __recovery_set_aprs_rx_ssid(callsign->ssid);
     return result;
 }
 
@@ -458,24 +552,6 @@ int recovery_message(const char *message){
     return 0;
 }
 
-// int recovery_userdefined_packet(void *packet, size_t packet_size){
-//     if (packet_size > 255) {
-//         return -1;
-//     }
-//     RecPkt pkt = {
-//         .common = {
-//             .header = {
-//                 .key = RECOVERY_PACKET_KEY_VALUE,
-//                 .type = REC_CMD_APRS_USER_DEFINED,
-//                 .length = (uint8_t) packet_size,
-//             }
-//         }
-//     };
-//     memcpy(pkt.common.msg, packet, packet_size);
-//     return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPktHeader) + packet_size);
-// }
-
-
 int recovery_init(void) {
     gpioWrite(13, 1); //turn on recovery
     usleep(50000); // sleep a bit
@@ -497,21 +573,13 @@ int recovery_init(void) {
 
     recovery_on();
 
-    
-    // // send wake message
-    char hostname[512];
-    gethostname(hostname, 511);
-    
-    char message[1024];
-    snprintf(message, sizeof(message), "CETI %s ready!", hostname);
-    recovery_message(message);
-
     CETI_LOG("Successfully initialized the recovery board");
     return 0;
 }
 
 void recovery_kill(void){
-    serClose(recovery_fd); // close serial port 
+    recovery_shutdown();
+    serClose(recovery_fd); // close serial port
     gpioWrite(13, 0);      // turn off recovery
 }
 
@@ -520,8 +588,6 @@ int recovery_restart(void) {
     usleep(50000);
     return recovery_init();
 }
-
-
 
 //-----------------------------------------------------------------------------
 // On/Off
@@ -549,7 +615,7 @@ int recovery_off(void) {
     return 0;
 }
 
-int recoveryCritical(void){
+int recovery_shutdown(void){
      RecPktHeader critical_pkt = {
         .key = RECOVERY_PACKET_KEY_VALUE,
         .type = REC_CMD_CRITICAL,

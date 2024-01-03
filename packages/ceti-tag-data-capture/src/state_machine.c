@@ -36,7 +36,8 @@ static const char* stateMachine_data_file_headers[] = {
 static const int num_stateMachine_data_file_headers = 2;
 
 int init_stateMachine() {
-  CETI_LOG("Successfully initialized the state machine [did nothing]");
+
+  CETI_LOG("Successfully initialized the state machine");
   // Open an output file to write data.
   if(init_data_file(stateMachine_data_file, STATEMACHINE_DATA_FILEPATH,
                      stateMachine_data_file_headers,  num_stateMachine_data_file_headers,
@@ -64,7 +65,7 @@ void* stateMachine_thread(void* paramPtr) {
       if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
         CETI_LOG("Successfully set affinity to CPU %d", STATEMACHINE_CPU);
       else
-        CETI_LOG("XXX Failed to set affinity to CPU %d", STATEMACHINE_CPU);
+        CETI_ERR("Failed to set affinity to CPU %d", STATEMACHINE_CPU);
     }
 
     // Main loop while application is running.
@@ -121,7 +122,6 @@ void* stateMachine_thread(void* paramPtr) {
 // State Machine and Controls
 // * Details of state machine are documented in the high-level design
 //-----------------------------------------------------------------------------
-
 int stateMachine_set_state(wt_state_t new_state){
     //nothing to do
     if(new_state == presentState)
@@ -130,11 +130,17 @@ int stateMachine_set_state(wt_state_t new_state){
     //actions performed when exit present state
     switch(presentState){
         case ST_BRN_ON:
+            #if ENABLE_BURNWIRE
             burnwireOff();
+            #endif // ENABLE_BURNWIRE
             break;
 
         case ST_RETRIEVE:
-            recovery_off();
+            #if ENABLE_RECOVERY
+            if (g_config.recovery.enabled) {
+                recovery_off();
+            }
+            #endif // ENABLE_RECOVERY
             break;
 
         default:
@@ -144,24 +150,42 @@ int stateMachine_set_state(wt_state_t new_state){
     //actions performed when entering the new state
     switch(new_state){
         case ST_DEPLOY:
-            recovery_on();
-            break;
+            #if ENABLE_RECOVERY
+            if (g_config.recovery.enabled) {
+                recovery_on();
+            }
+            #endif // ENABLE_RECOVERY
 
         case ST_REC_SUB:
-            recovery_off();
-            break;
+            #if ENABLE_RECOVERY
+            if (g_config.recovery.enabled) {
+                recovery_off();
+            }
+            #endif // ENABLE_RECOVERY
 
         case ST_REC_SURF:
-            recovery_on();
+            #if ENABLE_RECOVERY
+            if (g_config.recovery.enabled) {
+                recovery_on();
+            }
+            #endif // ENABLE_RECOVERY
+
             break;
 
         case ST_BRN_ON:
             burnTimeStart = current_rtc_count;
+            #if ENABLE_BURNWIRE
             burnwireOn();
+            #endif // ENABLE_BURNWIRE
             break;
 
         case ST_RETRIEVE:
-            recovery_on();
+            #if ENABLE_RECOVERY
+            if (g_config.recovery.enabled) {
+                recovery_on();
+            }
+            #endif // ENABLE_RECOVERY
+            
             break;
 
         default:
@@ -170,7 +194,6 @@ int stateMachine_set_state(wt_state_t new_state){
 
     //update state
     presentState = new_state;
-
     return 0;
 }
 
@@ -184,8 +207,27 @@ int updateStateMachine() {
         // Load the deployment configuration
         CETI_LOG("Configuring the deployment parameters from %s", CETI_CONFIG_FILE);
         config_read(CETI_CONFIG_FILE);
-        recovery_set_critical_voltage(g_config.critical_voltage_v);
-
+        #if ENABLE_RECOVERY
+        if (g_config.recovery.enabled) {
+            if ((recovery_set_critical_voltage(g_config.critical_voltage_v) == 0) 
+                && (recovery_set_aprs_freq_mhz(g_config.recovery.freq_MHz) == 0)
+                && (recovery_set_aprs_callsign(g_config.recovery.callsign) == 0)
+                && (recovery_set_aprs_message_recipient(g_config.recovery.recipient) == 0)
+            ) { 
+                // send wake message
+                char hostname[512];
+                gethostname(hostname, 511);
+            
+                char message[1024];
+                snprintf(message, sizeof(message), "CETI %s ready!", hostname);
+                recovery_message(message);
+            } else {
+                CETI_ERR("Failed to configure recovery board");
+            }
+        } else {
+            recovery_kill();
+        }
+        #endif // ENABLE_RECOVERY
         stateMachine_set_state(ST_START);
         break;
 
@@ -199,11 +241,7 @@ int updateStateMachine() {
 
     // ---------------- Just deployed ----------------
     case (ST_DEPLOY):
-
         // Waiting for 1st dive
-        //	printf("State DEPLOY - Deployment elapsed time is %d seconds;
-        //Battery at %.2f \n", (current_rtc_count - start_rtc_count), (g_latest_battery_v1_v +
-        //g_latest_battery_v2_v));
 
         #if ENABLE_BATTERY_GAUGE
         if ((g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v) ||
@@ -230,10 +268,6 @@ int updateStateMachine() {
 
     case (ST_REC_SUB):
         // Recording while sumberged
-        //	printf("State REC_SUB - Deployment elapsed time is %d seconds;
-        //Battery at %.2f \n", (current_rtc_count - start_rtc_count), (g_latest_battery_v1_v +
-        //g_latest_battery_v2_v));
-
         #if ENABLE_BATTERY_GAUGE
         if ((g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v) ||
             (current_rtc_count - start_rtc_count > g_config.timeout_s)
@@ -241,24 +275,24 @@ int updateStateMachine() {
             stateMachine_set_state(ST_BRN_ON);
             break;
         }
-        #endif
+        #endif //ENABLE_BATTERY_GAUGE
 
         #if ENABLE_PRESSURE_SENSOR
         if (g_latest_pressureTemperature_pressure_bar < g_config.surface_pressure) {
             stateMachine_set_state(ST_REC_SURF); // came to surface
             break;
         }
-        #endif
+        #endif // ENABLE_PRESSURE_SENSOR
 
-        recovery_off();
+        #if ENABLE_RECOVERY
+        if (g_config.recovery.enabled) {
+            recovery_off();
+        }
+        #endif // ENABLE_RECOVERY
         break;
 
     case (ST_REC_SURF):
         // Recording while at surface, trying to get a GPS fix
-        //	printf("State REC_SURF - Deployment elapsed time is %d seconds;
-        //Battery at %.2f \n", (current_rtc_count - start_rtc_count), (g_latest_battery_v1_v +
-        //g_latest_battery_v2_v));
-
         #if ENABLE_BATTERY_GAUGE
         if ((g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v) ||
             (current_rtc_count - start_rtc_count > g_config.timeout_s)
@@ -279,54 +313,47 @@ int updateStateMachine() {
 
     case (ST_BRN_ON):
         // Releasing
-        //	printf("State BRN_ON - Deployment elapsed time is %d seconds;
-        //  Battery at %.2f \n", (current_rtc_count - start_rtc_count), (g_latest_battery_v1_v +
-        //  [1]));
-
         #if ENABLE_BATTERY_GAUGE
         if (current_rtc_count - burnTimeStart > g_config.burn_interval_s) {
+            //wait untl burn complete to switch state
             if (g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.critical_voltage_v) {
                 stateMachine_set_state(ST_SHUTDOWN);// critical battery
 
                 break;
             }
 
-        // update 220109 to leave burnwire on without time limit
-        // Leave burn wire on for 20 minutes or until the battery is depleted
+            // update 220109 to leave burnwire on without time limit
+            // Leave burn wire on for 20 minutes or until the battery is depleted
             stateMachine_set_state(ST_RETRIEVE);
         }
-        #endif
-
-        #if ENABLE_PRESSURETEMPERATURE_SENSOR
-            //just wait until burn is done
-        #endif
+        #endif // ENABLE_BATTERY_GAUGE
 
         break;
 
     case (ST_RETRIEVE):
         //  Waiting to be retrieved.
-
-        //	printf("State RETRIEVE - Deployment elapsed time is %d seconds;
-        //  Battery at %.2f \n", (current_rtc_count - start_rtc_count), (g_latest_battery_v1_v +
-        //  g_latest_battery_v2_v));
-
         #if ENABLE_BATTERY_GAUGE
-        // critical battery
-        if (g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.critical_voltage_v) {
-            stateMachine_set_state(ST_SHUTDOWN);
-            break;
-        }
-
-        #endif
+            // critical battery
+            if (g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.critical_voltage_v) {
+                stateMachine_set_state(ST_SHUTDOWN);
+                break;
+            }
+        #endif // ENABLE_BATTERY_GAUGE
 
         break;
 
     case (ST_SHUTDOWN):
         //  Shut everything off in an orderly way if battery is critical to
         //  reduce file system corruption risk
-        CETI_LOG("!!! Battery critical");
-        burnwireOff();
-        recovery_off();
+        CETI_ERR("!!! Battery critical !!!");
+        #if ENABLE_BURNWIRE
+            burnwireOff();
+        #endif // ENABLE_BURNWIRE
+        #if ENABLE_RECOVERY
+            if (g_config.recovery.enabled) {
+                recovery_off();
+            }
+        #endif // ENABLE_RECOVERY
 
         // 221026 The following system("halt") call has never actually worked - it does
         // not shutoff the Pi as intended. This is being changed so

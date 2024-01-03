@@ -28,6 +28,7 @@
 #include <pthread.h> // to set CPU affinity
 #include <stdio.h>   // for FILE
 #include <stdlib.h>  // for atof, atol, etc
+#include <unistd.h>  // gethostname
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration

@@ -30,14 +30,42 @@ V2=6.2
 # Indepedent of battery state of charge, if deployment
 # time reaches this value, the tag will release
 # The battery thresholds take precedence
-# Units are minutes, use integers only
-# (4 day) * (24 hr/day) * (60 min/hr) = 5760
-T0=5760
+# Default units are minutes, 
+# (d/D = days, h/H = hours, m/M = minutes, s/S = seconds)
+T0=4d
 #
 #------------------------------------------------------------------------------
 # Burn Interval (Minutes)
 # Time interval that the burnwire remains on for releasing tag from whale
-# Units are minutes, use integers only
-BT=20
+# Default units are minutes, use integers only
+# (d/D = days, h/H = hours, m/M = minutes, s/S = seconds)
+BT=20m
 #
 #------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------
+# Recovery Board Enable
+#------------------------------------------------------------------------------
+rec_enabled = true
+
+#------------------------------------------------------------------------------
+# Recovery board carrier frequency in MHz
+# valid range: 134.0 - 174.0
+# USA: 144.390
+# DOM: 145.000 
+#------------------------------------------------------------------------------
+rec_freq = 144.390
+
+#------------------------------------------------------------------------------
+# Recovery board callsign
+# callsigns must be valid callsigns (4-6 char in len, optional ssid 0 to 15)
+# example valid callsigns: KC1TUJ-1, J75Y, J75Z-15
+#------------------------------------------------------------------------------
+rec_callsign = KC1TUJ-1
+
+#------------------------------------------------------------------------------
+# Recovery board message recipient callsign
+# callsigns must be valid callsigns (4-6 char in len, optional ssid 0 to 15)
+# example valid callsigns: KC1TUJ-1, J75Y, J75Z-15
+#------------------------------------------------------------------------------
+rec_recipient = KC1QXQ-8
