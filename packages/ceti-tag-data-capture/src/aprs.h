@@ -1,3 +1,6 @@
+#ifndef RECOVERY_APRS_H
+#define RECOVERY_APRS_H
+
 #include <stdint.h>
 #include <string.h> // for memset() and other string functions
 #include <unistd.h>
@@ -18,3 +21,5 @@ typedef struct aprs_callsign_t {
  */
 int callsign_try_from_str(APRSCallsign *dst, const char *_String, char **_EndPtr);
 void callsign_to_str(APRSCallsign *self, char str[static 10]);
+
+#endif

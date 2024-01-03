@@ -211,8 +211,8 @@ int updateStateMachine() {
         if (g_config.recovery.enabled) {
             if ((recovery_set_critical_voltage(g_config.critical_voltage_v) == 0) 
                 && (recovery_set_aprs_freq_mhz(g_config.recovery.freq_MHz) == 0)
-                && (recovery_set_aprs_callsign(g_config.recovery.callsign) == 0)
-                && (recovery_set_aprs_message_recipient(g_config.recovery.recipient) == 0)
+                && (recovery_set_aprs_callsign(&g_config.recovery.callsign) == 0)
+                && (recovery_set_aprs_message_recipient(&g_config.recovery.recipient) == 0)
             ) { 
                 // send wake message
                 char hostname[512];
