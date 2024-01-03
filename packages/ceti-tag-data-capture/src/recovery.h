@@ -61,6 +61,9 @@ int recovery_set_aprs_freq_mhz(float f_MHz);
 int recovery_message(const char *message);
 int recovery_on(void);
 int recovery_off(void);
+int recovery_shutdown(void);
+void recovery_kill(void);
+
 //-----------------------------------------------------------------------------
 // Thread Methods
 //-----------------------------------------------------------------------------
