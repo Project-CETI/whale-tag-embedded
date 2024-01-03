@@ -46,7 +46,6 @@ typedef enum recovery_commands_e {
     REC_CMD_QUERY_APRS_FREQ,        // 0x62,
     REC_CMD_QUERY_APRS_CALLSIGN,   // 0x63,
     REC_CMD_QUERY_APRS_MESSAGE,     // 0x64,
-    REC_CMD_QUERY_APRS_TX_INTERVAL, // 0x65,
     REC_CMD_QUERY_APRS_SSID,
 
 
@@ -306,32 +305,6 @@ int recovery_get_aprs_freq_mhz(float *p_freq_MHz){
 
     //Timeout
     CETI_ERR("Recovery board timeout");
-    return -2;
-}
-
-int recovery_get_aprs_ssid(uint8_t *p_ssid){
-    RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_QUERY_APRS_SSID);
-    RecPkt ret_pkt = {};
-    serWrite(recovery_fd, (char *)&q_pkt, sizeof(q_pkt));
-
-
-    int64_t start_time_us = get_global_time_us();
-    do {
-        if (recovery_get_packet(&ret_pkt, RECOVERY_UART_TIMEOUT_US) < -1) {
-            CETI_ERR("Recovery board packet reading error");
-            return -1;
-        }
-
-        if(ret_pkt.common.header.type == REC_CMD_CONFIG_APRS_SSID) {
-            *p_ssid = ret_pkt.u8_packet.msg.value; 
-            return 0;
-        }
-        
-        //received incorrect packet type, keep reading
-    } while ((get_global_time_us() - start_time_us) < RECOVERY_UART_TIMEOUT_US);
-
-    //Timeout
-    CETI_ERR("Recovery board response timeout");
     return -2;
 }
 
