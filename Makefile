@@ -14,7 +14,8 @@ PACKAGES := $(wildcard $(PACKAGE_DIR)/*/.)
 	build \
 	docker-image \
 	docker-image-remove \
-	docker-shell
+	docker-shell \
+	test
 
 .DEFAULT := build-sdcard-img
 
@@ -33,6 +34,9 @@ clean:
 	rm -rf $(BUILD_DIR)/__pycache__
 	rm -rf $(OUT_DIR)
 
+test:
+	$(foreach package, $(PACKAGES), $(MAKE) test -C $(package))
+
 deep_clean: clean docker-image-remove
 	rm -rf raspios
 	$(foreach package, $(PACKAGES), $(MAKE) clean -C $(package);)
@@ -44,7 +48,7 @@ $(DOCKER_IMAGE):
 docker-image: $(DOCKER_IMAGE)
 
 docker-image-remove:
-	docker rmi $(DOCKER_IMAGE)
+	docker rmi -f ${DOCKER_IMAGE} 2> /dev/null
 
 docker-shell: $(DOCKER_IMAGE)
 	docker run --rm --privileged --interactive --tty --workdir /src \

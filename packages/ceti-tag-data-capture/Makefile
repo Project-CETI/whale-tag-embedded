@@ -29,9 +29,20 @@ CONFIGDIR ?= config
 DATADIR   ?= data
 DESTDIR   ?= opt/ceti-tag-data-capture
 
-build: $(APP) $(HW_TEST)
 
 $(APP): $(APP_OBJ)
+.PHONY: \
+	build \
+	binary \
+	install \
+	clean \
+	test
+	
+build: $(APP) $(HW_TEST)
+
+binary: $(APP)
+
+$(APP): $(OBJ)
 	mkdir -p $(BINDIR)
 	$(CC) $(CFLAGS) -o $(BINDIR)/$(APP) $(APP_OBJ) $(LDFLAGS)
 
@@ -50,3 +61,7 @@ clean:
 	rm -f $(OBJ)
 	rm -rf $(BINDIR)
 	rm -rf $(DESTDIR)
+	$(MAKE) clean -C test
+
+test:
+	$(MAKE) test -C test
