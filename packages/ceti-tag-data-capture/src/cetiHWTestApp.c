@@ -441,8 +441,9 @@ TestState test_recovery(void){
     }
 
     // Set callsign:
-    recovery_on();
     recovery_set_aprs_callsign(&src_callsign);
+    recovery_set_aprs_message_recipient(&(callsign){.callsign = "KC1QXQ", .ssid = 8});
+    recovery_on();
 
     // VHF/APRS TEST
     // generate random 4 character string

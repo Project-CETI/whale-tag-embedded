@@ -211,7 +211,7 @@ int recovery_get_packet(RecPkt *packet, time_t timeout_us) {
     } while ((timeout_us == 0)  || ((get_global_time_us() - start_time_us) < timeout_us));
 
     //Timeout
-    CETI_ERR("Recovery board timeout");
+    // CETI_ERR("Recovery board timeout"); // this may not be an error, data may just not be available
     return -2;
 }
 
@@ -225,7 +225,7 @@ static int __recovery_get_aprs_callsign(char buffer[static 7]) {
     //wait for response
     int64_t start_time_us = get_global_time_us();
     do {
-        if (recovery_get_packet(&ret_pkt, RECOVERY_UART_TIMEOUT_US) < -1) {
+        if (recovery_get_packet(&ret_pkt, RECOVERY_UART_TIMEOUT_US) == -1) {
             CETI_ERR("Recovery board packet reading error");
             return -1;
         }
@@ -255,7 +255,7 @@ static int __recovery_get_aprs_ssid(uint8_t *ssid){
     //wait for response
     int64_t start_time_us = get_global_time_us();
     do {
-        if (recovery_get_packet(&ret_pkt, RECOVERY_UART_TIMEOUT_US) < -1) {
+        if (recovery_get_packet(&ret_pkt, RECOVERY_UART_TIMEOUT_US) == -1) {
             CETI_ERR("Recovery board packet reading error");
             return -1;
         }
@@ -566,7 +566,8 @@ int recovery_get_gps_data(char gpsLocation[static GPS_LOCATION_LENGTH], time_t t
                 return result;
 
             case -2:
-                CETI_LOG("Recovery board pkt timeout");
+                // this is not an error, just no data available
+                // CETI_LOG("Recovery board pkt timeout");
                 return result;
 
             default:
