@@ -23,7 +23,7 @@ P2=0.10
 # Units are volts
 #
 V1=6.4
-V2=6.2
+V2=6.201
 #
 #------------------------------------------------------------------------------
 # Deployment Timeout
@@ -52,16 +52,16 @@ rec_enabled = true
 # Recovery board carrier frequency in MHz
 # valid range: 134.0 - 174.0
 # USA: 144.390
-# DOM: 145.000 
+# DOM: 145.050 
 #------------------------------------------------------------------------------
-rec_freq = 144.390
+rec_freq = 145.050
 
 #------------------------------------------------------------------------------
 # Recovery board callsign
 # callsigns must be valid callsigns (4-6 char in len, optional ssid 0 to 15)
 # example valid callsigns: KC1TUJ-1, J75Y, J75Z-15
 #------------------------------------------------------------------------------
-rec_callsign = KC1TUJ-1
+rec_callsign = J75Z-2
 
 #------------------------------------------------------------------------------
 # Recovery board message recipient callsign

@@ -221,6 +221,13 @@ int updateStateMachine() {
                 char message[1024];
                 snprintf(message, sizeof(message), "CETI %s ready!", hostname);
                 recovery_message(message);
+                //recovery_set_aprs_comment("Recording");
+
+                char rec_callsign_msg[10];
+                char callsign_msg[10];
+                callsign_to_str(&g_config.recovery.callsign, callsign_msg);
+                callsign_to_str(&g_config.recovery.recipient, rec_callsign_msg);
+                CETI_LOG("Recovery configured: %s -> %s @ %7.3f MHz", callsign_msg, rec_callsign_msg, g_config.recovery.freq_MHz);
             } else {
                 CETI_ERR("Failed to configure recovery board");
             }
