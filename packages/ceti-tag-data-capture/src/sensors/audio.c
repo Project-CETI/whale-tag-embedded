@@ -502,14 +502,14 @@ void audio_createNewFlacFile() {
   ok &= FLAC__stream_encoder_set_total_samples_estimate(flac_encoder, SAMPLES_PER_RAM_PAGE);
 
   if (!ok) {
-    CETI_LOG("XXXX FLAC encoder failed to set parameters for %s", audio_acqDataFileName);
+    CETI_ERR("FLAC encoder failed to set parameters for %s", audio_acqDataFileName);
     flac_encoder = 0;
     return;
   }
 
   init_status = FLAC__stream_encoder_init_file(flac_encoder, audio_acqDataFileName, NULL, NULL);
   if (init_status != FLAC__STREAM_ENCODER_INIT_STATUS_OK) {
-    CETI_LOG("XXXX ERROR: initializing encoder: %s", FLAC__StreamEncoderInitStatusString[init_status]);
+    CETI_ERR("ERROR: initializing encoder: %s", FLAC__StreamEncoderInitStatusString[init_status]);
     FLAC__stream_encoder_delete(flac_encoder);
     flac_encoder = 0;
     return;

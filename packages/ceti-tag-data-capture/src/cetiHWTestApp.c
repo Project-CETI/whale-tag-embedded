@@ -78,12 +78,6 @@ HardwareTest g_test_list[] = {
         // cpu temp
         // gpu temp
         // verify temperature sources to one another
-    
-    // IMU
-        // prompt user to
-            // rotate yaw
-            // rotate pitch
-            // rotate roll
 
     // Charging
         // prompt user to attach charger
@@ -406,7 +400,6 @@ TestState test_imu(void){
          : TEST_STATE_FAILED;
 }
 
-/* ToDo: test recovery communication */
 TestState test_recovery(void){
     char input;
     int vhf_pass = false;
@@ -749,10 +742,8 @@ void draw_inv_horzontal_bar(double value, double val_min, int x, int y, int w){
  */
 int main(void) {
     if (gpioInitialise() < 0) {
-        CETI_LOG("XXXX Failed to initialize pigpio XXXX");
+        CETI_ERR("Failed to initialize pigpio");
         return 1;
-    } else {
-        CETI_LOG("Successfully initialized pigpio");
     }
     atexit(gpioTerminate);
 

@@ -2,14 +2,14 @@ TEST_SRC        = $(shell find src -type f -iname '*.c' 2> /dev/null)
  
 # SRC        = $(filter-out ../src/launcher.c, $(wildcard ../src/*.c) $(wildcard ../src/*/*.c) $(wildcard ../src/*/*/*.c))
 SRC			= ../src/utils/config.c ../src/aprs.c
-TEST_APP        = $(TEST_SRC:.c=.test)
-OBJ        = $(SRC:.c=.o)
-CC         = gcc
+TEST_APP  	= $(TEST_SRC:.c=.test)
+OBJ        	= $(SRC:.c=.o)
+CC         	= gcc
 
-UNITY_DIR    = lib/Unity
+UNITY_DIR   = lib/Unity
 
-CFLAGS     = -Wall -g
-LDFLAGS    = -lpthread -lm -L $(UNITY_DIR) -lunity -I $(UNITY_DIR)/src/ -I ../src
+CFLAGS     	= -Wall -g
+LDFLAGS    	= -lpthread -lm -L $(UNITY_DIR) -lunity -I $(UNITY_DIR)/src/ -I ../src
 
 build:
 	@

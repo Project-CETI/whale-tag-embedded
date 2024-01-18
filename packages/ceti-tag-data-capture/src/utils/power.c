@@ -19,12 +19,12 @@ void wifi_disable(void) {
   struct ifreq wrq = {.ifr_name = WIFI_IFNAME};
 
   if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-    CETI_LOG("Unable to open WiFi socket.");
+    CETI_ERR("Unable to open WiFi socket.");
     return;
   }
 
   if (ioctl(sock, SIOCGIFFLAGS, &wrq) < 0) {
-    CETI_LOG("Unable to read wlan0 interface flags.");
+    CETI_ERR("Unable to read wlan0 interface flags.");
     return;
   }
 
@@ -32,27 +32,37 @@ void wifi_disable(void) {
   wrq.ifr_flags &= ~IFF_UP;
 
   if (ioctl(sock, SIOCSIFFLAGS, &wrq) < 0) {
-    CETI_LOG("Unable to write wlan0 interface flags.");
+    CETI_ERR("Unable to write wlan0 interface flags.");
     return;
   }
+}
+
+// ToDo: Implement
+void wifi_kill(void) {
+
 }
 
 void usb_disable(void) {
   // disable activity LED trigger
   int led_trigger_file = open(USB_SYSFS_PATH, O_WRONLY);
   if (led_trigger_file < 0) {
-    CETI_LOG("Could not open usb power bus file: " USB_SYSFS_PATH);
+    CETI_ERR("Could not open usb power bus file: " USB_SYSFS_PATH);
   } else {
     write(led_trigger_file, "0", 1);
     close(led_trigger_file);
   }
 }
 
+// ToDo: Implement
+void usb_kill(void) {
+
+}
+
 void activity_led_disable(void) {
   // disable activity LED trigger
   int led_trigger_file = open(ACT_LED_TRIGGER_SYSFS_PATH, O_WRONLY);
   if (led_trigger_file < 0) {
-    CETI_LOG("Could not open activity led trigger "
+    CETI_ERR("Could not open activity led trigger "
              "file: " ACT_LED_TRIGGER_SYSFS_PATH);
   } else {
     write(led_trigger_file, "none", 4);
@@ -62,7 +72,7 @@ void activity_led_disable(void) {
   // turn off activity LED
   int led_brightness_file = open(ACT_LED_BRIGHTNESS_SYSFS_PATH, O_WRONLY);
   if (led_brightness_file < 0) {
-    CETI_LOG("Could not open activity led brightness "
+    CETI_ERR("Could not open activity led brightness "
              "file: " ACT_LED_BRIGHTNESS_SYSFS_PATH);
   } else {
     write(led_brightness_file, "0", 1);

@@ -366,7 +366,7 @@ int config_read(const char * filename){
     CETI_LOG("Read the deployment parameters from %s", filename);
     ceti_config_file = fopen(filename, "r");
     if (ceti_config_file == NULL) {
-        CETI_LOG("XXXX Cannot open configuration file %s", filename);
+        CETI_ERR("Cannot open configuration file %s", filename);
         return (-1);
     }
     
@@ -379,13 +379,13 @@ int config_read(const char * filename){
             case CONFIG_OK:
                 break;
             case CONFIG_ERR_UNKNOWN_KEY:
-                CETI_LOG("%s: L%d: skipped unrecognized key: \"%s\"", filename, line_number, line);
+                CETI_WARN("%s: L%d: skipped unrecognized key: \"%s\"", filename, line_number, line);
                 break;
             case CONFIG_ERR_MISSING_ASSIGN_OP:
-                CETI_LOG("%s: L%d: skipped no '=': \"%s\"", filename, line_number, line);
+                CETI_WARN("%s: L%d: skipped no '=': \"%s\"", filename, line_number, line);
                 break;
             case CONFIG_ERR_INVALID_VALUE:
-                CETI_LOG("%s: L%d: invalid value: \"%s\"", filename, line_number, line);
+                CETI_WARN("%s: L%d: invalid value: \"%s\"", filename, line_number, line);
                 break;
             default:
                 break;

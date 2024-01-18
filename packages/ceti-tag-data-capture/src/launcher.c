@@ -283,8 +283,10 @@ int init_tag() {
   result += init_goPros() == 0 ? 0 : -1;
 #endif
 
-  if (result < 0)
+  if (result < 0){
     CETI_LOG("XXX Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
+    return result;
+  }
 
   sync_global_time_init();
 

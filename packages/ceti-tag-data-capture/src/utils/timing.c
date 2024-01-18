@@ -23,7 +23,7 @@ int init_timing() {
   // Test whether the RTC is available.
   updateRtcCount();
   if (latest_rtc_count == -1) {
-    CETI_LOG("XXX Failed to fetch a valid RTC count");
+    CETI_ERR("Failed to fetch a valid RTC count");
     latest_rtc_count = -1;
     last_rtc_update_time_us = -1;
     return (-1);
@@ -157,7 +157,7 @@ void *rtc_thread(void *paramPtr) {
     if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
       CETI_LOG("Successfully set affinity to CPU %d", RTC_CPU);
     else
-      CETI_LOG("XXX Failed to set affinity to CPU %d", RTC_CPU);
+      CETI_WARN("Failed to set affinity to CPU %d", RTC_CPU);
   }
 
   // Do an initial RTC update.

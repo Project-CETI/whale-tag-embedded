@@ -137,7 +137,6 @@ static int recovery_fd = PI_INIT_FAILED;
 
 /* FUCNTION DEFINITIONS ******************************************************/
 
-
 /* Get the next received communication packet from the recovery board.
  * Arguments: 
  *     RecPkt *packet   : ptr to destination packet union.

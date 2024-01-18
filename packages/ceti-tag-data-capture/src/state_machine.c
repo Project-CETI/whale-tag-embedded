@@ -222,7 +222,7 @@ int updateStateMachine() {
                 snprintf(message, sizeof(message), "CETI %s ready!", hostname);
                 recovery_message(message);
                 //recovery_set_aprs_comment("Recording");
-
+                
                 char rec_callsign_msg[10];
                 char callsign_msg[10];
                 callsign_to_str(&g_config.recovery.callsign, callsign_msg);

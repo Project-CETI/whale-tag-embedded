@@ -30,7 +30,7 @@ double g_latest_battery_i_mA;
 int init_battery() {
   int fd;
   if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
-    CETI_LOG("XXXX Failed to connect to the battery gauge XXXX");
+    CETI_ERR("Failed to connect to the battery gauge");
     return (-1);
   }
   else {
@@ -66,7 +66,7 @@ void* battery_thread(void* paramPtr) {
       if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
         CETI_LOG("Successfully set affinity to CPU %d", BATTERY_CPU);
       else
-        CETI_LOG("XXX Failed to set affinity to CPU %d", BATTERY_CPU);
+        CETI_ERR("Failed to set affinity to CPU %d", BATTERY_CPU);
     }
 
     // Main loop while application is running.
@@ -79,7 +79,7 @@ void* battery_thread(void* paramPtr) {
       battery_data_file = fopen(BATTERY_DATA_FILEPATH, "at");
       if(battery_data_file == NULL)
       {
-        CETI_LOG("failed to open data output file: %s", BATTERY_DATA_FILEPATH);
+        CETI_ERR("failed to open data output file: %s", BATTERY_DATA_FILEPATH);
         // Sleep a bit before retrying.
         for(int i = 0; i < 10 && !g_stopAcquisition; i++)
           usleep(100000);
@@ -94,7 +94,7 @@ void* battery_thread(void* paramPtr) {
           strcat(battery_data_file_notes, "ERROR | ");
         if(g_latest_battery_v1_v < 0 || g_latest_battery_v2_v < 0) // it seems to return -0.01 for voltages and -5.19 for current when no sensor is connected
         {
-          CETI_LOG("XXX readings are likely invalid");
+          CETI_WARN("readings are likely invalid");
           strcat(battery_data_file_notes, "INVALID? | ");
         }
 
@@ -135,7 +135,7 @@ int getBatteryData(double* battery_v1_v, double* battery_v2_v,
     signed short voltage, current;
 
     if ((fd = i2cOpen(1, ADDR_BATT_GAUGE, 0)) < 0) {
-        CETI_LOG("XXX Failed to connect to the fuel gauge");
+        CETI_ERR("Failed to connect to the fuel gauge");
         return (-1);
     }
 

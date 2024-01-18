@@ -134,7 +134,7 @@ int getPressureTemperature(double *pressure_bar, double *temperature_c) {
   char presSensData_byte[5];
 
   if ((fd = i2cOpen(1, ADDR_PRESSURETEMPERATURE, 0)) < 0) {
-    CETI_LOG("XXXX Failed to connect to the pressure/temperature sensor XXXX");
+    CETI_ERR("Failed to connect to the pressure/temperature sensor");
     return (-1);
   }
 
