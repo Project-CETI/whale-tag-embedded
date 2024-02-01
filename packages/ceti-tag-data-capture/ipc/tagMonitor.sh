@@ -6,8 +6,8 @@
 # remount rootfs readonly
 mount /boot -o remount,ro
 
-# Provide a startup delay to allow a user to connect before recorder begins using resources.
-sleep  30
+#wake the tag (if )
+tagWake
 
 # Launch the main recording application in the background.
 sudo /opt/ceti-tag-data-capture/bin/cetiTagApp &
@@ -15,9 +15,13 @@ sudo /opt/ceti-tag-data-capture/bin/cetiTagApp &
 sleep 15
 data_acquisition_running=1
 
+
 # Periodically monitor the battery, SD storage, and audio overflows.
 while :
 do
+#loop timing and initial delay so the user has time to log in before the
+#script shuts the system down
+  sleep 60
 
 # Check that there is disk space available to continue recording.
 # The tag app should automatically stop if there is less than 1 GiB free.
@@ -113,9 +117,6 @@ do
   then
     echo "FIFO is OK; no overflow detected"
   fi
-
-#loop timing
-  sleep 60
 done
 
 # Some cleanup on the way out...

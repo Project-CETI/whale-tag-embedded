@@ -44,8 +44,7 @@ void* boardTemperature_thread(void* paramPtr) {
     g_boardTemperature_thread_tid = gettid();
 
     // Set the thread CPU affinity.
-    if(BOARDTEMPERATURE_CPU >= 0)
-    {
+    if(BOARDTEMPERATURE_CPU >= 0) {
       pthread_t thread;
       thread = pthread_self();
       cpu_set_t cpuset;
@@ -65,8 +64,7 @@ void* boardTemperature_thread(void* paramPtr) {
     g_boardTemperature_thread_is_running = 1;
     while (!g_stopAcquisition) {
       boardTemperature_data_file = fopen(BOARDTEMPERATURE_DATA_FILEPATH, "at");
-      if(boardTemperature_data_file == NULL)
-      {
+      if(boardTemperature_data_file == NULL) {
         CETI_LOG("failed to open data output file: %s", BOARDTEMPERATURE_DATA_FILEPATH);
         // Sleep a bit before retrying.
         for(int i = 0; i < 10 && !g_stopAcquisition; i++)
@@ -141,8 +139,8 @@ void* boardTemperature_thread(void* paramPtr) {
 
 int getBoardTemperature(int *pBoardTemp) {
 
-    int fd;
-    if((fd=i2cOpen(1,ADDR_BOARDTEMPERATURE,0)) < 0) {
+    int fd = i2cOpen(1,ADDR_BOARDTEMPERATURE,0);
+    if(fd < 0) {
         CETI_ERR("Failed to connect to the temperature sensor");
         return(-1);
     }
@@ -154,8 +152,8 @@ int getBoardTemperature(int *pBoardTemp) {
 
 int getBatteryTemperature(int *pBattTemp) {
 
-    int fd;
-    if((fd=i2cOpen(1,ADDR_BOARDTEMPERATURE,0)) < 0) {
+    int fd = i2cOpen(1,ADDR_BOARDTEMPERATURE,0);
+    if(fd < 0) {
         CETI_ERR("Failed to connect to the temperature sensor");
         return(-1);
     }
@@ -172,8 +170,8 @@ int getBatteryTemperature(int *pBattTemp) {
 
 int getTemperatures(int *pBoardTemp, int *pBattTemp) {
 
-    int fd;
-    if((fd=i2cOpen(1,ADDR_BOARDTEMPERATURE,0)) < 0) {
+    int fd = i2cOpen(1,ADDR_BOARDTEMPERATURE,0);
+    if(fd < 0) {
         CETI_ERR("Failed to connect to the temperature sensor");
         return(-1);
     }
