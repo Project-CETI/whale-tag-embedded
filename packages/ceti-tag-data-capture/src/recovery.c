@@ -13,6 +13,7 @@
 /* MACRO DEFINITIONS *********************************************************/
 #define RECOVERY_PACKET_KEY_VALUE '$'
 #define RECOVERY_UART_TIMEOUT_US 5000000
+#define RECOVERY_WDT_TRIGGER_TIME_MIN 10 
 
 /* TYPE DEFINITIONS **********************************************************/
 typedef enum recovery_commands_e {
@@ -134,6 +135,22 @@ static const char* recovery_data_file_headers[] = {
 static const int num_recovery_data_file_headers = 1;
 static char gps_location[GPS_LOCATION_LENGTH];
 static int recovery_fd = PI_INIT_FAILED;
+
+typedef enum {
+    REC_STATE_WAIT,
+    REC_STATE_APRS,
+    REC_STATE_BOOTLOADER,
+    REC_STATE_SHUTDOWN,
+}RecoveryBoardState;
+
+static struct {
+    RecoveryBoardState state;
+    pthread_mutex_t    state_lock; 
+    time_t             wdt_time_us;
+} s_recovery_board_model = {
+    .state = REC_STATE_APRS,
+    .wdt_time_us = 0,
+};
 
 /* FUCNTION DEFINITIONS ******************************************************/
 
@@ -474,8 +491,22 @@ int recovery_message(const char *message){
     return 0;
 }
 
+//-----------------------------------------------------------------------------
+// On/Off
+//-----------------------------------------------------------------------------
+
+// initializes recovery board from powered off state
 int recovery_init(void) {
+    if (pthread_mutex_init(&s_recovery_board_model.state_lock, NULL) != 0) { 
+        printf("\n state mutex init has failed\n"); 
+        return -2; 
+    } 
     gpioWrite(13, 1); //turn on recovery
+    
+    pthread_mutex_lock(&s_recovery_board_model.state_lock);
+    s_recovery_board_model.state = REC_STATE_APRS;
+    pthread_mutex_unlock(&s_recovery_board_model.state_lock);
+
     usleep(50000); // sleep a bit
 
     // Open serial communication
@@ -499,22 +530,7 @@ int recovery_init(void) {
     return 0;
 }
 
-void recovery_kill(void){
-    recovery_shutdown();
-    serClose(recovery_fd); // close serial port
-    gpioWrite(13, 0);      // turn off recovery
-}
-
-int recovery_restart(void) {
-    recovery_kill();
-    usleep(50000);
-    return recovery_init();
-}
-
-//-----------------------------------------------------------------------------
-// On/Off
-//-----------------------------------------------------------------------------
-
+// sets recovery board into "arps" state
 int recovery_on(void) {
     RecPktHeader start_pkt = {
         .key = RECOVERY_PACKET_KEY_VALUE,
@@ -522,11 +538,16 @@ int recovery_on(void) {
         .length = 0,
     };
 
+    pthread_mutex_lock(&s_recovery_board_model.state_lock);
     serWrite(recovery_fd, (char *)&start_pkt, sizeof(start_pkt));
+    s_recovery_board_model.state = REC_STATE_APRS;
+    pthread_mutex_unlock(&s_recovery_board_model.state_lock);
+
     return 0;
 }
 
-int recovery_off(void) {
+//Note: lock state mutex prior to calling
+static int __recovery_off (void) {
     RecPktHeader stop_pkt = {
         .key = RECOVERY_PACKET_KEY_VALUE,
         .type = REC_CMD_STOP,
@@ -534,19 +555,49 @@ int recovery_off(void) {
     };
 
     serWrite(recovery_fd, (char *)&stop_pkt, sizeof(stop_pkt));
+    s_recovery_board_model.state = REC_STATE_WAIT;
+    s_recovery_board_model.wdt_time_us = get_global_time_us();
     return 0;
 }
 
+// sets recovery board into "wait" state
+// command must be sent every 10 minutes to remain in this state
+int recovery_off(void) {
+    pthread_mutex_lock(&s_recovery_board_model.state_lock);
+    __recovery_off();
+    pthread_mutex_unlock(&s_recovery_board_model.state_lock);
+    return 0;
+}
+
+// sets recovery board into "shutdown" state
+// recovery board must be reset to exit state
 int recovery_shutdown(void){
      RecPktHeader critical_pkt = {
         .key = RECOVERY_PACKET_KEY_VALUE,
         .type = REC_CMD_CRITICAL,
         .length = 0,
     };
-
+    pthread_mutex_lock(&s_recovery_board_model.state_lock);
     serWrite(recovery_fd, (char *)&critical_pkt, sizeof(critical_pkt));
+    s_recovery_board_model.state = REC_STATE_SHUTDOWN;
+    pthread_mutex_unlock(&s_recovery_board_model.state_lock);
 
     return 0;
+}
+
+// kills recovery board but trying to shut it down then cutting
+// power the to board
+void recovery_kill(void){
+    recovery_shutdown();
+    serClose(recovery_fd); // close serial port
+    gpioWrite(13, 0);      // turn off recovery
+}
+
+// kills recovery board, then re initializes
+int recovery_restart(void) {
+    recovery_kill();
+    usleep(50000);
+    return recovery_init();
 }
 
 //-----------------------------------------------------------------------------
@@ -603,6 +654,14 @@ int recovery_thread_init(void) {
     return 0;
 }
 
+void recovery_thread_wait(void) {
+
+}
+
+void recovery_thread_active(void) {
+
+}
+
 void* recovery_thread(void* paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_recovery_thread_tid = gettid();
@@ -623,58 +682,85 @@ void* recovery_thread(void* paramPtr) {
 
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically acquire data");
-    long long global_time_us;
-    int rtc_count;
-    long long polling_sleep_duration_us;
-    int result;
     g_recovery_thread_is_running = 1;
     while (!g_exit) {
-      recovery_data_file = fopen(RECOVERY_DATA_FILEPATH, "at");
-      if(recovery_data_file == NULL)
-      {
-        CETI_ERR("Failed to open data output file: %s", RECOVERY_DATA_FILEPATH);
-        // Sleep a bit before retrying.
-        for(int i = 0; i < 10 && !g_exit; i++)
-          usleep(100000);
-      }
-      else
-      {
-        // Acquire timing and sensor information as close together as possible.
-        global_time_us = get_global_time_us();
-        rtc_count = getRtcCount();
-        result = recovery_get_gps_data(gps_location, 1000000);
-        if (result == -2) { //timeout
-            // no gps packet available
-            // nothing to do
-            continue;
-        } else if (result == -1) {
-            CETI_ERR("Recovery board communication Error");
-            recovery_restart();
-            sleep(10);
-            continue;
-        }   
+        pthread_mutex_lock(&s_recovery_board_model.state_lock); //prevents recovery board turning off mid communication
+        switch(s_recovery_board_model.state) {
+            case REC_STATE_WAIT: {
+                //check if watchdog needs reset
+                const int wdt_resend_us = (RECOVERY_WDT_TRIGGER_TIME_MIN*60)*1000000;
+                if ((get_global_time_us() - s_recovery_board_model.wdt_time_us) > (wdt_resend_us - 1000000)){
+                    __recovery_off(); //we already have mutex
+                }
+                pthread_mutex_unlock(&s_recovery_board_model.state_lock);
+                sleep(1);
+                break; 
+            }
 
-        // Write timing information.
-        fprintf(recovery_data_file, "%lld", global_time_us);
-        fprintf(recovery_data_file, ",%d", rtc_count);
-        // Write any notes, then clear them so they are only written once.
-        fprintf(recovery_data_file, ",%s", recovery_data_file_notes);
-        strcpy(recovery_data_file_notes, "");
-        // Write the sensor data.
-        fprintf(recovery_data_file, "\"%s\"", gps_location);
-        // Finish the row of data and close the file.
-        fprintf(recovery_data_file, "\n");
-        fclose(recovery_data_file);
+            case REC_STATE_APRS: { 
+                long long global_time_us;
+                int rtc_count;
+                int result;
+                long long polling_sleep_duration_us;
 
-        // Delay to implement a desired sampling rate.
-        // Take into account the time it took to acquire/save data.
-        polling_sleep_duration_us = RECOVERY_SAMPLING_PERIOD_US;
-        polling_sleep_duration_us -= get_global_time_us() - global_time_us;
-        if(polling_sleep_duration_us > 0)
-          usleep(polling_sleep_duration_us);
-      }
+                recovery_data_file = fopen(RECOVERY_DATA_FILEPATH, "at");
+                if(recovery_data_file == NULL) {
+                    pthread_mutex_unlock(&s_recovery_board_model.state_lock); //release recovery state
+                    CETI_ERR("Failed to open data output file: %s", RECOVERY_DATA_FILEPATH);
+                    // Sleep a bit before retrying.
+                    for(int i = 0; i < 10 && !g_exit; i++) {
+                        usleep(100000);
+                    }
+                    break;
+                }
+
+                // Acquire timing and sensor information as close together as possible.
+                global_time_us = get_global_time_us();
+                rtc_count = getRtcCount();
+                result = recovery_get_gps_data(gps_location, 1000000);
+                pthread_mutex_unlock(&s_recovery_board_model.state_lock); //release recovery state
+
+                if (result == -2) { //timeout
+                    // no gps packet available
+                    // nothing to do
+                    break;
+                } else if (result == -1) {
+                    CETI_ERR("Recovery board communication Error");
+                    recovery_restart();
+                    sleep(10);
+                    break;
+                }   
+
+                // Write timing information.
+                fprintf(recovery_data_file, "%lld", global_time_us);
+                fprintf(recovery_data_file, ",%d", rtc_count);
+                // Write any notes, then clear them so they are only written once.
+                fprintf(recovery_data_file, ",%s", recovery_data_file_notes);
+                strcpy(recovery_data_file_notes, "");
+                // Write the sensor data.
+                fprintf(recovery_data_file, "\"%s\"", gps_location);
+                // Finish the row of data and close the file.
+                fprintf(recovery_data_file, "\n");
+                fclose(recovery_data_file);
+
+                // Delay to implement a desired sampling rate.
+                // Take into account the time it took to acquire/save data.
+                polling_sleep_duration_us = RECOVERY_SAMPLING_PERIOD_US;
+                polling_sleep_duration_us -= get_global_time_us() - global_time_us;
+                if(polling_sleep_duration_us > 0){
+                    usleep(polling_sleep_duration_us);
+                }
+                break;
+            }
+
+            default: { //Do nothing
+                pthread_mutex_unlock(&s_recovery_board_model.state_lock);
+                sleep(1);
+                break;
+            }
+        }
     }
-    recovery_off();
+    recovery_kill();
     serClose(recovery_fd);
     g_recovery_thread_is_running = 0;
     CETI_LOG("Done!");

@@ -1,6 +1,7 @@
 #include <ctype.h>
 #include <net/if.h>
 #include <pigpio.h>
+#include <pthread.h> // to set CPU affinity
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,6 +9,7 @@
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
+
 
 #include "battery.h"
 #include "fpga.h"
@@ -47,6 +49,7 @@ typedef struct hardware_test_t{
 } HardwareTest;
 
 TestUpdateMethod test_ToDo;
+TestUpdateMethod test_audio;
 TestUpdateMethod test_batteries;
 TestUpdateMethod test_i2cdetect;
 TestUpdateMethod test_imu;
@@ -55,40 +58,32 @@ TestUpdateMethod test_light;
 TestUpdateMethod test_pressure;
 TestUpdateMethod test_ecg;
 TestUpdateMethod test_recovery;
+TestUpdateMethod test_temperature;
 
 
 HardwareTest g_test_list[] = {
     { .name = "I2C Devices",      .update = test_i2cdetect, },
     { .name = "Batteries",        .update = test_batteries, },
-    { .name = "Audio",            .update = test_ToDo, },
+    { .name = "Audio",            .update = test_audio, },
     { .name = "Pressure",         .update = test_pressure, },
-    { .name = "ECG Connectivity", .update = test_ToDo, },
+    { .name = "ECG Connectivity", .update = test_ecg, },
     { .name = "IMU",              .update = test_imu, },
-    { .name = "Temperature",      .update = test_ToDo, },
+    { .name = "Temperature",      .update = test_temperature, },
     { .name = "Light",            .update = test_light, },
     { .name = "Communication",    .update = test_internet, },
     { .name = "Recovery",         .update = test_recovery, },
 };
-    // ECG 
-
-    // Temperature
-        // board temp
-        // battery temp
-        // pressure temp
-        // cpu temp
-        // gpu temp
-        // verify temperature sources to one another
-
+    // Audio 
+        // Create audio data buffer thread
+        // swap buffers
+            // analyze for peaks
+            // 
     // Charging
         // prompt user to attach charger
             // measure current
                 // charging
             // switch to sleep mode
             // switch to wake mode
-
-    // Audio
-        // sample noise
-            // prompt user to apply signal to each input
 
     // Burn wire
         // (require user measurement + pass/fail)
@@ -119,6 +114,152 @@ TestState test_ToDo(void){
         return TEST_STATE_TERMINATE;
 
     return TEST_STATE_PASSED;
+}
+
+
+bool test_audio_terminate = 1;
+pthread_mutex_t test_audio_swap_lock;
+uint8_t test_audio_write_buffer = 0;
+
+// divisable by SPI_BLOCK_SIZE (256*32) = 8192,
+// and divisble by sample size (3*2) = 6;
+#define TEST_AUDIO_LCM_BYTES 24576
+#define TEST_AUDIO_BUFFER_SIZE_BYTES 884736 //~1.5 seconds of data
+#define TEST_AUDIO_BUFFER_SIZE_BLOCKS (TEST_AUDIO_BUFFER_SIZE_BYTES/SPI_BLOCK_SIZE)
+#define TEST_AUDIO_BUFFER_SIZE_SAMPLES (TEST_AUDIO_BUFFER_SIZE_BYTES/ (sizeof(int16_t)*CHANNELS))
+
+
+uint32_t test_audio_write_block;
+uint32_t test_audio_read_sample;
+union __attribute__ ((scalar_storage_order ("big-endian"))) {
+    uint8_t raw[TEST_AUDIO_BUFFER_SIZE_BYTES];
+    char    blocks[TEST_AUDIO_BUFFER_SIZE_BLOCKS][SPI_BLOCK_SIZE];
+    int16_t samples[TEST_AUDIO_BUFFER_SIZE_SAMPLES][CHANNELS];
+} test_audio_data;
+
+
+void *test_audio_acq_thread(void *paramPtr){
+    char first_byte;
+
+    int spi_fd = spiOpen(SPI_CE, SPI_CLK_RATE, 1);
+
+    if (spi_fd < 0) {
+        CETI_ERR("pigpio SPI initialisation failed");
+        return NULL;
+    }
+
+    /* Set GPIO modes */
+    gpioSetMode(AUDIO_DATA_AVAILABLE, PI_INPUT);
+    start_audio_acq();
+
+    // Discard the very first byte in the SPI stream.
+    // BUG!!!!
+    spiRead(spi_fd, &first_byte, 1);
+    test_audio_write_block = 0;
+    while(!test_audio_terminate){
+        //check if data is ready
+        if (!gpioRead(AUDIO_DATA_AVAILABLE)) {
+            usleep(1000);
+            continue;
+        }
+
+        // Wait for SPI data to *really* be available?
+        // BUG!!!!! data ready pin should not be high until data is ready
+        usleep(2000); //???
+
+        //read data
+        spiRead(spi_fd, test_audio_data.blocks[test_audio_write_block], SPI_BLOCK_SIZE);
+        test_audio_write_block = (test_audio_write_block + 1) % TEST_AUDIO_BUFFER_SIZE_BLOCKS;
+
+        // check that buffer is flushed
+        while(gpioRead(AUDIO_DATA_AVAILABLE));
+    }
+    stop_audio_acq();
+    usleep(100000);
+    reset_audio_fifo();
+    usleep(100000);
+    spiClose(spi_fd);
+    return NULL;
+}
+
+TestState test_audio(void){
+    char input = 0;
+    pthread_t data_acq_thread;
+    bool channel_pass[3] = {0,0,0};
+    const double target = 0.25;
+    test_audio_terminate = 0;
+    if (setup_audio_96kHz() != 0) {
+        return TEST_STATE_FAILED;
+    }
+    pthread_mutex_init(&test_audio_swap_lock, NULL);
+    pthread_create(&data_acq_thread, NULL, &test_audio_acq_thread, NULL);
+    test_audio_read_sample = 0;
+    do {
+        uint32_t end_block = test_audio_write_block;
+        int16_t max_audio[3] = {0, 0, 0};
+
+        //pull latest samples from circular buffer
+        uint8_t *end_ptr = (uint8_t *)test_audio_data.blocks[end_block];
+        if(end_ptr < (uint8_t *)test_audio_data.samples[test_audio_read_sample]){
+            //transform to end of buffer
+            while(test_audio_read_sample < TEST_AUDIO_BUFFER_SIZE_SAMPLES){
+                // AUDIO DATA TRANSFORMATION HERE
+                for(int i = 0; i < 3; i++){
+                    int16_t sample_amp = abs(test_audio_data.samples[test_audio_read_sample][i]);
+                    if(sample_amp > max_audio[i]){
+                        max_audio[i] = sample_amp;
+                    }
+                }
+                test_audio_read_sample++;
+            }
+            //wrap around
+            test_audio_read_sample = 0;
+        }
+
+        //transform to end_ptr
+        while((uint8_t *) test_audio_data.samples[test_audio_read_sample] < end_ptr) {
+            // AUDIO DATA TRANSFORMATION HERE
+            for(int i = 0; i < 3; i++){
+                int16_t sample_amp = abs(test_audio_data.samples[test_audio_read_sample][i]);
+                if(sample_amp > max_audio[i]){
+                    max_audio[i] = sample_amp;
+                }
+            }
+            test_audio_read_sample++;
+        }
+       
+        //ToDo: pass condition
+        for(int i = 0; i < 3; i++){
+            if(((double)max_audio[i])/0x7FFF > target){
+                channel_pass[i] = 1;
+            }
+        }
+
+        //update screen
+        int width = (cols - 13) - 1 ;
+        for(int i = 0; i < 3; i++){
+            int line = 5 + 3*i;
+
+            printf("\e[%d;1HCH%d: %5.3f: ", line, 1 + i, ((double)max_audio[i])/0x7FFF);
+            draw_horzontal_bar(((double)max_audio[i])/0x7FFF, 1.0, 13, line, width);
+            printf("\e[%d;1H\e[0K%s", line + 1, channel_pass[i] ? GREEN("PASS") : YELLOW("Pending..."));
+            printf("\e[%d;%dH\e[96m|\e[0m\n", line, 13 + (int)(width*target));
+        } 
+        printf("\e[4;%dH\e[96m|%4.2f\e[0m\n", 13 + (int)(width*target), target);
+    } while(read(STDIN_FILENO, &input, 1), input == 0);
+    test_audio_terminate = 1;
+
+    //record results
+    bool all_pass = 1;
+    for(int i = 0; i < 3; i++){
+        fprintf(results_file, "Ch%d: %s", i, channel_pass[i] ? "PASS" : "FAIL" );
+        all_pass = all_pass && channel_pass[i];
+    }
+
+    if(input == 27)
+        return TEST_STATE_TERMINATE;
+    
+    return all_pass ? TEST_STATE_PASSED : TEST_STATE_FAILED;
 }
 
 TestState test_batteries(void){
@@ -166,32 +307,117 @@ TestState test_batteries(void){
     return TEST_STATE_FAILED;
 }
 
+bool test_ecg_terminate = 1;
+pthread_mutex_t test_ecg_swap_lock;
+int     test_ecg_write_buffer = 0;
+int32_t test_ecg_circular_buffer[11][100];
+
+void *test_ecg_acq_thread(void *paramPtr){
+    int sample_index = 0;
+    while(!test_ecg_terminate){
+        if(ecg_adc_read_data_ready() != 0){
+            // data not ready
+            usleep(100);
+            continue;
+        }
+
+        test_ecg_circular_buffer[test_ecg_write_buffer][sample_index] = ecg_adc_raw_read_data();
+        sample_index = (sample_index + 1) % 100;
+        if(sample_index == 0){
+            pthread_mutex_lock(&test_ecg_swap_lock);
+            test_ecg_write_buffer = (test_ecg_write_buffer + 1) % 11;
+            pthread_mutex_unlock(&test_ecg_swap_lock);
+        }
+    }
+    return NULL;
+}
+
 TestState test_ecg(void){
-    char input;
+    char input = 0;
     bool none_pass = false;
     bool p_pass = false;
     bool n_pass = false;
     bool all_pass = false;
-    int state_count = 0;
-
+    pthread_t data_acq_thread;
     // instructions:
     printf("Instructions: Touch the ECG leads in the following combinations");
     
-    // ToDo: initialize ecg
+    if(init_ecg_electronics() != 0){
+        return TEST_STATE_FAILED;
+    }
 
-    while((input == 0) && !(none_pass && p_pass && n_pass && all_pass)){
-        // ToDo implement reading eletrode state
-        // waiting on ECG update approval
+    // setup data collection thread
+    pthread_mutex_init(&test_ecg_swap_lock, NULL);
+    test_ecg_terminate = 0;
+    pthread_create(&data_acq_thread, NULL, &test_ecg_acq_thread, NULL);
 
+    int previous_lead_state = 0;
+    int previous_state_count = 0;
+    do {
+        //update continuity test
+        int lead_state = ecg_gpio_expander_read();
+
+        if(lead_state == previous_lead_state) {
+            previous_state_count++;
+            if(previous_state_count == 10){
+                switch(lead_state & 0b11){
+                    case 0b00: all_pass = 1; break;
+                    case 0b01: p_pass = 1; break;
+                    case 0b10: n_pass = 1; break;
+                    case 0b11: none_pass = 1; break;
+                }
+            }
+        } else {
+            previous_lead_state = lead_state;
+            previous_state_count = 0;
+        }
 
         // display progress
-        printf("\e[4;1H\e[0K     None: %s\n", none_pass ? GREEN("PASS") : YELLOW("Pending..."));
-        printf("\e[4;1H\e[0K+,    GND: %s\n", p_pass ? GREEN("PASS") : YELLOW("Pending..."));
-        printf("\e[4;1H\e[0K   -, GND: %s\n", n_pass ? GREEN("PASS") : YELLOW("Pending..."));
-        printf("\e[4;1H\e[0K+, -, GND: %s\n", all_pass ? GREEN("PASS") : YELLOW("Pending..."));
+        printf("\e[5;1H\e[0KState: %s | %s", (lead_state & 0b10) ? " " : "+", (lead_state & 0b01) ? " " : "-");
+        printf("\e[6;1H\e[0K     None: %s\n", none_pass ? GREEN("PASS") : YELLOW("Pending..."));
+        printf("\e[7;1H\e[0K+,    GND: %s\n", p_pass ? GREEN("PASS") : YELLOW("Pending..."));
+        printf("\e[8;1H\e[0K   -, GND: %s\n", n_pass ? GREEN("PASS") : YELLOW("Pending..."));
+        printf("\e[9;1H\e[0K+, -, GND: %s\n", all_pass ? GREEN("PASS") : YELLOW("Pending..."));
+
+
+        
+        // ToDo: render data in real time
+            //average or downsample to fit screen width
+        int height = lines - 13;
+
+        //clear old data
+        for(int i = 0; i < height; i++){
+            printf("\e[%d;1H\e[0K", i + 12);
+        }
+        // if((lead_state & 0b11) == 0b00){
+        //     pthread_mutex_lock(&test_ecg_swap_lock);
+        //     for(int i = 0; i < 1000; i += 1000/cols){
+        //         //downsample (maybe averaging would be better)
+        //         int32_t reading;
+                
+        //         /* downsampling */
+        //         reading = test_ecg_circular_buffer[((test_ecg_write_buffer + 1 + i/100) % 11)][i % 100];
+
+
+        //         /* averaging */
+        //         // double reading = 0.0;
+        //         // for(int j = 0; j < 1000/cols; j++){
+        //         //     reading += (double)test_ecg_circular_buffer[((test_ecg_write_buffer + 1 + (i + j)/100) % 11)][(i + j) % 100];
+        //         // }
+        //         // reading /= (1000.0/cols);
+
+        //         printf("\e[%d;%dH-", 12 + (height/2) + reading/((0x800)/height), i*cols/1000); // ToDo: scale
+        //         // printf("\e[%d;%dH" YELLOW("-"), 12 + (height/2), i);
+
+        //     }
+        //     pthread_mutex_unlock(&test_ecg_swap_lock);
+        // }
+
         fflush(stdin);
-        read(STDIN_FILENO, &input, 1); 
-    }
+    } while(read(STDIN_FILENO, &input, 1), input == 0);
+
+    //stop thread
+    test_ecg_terminate = 1;
 
     // record results
     fprintf(results_file, "[%s]: None\n", none_pass ? "PASS" : "FAIL");
@@ -203,6 +429,9 @@ TestState test_ecg(void){
     while((input == 0)){
         read(STDIN_FILENO, &input, 1);
     }
+
+    ecg_adc_cleanup();
+    ecg_gpio_expander_cleanup();
 
     return (input == 27) ? TEST_STATE_TERMINATE
          : (none_pass && p_pass && n_pass && all_pass) ? TEST_STATE_PASSED
@@ -284,6 +513,7 @@ TestState test_i2cdetect(void){
     return TEST_STATE_FAILED;
 }
 
+// Test of rotation along X, Y and Z
 TestState test_imu(void){
     char input = '\0';
     int roll_pass = 0;
@@ -295,6 +525,7 @@ TestState test_imu(void){
     if(setupIMU(IMU_QUAT_ENABLED) < 0) {
         printf(RED(FAIL) " IMU Communication Failure.\n");
         while(input == 0){ read(STDIN_FILENO, &input, 1); }
+        bbI2CClose(IMU_BB_I2C_SDA);
         return TEST_STATE_FAILED; //imu communication error
     }
 
@@ -372,18 +603,18 @@ TestState test_imu(void){
                 printf("\e[6;%dH" GREEN("|"), 13 + width/4);
                 if(-95.0 <= (euler_angles.roll*180.0/M_PI) && (euler_angles.roll*180.0/M_PI) < -85.0){
                     test_index++;
-                    roll_pass = 1;
                 }
                 break;
             case 5: //90 roll
                 printf("\e[6;%dH" GREEN("|"), 13 + (width/4*3));
                 if(85.0 <= (euler_angles.roll*180.0/M_PI) && (euler_angles.roll*180.0/M_PI) < 95.0){
                     test_index++;
+                    roll_pass = 1;
                 }
                 break;
+            default:
+                break;
         }
-
-
 
         fflush(stdout);
     }
@@ -394,12 +625,14 @@ TestState test_imu(void){
     fprintf(results_file, "[%s]: yaw\n", yaw_pass ? "PASS" : "FAIL");
 
     resetIMU();
+    bbI2CClose(IMU_BB_I2C_SDA);
     
     return (input == 27) ? TEST_STATE_TERMINATE
          : (roll_pass && pitch_pass && yaw_pass) ? TEST_STATE_PASSED
          : TEST_STATE_FAILED;
 }
 
+// 2FA for VHF, polling of GPS
 TestState test_recovery(void){
     char input;
     int vhf_pass = false;
@@ -420,6 +653,7 @@ TestState test_recovery(void){
         printf(RED(FAIL) "UART Communication Failure.\n");
         while(input == 0){ read(STDIN_FILENO, &input, 1); }
         fprintf(results_file, "[FAIL]: UART communication failure.\n");
+        recovery_kill();
         return TEST_STATE_FAILED; //imu communication error
     }
 
@@ -430,6 +664,7 @@ TestState test_recovery(void){
         printf(RED(FAIL) "Recovery query failure.\n");
         while(input == 0){ read(STDIN_FILENO, &input, 1); }
         fprintf(results_file, "[FAIL]: Recovery query failure.\n");
+        recovery_kill();
         return TEST_STATE_FAILED; //imu communication error
     }
 
@@ -510,7 +745,7 @@ TestState test_recovery(void){
     //record results
     fprintf(results_file, "[%s]: aprs\n", vhf_pass ? "PASS" : "FAIL");
     fprintf(results_file, "[%s]: gps\n", gps_pass ? "PASS" : "FAIL");
-
+    recovery_kill();
     return (input == 27) ? TEST_STATE_TERMINATE
          : (vhf_pass && gps_pass) ? TEST_STATE_PASSED
          : TEST_STATE_FAILED;
@@ -544,6 +779,7 @@ int checkInterfaceStatus(const char *interface) {
     return (ifr.ifr_flags & IFF_UP) ? 1 : 0;
 }
 
+// Tests for WiFi and Eth0 connections
 TestState test_internet(void){
     int wlan0_pass = 0;
     int eth0_pass = 0;
@@ -580,6 +816,7 @@ TestState test_internet(void){
          : TEST_STATE_FAILED;
 }
 
+// Test for changes in light intensity
 TestState test_light(void){
     const int vis_target = 500;
     const int ir_target = 1000;
@@ -646,6 +883,7 @@ TestState test_light(void){
     return TEST_STATE_PASSED;
 }
 
+// Tests for changes in pressure
 TestState test_pressure(void){
     const double pressure_target = 2.0;
     double pressure_bar, temperature_c;
@@ -693,9 +931,11 @@ TestState test_pressure(void){
     return (pressure_pass ? TEST_STATE_PASSED : TEST_STATE_FAILED);
 }
 
+// Tests that all temperature sensors are +/- 3 degree C of their average value
 TestState test_temperature(void){
     char input = 0;
     double garbage;
+    int board_temp_c, battery_temp_c;
     double temp_c[5];
     bool sensor_pass[sizeof(temp_c)/sizeof(*temp_c)];
 
@@ -703,7 +943,9 @@ TestState test_temperature(void){
         //read temperatures
         int result = 0;
         result |= getPressureTemperature(&garbage, &temp_c[0]);
-        result |= getTemperatures(&temp_c[1], &temp_c[2]);
+        result |= getTemperatures(&board_temp_c, &battery_temp_c);
+        temp_c[1] = (double)board_temp_c;
+        temp_c[2] = (double)battery_temp_c;
         temp_c[3] = get_cpu_temperature_c();
         temp_c[4] = get_gpu_temperature_c();
         if(result != 0){
@@ -720,7 +962,7 @@ TestState test_temperature(void){
         for(int i = 0; i < sizeof(temp_c)/sizeof(*temp_c); i++){
             if(!sensor_pass[i]) {
                 double diff = fabs(average_temp - temp_c[i]);
-                sensor_pass = (diff <= 3.0);
+                sensor_pass[i] = (diff <= 3.0);
             }
         }
 

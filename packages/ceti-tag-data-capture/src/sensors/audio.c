@@ -217,7 +217,7 @@ void *audio_thread_spi(void *paramPtr) {
   int spi_fd = spiOpen(SPI_CE, SPI_CLK_RATE, 1);
 
   if (spi_fd < 0) {
-    CETI_LOG("pigpio SPI initialisation failed");
+    CETI_ERR("pigpio SPI initialisation failed");
     return NULL;
   }
 
@@ -232,7 +232,7 @@ void *audio_thread_spi(void *paramPtr) {
     if (pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset) == 0)
       CETI_LOG("Successfully set affinity to CPU %d", AUDIO_SPI_CPU);
     else
-      CETI_LOG("XXX Failed to set affinity to CPU %d", AUDIO_SPI_CPU);
+      CETI_ERR("Failed to set affinity to CPU %d", AUDIO_SPI_CPU);
   }
   // Set the thread priority.
   struct sched_param sp;
@@ -241,14 +241,14 @@ void *audio_thread_spi(void *paramPtr) {
   if (pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
     CETI_LOG("Successfully set priority");
   else
-    CETI_LOG("XXX Failed to set priority");
+    CETI_ERR("Failed to set priority");
 
   // Check if the audio is already overflowed.
   audio_check_for_overflow(0);
 
   // Initialize state.
   // The first byte in the SPI stream must be discarded.
-  volatile int is_first_byte = 1;
+  int is_first_byte = 1;
   char first_byte;
 
   CETI_LOG("Starting loop to fetch data via SPI");
@@ -258,7 +258,7 @@ void *audio_thread_spi(void *paramPtr) {
   g_audio_thread_spi_is_running = 1;
   while (!g_stopAcquisition && !g_audio_overflow_detected) {
     // Wait for SPI data to be available.
-    while (!gpioRead(AUDIO_DATA_AVAILABLE) && !g_stopAcquisition && !g_audio_overflow_detected) {
+    while (!gpioRead(AUDIO_DATA_AVAILABLE)) {
       // Reduce the CPU load a bit.
       // Based on 30-second tests, there seems to be diminishing returns after about 1000us.
       //   The following CPU loads were observed for various tested delay durations:
@@ -268,57 +268,58 @@ void *audio_thread_spi(void *paramPtr) {
       usleep(1000);
       // Check if the FPGA buffer overflowed.
       audio_check_for_overflow(1);
+      continue;
     }
 
-    if (!g_stopAcquisition && !g_audio_overflow_detected) {
-      // Wait for SPI data to *really* be available?
-      // Note that this delay is surprisingly important.
-      //   If it is omitted or too short, an overflow happens almost immediately.
-      //   This may be because the GPIO has been set but data isn't actually available yet,
-      //    leading to a slow SPI read / timeout when trying to read the expected amount of data?
-      // Experimentally, the following delays [us] were tested with brief ~1-minute tests:
-      //   No quick overflows: 750, 1000, 1500, 2000
-      //   Overflows quickly : 100, 500
-      //   Overflows within 1 minute: 9000, 10000
-      // Note that it seems to take about 2.6ms (max ~4.13ms) to read the SPI data
-      //   and we are reading 14ms worth of data, so if we caught the GPIO right at
-      //   its edge we should be able to delay up to about 9ms without issue.
-      usleep(2000);
+    // Wait for SPI data to *really* be available?
+    // Note that this delay is surprisingly important.
+    //   If it is omitted or too short, an overflow happens almost immediately.
+    //   This may be because the GPIO has been set but data isn't actually available yet,
+    //    leading to a slow SPI read / timeout when trying to read the expected amount of data?
+    // Experimentally, the following delays [us] were tested with brief ~1-minute tests:
+    //   No quick overflows: 750, 1000, 1500, 2000
+    //   Overflows quickly : 100, 500
+    //   Overflows within 1 minute: 9000, 10000
+    // Note that it seems to take about 2.6ms (max ~4.13ms) to read the SPI data
+    //   and we are reading 14ms worth of data, so if we caught the GPIO right at
+    //   its edge we should be able to delay up to about 9ms without issue.
+    usleep(2000);
 
-      // Cause an overflow for testing purposes if desired.
-      if (g_audio_force_overflow) {
-        usleep(100000);
-        g_audio_force_overflow = 0;
-      }
-
-      // Read a block of data if an overflow has not occurred.
-      audio_check_for_overflow(2);
-      if (!g_audio_overflow_detected) {
-        // Discard the very first byte in the SPI stream.
-        if (is_first_byte) {
-          spiRead(spi_fd, &first_byte, 1);
-          is_first_byte = 0;
-        }
-        int64_t global_time_startRead_us = get_global_time_us();
-        spiRead(spi_fd, audio_buffers[audio_buffer_toLog].buffer + (audio_buffers[audio_buffer_toLog].counter * SPI_BLOCK_SIZE), SPI_BLOCK_SIZE);
-        // Make sure the GPIO flag for data available has been cleared.
-        // It seems this is always the case, but just double check.
-        while (gpioRead(AUDIO_DATA_AVAILABLE) && get_global_time_us() - global_time_startRead_us <= 10000)
-          usleep(10);
-
-        // When NUM_SPI_BLOCKS are in the ram buffer, switch to using the other buffer.
-        // This will also trigger the writeData thread to write the previous buffer to disk.
-        if (audio_buffers[audio_buffer_toLog].counter == NUM_SPI_BLOCKS - 1) {
-          audio_buffer_toLog = !audio_buffer_toLog;
-          audio_buffers[audio_buffer_toLog].counter = 0; // reset for next chunk
-        } else {
-          audio_buffers[audio_buffer_toLog].counter++;
-        }
-
-        // Check if the FPGA buffer overflowed.
-        audio_check_for_overflow(3);
-      }
+    // Cause an overflow for testing purposes if desired.
+    if (g_audio_force_overflow) {
+      usleep(100000);
+      g_audio_force_overflow = 0;
     }
+
+    // Read a block of data if an overflow has not occurred.
+    audio_check_for_overflow(2);
+    if (g_audio_overflow_detected) {
+      break;
+    }
+
+    // Discard the very first byte in the SPI stream.
+    if (is_first_byte) {
+      spiRead(spi_fd, &first_byte, 1);
+      is_first_byte = 0;
+    }
+    int64_t global_time_startRead_us = get_global_time_us();
+    spiRead(spi_fd, audio_buffers[audio_buffer_toLog].buffer + (audio_buffers[audio_buffer_toLog].counter * SPI_BLOCK_SIZE), SPI_BLOCK_SIZE);
+    // Make sure the GPIO flag for data available has been cleared.
+    // It seems this is always the case, but just double check.
+    while (gpioRead(AUDIO_DATA_AVAILABLE) && get_global_time_us() - global_time_startRead_us <= 10000)
+      usleep(10);
+
+    // When NUM_SPI_BLOCKS are in the ram buffer, switch to using the other buffer.
+    // This will also trigger the writeData thread to write the previous buffer to disk.
+    if (audio_buffers[audio_buffer_toLog].counter == NUM_SPI_BLOCKS - 1) {
+      audio_buffer_toLog = !audio_buffer_toLog;
+      audio_buffers[audio_buffer_toLog].counter = 0; // reset for next chunk
+    } else {
+      audio_buffers[audio_buffer_toLog].counter++;
+    }
+
+    // Check if the FPGA buffer overflowed.
+    audio_check_for_overflow(3);
   }
 
   // Close the SPI communication.

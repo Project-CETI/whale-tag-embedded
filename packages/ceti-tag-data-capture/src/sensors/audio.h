@@ -51,6 +51,7 @@
 // SPI Block Size
 #define HWM (256)                 // High Water Mark from Verilog code - these are 32 byte chunks (2 sample sets)
 #define SPI_BLOCK_SIZE (HWM * 32) // make SPI block size <= HWM * 32 otherwise may underflow
+#define SPI_BLOCK_SIZE_SAMPLES 
 
 //#define NUM_SPI_BLOCKS (2100*10)                 // 5 minute buffer
 #define NUM_SPI_BLOCKS (2100 * 2)                  // 1 minute buffer
