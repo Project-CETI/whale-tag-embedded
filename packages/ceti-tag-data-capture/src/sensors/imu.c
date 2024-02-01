@@ -81,7 +81,7 @@ static bool imu_new_log = true;
 
 int init_imu() {
   if (setupIMU(IMU_ALL_ENABLED) < 0) {
-    CETI_LOG("XXXX Failed to set up the IMU XXXX");
+    CETI_ERR("Failed to set up the IMU");
     return -1;
   }
 
@@ -333,320 +333,230 @@ void *imu_thread(void *paramPtr) {
 //-----------------------------------------------------------------------------
 
 int resetIMU() {
-  gpioSetMode(IMU_N_RESET, PI_OUTPUT);
-  usleep(10000);
-  gpioWrite(IMU_N_RESET, PI_HIGH);
-  usleep(100000);
-  gpioWrite(IMU_N_RESET, PI_LOW); // reset the device (active low reset)
-  usleep(100000);
-  gpioWrite(IMU_N_RESET, PI_HIGH);
-  usleep(500000); // if this is about 150000 or less, the first feature report fails to start
+    gpioSetMode(IMU_N_RESET, PI_OUTPUT);
+    usleep(10000);
+    gpioWrite(IMU_N_RESET, PI_HIGH);
+    usleep(100000);
+    gpioWrite(IMU_N_RESET, PI_LOW); // reset the device (active low reset)
+    usleep(100000);
+    gpioWrite(IMU_N_RESET, PI_HIGH);
+    usleep(500000); // if this is about 150000 or less, the first feature report fails to start
 
-  return 0;
+    return 0;
 }
 
 //-----------------------------------------------------------------------------
 int setupIMU(uint8_t enabled_features) {
-  // Reset the IMU
-  if (imu_is_connected)
-    bbI2CClose(IMU_BB_I2C_SDA);
-  imu_is_connected = 0;
-  usleep(10000);
-  resetIMU();
+    // Reset the IMU
+    if (imu_is_connected)
+        bbI2CClose(IMU_BB_I2C_SDA);
+    imu_is_connected = 0;
+    usleep(10000);
+    resetIMU();
 
-  // Open an I2C connection.
-  int retval = bbI2COpen(IMU_BB_I2C_SDA, IMU_BB_I2C_SCL, 200000);
-  if (retval < 0) {
-      CETI_ERR("Failed to connect to the IMU\n");
-      imu_is_connected = 0;
-      return -1;
-  }
-  imu_is_connected = 1;
-  CETI_LOG("IMU connection opened\n");
+    // Open an I2C connection.
+    int retval = bbI2COpen(IMU_BB_I2C_SDA, IMU_BB_I2C_SCL, 200000);
+    if (retval < 0) {
+        CETI_ERR("Failed to connect to the IMU\n");
+        imu_is_connected = 0;
+        return -1;
+    }
+    imu_is_connected = 1;
+    CETI_LOG("IMU connection opened\n");
 
-  // Reset the message counters for each channel.
-  for(int channel_index = 0; channel_index < sizeof(imu_sequence_numbers)/sizeof(uint8_t); channel_index++)
-    imu_sequence_numbers[channel_index] = 0;
+    // Reset the message counters for each channel.
+    for(int channel_index = 0; channel_index < sizeof(imu_sequence_numbers)/sizeof(uint8_t); channel_index++)
+        imu_sequence_numbers[channel_index] = 0;
 
-  // Enable desired feature reports.
-  if(enabled_features & IMU_QUAT_ENABLED) {
-    imu_enable_feature_report(IMU_SENSOR_REPORTID_ROTATION_VECTOR, 1000000);
-    usleep(100000);
-  }
-  
-  if(enabled_features & IMU_ACCEL_ENABLED) {
-    imu_enable_feature_report(IMU_SENSOR_REPORTID_ACCELEROMETER, IMU_SAMPLING_PERIOD_9DOF_US);
-    usleep(100000);
-  }
-  if(enabled_features & IMU_GYRO_ENABLED) {
-    imu_enable_feature_report(IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED, IMU_SAMPLING_PERIOD_9DOF_US);
-    usleep(100000);
-  }
-  if(enabled_features & IMU_MAG_ENABLED) {
-    imu_enable_feature_report(IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED, IMU_SAMPLING_PERIOD_9DOF_US);
-    usleep(100000);
-  }
+    // Enable desired feature reports.
+    if(enabled_features & IMU_QUAT_ENABLED) {
+        imu_enable_feature_report(IMU_SENSOR_REPORTID_ROTATION_VECTOR, 1000000);
+        usleep(100000);
+    }
+    
+    if(enabled_features & IMU_ACCEL_ENABLED) {
+        imu_enable_feature_report(IMU_SENSOR_REPORTID_ACCELEROMETER, IMU_SAMPLING_PERIOD_9DOF_US);
+        usleep(100000);
+    }
+    if(enabled_features & IMU_GYRO_ENABLED) {
+        imu_enable_feature_report(IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED, IMU_SAMPLING_PERIOD_9DOF_US);
+        usleep(100000);
+    }
+    if(enabled_features & IMU_MAG_ENABLED) {
+        imu_enable_feature_report(IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED, IMU_SAMPLING_PERIOD_9DOF_US);
+        usleep(100000);
+    }
 
-  return 0;
+    return 0;
 }
 
 int imu_enable_feature_report(int report_id, uint32_t report_interval_us) {
-  char setFeatureCommand[21] = {0};
-  char shtpHeader[4] = {0};
-  char writeCmdBuf[28] = {0};
-  char readCmdBuf[10] = {0};
+    char setFeatureCommand[21] = {0};
+    char shtpHeader[4] = {0};
+    char writeCmdBuf[28] = {0};
+    char readCmdBuf[10] = {0};
 
-  uint16_t feature_command_length = 21;
+    uint16_t feature_command_length = 21;
 
-  // Populate the SHTP header (see 2.2.1 of "Sensor Hub Transport Protocol")
-  setFeatureCommand[0] = feature_command_length & 0xFF; // Packet length LSB
-  setFeatureCommand[1] = feature_command_length >> 8;   // Packet length MSB
-  setFeatureCommand[2] = IMU_CHANNEL_CONTROL;
-  setFeatureCommand[3] = imu_sequence_numbers[IMU_CHANNEL_CONTROL]++; // sequence number for this channel
+    // Populate the SHTP header (see 2.2.1 of "Sensor Hub Transport Protocol")
+    setFeatureCommand[0] = feature_command_length & 0xFF; // Packet length LSB
+    setFeatureCommand[1] = feature_command_length >> 8;   // Packet length MSB
+    setFeatureCommand[2] = IMU_CHANNEL_CONTROL;
+    setFeatureCommand[3] = imu_sequence_numbers[IMU_CHANNEL_CONTROL]++; // sequence number for this channel
 
-  // Populate the Set Feature Command (see 6.5.4 of "SH-2 Reference Manual")
-  setFeatureCommand[4] = IMU_SHTP_REPORT_SET_FEATURE_COMMAND;
-  setFeatureCommand[5] = report_id;
-  setFeatureCommand[6] = 0; // feature flags
-  setFeatureCommand[7] = 0; // change sensitivity LSB
-  setFeatureCommand[8] = 0; // change sensitivity MSB
-  // Set the report interval in microseconds, as 4 bytes with LSB first
-  for (int interval_byte_index = 0; interval_byte_index < 4; interval_byte_index++)
-    setFeatureCommand[9 + interval_byte_index] = (report_interval_us >> (8 * interval_byte_index)) & 0xFF;
-  setFeatureCommand[13] = 0; // batch interval LSB
-  setFeatureCommand[14] = 0;
-  setFeatureCommand[15] = 0;
-  setFeatureCommand[16] = 0; // batch interval MSB
-  setFeatureCommand[17] = 0; // sensor-specific configuration word LSB
-  setFeatureCommand[18] = 0;
-  setFeatureCommand[19] = 0;
-  setFeatureCommand[20] = 0; // sensor-specific configuration word MSB
+    // Populate the Set Feature Command (see 6.5.4 of "SH-2 Reference Manual")
+    setFeatureCommand[4] = IMU_SHTP_REPORT_SET_FEATURE_COMMAND;
+    setFeatureCommand[5] = report_id;
+    setFeatureCommand[6] = 0; // feature flags
+    setFeatureCommand[7] = 0; // change sensitivity LSB
+    setFeatureCommand[8] = 0; // change sensitivity MSB
+    // Set the report interval in microseconds, as 4 bytes with LSB first
+    for (int interval_byte_index = 0; interval_byte_index < 4; interval_byte_index++)
+        setFeatureCommand[9 + interval_byte_index] = (report_interval_us >> (8 * interval_byte_index)) & 0xFF;
+    setFeatureCommand[13] = 0; // batch interval LSB
+    setFeatureCommand[14] = 0;
+    setFeatureCommand[15] = 0;
+    setFeatureCommand[16] = 0; // batch interval MSB
+    setFeatureCommand[17] = 0; // sensor-specific configuration word LSB
+    setFeatureCommand[18] = 0;
+    setFeatureCommand[19] = 0;
+    setFeatureCommand[20] = 0; // sensor-specific configuration word MSB
 
-  // Write the command to enable the feature report.
-  writeCmdBuf[0] = 0x04; // set address
-  writeCmdBuf[1] = ADDR_IMU;
-  writeCmdBuf[2] = 0x02; // start
-  writeCmdBuf[3] = 0x07; // write
-  writeCmdBuf[4] = 0x15; // length
-  memcpy(&writeCmdBuf[5], setFeatureCommand, feature_command_length);
-  writeCmdBuf[26] = 0x03; // stop
-  writeCmdBuf[27] = 0x00; // end
-  int retval = bbI2CZip(IMU_BB_I2C_SDA, writeCmdBuf, 28, NULL, 0);
-  if (retval < 0) {
-      CETI_ERR("I2C write failed enabling report %d: %d", report_id, retval);
-      return -1;
-  }
+    // Write the command to enable the feature report.
+    writeCmdBuf[0] = 0x04; // set address
+    writeCmdBuf[1] = ADDR_IMU;
+    writeCmdBuf[2] = 0x02; // start
+    writeCmdBuf[3] = 0x07; // write
+    writeCmdBuf[4] = 0x15; // length
+    memcpy(&writeCmdBuf[5], setFeatureCommand, feature_command_length);
+    writeCmdBuf[26] = 0x03; // stop
+    writeCmdBuf[27] = 0x00; // end
+    int retval = bbI2CZip(IMU_BB_I2C_SDA, writeCmdBuf, 28, NULL, 0);
+    if (retval < 0) {
+        CETI_ERR("I2C write failed enabling report %d: %d", report_id, retval);
+        return -1;
+    }
 
-  // Read a response header.
-  readCmdBuf[0] = 0x04; // set address
-  readCmdBuf[1] = ADDR_IMU;
-  readCmdBuf[2] = 0x02; // start
-  readCmdBuf[3] = 0x01; // escape
-  readCmdBuf[4] = 0x06; // read
-  readCmdBuf[5] = 0x04; // length lsb
-  readCmdBuf[6] = 0x00; // length msb
-  readCmdBuf[7] = 0x03; // stop
-  readCmdBuf[8] = 0x00; // end
-  retval = bbI2CZip(IMU_BB_I2C_SDA, readCmdBuf, 9, shtpHeader, 4);
-  if (retval < 0) {
-      CETI_ERR("I2C read failed enabling report %d: %d", report_id, retval);
-      return -1;
-  }
-  CETI_LOG("Enabled report %d.  Header is 0x%02X  0x%02X  0x%02X  0x%02X",
-           report_id, shtpHeader[0], shtpHeader[1], shtpHeader[2], shtpHeader[3]);
+    // Read a response header.
+    readCmdBuf[0] = 0x04; // set address
+    readCmdBuf[1] = ADDR_IMU;
+    readCmdBuf[2] = 0x02; // start
+    readCmdBuf[3] = 0x01; // escape
+    readCmdBuf[4] = 0x06; // read
+    readCmdBuf[5] = 0x04; // length lsb
+    readCmdBuf[6] = 0x00; // length msb
+    readCmdBuf[7] = 0x03; // stop
+    readCmdBuf[8] = 0x00; // end
+    retval = bbI2CZip(IMU_BB_I2C_SDA, readCmdBuf, 9, shtpHeader, 4);
+    if (retval < 0) {
+        CETI_ERR("I2C read failed enabling report %d: %d", report_id, retval);
+        return -1;
+    }
+    CETI_LOG("Enabled report %d.  Header is 0x%02X  0x%02X  0x%02X  0x%02X",
+            report_id, shtpHeader[0], shtpHeader[1], shtpHeader[2], shtpHeader[3]);
 
-  return 0;
+    return 0;
 }
 
 //-----------------------------------------------------------------------------
 int imu_read_data() {
-  int numBytesAvail;
-  char pktBuff[256] = {0};
-  char shtpHeader[4] = {0};
-  char commandBuffer[10] = {0};
-  int retval;
+    int numBytesAvail;
+    char pktBuff[256] = {0};
+    char shtpHeader[4] = {0};
+    char commandBuffer[10] = {0};
 
-  // Read a header to see how many bytes are available.
-  commandBuffer[0] = 0x04; // set address
-  commandBuffer[1] = ADDR_IMU;
-  commandBuffer[2] = 0x02; // start
-  commandBuffer[3] = 0x01; // escape
-  commandBuffer[4] = 0x06; // read
-  commandBuffer[5] = 0x04; // #bytes lsb (read a 4-byte header)
-  commandBuffer[6] = 0x00; // #bytes msb
-  commandBuffer[7] = 0x03; // stop
-  commandBuffer[8] = 0x00; // end
-  retval = bbI2CZip(IMU_BB_I2C_SDA, commandBuffer, 9, shtpHeader, 4);
-  numBytesAvail = fmin(256, ((shtpHeader[1] << 8) | shtpHeader[0]) & 0x7FFF); // msb is "continuation bit", not part of count
+    // Read a header to see how many bytes are available.
+    commandBuffer[0] = 0x04; // set address
+    commandBuffer[1] = ADDR_IMU;
+    commandBuffer[2] = 0x02; // start
+    commandBuffer[3] = 0x01; // escape
+    commandBuffer[4] = 0x06; // read
+    commandBuffer[5] = 0x04; // #bytes lsb (read a 4-byte header)
+    commandBuffer[6] = 0x00; // #bytes msb
+    commandBuffer[7] = 0x03; // stop
+    commandBuffer[8] = 0x00; // end
+    if (bbI2CZip(IMU_BB_I2C_SDA, commandBuffer, 9, shtpHeader, 4) < 0) 
+        return -1;
+        
+    numBytesAvail = fmin(256, ((shtpHeader[1] << 8) | shtpHeader[0]) & 0x7FFF); // msb is "continuation bit", not part of count
+    if(numBytesAvail < 0)
+        return -1;
 
-  if (retval > 0 && numBytesAvail > 0) {
+
     // Adjust the read command for the amount of data available.
     commandBuffer[5] = numBytesAvail & 0xff;        // LSB
     commandBuffer[6] = (numBytesAvail >> 8) & 0xff; // MSB
     // Read the data.
-    retval = bbI2CZip(IMU_BB_I2C_SDA, commandBuffer, 9, pktBuff, numBytesAvail);
-    // Parse the data.
-    if (retval > 0 && pktBuff[2] == IMU_CHANNEL_REPORTS) { // make sure we have the right channel
-      uint8_t report_id = pktBuff[9];
-      uint32_t timestamp_delay_us = ((uint32_t)pktBuff[8] << (8 * 3)) | ((uint32_t)pktBuff[7] << (8 * 2)) | ((uint32_t)pktBuff[6] << (8 * 1)) | ((uint32_t)pktBuff[5] << (8 * 0));
-      imu_reading_delay_us = (int32_t)timestamp_delay_us;
-      // uint8_t sequence_number = pktBuff[10];
-      // CETI_LOG("IMU REPORT %d  seq %3d  timestamp_delay_us %ld\n",
-      //   report_id, sequence_number, (int32_t)timestamp_delay_us);
-      // for (int i = 0; i < 4; i++)
-      //   CETI_LOG("    H%2d: %d\n", i, shtpHeader[i]);
-      // for (int i = 0; i < numBytesAvail; i++)
-      //   CETI_LOG("    D%2d: %d\n", i, pktBuff[i]);
+    if (bbI2CZip(IMU_BB_I2C_SDA, commandBuffer, 9, pktBuff, numBytesAvail) < 0)
+        return -1;
 
-      // Parse the data in the report.
-      uint8_t status = pktBuff[11] & 0x03; // Get status bits
-      uint16_t data[3] = {
+    // Parse the data.
+    // make sure we have the right channel
+    if (pktBuff[2] != IMU_CHANNEL_REPORTS) 
+        return -1;
+
+    uint8_t report_id = pktBuff[9];
+    uint32_t timestamp_delay_us = ((uint32_t)pktBuff[8] << (8 * 3)) | ((uint32_t)pktBuff[7] << (8 * 2)) | ((uint32_t)pktBuff[6] << (8 * 1)) | ((uint32_t)pktBuff[5] << (8 * 0));
+    imu_reading_delay_us = (int32_t)timestamp_delay_us;
+
+    uint8_t status = pktBuff[11] & 0x03; // Get status bits
+    uint16_t data[3] = {
         ((uint16_t)pktBuff[14] << 8 | pktBuff[13]),
         ((uint16_t)pktBuff[16] << 8 | pktBuff[15]),
         ((uint16_t)pktBuff[18] << 8 | pktBuff[17])
-      };
+    };
 
-      if (report_id == IMU_SENSOR_REPORTID_ROTATION_VECTOR) {
-        memcpy(&imu_quaternion, data, 3*sizeof(int16_t));
-        imu_quaternion.real = (uint16_t)pktBuff[20] << 8 | pktBuff[19];
-        imu_quaternion_accuracy = (uint16_t)pktBuff[22] << 8 | pktBuff[21];; // (int)((((uint16_t)pktBuff[22]) << 8) + (uint16_t)pktBuff[21]);
-      } else if (report_id == IMU_SENSOR_REPORTID_ACCELEROMETER) {
-        memcpy(imu_accel_m_ss, data, 3*sizeof(int16_t));
-        imu_accel_accuracy = status;
-      } else if (report_id == IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED) {
-        memcpy(imu_gyro_rad_s, data, 3*sizeof(int16_t));
-        imu_gyro_accuracy = status;
-      } else if (report_id == IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED) {
-        memcpy(imu_mag_ut, data, 3*sizeof(int16_t));
-        imu_mag_accuracy = status;
-      }
-      return (int)report_id;
+    switch(report_id){
+        case IMU_SENSOR_REPORTID_ROTATION_VECTOR: {
+            memcpy(&imu_quaternion, data, 3*sizeof(int16_t));
+            imu_quaternion.real = (uint16_t)pktBuff[20] << 8 | pktBuff[19];
+            imu_quaternion_accuracy = (uint16_t)pktBuff[22] << 8 | pktBuff[21];
+            break;
+        }
+        case IMU_SENSOR_REPORTID_ACCELEROMETER: {
+            memcpy(imu_accel_m_ss, data, 3*sizeof(int16_t));
+            imu_accel_accuracy = status;
+            break;
+        }
+        case IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED: {
+            memcpy(imu_gyro_rad_s, data, 3*sizeof(int16_t));
+            imu_gyro_accuracy = status;
+            break;
+        }
+            case IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED: {
+            memcpy(imu_mag_ut, data, 3*sizeof(int16_t));
+            imu_mag_accuracy = status;
+            break;
+        }
     }
-  }
-  return -1;
+    return (int)report_id;
 }
 
 void quat2eul(EulerAngles_f64 *e, Quaternion_i16 *q){
-  double re = ((double) q->real) / (1 << 14);
-  double i = ((double) q->i) / (1 << 14);
-  double j = ((double) q->j) / (1 << 14);
-  double k = ((double) q->k) / (1 << 14);
+    double re = ((double) q->real) / (1 << 14);
+    double i = ((double) q->i) / (1 << 14);
+    double j = ((double) q->j) / (1 << 14);
+    double k = ((double) q->k) / (1 << 14);
 
-  double sinr_cosp = 2 * ((re * i) + (j * k));
-  double cosr_cosp = 1 - 2 * ((i * i) + (j * j));
-  e->pitch = atan2(sinr_cosp, cosr_cosp);
+    double sinr_cosp = 2 * ((re * i) + (j * k));
+    double cosr_cosp = 1 - 2 * ((i * i) + (j * j));
+    e->pitch = atan2(sinr_cosp, cosr_cosp);
 
-  double sinp = sqrt(1 + 2 * ((re * j) - (i * k)));
-  double cosp = sqrt(1 - 2 * ((re * j) - (i * k)));
-  e->roll = (2.0 * atan2(sinp, cosp)) - (M_PI / 2.0);
+    double sinp = sqrt(1 + 2 * ((re * j) - (i * k)));
+    double cosp = sqrt(1 - 2 * ((re * j) - (i * k)));
+    e->roll = (2.0 * atan2(sinp, cosp)) - (M_PI / 2.0);
 
-  double siny_cosp = 2 * ((re * k) + (i * j));
-  double cosy_cosp = 1 - 2 * ((j * j) + (k * k));
-  e->yaw = atan2(siny_cosp, cosy_cosp);
+    double siny_cosp = 2 * ((re * k) + (i * j));
+    double cosy_cosp = 1 - 2 * ((j * j) + (k * k));
+    e->yaw = atan2(siny_cosp, cosy_cosp);
 }
 
 int imu_get_euler_angles(EulerAngles_f64 *e){
-  int report_id_updated = imu_read_data();
-  if (report_id_updated != IMU_SENSOR_REPORTID_ROTATION_VECTOR){
-    return -1;
-  } 
+    int report_id_updated = imu_read_data();
+    if (report_id_updated != IMU_SENSOR_REPORTID_ROTATION_VECTOR){
+        return -1;
+    } 
 
-  quat2eul(e, &imu_quaternion); 
-  return 0;
+    quat2eul(e, &imu_quaternion); 
+    return 0;
 }
-
-//-----------------------------------------------------------------------------
-// //-----------------------------------------------------------------------------
-// int getRotation(rotation_t *pRotation)
-// {
-//    // parse the IMU rotation vector input report
-//    int numBytesAvail = 0;
-//    char pktBuff[256] = {0};
-//    char shtpHeader[4] = {0};
-//    int fd = i2cOpen(BUS_IMU, ADDR_IMU, 0);
-
-//    if (fd < 0) {
-//        CETI_LOG("XXX Failed to connect to the IMU\n");
-//        return -1;
-//    }
-
-//    CETI_LOG("IMU connection opened\n");
-
-//    // Byte   0    1    2    3    4   5   6    7    8      9     10     11
-//    //       |     HEADER      |            TIME       |  ID    SEQ   STATUS....
-//    while (1) {
-//        i2cReadDevice(fd, shtpHeader, 4);
-
-//        // msb is "continuation bit, not part of count"
-//        numBytesAvail = fmin(256, ((shtpHeader[1] << 8) | shtpHeader[0]) & 0x7FFF);
-
-//        if (numBytesAvail) {
-//            i2cReadDevice(fd, pktBuff, numBytesAvail);
-//            // make sure we have the right channel
-//            if (pktBuff[2] == 0x03) {
-//                // testing, should come back 0x05
-//                pRotation->reportID = pktBuff[9];
-//                pRotation->sequenceNum = pktBuff[10];
-//                CETI_LOG("report ID 0x%02X  sequ 0x%02X i "
-//                       "%02X%02X j %02X%02X k %02X%02X r %02X%02X\n",
-//                       pktBuff[9], pktBuff[10], pktBuff[14], pktBuff[13],
-//                       pktBuff[16], pktBuff[15], pktBuff[18], pktBuff[17],
-//                       pktBuff[20], pktBuff[19]);
-//            }
-//        } else {
-//            setupIMU(); // restart the sensor, reports somehow stopped coming
-//        }
-//        usleep(800000);
-//    }
-//    i2cClose(fd);
-//    return 0;
-// }
-
-// int learnIMU() {
-//    char shtpHeader[4] = {0};
-//    char shtpData[256] = {0};
-//    int fd;
-//    uint16_t numBytesAvail;
-//    if ((fd = i2cOpen(BUS_IMU, ADDR_IMU, 0)) < 0) {
-//        CETI_LOG("Failed to connect to the IMU");
-//        fprintf(stderr, "learnIMU(): XXX Failed to connect to the IMU\n");
-//        return -1;
-//    }
-
-//    printf("learnIMU(): OK, have the IMU connected!\n");
-
-//    // Get the shtp header
-//    i2cReadDevice(fd, shtpHeader, 4); // pigpio i2c read raw
-//    printf("learnIMU(): Header is 0x%02X  0x%02X  0x%02X  0x%02X \n",
-//           shtpHeader[0], shtpHeader[1], shtpHeader[2], shtpHeader[3]);
-
-//    // Figure out how many bytes are waiting
-//    numBytesAvail = (shtpHeader[1] << 8 | shtpHeader[0]);
-//    printf("learnIMU(): Bytes Avail are 0x%04X \n", numBytesAvail);
-
-//    // Get all bytes that are waiting (flush it out)
-//    while (numBytesAvail > 0) {
-//        i2cReadDevice(fd, shtpData, numBytesAvail);
-//        i2cReadDevice(fd, shtpHeader, 4);
-//        printf("learnIMU(): Header is 0x%02X  0x%02X  0x%02X  0x%02X \n",
-//               shtpHeader[0], shtpHeader[1], shtpHeader[2], shtpHeader[3]);
-//    }
-
-//    // Ask for product ID report
-//    shtpData[0] = 0x06; // header - packet length LSB
-//    shtpData[1] = 0x00; // header - packet length MSB
-//    shtpData[2] = 0x02; // header - command channel
-//    shtpData[3] = 0x00; // header - sequence no
-//    shtpData[4] = IMU_SHTP_REPORT_PRODUCT_ID_REQUEST;
-//    shtpData[5] = 0x00; // reserved
-
-//    i2cWriteDevice(fd, shtpData, 6);
-
-//    i2cReadDevice(fd, shtpHeader, 4);
-//    printf("learnIMU(): Header is 0x%02X  0x%02X  0x%02X  0x%02X \n",
-//           shtpHeader[0], shtpHeader[1], shtpHeader[2], shtpHeader[3]);
-
-//    i2cClose(fd);
-
-//    return 0;
-// }

@@ -143,7 +143,7 @@ int getBoardTemperature(int *pBoardTemp) {
 
     int fd;
     if((fd=i2cOpen(1,ADDR_BOARDTEMPERATURE,0)) < 0) {
-        CETI_LOG("XXXX Failed to connect to the temperature sensor XXXX");
+        CETI_ERR("Failed to connect to the temperature sensor");
         return(-1);
     }
 
@@ -156,7 +156,7 @@ int getBatteryTemperature(int *pBattTemp) {
 
     int fd;
     if((fd=i2cOpen(1,ADDR_BOARDTEMPERATURE,0)) < 0) {
-        CETI_LOG("XXXX Failed to connect to the temperature sensor XXXX");
+        CETI_ERR("Failed to connect to the temperature sensor");
         return(-1);
     }
 
@@ -174,7 +174,7 @@ int getTemperatures(int *pBoardTemp, int *pBattTemp) {
 
     int fd;
     if((fd=i2cOpen(1,ADDR_BOARDTEMPERATURE,0)) < 0) {
-        CETI_LOG("XXXX Failed to connect to the temperature sensor XXXX");
+        CETI_ERR("Failed to connect to the temperature sensor");
         return(-1);
     }
     *pBoardTemp = i2cReadByteData(fd,0x0);

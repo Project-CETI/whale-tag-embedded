@@ -29,7 +29,7 @@
 
 #if !ENABLE_FPGA
 int init_audio() {
-  CETI_LOG("XXXX FPGA is not selected for operation, so audio cannot be used");
+  CETI_ERR("FPGA is not selected for operation, so audio cannot be used");
   return (-1);
 }
 #else
@@ -76,7 +76,7 @@ int init_audio() {
   if (!setup_audio_96kHz()) {
     CETI_LOG("Successfully set audio sampling rate to 96 kHz");
   } else {
-    CETI_LOG("XXXX Failed to set initial audio configuration - ADC register did not read back as expected");
+    CETI_ERR("Failed to set initial audio configuration - ADC register did not read back as expected");
     return (-1);
   }
 
@@ -365,7 +365,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
     if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
       CETI_LOG("Successfully set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
     else
-      CETI_LOG("XXX Failed to set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
+      CETI_WARN("Failed to set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
   }
   // Set the thread to a low priority.
   struct sched_param sp;
@@ -374,7 +374,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
   if (pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
     CETI_LOG("Successfully set priority");
   else
-    CETI_LOG("XXX Failed to set priority");
+    CETI_WARN("Failed to set priority");
 
   // Wait for the SPI thread to finish initializing and start the main loop.
   while (!g_audio_thread_spi_is_running && !g_stopAcquisition && !g_audio_overflow_detected)
@@ -492,7 +492,7 @@ void audio_createNewFlacFile() {
 
   /* allocate the encoder */
   if ((flac_encoder = FLAC__stream_encoder_new()) == NULL) {
-    CETI_LOG("XXXX ERROR: allocating FLAC encoder");
+    CETI_ER("Failed to allocate FLAC encoder");
     flac_encoder = 0;
     return;
   }
@@ -533,7 +533,7 @@ void *audio_thread_writeRaw(void *paramPtr) {
     if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
       CETI_LOG("Successfully set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
     else
-      CETI_LOG("XXX Failed to set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
+      CETI_WARN("Failed to set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
   }
   // Set the thread to a low priority.
   struct sched_param sp;
@@ -542,7 +542,7 @@ void *audio_thread_writeRaw(void *paramPtr) {
   if (pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
     CETI_LOG("Successfully set priority");
   else
-    CETI_LOG("XXX Failed to set priority");
+    CETI_WARN("Failed to set priority");
 
   // Wait for the SPI thread to finish initializing and start the main loop.
   while (!g_audio_thread_spi_is_running && !g_stopAcquisition && !g_audio_overflow_detected)

@@ -50,7 +50,7 @@ int init_goPros()
   usleep(5000000); // wait until python starts
   if(create_goPros_socket(GOPRO_PYTHON_PORT) < 0)
   {
-    CETI_LOG("XXX ERROR: Socket creation or bind failed XXX");
+    CETI_ERR("Socket creation or bind failed");
     gpioWrite(GOPRO_LED_GPIO_RED, PI_ON);
     return -1;
   }
@@ -84,7 +84,7 @@ void *goPros_thread(void *paramPtr)
     if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
       CETI_LOG("Successfully set affinity to CPU %d", GOPROS_CPU);
     else
-      CETI_LOG("XXX Failed to set affinity to CPU %d", GOPROS_CPU);
+      CETI_WARN("Failed to set affinity to CPU %d", GOPROS_CPU);
   }
 
   // Initialize state for the Python socket.

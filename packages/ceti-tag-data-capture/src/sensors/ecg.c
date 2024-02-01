@@ -243,9 +243,7 @@ void* ecg_thread_getData(void* paramPtr)
       if(!previous_leadsoff)
         ecg_gpio_expander_set_leds_yellow();
       previous_leadsoff = 1;
-    }
-    else
-    {
+    } else {
       if(previous_leadsoff)
         ecg_gpio_expander_set_leds_green();
       previous_leadsoff = 0;

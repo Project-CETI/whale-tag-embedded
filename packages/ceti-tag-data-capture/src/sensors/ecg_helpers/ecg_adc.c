@@ -40,7 +40,7 @@ int ecg_adc_setup(int i2c_bus)
   #endif
   if(ecg_adc_i2c_device < 0)
   {
-    CETI_LOG("XXX Failed to connect to the ADC: returned %d.", ecg_adc_i2c_device);
+    CETI_ERR("Failed to connect to the ADC: returned %d.", ecg_adc_i2c_device);
     switch(ecg_adc_i2c_device)
     {
       case(PI_BAD_I2C_BUS): CETI_LOG(" (PI_BAD_I2C_BUS)"); break;
@@ -228,9 +228,9 @@ int ecg_adc_start_data_acquisition_via_interrupt()
                            ecg_adc_data_ready_interrupt_fn);
   switch(res)
   {
-    case PI_BAD_GPIO: CETI_LOG("XXX PI_BAD_GPIO"); break;
-    case PI_BAD_EDGE: CETI_LOG("XXX PI_BAD_EDGE"); break;
-    case PI_BAD_ISR_INIT: CETI_LOG("XXX PI_BAD_ISR_INIT"); break;
+    case PI_BAD_GPIO: CETI_ERR("PI_BAD_GPIO"); break;
+    case PI_BAD_EDGE: CETI_ERR("PI_BAD_EDGE"); break;
+    case PI_BAD_ISR_INIT: CETI_ERR("PI_BAD_ISR_INIT"); break;
     case 0: CETI_LOG("Attached data-ready interrupt callback"); break;
   }
   return res == 0 ? 0 : -1;
@@ -270,9 +270,9 @@ int ecg_adc_stop_data_acquisition_via_interrupt()
                            NULL);
   switch(res)
   {
-    case PI_BAD_GPIO: CETI_LOG("XXX PI_BAD_GPIO"); break;
-    case PI_BAD_EDGE: CETI_LOG("XXX PI_BAD_EDGE"); break;
-    case PI_BAD_ISR_INIT: CETI_LOG("XXX PI_BAD_ISR_INIT"); break;
+    case PI_BAD_GPIO: CETI_ERR("PI_BAD_GPIO"); break;
+    case PI_BAD_EDGE: CETI_ERR("PI_BAD_EDGE"); break;
+    case PI_BAD_ISR_INIT: CETI_ERR("PI_BAD_ISR_INIT"); break;
     case 0: CETI_LOG("Removed data-ready interrupt callback"); break;
   }
   return res == 0 ? 0 : -1;

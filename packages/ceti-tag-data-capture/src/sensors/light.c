@@ -14,7 +14,7 @@
 //-----------------------------------------------------------------------------
 
 #define LIGHT_TRY_OPEN(fd)   if ((fd=i2cOpen(1, ADDR_LIGHT, 0)) < 0) { \
-    CETI_LOG("XXXX Failed to connect to the light sensor XXXX"); \
+    CETI_ERR("Failed to connect to the light sensor"); \
     return -1; \
   }
 
@@ -32,7 +32,7 @@ static int light_reading_ir;
 
 int init_light() {
   if(light_wake() != 0){
-    CETI_LOG("XXXX Failed to wake light sensor XXXX");
+    CETI_ERR("Failed to wake light sensor");
     return -1;
   }
   CETI_LOG("Successfully initialized the light sensor");
@@ -63,7 +63,7 @@ void *light_thread(void *paramPtr) {
     if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
       CETI_LOG("Successfully set affinity to CPU %d", LIGHT_CPU);
     else
-      CETI_LOG("XXX Failed to set affinity to CPU %d", LIGHT_CPU);
+      CETI_WARN("Failed to set affinity to CPU %d", LIGHT_CPU);
   }
 
   // Main loop while application is running.
@@ -90,7 +90,7 @@ void *light_thread(void *paramPtr) {
       // it seems to return -83 when no sensor is connected
       light_data_valid = !(light_reading_visible < -80 || light_reading_ir < -80);
       if (!light_data_valid) {
-        CETI_LOG("XXX readings are likely invalid");
+        CETI_WARN("Readings are likely invalid");
       }
 
       // Write timing information.
@@ -132,55 +132,54 @@ int getAmbientLight(int* pAmbientLightVisible, int* pAmbientLightIR) {
 
     LIGHT_TRY_OPEN(fd);
 
-  // Read both wavelengths.
-  *pAmbientLightVisible = i2cReadWordData(fd, 0x88); // visible
-  *pAmbientLightIR = i2cReadWordData(fd, 0x8A);      // infrared
-  i2cClose(fd);
-  return (0);
+    // Read both wavelengths.
+    *pAmbientLightVisible = i2cReadWordData(fd, 0x88); // visible
+    *pAmbientLightIR = i2cReadWordData(fd, 0x8A);      // infrared
+    i2cClose(fd);
+    return (0);
 }
 
 int light_verify(void) {
-  int fd;
-  int result;
-  uint8_t manu_id, part_id, rev_id; 
+    int fd;
+    int result;
+    uint8_t manu_id, part_id, rev_id; 
 
-  LIGHT_TRY_OPEN(fd);
+    LIGHT_TRY_OPEN(fd);
 
-  if((result = i2cReadWordData(fd,0x87)) < 0) {
-    CETI_LOG("XXXX Failed to read light sensor XXXX");
+    if((result = i2cReadWordData(fd,0x87)) < 0) {
+      CETI_ERR("Failed to read light sensor");
+      i2cClose(fd);
+      return result;
+    } 
+
+    manu_id = (uint8_t) result;
+    if (manu_id != 0x05) {
+      i2cClose(fd);
+      return 1;
+    }
+
+    if((result = i2cReadWordData(fd,0x86)) < 0) {
+      CETI_ERR("Failed to read light sensor");
+      i2cClose(fd);
+      return result;
+    }
     i2cClose(fd);
-    return result;
-  } 
 
-  manu_id = (uint8_t) result;
-  if (manu_id != 0x05) {
-    i2cClose(fd);
-    return 1;
-  }
+    part_id = (uint8_t)result >> 4;
+    rev_id = (uint8_t)result & 0x0F;
 
-  if((result = i2cReadWordData(fd,0x86)) < 0) {
-    CETI_LOG("XXXX Failed to read light sensor XXXX");
-    i2cClose(fd);
-    return result;
-  }
-  i2cClose(fd);
+    if (part_id != 0x0a) 
+      return 2;
+    if (rev_id != 0x00) 
+      return 3;
 
-  part_id = (uint8_t)result >> 4;
-  rev_id = (uint8_t)result & 0x0F;
-
-  if (part_id != 0x0a) 
-    return 2;
-  if (rev_id != 0x00) 
-    return 3;
-
-  //part part verified
-  return 0;
+    //part part verified
+    return 0;
 }
 
 int light_wake(void){
-  int fd;
+    int fd;
 
-  LIGHT_TRY_OPEN(fd);
-  return i2cWriteByteData(fd,0x80,0x1); // wake the light sensor up
-  
+    LIGHT_TRY_OPEN(fd);
+    return i2cWriteByteData(fd,0x80,0x1); // wake the light sensor up
 }

@@ -25,7 +25,7 @@ int ecg_gpio_expander_setup(int i2c_bus)
   ecg_gpio_expander_i2c_device = i2cOpen(i2c_bus, ECG_GPIO_EXPANDER_I2C_ADDRESS, 0);
   if(ecg_gpio_expander_i2c_device < 0)
   {
-    CETI_LOG("XXX Failed to connect to the GPIO expander: returned %d.", ecg_gpio_expander_i2c_device);
+    CETI_ERR("Failed to connect to the GPIO expander: returned %d.", ecg_gpio_expander_i2c_device);
     switch(ecg_gpio_expander_i2c_device)
     {
       case(PI_BAD_I2C_BUS):     CETI_LOG(" (PI_BAD_I2C_BUS)"); break;

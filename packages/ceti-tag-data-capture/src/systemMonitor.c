@@ -99,7 +99,7 @@ void* systemMonitor_thread(void* paramPtr) {
       if(pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
         CETI_LOG("Successfully set affinity to CPU %d", SYSTEMMONITOR_CPU);
       else
-        CETI_LOG("XXX Failed to set affinity to CPU %d", SYSTEMMONITOR_CPU);
+        CETI_WARN("Failed to set affinity to CPU %d", SYSTEMMONITOR_CPU);
     }
 
     // Initialize state for limiting log file sizes.

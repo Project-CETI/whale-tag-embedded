@@ -225,7 +225,7 @@ int init_tag() {
 
   // Tag-wide initialization.
   if (gpioInitialise() < 0) {
-    CETI_LOG("XXXX Failed to initialize pigpio XXXX");
+    CETI_ERR("Failed to initialize pigpio");
     return 1;
   } else {
     CETI_LOG("Successfully initialized pigpio");
@@ -284,7 +284,7 @@ int init_tag() {
 #endif
 
   if (result < 0){
-    CETI_LOG("XXX Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
+    CETI_ERR("Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
     return result;
   }
 

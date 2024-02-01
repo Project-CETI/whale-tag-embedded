@@ -62,7 +62,7 @@ void *pressureTemperature_thread(void *paramPtr) {
     if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
       CETI_LOG("Successfully set affinity to CPU %d", PRESSURETEMPERATURE_CPU);
     else
-      CETI_LOG("XXX Failed to set affinity to CPU %d", PRESSURETEMPERATURE_CPU);
+      CETI_WARN("Failed to set affinity to CPU %d", PRESSURETEMPERATURE_CPU);
   }
 
   // Main loop while application is running.
@@ -89,7 +89,7 @@ void *pressureTemperature_thread(void *paramPtr) {
       // it seems to return -228.63 for pressure and -117.10 for temperature when no sensor is connected
       pressureTemperature_data_valid = !(g_latest_pressureTemperature_pressure_bar < -100 || g_latest_pressureTemperature_temperature_c < -100);
       if (!pressureTemperature_data_valid) {
-        CETI_LOG("XXX readings are likely invalid");
+        CETI_WARN("Readings are likely invalid");
       }
 
       // Write timing information.
