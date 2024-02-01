@@ -492,7 +492,7 @@ void audio_createNewFlacFile() {
 
   /* allocate the encoder */
   if ((flac_encoder = FLAC__stream_encoder_new()) == NULL) {
-    CETI_ER("Failed to allocate FLAC encoder");
+    CETI_ERR("Failed to allocate FLAC encoder");
     flac_encoder = 0;
     return;
   }
