@@ -73,11 +73,6 @@ HardwareTest g_test_list[] = {
     { .name = "Communication",    .update = test_internet, },
     { .name = "Recovery",         .update = test_recovery, },
 };
-    // Audio 
-        // Create audio data buffer thread
-        // swap buffers
-            // analyze for peaks
-            // 
     // Charging
         // prompt user to attach charger
             // measure current
@@ -1094,10 +1089,14 @@ int main(void) {
     fprintf(results_file, "Date: %s\n", buffer); //date
     printf("Date: %s\n", buffer); //date
     printf("\e[%d;1HPress any key to continue (esq - quit)",lines);
-    char input = getchar();
+    char input = 0;
+    while(read(STDIN_FILENO, &input, 1), input = 0){
+        ;
+    }
+
+    printf(CLEAR_SCREEN); //clear Screen
     if(input == 27)
         return 0;
-    printf(CLEAR_SCREEN); //clear Screen
 
 
     //Cycle through tests
@@ -1129,7 +1128,17 @@ int main(void) {
         printf("\e[%d;1H(enter - continue; esc - quit)\e[2;1H",lines);
 
         while((i_result = i_test->update()) == TEST_STATE_RUNNING){
-            ;
+            #ifdef TIOCGSIZE
+                    struct ttysize ts;
+                    ioctl(STDIN_FILENO, TIOCGSIZE, &ts);
+                    cols = ts.ts_cols;
+                    lines = ts.ts_lines;
+            #elif defined(TIOCGWINSZ)
+                    struct winsize ts;
+                    ioctl(STDIN_FILENO, TIOCGWINSZ, &ts);
+                    cols = ts.ws_col;
+                    lines = ts.ws_row;
+            #endif /* TIOCGSIZE */
         }
         if (i_result == TEST_STATE_PASSED) {
             passed_tests++;
