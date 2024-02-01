@@ -528,6 +528,7 @@ int imu_read_data() {
           imu_mag_accuracy = status;
           break;
         }
+      }
       return (int)report_id;
     }
   }
