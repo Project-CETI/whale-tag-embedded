@@ -51,7 +51,7 @@
 // SPI Block Size
 #define HWM (256)                 // High Water Mark from Verilog code - these are 32 byte chunks (2 sample sets)
 #define SPI_BLOCK_SIZE (HWM * 32) // make SPI block size <= HWM * 32 otherwise may underflow
-#define SPI_BLOCK_SIZE_SAMPLES 
+#define SPI_BLOCK_SIZE_SAMPLES (SPI_BLOCK_SIZE / (CHANNELS * BYTES_PER_SAMPLE))
 
 //#define NUM_SPI_BLOCKS (2100*10)                 // 5 minute buffer
 #define NUM_SPI_BLOCKS (2100 * 2)                  // 1 minute buffer
@@ -60,7 +60,7 @@
 #define SAMPLE_RATE (96000)
 #define CHANNELS (3)
 #define BITS_PER_SAMPLE (16)
-#define BYTES_PER_SAMPLE (BITS_PER_SAMPLE / 8)
+#define BYTES_PER_SAMPLE (BITS_PER_SAMPLE / 8) 
 // At 96 kHz sampling rate; 16-bit; 3 channels 1 minute of data is 33750 KiB
 #define MAX_AUDIO_DATA_FILE_SIZE ((5 - 1) * 33750 * 1024) // Yields approx 5 minute files at 96 KSPS
 #define MAX_SAMPLES_PER_FILE (MAX_AUDIO_DATA_FILE_SIZE / CHANNELS / BYTES_PER_SAMPLE)

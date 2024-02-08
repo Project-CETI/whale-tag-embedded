@@ -42,7 +42,7 @@ static int audio_buffer_toWrite = 0; // which buffer will be flushed to the outp
 static char audio_acqDataFileName[AUDIO_DATA_FILENAME_LEN] = {};
 static int audio_acqDataFileLength = 0;
 static FLAC__StreamEncoder *flac_encoder = 0;
-static FLAC__int32 buff[SAMPLES_PER_RAM_PAGE * CHANNELS] = {0};
+static FLAC__int32 buff[SAMPLES_PER_RAM_PAGE][CHANNELS] = {0};
 struct audio_buffer_struct {
   char buffer[RAM_SIZE];
   int counter;
@@ -385,78 +385,102 @@ void *audio_thread_writeFlac(void *paramPtr) {
     // Note that this can use a long delay to yield the CPU,
     //  since the buffer will fill about once per minute and it only takes
     //  about 2 seconds to write the buffer to a file.
-    while (audio_buffer_toWrite == audio_buffer_toLog && !g_stopAcquisition && !g_audio_overflow_detected)
+    if (audio_buffer_toWrite == audio_buffer_toLog) {
       usleep(1000000);
-
-    if (!g_stopAcquisition && !g_audio_overflow_detected) {
-      // Log that a write is starting.
-      long long global_time_us = get_global_time_us();
-      while (audio_writing_to_status_file)
-        usleep(10);
-      audio_writing_to_status_file = 1;
-      audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
-      fprintf(audio_status_file, "%lld", global_time_us);
-      fprintf(audio_status_file, ",%d", getRtcCount());
-      // Write any notes, then clear them so they are only written once.
-      fprintf(audio_status_file, ",%s", audio_status_file_notes);
-      audio_status_file_notes[0] = '\0';
-      // Write overflow status information.
-      fprintf(audio_status_file, ",");
-      fprintf(audio_status_file, ",");
-      fprintf(audio_status_file, ",1");
-      fprintf(audio_status_file, ",");
-      fprintf(audio_status_file, ",");
-      // Finish the row of data.
-      fprintf(audio_status_file, "\n");
-      fclose(audio_status_file);
-      audio_writing_to_status_file = 0;
-
-      // Create a new output file if this is the first flush
-      //  or if the file size limit has been reached.
-      if ((audio_acqDataFileLength > MAX_AUDIO_DATA_FILE_SIZE) || (flac_encoder == 0)) {
-        audio_createNewFlacFile();
-      }
-      // Write the buffer to a file.
-      for (size_t ix = 0; ix < SAMPLES_PER_RAM_PAGE; ix++) {
-        for (size_t channel = 0; channel < CHANNELS; channel++) {
-          size_t idx = (CHANNELS * BYTES_PER_SAMPLE * ix) + (BYTES_PER_SAMPLE * channel);
-          uint8_t byte1 = (uint8_t)audio_buffers[audio_buffer_toWrite].buffer[idx];
-          uint8_t byte2 = (uint8_t)audio_buffers[audio_buffer_toWrite].buffer[idx + 1];
-          buff[ix * CHANNELS + channel] = (FLAC__int32)((FLAC__int16)((byte1 << 8) | byte2));
-        }
-      }
-      FLAC__stream_encoder_process_interleaved(flac_encoder, buff, SAMPLES_PER_RAM_PAGE);
-      audio_acqDataFileLength += RAM_SIZE;
-
-      // Switch to waiting on the other buffer.
-      audio_buffer_toWrite = !audio_buffer_toWrite;
-
-      // Log that a write has finished.
-      global_time_us = get_global_time_us();
-      while (audio_writing_to_status_file)
-        usleep(10);
-      audio_writing_to_status_file = 1;
-      audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
-      fprintf(audio_status_file, "%lld", global_time_us);
-      fprintf(audio_status_file, ",%d", getRtcCount());
-      // Write any notes, then clear them so they are only written once.
-      fprintf(audio_status_file, ",%s", audio_status_file_notes);
-      audio_status_file_notes[0] = '\0';
-      // Write overflow status information.
-      fprintf(audio_status_file, ",");
-      fprintf(audio_status_file, ",");
-      fprintf(audio_status_file, ",");
-      fprintf(audio_status_file, ",1");
-      fprintf(audio_status_file, ",");
-      // Finish the row of data.
-      fprintf(audio_status_file, "\n");
-      fclose(audio_status_file);
-      audio_writing_to_status_file = 0;
+      continue;
     }
-  }
+
+    // Log that a write is starting.
+    long long global_time_us = get_global_time_us();
+    while (audio_writing_to_status_file)
+      usleep(10);
+    audio_writing_to_status_file = 1;
+    audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
+    fprintf(audio_status_file, "%lld", global_time_us);
+    fprintf(audio_status_file, ",%d", getRtcCount());
+    // Write any notes, then clear them so they are only written once.
+    fprintf(audio_status_file, ",%s", audio_status_file_notes);
+    audio_status_file_notes[0] = '\0';
+    // Write overflow status information.
+    fprintf(audio_status_file, ",");
+    fprintf(audio_status_file, ",");
+    fprintf(audio_status_file, ",1");
+    fprintf(audio_status_file, ",");
+    fprintf(audio_status_file, ",");
+    // Finish the row of data.
+    fprintf(audio_status_file, "\n");
+    fclose(audio_status_file);
+    audio_writing_to_status_file = 0;
+
+    // Create a new output file if this is the first flush
+    //  or if the file size limit has been reached.
+    if ((audio_acqDataFileLength > MAX_AUDIO_DATA_FILE_SIZE) || (flac_encoder == 0)) {
+      audio_createNewFlacFile();
+    }
+    // Write the buffer to a file.
+    for (size_t ix = 0; ix < SAMPLES_PER_RAM_PAGE; ix++) {
+      for (size_t channel = 0; channel < CHANNELS; channel++) {
+        size_t idx = (CHANNELS * BYTES_PER_SAMPLE * ix) + (BYTES_PER_SAMPLE * channel);
+        uint8_t byte1 = (uint8_t)audio_buffers[audio_buffer_toWrite].buffer[idx];
+        uint8_t byte2 = (uint8_t)audio_buffers[audio_buffer_toWrite].buffer[idx + 1];
+        buff[ix][channel] = (FLAC__int32)((FLAC__int16)((byte1 << 8) | byte2));
+      }
+    }
+    FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], SAMPLES_PER_RAM_PAGE);
+    audio_acqDataFileLength += RAM_SIZE;
+
+    // Switch to waiting on the other buffer.
+    audio_buffer_toWrite = !audio_buffer_toWrite;
+
+    // Log that a write has finished.
+    global_time_us = get_global_time_us();
+    while (audio_writing_to_status_file)
+      usleep(10);
+    audio_writing_to_status_file = 1;
+    audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
+    fprintf(audio_status_file, "%lld", global_time_us);
+    fprintf(audio_status_file, ",%d", getRtcCount());
+    // Write any notes, then clear them so they are only written once.
+    fprintf(audio_status_file, ",%s", audio_status_file_notes);
+    audio_status_file_notes[0] = '\0';
+    // Write overflow status information.
+    fprintf(audio_status_file, ",");
+    fprintf(audio_status_file, ",");
+    fprintf(audio_status_file, ",");
+    fprintf(audio_status_file, ",1");
+    fprintf(audio_status_file, ",");
+    // Finish the row of data.
+    fprintf(audio_status_file, "\n");
+    fclose(audio_status_file);
+    audio_writing_to_status_file = 0;
+}
 
   // Finish the current file.
   FLAC__stream_encoder_finish(flac_encoder);
+  
+  //Flush remaining partial buffer.
+  if(audio_buffers[audio_buffer_toLog].counter != 0) {
+    int bytes_to_flush = (audio_buffers[audio_buffer_toLog].counter*SPI_BLOCK_SIZE);
+    int samples_to_flush = bytes_to_flush/(CHANNELS * BYTES_PER_SAMPLE);
+    CETI_LOG("Flushing partial %d sample buffer.", samples_to_flush);
+    //Maybe create new file.
+    if ((audio_acqDataFileLength > MAX_AUDIO_DATA_FILE_SIZE) || (flac_encoder == 0)) {
+      audio_createNewFlacFile();
+    }
+
+    for(int i_sample = 0; i_sample < samples_to_flush; i_sample++){
+      for(int i_channel = 0; i_channel < CHANNELS; i_channel++) {
+          size_t idx = (CHANNELS * BYTES_PER_SAMPLE * i_sample) + (BYTES_PER_SAMPLE * i_channel);
+          uint8_t byte1 = (uint8_t)audio_buffers[audio_buffer_toLog].buffer[idx];
+          uint8_t byte2 = (uint8_t)audio_buffers[audio_buffer_toLog].buffer[idx + 1];
+          buff[i_sample][i_channel] = (FLAC__int32)((FLAC__int16)((byte1 << 8) | byte2));
+      }
+    }
+    FLAC__stream_encoder_process_interleaved(flac_encoder, &buff[0][0], samples_to_flush);
+  }
+  FLAC__stream_encoder_finish(flac_encoder);
+
+  //All data flushed
   FLAC__stream_encoder_delete(flac_encoder);
   flac_encoder = 0;
   // Exit the thread.
