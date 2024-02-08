@@ -73,13 +73,6 @@ HardwareTest g_test_list[] = {
     { .name = "Communication",    .update = test_internet, },
     { .name = "Recovery",         .update = test_recovery, },
 };
-    // Charging
-        // prompt user to attach charger
-            // measure current
-                // charging
-            // switch to sleep mode
-            // switch to wake mode
-
     // Burn wire
         // (require user measurement + pass/fail)
 
@@ -194,7 +187,11 @@ TestState test_audio(void){
         int16_t max_audio[3] = {0, 0, 0};
 
         //pull latest samples from circular buffer
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wscalar-storage-order"
         uint8_t *end_ptr = (uint8_t *)test_audio_data.blocks[end_block];
+        #pragma GCC diagnostic push
+
         if(end_ptr < (uint8_t *)test_audio_data.samples[test_audio_read_sample]){
             //transform to end of buffer
             while(test_audio_read_sample < TEST_AUDIO_BUFFER_SIZE_SAMPLES){
@@ -212,6 +209,8 @@ TestState test_audio(void){
         }
 
         //transform to end_ptr
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wscalar-storage-order"
         while((uint8_t *) test_audio_data.samples[test_audio_read_sample] < end_ptr) {
             // AUDIO DATA TRANSFORMATION HERE
             for(int i = 0; i < 3; i++){
@@ -222,6 +221,8 @@ TestState test_audio(void){
             }
             test_audio_read_sample++;
         }
+        #pragma GCC diagnostic push
+
        
         //ToDo: pass condition
         for(int i = 0; i < 3; i++){
@@ -304,11 +305,11 @@ TestState test_batteries(void){
 
 bool test_ecg_terminate = 1;
 pthread_mutex_t test_ecg_swap_lock;
-int     test_ecg_write_buffer = 0;
-int32_t test_ecg_circular_buffer[11][100];
+int     test_ecg_write_index = 0;
+int32_t test_ecg_circular_buffer[4000];
 
 void *test_ecg_acq_thread(void *paramPtr){
-    int sample_index = 0;
+    int test_ecg_write_index = 0;
     while(!test_ecg_terminate){
         if(ecg_adc_read_data_ready() != 0){
             // data not ready
@@ -316,13 +317,8 @@ void *test_ecg_acq_thread(void *paramPtr){
             continue;
         }
 
-        test_ecg_circular_buffer[test_ecg_write_buffer][sample_index] = ecg_adc_raw_read_data();
-        sample_index = (sample_index + 1) % 100;
-        if(sample_index == 0){
-            pthread_mutex_lock(&test_ecg_swap_lock);
-            test_ecg_write_buffer = (test_ecg_write_buffer + 1) % 11;
-            pthread_mutex_unlock(&test_ecg_swap_lock);
-        }
+        test_ecg_circular_buffer[test_ecg_write_index] = ecg_adc_raw_read_data();
+        test_ecg_write_index = (test_ecg_write_index + 1) % (sizeof(test_ecg_circular_buffer)/sizeof(*test_ecg_circular_buffer));
     }
     return NULL;
 }
@@ -384,26 +380,47 @@ TestState test_ecg(void){
         for(int i = 0; i < height; i++){
             printf("\e[%d;1H\e[0K", i + 12);
         }
+
+        //graph data
         // if((lead_state & 0b11) == 0b00){
-        //     pthread_mutex_lock(&test_ecg_swap_lock);
-        //     for(int i = 0; i < 1000; i += 1000/cols){
-        //         //downsample (maybe averaging would be better)
+        //     int end_index = test_ecg_write_index;
+        //     int start_index = (end_index - 2000 + 4000) % 4000;
+
+        //     //determine scaling
+        //     int32_t ecg_max = 0;
+        //     for(int i = start_index; i != end_index; i = (i + 1) % 4000){
+        //         int32_t sample_amp = abs(test_ecg_circular_buffer[i]);
+        //         if(ecg_max < sample_amp) {
+        //             ecg_max = sample_amp;
+        //         }
+        //     }
+
+        //     int column = 0; 
+        //     for(int i = 0; i < 2000; i += 2000/cols){
         //         int32_t reading;
                 
         //         /* downsampling */
-        //         reading = test_ecg_circular_buffer[((test_ecg_write_buffer + 1 + i/100) % 11)][i % 100];
-
+        //         //  reading = test_ecg_circular_buffer[((test_ecg_write_buffer + 1 + i/100) % 11)][i % 100];
+        //         /* end downsampling */
 
         //         /* averaging */
-        //         // double reading = 0.0;
-        //         // for(int j = 0; j < 1000/cols; j++){
-        //         //     reading += (double)test_ecg_circular_buffer[((test_ecg_write_buffer + 1 + (i + j)/100) % 11)][(i + j) % 100];
-        //         // }
-        //         // reading /= (1000.0/cols);
 
-        //         printf("\e[%d;%dH-", 12 + (height/2) + reading/((0x800)/height), i*cols/1000); // ToDo: scale
-        //         // printf("\e[%d;%dH" YELLOW("-"), 12 + (height/2), i);
+        //         /* end averaging */
 
+        //         /* max amp in section */
+        //         int32_t section_amp = 0; 
+        //         for(int j = 0; j < 2000/cols; j++){
+        //             int sample = test_ecg_circular_buffer[(start_index + i + j) % 4000];
+        //             if(section_amp < abs(sample)){
+        //                 section_amp = abs(sample);
+        //                 reading = sample;
+        //             }
+        //         }
+        //         /* end max amp*/
+
+        //         // printf("\e[%d;%dH-", column, 12 + (height/2) - reading*height/ecg_max);
+        //         printf("\e[%d;%dH-", 12 + (height/2) - reading*height/(2*ecg_max), column);
+        //         column++;
         //     }
         //     pthread_mutex_unlock(&test_ecg_swap_lock);
         // }

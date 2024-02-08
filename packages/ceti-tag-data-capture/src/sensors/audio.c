@@ -232,7 +232,7 @@ void *audio_thread_spi(void *paramPtr) {
     if (pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset) == 0)
       CETI_LOG("Successfully set affinity to CPU %d", AUDIO_SPI_CPU);
     else
-      CETI_ERR("Failed to set affinity to CPU %d", AUDIO_SPI_CPU);
+      CETI_WARN("Failed to set affinity to CPU %d", AUDIO_SPI_CPU);
   }
   // Set the thread priority.
   struct sched_param sp;
@@ -241,21 +241,23 @@ void *audio_thread_spi(void *paramPtr) {
   if (pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
     CETI_LOG("Successfully set priority");
   else
-    CETI_ERR("Failed to set priority");
+    CETI_WARN("Failed to set priority");
 
   // Check if the audio is already overflowed.
   audio_check_for_overflow(0);
 
   // Initialize state.
-  // The first byte in the SPI stream must be discarded.
-  int is_first_byte = 1;
-  char first_byte;
-
   CETI_LOG("Starting loop to fetch data via SPI");
   // Start the audio acquisition on the FPGA.
   start_audio_acq();
+
+  // Discard the very first byte in the SPI stream.
+  char first_byte;
+  spiRead(spi_fd, &first_byte, 1);
+
   // Main loop to acquire audio data.
   g_audio_thread_spi_is_running = 1;
+
   while (!g_stopAcquisition && !g_audio_overflow_detected) {
     // Wait for SPI data to be available.
     while (!gpioRead(AUDIO_DATA_AVAILABLE)) {
@@ -297,11 +299,6 @@ void *audio_thread_spi(void *paramPtr) {
       break;
     }
 
-    // Discard the very first byte in the SPI stream.
-    if (is_first_byte) {
-      spiRead(spi_fd, &first_byte, 1);
-      is_first_byte = 0;
-    }
     int64_t global_time_startRead_us = get_global_time_us();
     spiRead(spi_fd, audio_buffers[audio_buffer_toLog].buffer + (audio_buffers[audio_buffer_toLog].counter * SPI_BLOCK_SIZE), SPI_BLOCK_SIZE);
     // Make sure the GPIO flag for data available has been cleared.
