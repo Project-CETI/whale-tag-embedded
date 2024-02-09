@@ -17,7 +17,7 @@
 SRC        = $(shell find src -type f -iname '*.c' 2> /dev/null)
 OBJ        = $(SRC:.c=.o)
 CC         = gcc
-CFLAGS     = -Wall -g
+CFLAGS     = -Wall -O2
 LDFLAGS    = -lpthread -lpigpio -lFLAC -lm
 APP        = cetiTagApp
 HW_TEST    = cetiHWTestApp
