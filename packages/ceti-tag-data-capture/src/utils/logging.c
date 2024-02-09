@@ -12,7 +12,7 @@
 #include "../_versioning.h"
 
 void init_logging() {
-  openlog("CETI data capture", LOG_PERROR | LOG_CONS, LOG_USER);
+  openlog("CETI data capture", LOG_CONS, LOG_USER);
   syslog(LOG_DEBUG, "************************************************");
   syslog(LOG_DEBUG, "            CETI Tag Electronics                ");
   syslog(LOG_DEBUG, " -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-");
