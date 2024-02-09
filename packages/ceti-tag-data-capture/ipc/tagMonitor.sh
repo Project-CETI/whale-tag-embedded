@@ -7,7 +7,7 @@
 mount /boot -o remount,ro
 
 #wake the tag (if )
-tagWake
+./tagWake.sh
 
 # Launch the main recording application in the background.
 sudo /opt/ceti-tag-data-capture/bin/cetiTagApp &
@@ -15,20 +15,15 @@ sudo /opt/ceti-tag-data-capture/bin/cetiTagApp &
 sleep 15
 data_acquisition_running=1
 
-
 # Periodically monitor the battery, SD storage, and audio overflows.
 while :
 do
-#loop timing and initial delay so the user has time to log in before the
-#script shuts the system down
-  sleep 60
-
 # Check that there is disk space available to continue recording.
 # The tag app should automatically stop if there is less than 1 GiB free.
   disk_avail_kb=$(df --output=target,avail | grep /data)
-  set "$disk_avail_kb"
+  set $disk_avail_kb
   echo "$2 KiB available"
-  if [ $data_acquisition_running -eq 1 ] && [ "$2" -lt $((1*1024*1024)) ]
+  if [ $data_acquisition_running -eq 1 ] && [ $2 -lt $((1*1024*1024)) ]
   then
     echo "disk almost full; stopping data acquisition"
     echo "stopDataAcq" > cetiCommand
@@ -42,6 +37,10 @@ do
   else
     echo "disk space is OK"
   fi
+
+#loop timing and initial delay so the user has time to log in before the
+#script shuts the system down
+  sleep 60
 
 # check the cell voltages and power off if needed.
 # Hardcoded for now at 3V per cell.
