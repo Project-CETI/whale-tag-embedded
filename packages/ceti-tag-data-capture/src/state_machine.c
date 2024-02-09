@@ -124,8 +124,10 @@ void* stateMachine_thread(void* paramPtr) {
 //-----------------------------------------------------------------------------
 int stateMachine_set_state(wt_state_t new_state){
     //nothing to do
-    if(new_state == presentState)
+    if(new_state == presentState){
+        CETI_LOG("Already in state %s", get_state_str(presentState));
         return 0;
+    }
 
     //actions performed when exit present state
     switch(presentState){
@@ -155,6 +157,7 @@ int stateMachine_set_state(wt_state_t new_state){
                 recovery_on();
             }
             #endif // ENABLE_RECOVERY
+            break;
 
         case ST_REC_SUB:
             #if ENABLE_RECOVERY
@@ -162,6 +165,7 @@ int stateMachine_set_state(wt_state_t new_state){
                 recovery_off();
             }
             #endif // ENABLE_RECOVERY
+            break;
 
         case ST_REC_SURF:
             #if ENABLE_RECOVERY
@@ -193,12 +197,12 @@ int stateMachine_set_state(wt_state_t new_state){
     }
 
     //update state
+    CETI_LOG("State transition from %s to %s\n", get_state_str(presentState), get_state_str(new_state));
     presentState = new_state;
     return 0;
 }
 
 int updateStateMachine() {
-
     // Deployment sequencer FSM
     switch (presentState) {
 
@@ -249,11 +253,13 @@ int updateStateMachine() {
     // ---------------- Just deployed ----------------
     case (ST_DEPLOY):
         // Waiting for 1st dive
+        if((current_rtc_count - start_rtc_count > g_config.timeout_s)) {
+            stateMachine_set_state(ST_BRN_ON);
+            break;
+        }
 
         #if ENABLE_BATTERY_GAUGE
-        if ((g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v) ||
-            (current_rtc_count - start_rtc_count > g_config.timeout_s)
-        ) {
+        if ((g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v)) {
             stateMachine_set_state(ST_BRN_ON);
             break;
         }
@@ -268,17 +274,20 @@ int updateStateMachine() {
             // usb_disable();
             activity_led_disable();
             stateMachine_set_state(ST_REC_SUB);// 1st dive after deploy
+            break;
         }
         #endif
 
         break;
 
     case (ST_REC_SUB):
+       if(current_rtc_count - start_rtc_count > g_config.timeout_s) {
+            stateMachine_set_state(ST_BRN_ON);
+            break;
+        }
         // Recording while sumberged
         #if ENABLE_BATTERY_GAUGE
-        if ((g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v) ||
-            (current_rtc_count - start_rtc_count > g_config.timeout_s)
-        ) {
+        if ((g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v)) {
             stateMachine_set_state(ST_BRN_ON);
             break;
         }
@@ -299,11 +308,13 @@ int updateStateMachine() {
         break;
 
     case (ST_REC_SURF):
+        if(current_rtc_count - start_rtc_count > g_config.timeout_s) {
+            stateMachine_set_state(ST_BRN_ON);
+            break;
+        }
         // Recording while at surface, trying to get a GPS fix
         #if ENABLE_BATTERY_GAUGE
-        if ((g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v) ||
-            (current_rtc_count - start_rtc_count > g_config.timeout_s)
-        ) {
+        if ((g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v)) {
             stateMachine_set_state(ST_BRN_ON);
             break;
         }
@@ -320,20 +331,20 @@ int updateStateMachine() {
 
     case (ST_BRN_ON):
         // Releasing
-        #if ENABLE_BATTERY_GAUGE
-        if (current_rtc_count - burnTimeStart > g_config.burn_interval_s) {
             //wait untl burn complete to switch state
+        if (current_rtc_count - burnTimeStart > g_config.burn_interval_s) {
+        #if ENABLE_BATTERY_GAUGE
             if (g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.critical_voltage_v) {
                 stateMachine_set_state(ST_SHUTDOWN);// critical battery
 
                 break;
             }
+        #endif
 
             // update 220109 to leave burnwire on without time limit
             // Leave burn wire on for 20 minutes or until the battery is depleted
             stateMachine_set_state(ST_RETRIEVE);
         }
-        #endif // ENABLE_BATTERY_GAUGE
 
         break;
 
