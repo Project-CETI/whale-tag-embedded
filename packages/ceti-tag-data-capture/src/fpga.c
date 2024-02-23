@@ -7,6 +7,7 @@
 //-----------------------------------------------------------------------------
 
 #include "fpga.h"
+#include "launcher.h" //for g_process_path
 
 //-----------------------------------------------------------------------------
 int init_fpga(void) {
@@ -55,9 +56,12 @@ int loadFpgaBitstream(void) {
 
   // read the FPGA configuration file
   // ToDo: replace with mmap, do not hardcode bitstreamsize
-  pConfigFile = fopen(FPGA_BITSTREAM, "rb");
+  char fpga_bitstream_path[512];
+  strncpy(fpga_bitstream_path, g_process_path, sizeof(fpga_bitstream_path) - 1);
+  strncat(fpga_bitstream_path, FPGA_BITSTREAM, sizeof(fpga_bitstream_path) - 1);
+  pConfigFile = fopen(fpga_bitstream_path, "rb");
   if (pConfigFile == NULL) {
-    CETI_ERR("cannot open input file");
+    CETI_ERR("cannot open input file: %s", fpga_bitstream_path);
     return 1;
   }
   fread(pConfig, 1, BITSTREAM_SIZE_BYTES, pConfigFile);

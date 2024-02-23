@@ -17,8 +17,9 @@
 
 int g_exit = 0;
 int g_stopAcquisition = 0;
+char g_process_path[256] = "/opt/ceti-tag-data-capture/bin";
 
-#define TEST_RESULT_FILE "./test_result.txt"
+#define TEST_RESULT_FILE_BASE "test_result"
 #define BOLD(str)      "\e[1m" str "\e[0m"
 #define UNDERLINE(str) "\e[4m" str "\e[0m"
 #define RED(str)       "\e[31m" str "\e[0m"
@@ -776,7 +777,7 @@ int checkInterfaceStatus(const char *interface) {
     }
 
     // Set the interface name
-    strncpy(ifr.ifr_name, interface, IFNAMSIZ);
+    strncpy(ifr.ifr_name, interface, IFNAMSIZ - 1);
 
     // Get the interface flags
     if (ioctl(sock, SIOCGIFFLAGS, &ifr) < 0) {
@@ -1065,6 +1066,16 @@ int main(void) {
     }
     atexit(gpioTerminate);
 
+    // Get process dir path
+    int bytes = readlink("/proc/self/exe", g_process_path, sizeof(g_process_path) - 1);
+    while(bytes > 0) {
+        if(g_process_path[bytes - 1] == '/'){
+        g_process_path[bytes] = '\0';
+        break;
+        }
+        bytes--;
+    }
+
     init_fpga();
     light_wake();
     enableRawMode();
@@ -1081,7 +1092,12 @@ int main(void) {
 #endif /* TIOCGSIZE */
 
 
-    results_file = fopen(TEST_RESULT_FILE, "wt");
+    struct timeval te;
+    char test_result_file_path[256];
+    gettimeofday(&te, NULL);
+    long long milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
+    snprintf(test_result_file_path, sizeof(test_result_file_path) - 1, "/data/" TEST_RESULT_FILE_BASE "_%lld.txt", milliseconds);
+    results_file = fopen(test_result_file_path, "wt");
     if (results_file == NULL){
         return -1;
     }

@@ -15,7 +15,7 @@
 int callsign_try_from_str(APRSCallsign *dst, const char *_String, char **_EndPtr) {
     APRSCallsign tmp = {};
     if(_EndPtr != NULL){
-        *_EndPtr = _String;
+        *_EndPtr = (char *)_String;
     }
 	// skip white space
     while(isspace(*_String)){_String++;} 
@@ -38,7 +38,7 @@ int callsign_try_from_str(APRSCallsign *dst, const char *_String, char **_EndPtr
     // get optional ssid
     if(*_String != '-'){
         if(_EndPtr != NULL){
-            *_EndPtr = _String;
+            *_EndPtr = (char *)_String;
         }
         tmp.ssid = 0;
     } else {
@@ -56,8 +56,9 @@ int callsign_try_from_str(APRSCallsign *dst, const char *_String, char **_EndPtr
 
 void callsign_to_str(APRSCallsign *self, char str[static 10]){
     if(self->ssid == 0) {
-        strncpy(str, self->callsign, 6);
+        memcpy(str, self->callsign, 7);
     } else {
+        #pragma GCC diagnostic ignored "-Wformat-truncation="
         snprintf(str, 10, "%s-%d", self->callsign, self->ssid);
     }
 }

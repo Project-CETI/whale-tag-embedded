@@ -19,6 +19,9 @@ char g_command[256];
 
 int g_command_thread_is_running = 0;
 
+static char rsp_pipe_path[512];
+
+
 //-----------------------------------------------------------------------------
 // Command-handling logic
 //-----------------------------------------------------------------------------
@@ -39,7 +42,7 @@ int handle_command(void) {
     // Part 1 - quit or any other special commands here
     if (!strncmp(g_command, "quit", 4)) {
         CETI_LOG("Received Quit command");
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "Received Quit command - stopping the app\n"); // echo it back
         fclose(g_rsp_pipe);
         CETI_LOG("SETTING EXIT FLAG");
@@ -51,7 +54,7 @@ int handle_command(void) {
     // Part 2 - Client commands
     if (!strncmp(g_command, "dbug", 4)) {
         CETI_LOG("Debug Placeholder is Executing");
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "Running Debug Routine(s)\n"); // echo it back
         fclose(g_rsp_pipe);
         CETI_LOG("Debugged... %d", 1234);
@@ -62,7 +65,7 @@ int handle_command(void) {
     //     CETI_LOG("Testing Recovery Serial Link");
     //     #if ENABLE_RECOVERY
     //     testRecoverySerial();
-    //     g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+    //     g_rsp_pipe = fopen(rsp_pipe_path, "w");
     //     fprintf(g_rsp_pipe, "handle_command(): Tested Recovery Serial Link\n");
     //     fclose(g_rsp_pipe);
     //     #else
@@ -75,7 +78,7 @@ int handle_command(void) {
         CETI_LOG("Turning on burnwire");
         #if ENABLE_BURNWIRE
         burnwireOn();
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Turned burnwire on\n");
         fclose(g_rsp_pipe);
         #else
@@ -88,7 +91,7 @@ int handle_command(void) {
         CETI_LOG("Turning off burnwire");
         #if ENABLE_BURNWIRE
         burnwireOff();
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Turned burnwire off\n");
         fclose(g_rsp_pipe);
         #else
@@ -101,7 +104,7 @@ int handle_command(void) {
         CETI_LOG("Turning ON power to the Recovery Board");
         #if ENABLE_RECOVERY
         recovery_on();
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Turned Recovery Board ON\n");
         fclose(g_rsp_pipe);
         #else
@@ -114,7 +117,7 @@ int handle_command(void) {
         CETI_LOG("Turning OFF power to the Recovery Board");
         #if ENABLE_RECOVERY
         recovery_off();
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Turned Recovery Board OFF\n");
         fclose(g_rsp_pipe);
         #else
@@ -127,7 +130,7 @@ int handle_command(void) {
         CETI_LOG("Resetting the IMU");
         #if ENABLE_IMU
         resetIMU();
-        g_rsp_pipe = fopen(RSP_PIPE_PATH,"w");
+        g_rsp_pipe = fopen(rsp_pipe_path,"w");
         fprintf(g_rsp_pipe,"handle_command(): Reset the IMU \n");
         fclose(g_rsp_pipe);
         return 0;
@@ -145,7 +148,7 @@ int handle_command(void) {
 //        getRotation(&rotation);
 //        CETI_LOG("Testing the function 0x%02X 0x%02X", rotation.reportID,
 //               rotation.sequenceNum);
-//        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+//        g_rsp_pipe = fopen(rsp_pipe_path, "w");
 //        fprintf(g_rsp_pipe, "handle_command(): Finished getting the Rotation report\n");
 //        fclose(g_rsp_pipe);
 //        #else
@@ -158,7 +161,7 @@ int handle_command(void) {
         CETI_LOG("Setting up the IMU");
         #if ENABLE_IMU
         setupIMU(IMU_ALL_ENABLED);
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Finished setting up the IMU\n");
         fclose(g_rsp_pipe);
         #else
@@ -171,7 +174,7 @@ int handle_command(void) {
 //        CETI_LOG("Experimenting with the IMU");
 //        #if ENABLE_IMU
 //        learnIMU(); // a sandbox function in sensors.c
-//        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+//        g_rsp_pipe = fopen(rsp_pipe_path, "w");
 //        fprintf(g_rsp_pipe, "handle_command(): Finished running IMU experiments\n");
 //        fclose(g_rsp_pipe);
 //        #else
@@ -186,11 +189,11 @@ int handle_command(void) {
 
         if (!init_tag()) {
             CETI_LOG("Tag initialization successful");
-            g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+            g_rsp_pipe = fopen(rsp_pipe_path, "w");
             fprintf(g_rsp_pipe, "handle_command(): Tag initialization successful\n");
         } else {
             CETI_LOG("XXXX Tag Initialization Failed XXXX");
-            g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+            g_rsp_pipe = fopen(rsp_pipe_path, "w");
             fprintf(g_rsp_pipe,
                     "handle_command(): Tag initialization failed\n");
         }
@@ -204,12 +207,12 @@ int handle_command(void) {
         #if ENABLE_FPGA
         if (!loadFpgaBitstream()) {
             CETI_LOG("FPGA Configuration Succeeded");
-            g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+            g_rsp_pipe = fopen(rsp_pipe_path, "w");
             fprintf(g_rsp_pipe,
                     "handle_command(): Configuring FPGA Succeeded\n");
         } else {
             CETI_LOG("XXXX FPGA Configuration Failed XXXX");
-            g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+            g_rsp_pipe = fopen(rsp_pipe_path, "w");
             fprintf(
                 g_rsp_pipe,
                 "handle_command(): Configuring FPGA Failed - Try Again\n");
@@ -229,7 +232,7 @@ int handle_command(void) {
 
         CETI_LOG("FPGA Version: 0x%02X%02X\n", fpgaCamResponse[4], fpgaCamResponse[5]); // should be FE
 
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "FPGA Version: 0x%02X%02X\n", fpgaCamResponse[4], fpgaCamResponse[5]);
 
         fclose(g_rsp_pipe);
@@ -244,7 +247,7 @@ int handle_command(void) {
         #if ENABLE_FPGA
         cam(0, 0, 0, 0, 0, fpgaCamResponse);
 
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
 
         if (fpgaCamResponse[4] == 0xAA)
             fprintf(g_rsp_pipe, "CAM Link OK\n");
@@ -263,7 +266,7 @@ int handle_command(void) {
         CETI_LOG("Starting audio acquisition");
         #if ENABLE_AUDIO
         start_audio_acq();
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Audio acquisition Started\n"); // echo it
         fclose(g_rsp_pipe);
         #else
@@ -275,7 +278,7 @@ int handle_command(void) {
     if (!strncmp(g_command, "stopDataAcq", 11)) {
         CETI_LOG("Stopping all data acquisition");
         g_stopAcquisition = 1;
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Data acquisition stopping\n"); // echo it
         fclose(g_rsp_pipe);
         return 0;
@@ -285,7 +288,7 @@ int handle_command(void) {
         CETI_LOG("Stopping audio acquisition");
         #if ENABLE_AUDIO
         stop_audio_acq();
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Audio acquisition Stopped\n"); // echo it
         fclose(g_rsp_pipe);
         #else
@@ -301,7 +304,7 @@ int handle_command(void) {
         gpioWrite(RESET, 0);
         usleep(1000);
         gpioWrite(RESET, 1);
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): FPGA Reset Completed\n"); // echo it
         fclose(g_rsp_pipe);
         #else
@@ -313,7 +316,7 @@ int handle_command(void) {
     if (!strncmp(g_command, "simulateAudioOverflow", 21)) {
         CETI_LOG("Simulating an audio buffer overflow");
         g_audio_overflow_detected = 1;
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Simulated audio overflow\n"); // echo it
         fclose(g_rsp_pipe);
         return 0;
@@ -321,7 +324,7 @@ int handle_command(void) {
     if (!strncmp(g_command, "forceAudioOverflow", 18)) {
         CETI_LOG("Forcing an audio buffer overflow");
         g_audio_force_overflow = 1;
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Forcing an audio overflow\n"); // echo it
         fclose(g_rsp_pipe);
         return 0;
@@ -331,7 +334,7 @@ int handle_command(void) {
         CETI_LOG("Setting audio sampling rate to 192 kHz");
         #if ENABLE_AUDIO
         setup_audio_192kHz();
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Audio rate set to 192 kHz\n"); // echo it
         fclose(g_rsp_pipe);
         #else
@@ -344,7 +347,7 @@ int handle_command(void) {
         CETI_LOG("Setting audio sampling rate to 96 kHz");
         #if ENABLE_AUDIO
         setup_audio_96kHz();
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Audio rate set to 96 kHz\n"); // echo it
         fclose(g_rsp_pipe);
         #else
@@ -357,7 +360,7 @@ int handle_command(void) {
         CETI_LOG("Setting audio sampling rate to 48 kHz");
         #if ENABLE_AUDIO
         setup_audio_48kHz();
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Audio rate set to 48 kHz\n"); // echo it
         fclose(g_rsp_pipe);
         #else
@@ -370,7 +373,7 @@ int handle_command(void) {
         CETI_LOG("Setting audio sampling rate to default (750 Hz)");
         #if ENABLE_AUDIO
         setup_audio_default();
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Audio rate set to default (750 Hz)\n"); // echo it
         fclose(g_rsp_pipe);
         #else
@@ -383,7 +386,7 @@ int handle_command(void) {
         CETI_LOG("Resetting the audio FIFO");
         #if ENABLE_AUDIO
         reset_audio_fifo();
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Audio FIFO Reset\n"); // echo it
         fclose(g_rsp_pipe);
         #else
@@ -396,7 +399,7 @@ int handle_command(void) {
         CETI_LOG("Reading battery voltage and current");
         #if ENABLE_BATTERY_GAUGE
         getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v, &g_latest_battery_i_mA);
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "Battery voltage 1: %.2f V \n", g_latest_battery_v1_v);
         fprintf(g_rsp_pipe, "Battery voltage 2: %.2f V \n", g_latest_battery_v2_v);
         fprintf(g_rsp_pipe, "Battery current: %.2f mA \n", g_latest_battery_i_mA);
@@ -411,7 +414,7 @@ int handle_command(void) {
         CETI_LOG("Reading battery cell 1 voltage");
         #if ENABLE_BATTERY_GAUGE
         getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v, &g_latest_battery_i_mA);
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "%.2f\n", g_latest_battery_v1_v);
         fclose(g_rsp_pipe);
         #else
@@ -424,7 +427,7 @@ int handle_command(void) {
         CETI_LOG("Reading battery cell 2 voltage");
         #if ENABLE_BATTERY_GAUGE
         getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v, &g_latest_battery_i_mA);
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "%.2f\n", g_latest_battery_v2_v);
         fclose(g_rsp_pipe);
         #else
@@ -436,7 +439,7 @@ int handle_command(void) {
     if (!strncmp(g_command, "resetBattTemp", 13)) {
         CETI_LOG("Resetting the Battery Temperature Flags");
         resetBattTempFlags();
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Battery Temperature Flags Reset\n"); // echo it
         fclose(g_rsp_pipe);
         return 0;
@@ -445,7 +448,7 @@ int handle_command(void) {
     if (!strncmp(g_command, "powerdown", 9)) {
         CETI_LOG("Powering down the tag via the FPGA");
         #if ENABLE_FPGA
-        g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+        g_rsp_pipe = fopen(rsp_pipe_path, "w");
 
         // now send the FPGA shutdown opcode via CAM
         // opcode 0xF will do a register write on i2c1
@@ -476,7 +479,7 @@ int handle_command(void) {
     }
 
   // Print available commands.
-  g_rsp_pipe = fopen(RSP_PIPE_PATH, "w");
+  g_rsp_pipe = fopen(rsp_pipe_path, "w");
   fprintf(g_rsp_pipe, "\n"); // echo it
   fprintf(g_rsp_pipe, "CETI Tag Electronics Available Commands\n");
   fprintf(g_rsp_pipe,
@@ -550,13 +553,21 @@ void *command_thread(void *paramPtr) {
       CETI_LOG("XXX Failed to set affinity to CPU %d", COMMAND_CPU);
   }
 
+  //generate pipe paths (relative to process)
+  char command_pipe_path[512];
+  strncpy(command_pipe_path, g_process_path, sizeof(command_pipe_path) - 1);
+  strncat(command_pipe_path, CMD_PIPE_PATH, sizeof(command_pipe_path) - 1);
+
+  strncpy(rsp_pipe_path, g_process_path, sizeof(rsp_pipe_path) - 1);
+  strncat(rsp_pipe_path, CMD_PIPE_PATH, sizeof(rsp_pipe_path) - 1);
+  CETI_LOG("Starting loop to process commands from %s", command_pipe_path);
+  
   // Main loop while application is running.
-  CETI_LOG("Starting loop to process commands from %s", CMD_PIPE_PATH);
   g_command_thread_is_running = 1;
   while (!g_exit) {
     // Read commands from the pipe.
     // Note that this will block until a command is sent.
-    g_cmd_pipe = fopen(CMD_PIPE_PATH, "r");
+    g_cmd_pipe = fopen(command_pipe_path, "r");
     fgets(g_command, 256, g_cmd_pipe); // get the command
     fclose(g_cmd_pipe);                // close the pipe
     // Process the command if one was present.

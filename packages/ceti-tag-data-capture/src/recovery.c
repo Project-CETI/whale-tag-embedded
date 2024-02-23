@@ -127,7 +127,7 @@ typedef union  {
 /* GLOBAL/STATIC VARIABLES ******************************************************/
 
 int g_recovery_thread_is_running = 0;
-static g_recovery_initialized = 0;
+static int g_recovery_initialized = 0;
 static FILE* recovery_data_file = NULL;
 static char recovery_data_file_notes[256] = "";
 static const char* recovery_data_file_headers[] = {

@@ -211,10 +211,15 @@ int updateStateMachine() {
     switch (presentState) {
 
     // ---------------- Configuration ----------------
-    case (ST_CONFIG):
+    case (ST_CONFIG): {
         // Load the deployment configuration
-        CETI_LOG("Configuring the deployment parameters from %s", CETI_CONFIG_FILE);
-        config_read(CETI_CONFIG_FILE);
+        char config_file_path[512];
+        strncpy(config_file_path, g_process_path, sizeof(config_file_path) - 1);
+        strncat(config_file_path, CETI_CONFIG_FILE, sizeof(config_file_path) - 1);
+        CETI_LOG("Configuring the deployment parameters from %s", config_file_path);
+        config_read(config_file_path);
+
+        //configure recovery board
         #if ENABLE_RECOVERY
         if (g_config.recovery.enabled) {
             if ((recovery_set_critical_voltage(g_config.critical_voltage_v) == 0) 
@@ -245,6 +250,7 @@ int updateStateMachine() {
         #endif // ENABLE_RECOVERY
         stateMachine_set_state(ST_START);
         break;
+    }
 
     // ---------------- Startup ----------------
     case (ST_START):

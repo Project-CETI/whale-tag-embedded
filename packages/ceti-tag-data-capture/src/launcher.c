@@ -14,6 +14,7 @@
 //-----------------------------------------------------------------------------
 int g_exit = 0;
 int g_stopAcquisition = 0;
+char g_process_path[256] = "/opt/ceti-tag-data-capture/bin";
 
 void sig_handler(int signum) {
   g_exit = 1;
@@ -26,6 +27,16 @@ int main(void) {
   // Define callbacks for handling signals.
   signal(SIGINT, sig_handler);
   signal(SIGTERM, sig_handler);
+
+  // Get process location
+  int bytes = readlink("/proc/self/exe", g_process_path, sizeof(g_process_path) - 1);
+  while(bytes > 0) {
+    if(g_process_path[bytes - 1] == '/'){
+      g_process_path[bytes] = '\0';
+      break;
+    }
+    bytes--;
+  }
 
   // Tag-wide initialization.
   init_logging();
