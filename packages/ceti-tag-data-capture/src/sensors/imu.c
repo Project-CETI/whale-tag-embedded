@@ -175,8 +175,9 @@ void *imu_thread(void *paramPtr) {
           unopened_file = (imu_data_file[i_type] == NULL);
         }
       }
+      
+      // A file failed to open
       if (unopened_file) {
-        // A file failed to open
         usleep(100000); // Sleep a bit before retrying.
         continue; //restart loop
       }
@@ -370,7 +371,7 @@ int setupIMU(uint8_t enabled_features) {
 
   // Enable desired feature reports.
   if(enabled_features & IMU_QUAT_ENABLED) {
-    imu_enable_feature_report(IMU_SENSOR_REPORTID_ROTATION_VECTOR, 1000000);
+    imu_enable_feature_report(IMU_SENSOR_REPORTID_ROTATION_VECTOR, IMU_SAMPLING_PERIOD_QUAT_US);
     usleep(100000);
   }
   

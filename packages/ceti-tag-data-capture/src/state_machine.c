@@ -197,7 +197,11 @@ int stateMachine_set_state(wt_state_t new_state){
     }
 
     //update state
-    CETI_LOG("State transition from %s to %s\n", get_state_str(presentState), get_state_str(new_state));
+    CETI_LOG("State transition: %s -> %s\n", get_state_str(presentState), get_state_str(new_state));
+    #if ENABLE_RECOVERY
+        //set recovery board comment
+        
+    #endif   
     presentState = new_state;
     return 0;
 }
@@ -388,7 +392,8 @@ int updateStateMachine() {
 }
 
 // Helper to convert a state ID to a printable string.
-const char* get_state_str(wt_state_t state) {
+__attribute__ ((const))
+const char* get_state_str(wt_state_t state){
     if((state < ST_CONFIG) || (state > ST_UNKNOWN)) {
         CETI_LOG("presentState is out of bounds. Setting to ST_UNKNOWN. Current value: %d", presentState);
         state = ST_UNKNOWN;

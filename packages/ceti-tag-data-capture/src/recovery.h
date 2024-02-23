@@ -49,15 +49,17 @@ extern int g_recovery_thread_is_running;
 //-----------------------------------------------------------------------------
 // Hardware Methods
 //-----------------------------------------------------------------------------
+// initialize recovery board hardware
 int recovery_init(void);
 int recovery_restart(void);
 int recovery_get_aprs_call_sign(char buffer[static 7]);
 int recovery_get_aprs_callsign(APRSCallsign *callsign);
 int recovery_get_gps_data(char gpsLocation[static GPS_LOCATION_LENGTH], time_t timeout_us);
-int recovery_set_critical_voltage(float voltage);
 int recovery_set_aprs_callsign(const APRSCallsign *callsign);
-int recovery_set_aprs_message_recipient(const APRSCallsign *callsign);
 int recovery_set_aprs_freq_mhz(float f_MHz);
+int recovery_set_aprs_message_recipient(const APRSCallsign *callsign);
+int recovery_set_comment(const char *message);
+int recovery_set_critical_voltage(float voltage);
 int recovery_message(const char *message);
 int recovery_on(void);
 int recovery_off(void);

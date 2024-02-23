@@ -12,7 +12,7 @@
 //-----------------------------------------------------------------------------
 /* MACRO DEFINITIONS *********************************************************/
 #define RECOVERY_PACKET_KEY_VALUE '$'
-#define RECOVERY_UART_TIMEOUT_US 5000000
+#define RECOVERY_UART_TIMEOUT_US 50000
 #define RECOVERY_WDT_TRIGGER_TIME_MIN 10 
 
 /* TYPE DEFINITIONS **********************************************************/
@@ -127,6 +127,7 @@ typedef union  {
 /* GLOBAL/STATIC VARIABLES ******************************************************/
 
 int g_recovery_thread_is_running = 0;
+static g_recovery_initialized = 0;
 static FILE* recovery_data_file = NULL;
 static char recovery_data_file_notes[256] = "";
 static const char* recovery_data_file_headers[] = {
@@ -377,7 +378,11 @@ int recovery_set_aprs_freq_mhz(float freq_MHz){
         }, 
         .msg = { .value = freq_MHz}
     };
-    return serWrite(recovery_fd, (char *)&pkt, sizeof(pkt));
+    int result = serWrite(recovery_fd, (char *)&pkt, sizeof(pkt));
+    if (result < 0){
+        return result;
+    }
+    return 0;
 }
 
 static int __recovery_set_aprs_rx_callsign(const char * callsign){
@@ -452,25 +457,6 @@ int recovery_set_power_level(RecoveryPowerLevel power_level){
     return 0;
 }
 
-int recovery_tx_now(const char * message){
-    size_t message_len = strlen(message);
-    if (message_len > 67) {
-        CETI_ERR("Message \"%s\" is too long", message);
-        return -3;
-    }
-
-    RecPkt_string pkt = {
-        .header = {
-            .key = RECOVERY_PACKET_KEY_VALUE,
-            .type = REC_CMD_TX_NOW,
-            .length = (uint8_t) message_len,
-        },
-    };
-    memcpy(pkt.msg.value, message, message_len);
-
-    return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPktHeader) + message_len);
-}
-
 int recovery_message(const char *message){
     size_t message_len = strlen(message);
     if (message_len > 67) {
@@ -513,6 +499,7 @@ int recovery_init(void) {
     recovery_fd = serOpen("/dev/serial0", 115200,0);
     if (recovery_fd < 0) {
         CETI_ERR("Failed to open the recovery board serial port");
+        gpioWrite(13, 0);
         return (-1);
     }
 
@@ -522,8 +509,11 @@ int recovery_init(void) {
         CETI_LOG("Callsign: \"%s-%d\".", callsign.callsign, callsign.ssid);
     } else {
         CETI_ERR("Did not receive recovery board response.");
+        serClose(recovery_fd);
+        gpioWrite(13, 0);
+        return (-2);
     }
-
+    g_recovery_initialized = true;
     recovery_on();
 
     CETI_LOG("Successfully initialized the recovery board");
@@ -532,6 +522,11 @@ int recovery_init(void) {
 
 // sets recovery board into "arps" state
 int recovery_on(void) {
+    if(!g_recovery_initialized){
+        CETI_ERR("Recovery board uninitialized.");
+        return -1;
+    }
+
     RecPktHeader start_pkt = {
         .key = RECOVERY_PACKET_KEY_VALUE,
         .type = REC_CMD_START,
@@ -548,6 +543,11 @@ int recovery_on(void) {
 
 //Note: lock state mutex prior to calling
 static int __recovery_off (void) {
+    if(!g_recovery_initialized){
+        CETI_ERR("Recovery board uninitialized.");
+        return -1;
+    }
+
     RecPktHeader stop_pkt = {
         .key = RECOVERY_PACKET_KEY_VALUE,
         .type = REC_CMD_STOP,
@@ -563,6 +563,11 @@ static int __recovery_off (void) {
 // sets recovery board into "wait" state
 // command must be sent every 10 minutes to remain in this state
 int recovery_off(void) {
+    if(!g_recovery_initialized){
+        CETI_ERR("Recovery board uninitialized.");
+        return -1;
+    }
+
     pthread_mutex_lock(&s_recovery_board_model.state_lock);
     __recovery_off();
     pthread_mutex_unlock(&s_recovery_board_model.state_lock);
@@ -572,11 +577,17 @@ int recovery_off(void) {
 // sets recovery board into "shutdown" state
 // recovery board must be reset to exit state
 int recovery_shutdown(void){
-     RecPktHeader critical_pkt = {
+    if(!g_recovery_initialized){
+        CETI_ERR("Recovery board uninitialized.");
+        return -1;
+    }
+    
+    RecPktHeader critical_pkt = {
         .key = RECOVERY_PACKET_KEY_VALUE,
         .type = REC_CMD_CRITICAL,
         .length = 0,
     };
+
     pthread_mutex_lock(&s_recovery_board_model.state_lock);
     serWrite(recovery_fd, (char *)&critical_pkt, sizeof(critical_pkt));
     s_recovery_board_model.state = REC_STATE_SHUTDOWN;
@@ -637,7 +648,7 @@ int recovery_get_gps_data(char gpsLocation[static GPS_LOCATION_LENGTH], time_t t
 int recovery_thread_init(void) {
     int result = recovery_init();
     if(result != 0){
-        CETI_ERR("Failed to initalize recovery board heardware");
+        CETI_ERR("Failed to initalize recovery board hardware");
         return result;
     }
 
@@ -652,14 +663,6 @@ int recovery_thread_init(void) {
 
     CETI_LOG("Successfully initialized recovery board thread");
     return 0;
-}
-
-void recovery_thread_wait(void) {
-
-}
-
-void recovery_thread_active(void) {
-
 }
 
 void* recovery_thread(void* paramPtr) {
@@ -683,6 +686,20 @@ void* recovery_thread(void* paramPtr) {
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically acquire data");
     g_recovery_thread_is_running = 1;
+
+    if (!g_recovery_initialized){
+        for (int retry_count = 0; recovery_init() != 0; retry_count++){
+            if(g_exit){
+                break;
+            }
+            
+            if(retry_count == 5) {
+                CETI_ERR("Unable to initialize recovery board");
+                return NULL;
+            }
+        }
+    }
+
     while (!g_exit) {
         pthread_mutex_lock(&s_recovery_board_model.state_lock); //prevents recovery board turning off mid communication
         switch(s_recovery_board_model.state) {
