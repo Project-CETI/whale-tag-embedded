@@ -245,6 +245,7 @@ int updateStateMachine() {
                 CETI_ERR("Failed to configure recovery board");
             }
         } else {
+            CETI_LOG("Recovery disabled");
             recovery_kill();
         }
         #endif // ENABLE_RECOVERY
@@ -264,12 +265,14 @@ int updateStateMachine() {
     case (ST_DEPLOY):
         // Waiting for 1st dive
         if((current_rtc_count - start_rtc_count > g_config.timeout_s)) {
+            CETI_LOG("TIME OUT!!! Initializing Burn");
             stateMachine_set_state(ST_BRN_ON);
             break;
         }
 
         #if ENABLE_BATTERY_GAUGE
         if ((g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v)) {
+            CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
             stateMachine_set_state(ST_BRN_ON);
             break;
         }
@@ -281,6 +284,7 @@ int updateStateMachine() {
         ){
             //disable wifi
             wifi_disable(); 
+            wifi_kill();
             // usb_disable();
             activity_led_disable();
             stateMachine_set_state(ST_REC_SUB);// 1st dive after deploy
@@ -292,18 +296,20 @@ int updateStateMachine() {
 
     case (ST_REC_SUB):
        if(current_rtc_count - start_rtc_count > g_config.timeout_s) {
+            CETI_LOG("TIME OUT!!! Initializing Burn");
             stateMachine_set_state(ST_BRN_ON);
             break;
         }
         // Recording while sumberged
         #if ENABLE_BATTERY_GAUGE
         if ((g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v)) {
+            CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
             stateMachine_set_state(ST_BRN_ON);
             break;
         }
         #endif //ENABLE_BATTERY_GAUGE
 
-        #if ENABLE_PRESSURE_SENSOR
+        #if ENABLE_PRESSURETEMPERATURE_SENSOR
         if (g_latest_pressureTemperature_pressure_bar < g_config.surface_pressure) {
             stateMachine_set_state(ST_REC_SURF); // came to surface
             break;
@@ -330,7 +336,7 @@ int updateStateMachine() {
         }
         #endif
 
-        #if ENABLE_PRESSURE_SENSOR
+        #if ENABLE_PRESSURETEMPERATURE_SENSOR
         if (g_latest_pressureTemperature_pressure_bar > g_config.dive_pressure) {
             stateMachine_set_state(ST_REC_SUB); //back down...
             break;

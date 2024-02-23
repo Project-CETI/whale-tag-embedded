@@ -3,6 +3,28 @@
 
 #include "utils/config.h"
 
+void test_config_strtobools_s(void){
+    const char *input[] = {
+        "True",
+        "TRUE",
+        "true",
+        "tabby_cat",
+        "false"
+    };
+    int expected[] = {
+        1, 1, 1, 0 ,0
+    };
+
+    int result[sizeof(input)/sizeof(input[0])] = {};
+
+    for(int i; i < sizeof(result)/sizeof(result[0]); i++){
+        result[i] = strtobool_s(input[i], NULL);
+    }
+    
+    TEST_ASSERT_EQUAL_INT_ARRAY(expected, result, sizeof(expected)/sizeof(expected[0]));
+
+}
+
 void test_config_strtotime_s(void){
     const char *input[] = {
         "1d", "2D", "3h", "4H", "5m", "6M", "7s", "8S", "9", "\t10 s", "bob"
@@ -81,6 +103,7 @@ void tearDown(void) {
 // not needed when using generate_test_runner.rb
 int main(void) {
     UNITY_BEGIN();
+    RUN_TEST(test_config_strtobools_s);
     RUN_TEST(test_config_strtotime_s);
     RUN_TEST(test_config_parse_line);
     RUN_TEST(test_config_backwards_compatible);

@@ -70,7 +70,7 @@ static ConfigError __config_parse_recovery_enable_value(const char *_String);
 static ConfigError __config_parse_recovery_callsign_value(const char *_String);
 static ConfigError __config_parse_recovery_recipient_value(const char *_String);
 static ConfigError __config_parse_recovery_freq_value(const char *_String);
-
+static inline const char * strtoidentifier(const char *_String, const char **_EndPtr);
 /* key is the value compared to*/
 /* method is what to do with the value*/
 //This would have more efficient lookup as a hash table
@@ -200,7 +200,7 @@ static ConfigError __config_parse_burn_interval_value(const char *_String){
 }
 
 static ConfigError __config_parse_recovery_enable_value(const char *_String){
-    
+    g_config.recovery.enabled = strtobool_s(_String, NULL);
 
     return CONFIG_OK;
 }
@@ -224,6 +224,17 @@ static ConfigError __config_parse_recovery_freq_value(const char *_String){
     
     g_config.recovery.freq_MHz = f_MHz;
     return CONFIG_OK;
+}
+
+int strtobool_s(const char *_String, const char **_EndPtr){
+    const char *value_str = strtoidentifier(_String, _EndPtr);
+    if (value_str == NULL){
+        return 0;
+    }
+    
+    return (memcmp("true", value_str, 4) == 0) 
+           || (memcmp("TRUE", value_str, 4) == 0)
+           || (memcmp("True", value_str, 4) == 0);
 }
 
 time_t strtotime_s(const char *_String, char **_EndPtr){

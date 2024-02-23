@@ -19,8 +19,8 @@
 #define CONFIG_DEFAULT_CRITICAL_VOLTAGE_V          (6.2)
 #define CONFIG_DEFAULT_TIMEOUT_S                   (4*24*60*60)
 #define CONFIG_DEFAULT_BURN_INTERVAL_S             (5*60)
-#define CONFIG_DEFAULT_RECOVERY_ENABLED            1
-#define CONFIG_DEFAULT_RECOVERY_FREQUENCY_MHZ      144.390
+#define CONFIG_DEFAULT_RECOVERY_ENABLED            0
+#define CONFIG_DEFAULT_RECOVERY_FREQUENCY_MHZ      145.050
 #define CONFIG_DEFAULT_RECOVERY_CALLSIGN           "J75Y"
 #define CONFIG_DEFAULT_RECOVERY_SSID               1
 #define CONFIG_DEFAULT_RECOVERY_RECIPIENT_CALLSIGN "J75Y"
@@ -45,6 +45,7 @@ typedef struct tag_configuration {
 
 extern TagConfig g_config;
 
+int strtobool_s(const char *_String, const char **_EndPtr);
 time_t strtotime_s(const char *_String, char **_EndPtr);
 int config_read(const char * filename);
 int config_parse_line(const char *_String);

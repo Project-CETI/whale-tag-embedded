@@ -10,6 +10,7 @@
 
 #include <fcntl.h>
 #include <net/if.h>
+#include <stdlib.h> // for system
 #include <sys/ioctl.h>
 
 #include "logging.h"
@@ -37,9 +38,8 @@ void wifi_disable(void) {
   }
 }
 
-// ToDo: Implement
 void wifi_kill(void) {
-
+  system("rfkill block wifi");
 }
 
 void usb_disable(void) {
