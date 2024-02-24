@@ -14,7 +14,7 @@
 #define RECOVERY_PACKET_KEY_VALUE '$'
 #define RECOVERY_UART_TIMEOUT_US 50000
 #define RECOVERY_WDT_TRIGGER_TIME_MIN 10 
-
+    
 /* TYPE DEFINITIONS **********************************************************/
 typedef enum recovery_commands_e {
     /* Set recovery state*/
@@ -154,6 +154,17 @@ static struct {
 };
 
 /* FUCNTION DEFINITIONS ******************************************************/
+
+/* STATIC
+ * serial write method with guard case for uninitialized recovery board.
+ */
+static inline int __recovery_write(const void *pkt, size_t size) {
+    if (!g_recovery_initialized) {
+        CETI_ERR("Recovery board uninitialized.");
+        return -20;
+    } 
+    return serWrite(recovery_fd, (char *)&pkt, size);  
+}
 
 /* Get the next received communication packet from the recovery board.
  * Arguments: 
@@ -301,7 +312,7 @@ int recovery_get_aprs_freq_mhz(float *p_freq_MHz){
     //send query cmd
     RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_QUERY_APRS_FREQ);
     RecPkt ret_pkt = {};
-    serWrite(recovery_fd, (char *)&q_pkt, sizeof(q_pkt));
+    __recovery_write(&q_pkt, sizeof(q_pkt));
 
 
     //wait for response
@@ -378,7 +389,7 @@ int recovery_set_aprs_freq_mhz(float freq_MHz){
         }, 
         .msg = { .value = freq_MHz}
     };
-    int result = serWrite(recovery_fd, (char *)&pkt, sizeof(pkt));
+    int result = __recovery_write(&pkt, sizeof(pkt));
     if (result < 0){
         return result;
     }
@@ -429,6 +440,23 @@ int recovery_set_aprs_message_recipient(const APRSCallsign *callsign){
     return result;
 }
 
+int recovery_set_comment(const char *message){
+    size_t len = strlen(message);
+    if (len > 40) {
+        len = 40;
+    }
+
+    RecPkt_string pkt = {
+        .header = {
+            .key = RECOVERY_PACKET_KEY_VALUE,
+            .type = REC_CMD_CONFIG_APRS_COMMENT,
+            .length = len,
+        }
+    };
+    memcpy(pkt.msg.value, message, len);
+    return __recovery_write(&pkt, sizeof(pkt));
+}
+
 int recovery_set_critical_voltage(float voltage){
     RecPkt_float pkt = {
         .header = {
@@ -438,7 +466,7 @@ int recovery_set_critical_voltage(float voltage){
         }, 
         .msg = { .value = voltage}
     };
-    return serWrite(recovery_fd, (char *)&pkt, sizeof(pkt));
+    return __recovery_write(&pkt, sizeof(pkt));
 }
 
 int recovery_set_power_level(RecoveryPowerLevel power_level){
@@ -453,7 +481,7 @@ int recovery_set_power_level(RecoveryPowerLevel power_level){
         },
         .msg = {.value = power_level},
     };
-    serWrite(recovery_fd, (char *)&pkt, sizeof(pkt));
+    __recovery_write(&pkt, sizeof(pkt));
     return 0;
 }
 
@@ -534,7 +562,7 @@ int recovery_on(void) {
     };
 
     pthread_mutex_lock(&s_recovery_board_model.state_lock);
-    serWrite(recovery_fd, (char *)&start_pkt, sizeof(start_pkt));
+    __recovery_write(&start_pkt, sizeof(start_pkt));
     s_recovery_board_model.state = REC_STATE_APRS;
     pthread_mutex_unlock(&s_recovery_board_model.state_lock);
 
@@ -554,7 +582,7 @@ static int __recovery_off (void) {
         .length = 0,
     };
 
-    serWrite(recovery_fd, (char *)&stop_pkt, sizeof(stop_pkt));
+    __recovery_write(&stop_pkt, sizeof(stop_pkt));
     s_recovery_board_model.state = REC_STATE_WAIT;
     s_recovery_board_model.wdt_time_us = get_global_time_us();
     return 0;
@@ -589,7 +617,7 @@ int recovery_shutdown(void){
     };
 
     pthread_mutex_lock(&s_recovery_board_model.state_lock);
-    serWrite(recovery_fd, (char *)&critical_pkt, sizeof(critical_pkt));
+    __recovery_write(&critical_pkt, sizeof(critical_pkt));
     s_recovery_board_model.state = REC_STATE_SHUTDOWN;
     pthread_mutex_unlock(&s_recovery_board_model.state_lock);
 

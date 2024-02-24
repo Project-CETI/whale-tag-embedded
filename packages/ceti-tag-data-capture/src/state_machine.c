@@ -200,6 +200,7 @@ int stateMachine_set_state(wt_state_t new_state){
     CETI_LOG("State transition: %s -> %s\n", get_state_str(presentState), get_state_str(new_state));
     #if ENABLE_RECOVERY
         //set recovery board comment
+        recovery_set_comment(get_state_str(new_state));
         
     #endif   
     presentState = new_state;
@@ -234,7 +235,6 @@ int updateStateMachine() {
                 char message[1024];
                 snprintf(message, sizeof(message), "CETI %s ready!", hostname);
                 recovery_message(message);
-                //recovery_set_aprs_comment("Recording");
                 
                 char rec_callsign_msg[10];
                 char callsign_msg[10];
