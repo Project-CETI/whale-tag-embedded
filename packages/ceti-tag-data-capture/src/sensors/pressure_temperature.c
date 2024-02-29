@@ -28,7 +28,9 @@ double g_latest_pressureTemperature_temperature_c = 0.0;
 static double s_pressure_zero_bar = 0.0;
 
 //-----------------------------------------------------------------------------
-// Initialization
+
+//-----------------------------------------------------------------------------
+// Keller sensor interface
 //-----------------------------------------------------------------------------
 
 int pressure_zero(void){
@@ -38,8 +40,60 @@ int pressure_zero(void){
   return result;
 }
 
+int getPressureTemperature(double *pressure_bar, double *temperature_c) {
+
+  int fd;
+  int16_t temperature_data, pressure_data;
+  char presSensData_byte[5];
+
+  if ((fd = i2cOpen(1, ADDR_PRESSURETEMPERATURE, 0)) < 0) {
+    CETI_ERR("Failed to connect to the pressure/temperature sensor");
+    return (-1);
+  }
+
+  i2cWriteByte(fd, 0xAC); // measurement request from the device
+  usleep(10000);          // wait 10 ms for the measurement to finish
+
+  i2cReadDevice(fd, presSensData_byte, 5); // read the measurement
+
+  if (temperature_c != NULL) { 
+    temperature_data = presSensData_byte[3] << 8;
+    temperature_data = temperature_data + presSensData_byte[4];
+    // convert to deg C
+    *temperature_c = ((temperature_data >> 4) - 24) * .05 - 50;
+  }
+
+  if (pressure_bar != NULL) {
+    pressure_data = presSensData_byte[1] << 8;
+    pressure_data = pressure_data + presSensData_byte[2];
+    // convert to bar - see Keller data sheet for the particular sensor in use
+    *pressure_bar =
+        ((PRESSURE_MAX - PRESSURE_MIN) / 32768.0) * (pressure_data - 16384.0);
+  }
+  i2cClose(fd);
+  return (0);
+}
+
+int pressure_get_calibrated(double *pressure_bar, double * temperature_c) {
+  double raw_pressure_bar;
+  if(getPressureTemperature(&raw_pressure_bar, temperature_c) != 0){
+    return -1;
+  }
+
+  *pressure_bar = raw_pressure_bar - s_pressure_zero_bar;
+  return 0;
+}
+
+
+
+//-----------------------------------------------------------------------------
+// CetiTagApp - Main thread
+//-----------------------------------------------------------------------------
 int init_pressureTemperature() {
-  CETI_LOG("Successfully initialized the pressure/temperature sensor. Pressure zeroed.");
+  if (pressure_zero() != 0){
+    return -2;
+  }
+  CETI_LOG("Successfully initialized the pressure/temperature sensor.");
 
   // Open an output file to write data.
   if (init_data_file(pressureTemperature_data_file,
@@ -53,9 +107,6 @@ int init_pressureTemperature() {
   return 0;
 }
 
-//-----------------------------------------------------------------------------
-// Main thread
-//-----------------------------------------------------------------------------
 void *pressureTemperature_thread(void *paramPtr) {
   // Get the thread ID, so the system monitor can check its CPU assignment.
   g_pressureTemperature_thread_tid = gettid();
@@ -131,50 +182,3 @@ void *pressureTemperature_thread(void *paramPtr) {
   return NULL;
 }
 
-//-----------------------------------------------------------------------------
-// Keller sensor interface
-//-----------------------------------------------------------------------------
-
-int getPressureTemperature(double *pressure_bar, double *temperature_c) {
-
-  int fd;
-  int16_t temperature_data, pressure_data;
-  char presSensData_byte[5];
-
-  if ((fd = i2cOpen(1, ADDR_PRESSURETEMPERATURE, 0)) < 0) {
-    CETI_ERR("Failed to connect to the pressure/temperature sensor");
-    return (-1);
-  }
-
-  i2cWriteByte(fd, 0xAC); // measurement request from the device
-  usleep(10000);          // wait 10 ms for the measurement to finish
-
-  i2cReadDevice(fd, presSensData_byte, 5); // read the measurement
-
-  if (temperature_c != NULL) { 
-    temperature_data = presSensData_byte[3] << 8;
-    temperature_data = temperature_data + presSensData_byte[4];
-    // convert to deg C
-    *temperature_c = ((temperature_data >> 4) - 24) * .05 - 50;
-  }
-
-  if (pressure_bar != NULL) {
-    pressure_data = presSensData_byte[1] << 8;
-    pressure_data = pressure_data + presSensData_byte[2];
-    // convert to bar - see Keller data sheet for the particular sensor in use
-    *pressure_bar =
-        ((PRESSURE_MAX - PRESSURE_MIN) / 32768.0) * (pressure_data - 16384.0);
-  }
-  i2cClose(fd);
-  return (0);
-}
-
-int pressure_get_calibrated(double *pressure_bar, double * temperature_c) {
-  double raw_pressure_bar;
-  if(getPressureTemperature(&raw_pressure_bar, temperature_c) != 0){
-    return -1;
-  }
-
-  *pressure_bar = raw_pressure_bar - s_pressure_zero_bar;
-  return 0;
-}
