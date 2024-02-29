@@ -48,9 +48,6 @@ typedef enum recovery_commands_e {
     REC_CMD_QUERY_APRS_CALLSIGN,   // 0x63,
     REC_CMD_QUERY_APRS_MESSAGE,     // 0x64,
     REC_CMD_QUERY_APRS_SSID,
-
-
-    REC_CMD_TX_NOW                  = 0xFF,
 }RecoverCommand;
 
 typedef enum __GPS_MESSAGE_TYPES {
@@ -158,12 +155,20 @@ static struct {
 /* STATIC
  * serial write method with guard case for uninitialized recovery board.
  */
-static inline int __recovery_write(const void *pkt, size_t size) {
+static int __recovery_write(const void *pkt, size_t size) {
     if (!g_recovery_initialized) {
         CETI_ERR("Recovery board uninitialized.");
         return -20;
     } 
-    return serWrite(recovery_fd, (char *)&pkt, size);  
+    #ifdef DEBUG
+    char packet_debug[512];
+    int len = 0;
+    for (int i = 0; i < size; i++ ){
+        len += sprintf(&packet_debug[len], "%02x ", ((uint8_t*)pkt)[i]);
+    }
+    CETI_LOG("Pi->Rec: {%s}\n", packet_debug);
+    #endif
+    return serWrite(recovery_fd, (char *)pkt, size);  
 }
 
 /* Get the next received communication packet from the recovery board.
@@ -247,7 +252,7 @@ static int __recovery_get_aprs_callsign(char buffer[static 7]) {
     //send query cmd
     RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_QUERY_APRS_CALLSIGN);
     RecPkt ret_pkt = {};
-    serWrite(recovery_fd, (char *)&q_pkt, sizeof(q_pkt));
+    __recovery_write(&q_pkt, sizeof(q_pkt));
 
 
     //wait for response
@@ -278,7 +283,8 @@ static int __recovery_get_aprs_ssid(uint8_t *ssid){
     RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_QUERY_APRS_SSID);
     RecPkt ret_pkt = {};
 
-    serWrite(recovery_fd, (char *)&q_pkt, sizeof(q_pkt));
+    __recovery_write(&q_pkt, sizeof(q_pkt));
+
 
     //wait for response
     int64_t start_time_us = get_global_time_us();
@@ -318,7 +324,7 @@ int recovery_get_aprs_freq_mhz(float *p_freq_MHz){
     //wait for response
     int64_t start_time_us = get_global_time_us();
     do {
-        if (recovery_get_packet(&ret_pkt, RECOVERY_UART_TIMEOUT_US) < -1) {
+        if (recovery_get_packet(&ret_pkt, RECOVERY_UART_TIMEOUT_US) == -1) {
             CETI_ERR("Recovery board packet reading error");
             return -1;
         }
@@ -351,8 +357,7 @@ static int __recovery_set_aprs_callsign(const char * callsign){
         },
     };
     memcpy(pkt.msg.value, callsign, callsign_len);
-
-    return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPktHeader) + callsign_len);
+    return __recovery_write(&pkt, sizeof(RecPktHeader) + callsign_len);
 }
 
 static int __recovery_set_aprs_ssid(uint8_t ssid){
@@ -370,7 +375,8 @@ static int __recovery_set_aprs_ssid(uint8_t ssid){
         return -4;
     }
 
-    return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPkt_uint8_t));
+    return __recovery_write(&pkt, sizeof(RecPkt_uint8_t));
+
 }
 
 int recovery_set_aprs_callsign(const APRSCallsign *callsign){
@@ -389,11 +395,8 @@ int recovery_set_aprs_freq_mhz(float freq_MHz){
         }, 
         .msg = { .value = freq_MHz}
     };
-    int result = __recovery_write(&pkt, sizeof(pkt));
-    if (result < 0){
-        return result;
-    }
-    return 0;
+
+    return __recovery_write(&pkt, sizeof(pkt));
 }
 
 static int __recovery_set_aprs_rx_callsign(const char * callsign){
@@ -412,7 +415,7 @@ static int __recovery_set_aprs_rx_callsign(const char * callsign){
     };
     memcpy(pkt.msg.value, callsign, callsign_len);
 
-    return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPktHeader) + callsign_len);
+    return __recovery_write(&pkt, sizeof(RecPktHeader) + callsign_len);
 }
 
 static int __recovery_set_aprs_rx_ssid(uint8_t ssid){
@@ -430,7 +433,7 @@ static int __recovery_set_aprs_rx_ssid(uint8_t ssid){
         return -4;
     }
 
-    return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPkt_uint8_t));
+    return __recovery_write(&pkt, sizeof(RecPkt_uint8_t));
 }
 
 int recovery_set_aprs_message_recipient(const APRSCallsign *callsign){
@@ -501,8 +504,7 @@ int recovery_message(const char *message){
         }
     };
     memcpy(pkt.string_packet.msg.value, message, message_len);
-    return serWrite(recovery_fd, (char*)&pkt, sizeof(RecPktHeader) + message_len);
-    return 0;
+    return __recovery_write(&pkt, sizeof(RecPktHeader) + message_len);
 }
 
 //-----------------------------------------------------------------------------
@@ -516,8 +518,8 @@ int recovery_init(void) {
         return -2; 
     } 
     gpioWrite(13, 1); //turn on recovery
-    
-    pthread_mutex_lock(&s_recovery_board_model.state_lock);
+
+     pthread_mutex_lock(&s_recovery_board_model.state_lock);
     s_recovery_board_model.state = REC_STATE_APRS;
     pthread_mutex_unlock(&s_recovery_board_model.state_lock);
 
@@ -531,17 +533,18 @@ int recovery_init(void) {
         return (-1);
     }
 
+    g_recovery_initialized = true;
     APRSCallsign callsign;
     // // // get call sign to ensure uart
     if (recovery_get_aprs_callsign(&callsign) == 0){
         CETI_LOG("Callsign: \"%s-%d\".", callsign.callsign, callsign.ssid);
     } else {
+        g_recovery_initialized = false;
         CETI_ERR("Did not receive recovery board response.");
         serClose(recovery_fd);
         gpioWrite(13, 0);
         return (-2);
     }
-    g_recovery_initialized = true;
     recovery_on();
 
     CETI_LOG("Successfully initialized the recovery board");

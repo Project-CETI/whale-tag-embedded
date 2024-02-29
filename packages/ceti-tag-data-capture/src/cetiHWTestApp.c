@@ -661,7 +661,6 @@ TestState test_recovery(void){
     };
     
     sentence[0] = 0;
-
     if (recovery_init()  != 0) {
         printf(RED(FAIL) "UART Communication Failure.\n");
         while(input == 0){ read(STDIN_FILENO, &input, 1); }
@@ -672,7 +671,9 @@ TestState test_recovery(void){
 
     // UART Communication test:
     // - query and record recovery board's UID - requires 2 way communmication
+    // Set callsign:
     APRSCallsign callsign;
+    recovery_set_aprs_callsign(&src_callsign);
     if ( recovery_get_aprs_callsign(&callsign) != 0 ) {
         printf(RED(FAIL) "Recovery query failure.\n");
         while(input == 0){ read(STDIN_FILENO, &input, 1); }
@@ -680,11 +681,33 @@ TestState test_recovery(void){
         recovery_kill();
         return TEST_STATE_FAILED; //imu communication error
     }
-
-    // Set callsign:
-    recovery_set_aprs_callsign(&src_callsign);
+    if ( memcmp(&callsign, &src_callsign, sizeof(APRSCallsign)) != 0) {
+        printf(RED(FAIL) "Recovery callsign failed to set properly.\n");
+        while(input == 0){ read(STDIN_FILENO, &input, 1); }
+        fprintf(results_file, "[FAIL]: Recovery callsign failed to set properly.\n");
+        recovery_kill();
+        return TEST_STATE_FAILED; //imu communication error
+    }
     recovery_set_aprs_message_recipient(&(APRSCallsign){.callsign = "KC1QXQ", .ssid = 8});
-    recovery_on();
+        
+    // recovery_set_critical_voltage(6.2f);
+
+    // recovery_set_aprs_freq_mhz(145.05f);
+    // float result_freq;
+    // if(recovery_get_aprs_freq_mhz(&result_freq) != 0){
+    //     printf(RED(FAIL) "Recovery frequency query failure.\n");
+    //     while(input == 0){ read(STDIN_FILENO, &input, 1); }
+    //     fprintf(results_file, "[FAIL]: Recovery frequency query failure.\n");
+    //     recovery_kill();
+    //     return TEST_STATE_FAILED; //imu communication error
+    // }
+    // if (result_freq != 145.05f) {
+    //     printf(RED(FAIL) "Recovery frequency failed to set properly.\n");
+    //     while(input == 0){ read(STDIN_FILENO, &input, 1); }
+    //     fprintf(results_file, "[FAIL]: Recovery frequency config failure.\n");
+    //     recovery_kill();
+    //     return TEST_STATE_FAILED; //imu communication error
+    // }
 
     // VHF/APRS TEST
     // generate random 4 character string
