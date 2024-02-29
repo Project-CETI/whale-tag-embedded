@@ -36,9 +36,13 @@ $(APP): $(APP_OBJ)
 	binary \
 	install \
 	clean \
-	test
+	test \
+	debug
 	
 build: $(APP) $(HW_TEST)
+
+debug: CFLAGS := -Wall -g -DDEBUG
+debug: $(APP) $(HW_TEST)
 
 binary: $(APP)
 
