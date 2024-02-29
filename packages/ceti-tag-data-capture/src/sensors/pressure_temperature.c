@@ -22,16 +22,24 @@ static const char *pressureTemperature_data_file_headers[] = {
 static const int num_pressureTemperature_data_file_headers = 2;
 // Store global versions of the latest readings since the state machine will use
 // them.
-double g_latest_pressureTemperature_pressure_bar = 0;
-double g_latest_pressureTemperature_temperature_c = 0;
+double g_latest_pressureTemperature_pressure_bar = 0.0;
+double g_latest_pressureTemperature_temperature_c = 0.0;
+
+static double s_pressure_zero_bar = 0.0;
 
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
 
+int pressure_zero(void){
+  int result = getPressureTemperature(&s_pressure_zero_bar, NULL);
+  if (result == 0)
+    CETI_LOG("Pressure sensor zeroed at %5.3f bar", s_pressure_zero_bar);
+  return result;
+}
+
 int init_pressureTemperature() {
-  CETI_LOG(
-      "Successfully initialized the pressure/temperature sensor [did nothing]");
+  CETI_LOG("Successfully initialized the pressure/temperature sensor. Pressure zeroed.");
 
   // Open an output file to write data.
   if (init_data_file(pressureTemperature_data_file,
@@ -84,7 +92,7 @@ void *pressureTemperature_thread(void *paramPtr) {
       // Acquire timing and sensor information as close together as possible.
       global_time_us = get_global_time_us();
       rtc_count = getRtcCount();
-      pressureTemperature_data_error = (getPressureTemperature(&g_latest_pressureTemperature_pressure_bar, &g_latest_pressureTemperature_temperature_c) < 0);
+      pressureTemperature_data_error = (pressure_get_calibrated(&g_latest_pressureTemperature_pressure_bar, &g_latest_pressureTemperature_temperature_c) < 0);
 
       // it seems to return -228.63 for pressure and -117.10 for temperature when no sensor is connected
       pressureTemperature_data_valid = !(g_latest_pressureTemperature_pressure_bar < -100 || g_latest_pressureTemperature_temperature_c < -100);
@@ -143,17 +151,30 @@ int getPressureTemperature(double *pressure_bar, double *temperature_c) {
 
   i2cReadDevice(fd, presSensData_byte, 5); // read the measurement
 
-  temperature_data = presSensData_byte[3] << 8;
-  temperature_data = temperature_data + presSensData_byte[4];
-  // convert to deg C
-  *temperature_c = ((temperature_data >> 4) - 24) * .05 - 50;
+  if (temperature_c != NULL) { 
+    temperature_data = presSensData_byte[3] << 8;
+    temperature_data = temperature_data + presSensData_byte[4];
+    // convert to deg C
+    *temperature_c = ((temperature_data >> 4) - 24) * .05 - 50;
+  }
 
-  pressure_data = presSensData_byte[1] << 8;
-  pressure_data = pressure_data + presSensData_byte[2];
-  // convert to bar - see Keller data sheet for the particular sensor in use
-  *pressure_bar =
-      ((PRESSURE_MAX - PRESSURE_MIN) / 32768.0) * (pressure_data - 16384.0);
-
+  if (pressure_bar != NULL) {
+    pressure_data = presSensData_byte[1] << 8;
+    pressure_data = pressure_data + presSensData_byte[2];
+    // convert to bar - see Keller data sheet for the particular sensor in use
+    *pressure_bar =
+        ((PRESSURE_MAX - PRESSURE_MIN) / 32768.0) * (pressure_data - 16384.0);
+  }
   i2cClose(fd);
   return (0);
+}
+
+int pressure_get_calibrated(double *pressure_bar, double * temperature_c) {
+  double raw_pressure_bar;
+  if(getPressureTemperature(&raw_pressure_bar, temperature_c) != 0){
+    return -1;
+  }
+
+  *pressure_bar = raw_pressure_bar - s_pressure_zero_bar;
+  return 0;
 }

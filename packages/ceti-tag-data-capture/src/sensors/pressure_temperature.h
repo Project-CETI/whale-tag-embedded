@@ -38,6 +38,7 @@
 //-----------------------------------------------------------------------------
 int init_pressureTemperature();
 int getPressureTemperature(double *pressure_bar, double *temperature_c);
+int pressure_get_calibrated(double *pressure_bar, double * temperature_c);
 void *pressureTemperature_thread(void *paramPtr);
 
 //-----------------------------------------------------------------------------
