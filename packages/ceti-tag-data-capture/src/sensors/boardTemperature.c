@@ -92,7 +92,7 @@ void* boardTemperature_thread(void* paramPtr) {
         if (!charging_disabled){  
           disableCharging();
           charging_disabled = 1;
-          CETI_LOG("Battery charging disabled, outside thermal limits");
+          CETI_WARN("Battery charging disabled, outside thermal limits: %d C", batteryTemperature_c);
         }
       }
 
@@ -100,7 +100,7 @@ void* boardTemperature_thread(void* paramPtr) {
         if (!discharging_disabled){  
           disableDischarging();
           discharging_disabled = 1;
-          CETI_LOG("Battery discharging disabled, outside thermal limit");
+          CETI_WARN("Battery discharging disabled, outside thermal limit: %d C", batteryTemperature_c);
         }     
       }
     
