@@ -776,8 +776,10 @@ void* recovery_thread(void* paramPtr) {
                 if (result == -2) { //timeout
                     // no gps packet available
                     // nothing to do
+                    fclose(recovery_data_file);
                     break;
                 } else if (result == -1) {
+                    fclose(recovery_data_file);
                     CETI_ERR("Recovery board communication Error");
                     recovery_restart();
                     sleep(10);
