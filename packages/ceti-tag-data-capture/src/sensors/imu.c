@@ -76,8 +76,8 @@ static int16_t imu_accel_accuracy; // a rating of 0-3
 static int16_t imu_gyro_accuracy;  // a rating of 0-3
 static int16_t imu_mag_accuracy;   // a rating of 0-3
 static long imu_reading_delay_us = 0; // delay from sensor reading to data transmission
-static bool imu_restarted_log[IMU_DATA_TYPE_COUNT] = [true, true, true, true];
-static bool imu_new_log = true;
+static bool imu_restarted_log[IMU_DATA_TYPE_COUNT] = {true, true, true, true};
+static bool imu_new_log[IMU_DATA_TYPE_COUNT] = {true, true, true, true};
 
 int init_imu() {
   if (setupIMU(IMU_ALL_ENABLED) < 0) {
@@ -85,8 +85,9 @@ int init_imu() {
     return -1;
   }
 
-
-  imu_new_log = true;
+  for(int i = 0; i < IMU_DATA_TYPE_COUNT; i++) {
+    imu_new_log[i] = true;
+  }
   // Open an output file to write data.
   if(imu_init_data_files() < 0)
     return -1;
@@ -245,9 +246,9 @@ void *imu_thread(void *paramPtr) {
         fprintf(cur_file, "Restarted |");
         imu_restarted_log[report_type] = false;
       }
-      if (imu_new_log) {
+      if (imu_new_log[report_type]) {
         fprintf(cur_file, "New log file! | ");
-        imu_new_log = false;
+        imu_new_log[report_type] = false;
       }
 
       // Write the sensor reading delay.
