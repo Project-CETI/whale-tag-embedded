@@ -13,8 +13,11 @@
 /* MACRO DEFINITIONS *********************************************************/
 #define RECOVERY_PACKET_KEY_VALUE '$'
 #define RECOVERY_UART_TIMEOUT_US 50000
+
+#define RECOVERY_WDT_ENABLED 0
 #define RECOVERY_WDT_TRIGGER_TIME_MIN 10 
     
+
 /* TYPE DEFINITIONS **********************************************************/
 typedef enum recovery_commands_e {
     /* Set recovery state*/
@@ -587,7 +590,6 @@ static int __recovery_off (void) {
 
     __recovery_write(&stop_pkt, sizeof(stop_pkt));
     s_recovery_board_model.state = REC_STATE_WAIT;
-    s_recovery_board_model.wdt_time_us = get_global_time_us();
     return 0;
 }
 
@@ -735,11 +737,14 @@ void* recovery_thread(void* paramPtr) {
         pthread_mutex_lock(&s_recovery_board_model.state_lock); //prevents recovery board turning off mid communication
         switch(s_recovery_board_model.state) {
             case REC_STATE_WAIT: {
+                #if RECOVERY_WDT_ENABLED
                 //check if watchdog needs reset
                 const int wdt_resend_us = (RECOVERY_WDT_TRIGGER_TIME_MIN*60)*1000000;
                 if ((get_global_time_us() - s_recovery_board_model.wdt_time_us) > (wdt_resend_us - 1000000)){
                     __recovery_off(); //we already have mutex
+                    s_recovery_board_model.wdt_time_us = get_global_time_us();
                 }
+                #endif
                 pthread_mutex_unlock(&s_recovery_board_model.state_lock);
                 sleep(1);
                 break; 
@@ -786,7 +791,7 @@ void* recovery_thread(void* paramPtr) {
                 fprintf(recovery_data_file, ",%s", recovery_data_file_notes);
                 strcpy(recovery_data_file_notes, "");
                 // Write the sensor data.
-                fprintf(recovery_data_file, "\"%s\"", gps_location);
+                fprintf(recovery_data_file, ",\"%s\"", gps_location);
                 // Finish the row of data and close the file.
                 fprintf(recovery_data_file, "\n");
                 fclose(recovery_data_file);
