@@ -67,7 +67,9 @@ HardwareTest g_test_list[] = {
     { .name = "Batteries",        .update = test_batteries, },
     { .name = "Audio",            .update = test_audio, },
     { .name = "Pressure",         .update = test_pressure, },
+#if !ECG_OLD
     { .name = "ECG Connectivity", .update = test_ecg, },
+#endif 
     { .name = "IMU",              .update = test_imu, },
     { .name = "Temperature",      .update = test_temperature, },
     { .name = "Light",            .update = test_light, },
@@ -304,6 +306,7 @@ TestState test_batteries(void){
     return TEST_STATE_FAILED;
 }
 
+#if !ECG_OLD
 bool test_ecg_terminate = 1;
 pthread_mutex_t test_ecg_swap_lock;
 int     test_ecg_write_index = 0;
@@ -450,6 +453,7 @@ TestState test_ecg(void){
          : (none_pass && p_pass && n_pass && all_pass) ? TEST_STATE_PASSED
          : TEST_STATE_FAILED;
 }
+#endif
 
 TestState test_i2cdetect(void){
     int fd;
