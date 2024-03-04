@@ -316,13 +316,6 @@ int updateStateMachine() {
         }
         #endif // ENABLE_PRESSURE_SENSOR
 
-        #if ENABLE_RECOVERY
-        if (g_config.recovery.enabled) {
-            recovery_off();
-        }
-        #endif // ENABLE_RECOVERY
-        break;
-
     case (ST_REC_SURF):
         if(current_rtc_count - start_rtc_count > g_config.timeout_s) {
             stateMachine_set_state(ST_BRN_ON);
