@@ -1,6 +1,7 @@
 [Unit]
 Description=Captures data from input sensors of the Whale Tag and saves it onto the filesystem
-After=network.target local-fs.target getty.target
+After=network.target local-fs.target getty.target ceti-fpga-init.service
+Requires=ceti-fpga-init.service
 
 [Service]
 Type=simple

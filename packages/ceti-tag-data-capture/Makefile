@@ -21,8 +21,11 @@ CFLAGS     = -Wall -O2
 LDFLAGS    = -lpthread -lpigpio -lFLAC -lm
 APP        = cetiTagApp
 HW_TEST    = cetiHWTestApp
-APP_OBJ    = $(filter-out src/$(HW_TEST).o, $(OBJ))
-HW_TEST_OBJ = $(filter-out src/launcher.o src/commands.o, $(OBJ))
+FPGA_INIT_APP = cetiFpgaInit
+BUILD_TARGETS = $(APP) $(HW_TEST) $(FPGA_INIT_APP)
+APP_OBJ    = $(filter-out src/$(HW_TEST).o src/$(FPGA_INIT_APP).o, $(OBJ))
+HW_TEST_OBJ = $(filter-out src/launcher.o src/commands.o src/$(FPGA_INIT_APP).o, $(OBJ))
+FPGA_INIT_OBJ = src/fpga.o src/utils/logging.o src/$(FPGA_INIT_APP).o
 BINDIR    ?= bin
 IPCDIR    ?= ipc
 CONFIGDIR ?= config
@@ -39,22 +42,26 @@ $(APP): $(APP_OBJ)
 	test \
 	debug
 	
-build: $(APP) $(HW_TEST)
+build: $(BUILD_TARGETS)
 
 debug: CFLAGS := -Wall -g -DDEBUG
 debug: $(APP) $(HW_TEST)
 
 binary: $(APP)
 
-$(APP): $(OBJ)
+$(APP): $(APP_OBJ)
 	mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) -o $(BINDIR)/$(APP) $(APP_OBJ) $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $(BINDIR)/$(APP) $^ $(LDFLAGS)
 
 $(HW_TEST): $(HW_TEST_OBJ)
 	mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) -o $(BINDIR)/$(HW_TEST) $(HW_TEST_OBJ) $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $(BINDIR)/$(HW_TEST) $^ $(LDFLAGS)
 
-install: build
+$(FPGA_INIT_APP): $(FPGA_INIT_OBJ)
+	mkdir -p $(BINDIR)
+	$(CC) $(CFLAGS) -o $(BINDIR)/$(FPGA_INIT_APP) $^ $(LDFLAGS)
+
+install: $(BUILD_TARGETS)
 	mkdir -p $(DESTDIR)
 	cp -Rp $(BINDIR) $(DESTDIR)
 	cp -Rp $(CONFIGDIR) $(DESTDIR)

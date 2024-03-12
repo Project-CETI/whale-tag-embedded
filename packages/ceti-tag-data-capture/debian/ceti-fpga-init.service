@@ -1,0 +1,13 @@
+[Unit]
+Description=Initializes FPGA on CETI WhaleTag 
+After=local-fs.target getty.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/ceti-tag-data-capture/bin/cetiFpgaInit
+Restart=on-failure
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
+RequiredBy=ceti-tag-data-capture.service
