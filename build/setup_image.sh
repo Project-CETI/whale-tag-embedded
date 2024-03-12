@@ -74,6 +74,9 @@ raspi-config nonint do_i2c 0
   echo "dtparam=i2c_arm_baudrate=400000"
 } >> /boot/config.txt
 
+# Setup UART for flashing recovery board
+echo "dtoverlay=miniuart-bt" >> /boot/config.txt
+
 # Set timezone
 raspi-config nonint do_change_timezone "America/Dominica"
 
@@ -113,6 +116,12 @@ tar -cf - -C "${OVERLAY_DIR}" --owner=pi --group=pi . | tar -xf - -C /
 rm -f /home/pi/.bash_history
 dos2unix /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt
 mv /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt /home/pi/.bash_history
+
+# Add stm32flash functionality
+git clone https://git.code.sf.net/p/stm32flash/code stm32flash-code
+cd stm32flash-code
+sudo make install
+cd ..
 
 # All done
 echo "( ・◡・)つ━☆   Build complete"
