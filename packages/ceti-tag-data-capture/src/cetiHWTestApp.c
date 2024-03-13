@@ -178,8 +178,14 @@ TestState test_audio(void){
     pthread_t data_acq_thread;
     bool channel_pass[3] = {0,0,0};
     const double target = 0.25;
+    AudioConfig audio_config = {
+        .filter_type = AUDIO_FILTER_WIDEBAND,
+        .sample_rate = AUDIO_SAMPLE_RATE_96KHZ,
+        .bit_depth = AUDIO_BIT_DEPTH_16,
+    }
+
     test_audio_terminate = 0;
-    if (setup_audio_96kHz() != 0) {
+    if (audio_setup(&audio_config) != 0) {
         return TEST_STATE_FAILED;
     }
     pthread_mutex_init(&test_audio_swap_lock, NULL);

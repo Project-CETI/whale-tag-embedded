@@ -12,7 +12,11 @@
 #include <stdint.h>
 #include <time.h>
 #include "../aprs.h"
+#include "../sensors/audio.h"
 
+#define CONFIG_DEFAULT_AUDIO_SAMPLE_RATE           AUDIO_SAMPLE_RATE_96KHZ
+#define CONFIG_DEFAULT_AUDIO_BIT_DEPTH             AUDIO_BIT_DEPTH_16
+#define CONFIG_DEFAULT_AUDIO_FILTER_TYPE           AUDIO_FILTER_WIDEBAND
 #define CONFIG_DEFAULT_SURFACE_PRESSURE_BAR        (0.04)
 #define CONFIG_DEFAULT_DIVE_PRESSURE_BAR           (0.10)
 #define CONFIG_DEFAULT_RELEASE_VOLTAGE_V           (6.4)
@@ -26,9 +30,15 @@
 #define CONFIG_DEFAULT_RECOVERY_RECIPIENT_CALLSIGN "J75Y"
 #define CONFIG_DEFAULT_RECOVERY_RECIPIENT_SSID     2
 
-
+typedef enum config_error_e {
+    CONFIG_OK = 0,
+    CONFIG_ERR_UNKNOWN_KEY = 1,
+    CONFIG_ERR_INVALID_VALUE = 2,
+    CONFIG_ERR_MISSING_ASSIGN_OP = 3,
+} ConfigError;
 
 typedef struct tag_configuration {
+    AudioConfig audio;
     float   surface_pressure;
     float   dive_pressure;
     float   release_voltage_v;

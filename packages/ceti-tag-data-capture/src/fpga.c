@@ -159,7 +159,9 @@ void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
 
     recv_packet[j] = data_byte;
   }
-  for (j = 0; j < NUM_BYTES_MESSAGE; j++) {
-    *(pResponse + j) = recv_packet[j];
+  if(pResponse != NULL){
+    for (j = 0; j < NUM_BYTES_MESSAGE; j++) {
+      *(pResponse + j) = recv_packet[j];
+    }
   }
 }

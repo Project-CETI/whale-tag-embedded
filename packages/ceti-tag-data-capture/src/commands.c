@@ -333,7 +333,7 @@ int handle_command(void) {
     if (!strncmp(g_command, "setAudioRate_192", 16)) {
         CETI_LOG("Setting audio sampling rate to 192 kHz");
         #if ENABLE_AUDIO
-        setup_audio_192kHz();
+        audio_set_sample_rate(AUDIO_SAMPLE_RATE_192KHZ);
         g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Audio rate set to 192 kHz\n"); // echo it
         fclose(g_rsp_pipe);
@@ -346,7 +346,7 @@ int handle_command(void) {
     if (!strncmp(g_command, "setAudioRate_96", 15)) {
         CETI_LOG("Setting audio sampling rate to 96 kHz");
         #if ENABLE_AUDIO
-        setup_audio_96kHz();
+        audio_set_sample_rate(AUDIO_SAMPLE_RATE_96KHZ);
         g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Audio rate set to 96 kHz\n"); // echo it
         fclose(g_rsp_pipe);
@@ -359,7 +359,7 @@ int handle_command(void) {
     if (!strncmp(g_command, "setAudioRate_48", 15)) {
         CETI_LOG("Setting audio sampling rate to 48 kHz");
         #if ENABLE_AUDIO
-        setup_audio_48kHz();
+        audio_set_sample_rate(AUDIO_SAMPLE_RATE_48KHZ);
         g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Audio rate set to 48 kHz\n"); // echo it
         fclose(g_rsp_pipe);
@@ -372,7 +372,7 @@ int handle_command(void) {
     if (!strncmp(g_command, "setAudioRate_default", 20)) {
         CETI_LOG("Setting audio sampling rate to default (750 Hz)");
         #if ENABLE_AUDIO
-        setup_audio_default();
+        audio_set_sample_rate(AUDIO_SAMPLE_RATE_DEFAULT);
         g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "handle_command(): Audio rate set to default (750 Hz)\n"); // echo it
         fclose(g_rsp_pipe);

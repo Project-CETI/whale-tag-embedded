@@ -8,6 +8,7 @@
 //-----------------------------------------------------------------------------
 
 #include "launcher.h"
+#include "utils/config.h"
 
 //-----------------------------------------------------------------------------
 // Initialize global variables
@@ -234,6 +235,13 @@ int main(void) {
 int init_tag() {
   int result = 0;
 
+  // Load the deployment configuration
+  char config_file_path[512];
+  strncpy(config_file_path, g_process_path, sizeof(config_file_path) - 1);
+  strncat(config_file_path, CETI_CONFIG_FILE, sizeof(config_file_path) - 1);
+  CETI_LOG("Configuring the deployment parameters from %s", config_file_path);
+  config_read(config_file_path);
+
   // Tag-wide initialization.
   if (gpioInitialise() < 0) {
     CETI_ERR("Failed to initialize pigpio");
@@ -259,7 +267,7 @@ int init_tag() {
 #endif
 
 #if ENABLE_AUDIO
-  result += init_audio() == 0 ? 0 : -1;
+  result += audio_thread_init() == 0 ? 0 : -1;
 #endif
 
 #if ENABLE_LIGHT_SENSOR
