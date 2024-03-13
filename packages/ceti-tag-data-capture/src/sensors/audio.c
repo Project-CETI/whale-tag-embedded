@@ -105,16 +105,11 @@ int audio_setup(AudioConfig *config){
                        : (config->sample_rate == AUDIO_SAMPLE_RATE_192KHZ) ? 0x08
                        : 0;
   do{
-    if(attempt == 2){
+    if((attempt == 2) || (audio_set_sample_rate(config->sample_rate) != 0)){
       CETI_ERR("Failed to set audio ADC sampling to %d kHz - Reg 0x01 reads back 0x%04X expected 0x%04X", config->sample_rate, result, expected_result);
       return -1; // ADC failed to configure as expected
     }
-    audio_set_sample_rate(config->sample_rate);
-    FPGA_ADC_READ(1, &result);
-    
-    if (result == expected_result) {
-
-    }
+    FPGA_ADC_READ(1, &result); //check that write occured
     attempt++;
   }while(result != expected_result);
 
