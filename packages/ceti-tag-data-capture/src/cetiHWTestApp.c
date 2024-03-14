@@ -182,7 +182,7 @@ TestState test_audio(void){
         .filter_type = AUDIO_FILTER_WIDEBAND,
         .sample_rate = AUDIO_SAMPLE_RATE_96KHZ,
         .bit_depth = AUDIO_BIT_DEPTH_16,
-    }
+    };
 
     test_audio_terminate = 0;
     if (audio_setup(&audio_config) != 0) {

@@ -56,7 +56,7 @@ typedef struct {
 
 static ConfigError __config_parse_audio_bitdepth(const char *_String);
 static ConfigError __config_parse_audio_filter_type(const char *_String);
-static ConfigError __config_parse_audio_sample_rate(const char *_String)
+static ConfigError __config_parse_audio_sample_rate(const char *_String);
 static ConfigError __config_parse_surface_pressure(const char *_String);
 static ConfigError __config_parse_dive_pressure(const char *_String);
 static ConfigError __config_parse_release_voltage(const char *_String);
@@ -89,7 +89,7 @@ const ConfigList config_keys[] = {
 
 /* Private Methods ***********************************************************/
 static ConfigError __config_parse_audio_sample_rate(const char *_String) {
-    const char *end_ptr;
+    char *end_ptr;
     unsigned long sample_rate_kHz = strtoul(_String, &end_ptr, 0);
     if (end_ptr == _String){
         return CONFIG_ERR_INVALID_VALUE;
@@ -117,7 +117,7 @@ static ConfigError __config_parse_audio_sample_rate(const char *_String) {
 }
 
 static ConfigError __config_parse_audio_bitdepth(const char *_String) {
-    const char *end_ptr;
+    char *end_ptr;
     unsigned long bitdepth = strtoul(_String, &end_ptr, 0);
     if (end_ptr == _String){
         return CONFIG_ERR_INVALID_VALUE;
@@ -127,7 +127,7 @@ static ConfigError __config_parse_audio_bitdepth(const char *_String) {
         g_config.audio.bit_depth = AUDIO_BIT_DEPTH_16;
         CETI_DEBUG("Audio sample bit depth set to 16 bits");
     } else {
-        g_config.audio.bit_depth = AUDIO_BIT_DEPTH_24,
+        g_config.audio.bit_depth = AUDIO_BIT_DEPTH_24;
         CETI_DEBUG("Audio sample bit depth set to 24 bits");
     }
     
@@ -136,16 +136,18 @@ static ConfigError __config_parse_audio_bitdepth(const char *_String) {
 
 static ConfigError __config_parse_audio_filter_type(const char *_String) {
     const char *end_ptr = NULL;
-    char case_insensitive[9] = "";
+    char case_insensitive[12] = "";
     const char *value_str = strtoidentifier(_String, &end_ptr);
     size_t value_len = 0;
     if(value_str == NULL){
+        CETI_DEBUG("No value found");
         return CONFIG_ERR_INVALID_VALUE;
     }
     value_len = (end_ptr - value_str);
     
     //only 2 options
     if((value_len != 5) && (value_len != 8)){
+        CETI_DEBUG("Unknown length %d", value_len);
         return CONFIG_ERR_INVALID_VALUE;
     }
 
@@ -154,15 +156,16 @@ static ConfigError __config_parse_audio_filter_type(const char *_String) {
         case_insensitive[i] = tolower(value_str[i]);
     }
 
-    if ((value_len == 5) && memcmp("sinc5", case_insensitive, 5)){
+    if ((value_len == 5) && (memcmp("sinc5", case_insensitive, 5) == 0)){
         g_config.audio.filter_type = AUDIO_FILTER_SINC5;
         CETI_DEBUG("audio filter set to sinc5 filter");
         return CONFIG_OK;
-    } else if((value_len == 8) && memcmp("wideband", case_insensitive, 8)) {
+    } else if((value_len == 8) && (memcmp("wideband", case_insensitive, 8) == 0)) {
         g_config.audio.filter_type = AUDIO_FILTER_WIDEBAND;
         CETI_DEBUG("audio filter set to wideband filter");
         return CONFIG_OK;
     }
+    CETI_DEBUG("Unknown value %s", case_insensitive);
     return CONFIG_ERR_INVALID_VALUE;
 }
 
@@ -261,7 +264,7 @@ static ConfigError __config_parse_timeout(const char *_String){
     }
 
     g_config.timeout_s = parsed_value;
-    CETI_DEBUG("time release set to %d seconds", parsed_value);
+    CETI_DEBUG("time release set to %ld seconds", parsed_value);
     return CONFIG_OK;
 }
 
@@ -279,7 +282,7 @@ static ConfigError __config_parse_burn_interval_value(const char *_String){
 
     //ToDo: Error Checking
     g_config.burn_interval_s = parsed_value;
-    CETI_DEBUG("burn interval release set to %d seconds", parsed_value);
+    CETI_DEBUG("burn interval release set to %ld seconds", parsed_value);
     return CONFIG_OK;
 }
 
@@ -289,7 +292,7 @@ static ConfigError __config_parse_recovery_enable_value(const char *_String){
     if(g_config.recovery.enabled) {
         CETI_DEBUG("recovery board enabled");
     } else {
-        CETI_DEBUG("recovery board disabled", parsed_value);
+        CETI_DEBUG("recovery board disabled");
     }
     #endif
     return CONFIG_OK;

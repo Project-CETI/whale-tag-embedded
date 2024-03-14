@@ -105,9 +105,13 @@ int audio_setup(AudioConfig *config){
                        : (config->sample_rate == AUDIO_SAMPLE_RATE_192KHZ) ? 0x08
                        : 0;
   do{
-    if((attempt == 2) || (audio_set_sample_rate(config->sample_rate) != 0)){
+    if(attempt == 2){
       CETI_ERR("Failed to set audio ADC sampling to %d kHz - Reg 0x01 reads back 0x%04X expected 0x%04X", config->sample_rate, result, expected_result);
       return -1; // ADC failed to configure as expected
+    }
+    if (audio_set_sample_rate(config->sample_rate) != 0) {
+      CETI_ERR("Failed to set audio ADC sampling rate");
+      return -1;
     }
     FPGA_ADC_READ(1, &result); //check that write occured
     attempt++;
@@ -124,6 +128,7 @@ int audio_setup(AudioConfig *config){
 int audio_set_bit_depth(AudioBitDepth bit_depth){
   switch (bit_depth){
     case AUDIO_BIT_DEPTH_16:
+    case AUDIO_BIT_DEPTH_24:
       FPGA_FIFO_BIT_DEPTH(bit_depth);
       return 0;
 
@@ -158,7 +163,8 @@ int audio_set_sample_rate(AudioSampleRate sample_rate){
       FPGA_ADC_WRITE(0x02, (AUDIO_FILTER_WIDEBAND << 3) | 0b101); // MODE B: WIDEBAND, DEC_RATE = 1024
       FPGA_ADC_WRITE(0x04, 0x00); // POWER_MODE = LOW; MCLK_DIV = 32
       FPGA_ADC_WRITE(0x07, 0x00); // DCLK_DIV = 8
-      break;
+      FPGA_ADC_SYNC();       // Apply the settings
+      return 0;
     }
 
     case AUDIO_SAMPLE_RATE_48KHZ: {
@@ -166,7 +172,8 @@ int audio_set_sample_rate(AudioSampleRate sample_rate){
       FPGA_ADC_WRITE(0x02, (AUDIO_FILTER_WIDEBAND << 3) | 0b001); // MODE B: WIDEBAND, DEC_RATE = 1024
       FPGA_ADC_WRITE(0x04, 0x22); // POWER_MODE = MID; MCLK_DIV = 8
       FPGA_ADC_WRITE(0x07, 0x00); // DCLK_DIV = 8
-      break;
+      FPGA_ADC_SYNC();       // Apply the settings
+      return 0;
     }
 
     case AUDIO_SAMPLE_RATE_96KHZ: {
@@ -174,7 +181,8 @@ int audio_set_sample_rate(AudioSampleRate sample_rate){
       FPGA_ADC_WRITE(0x02, (AUDIO_FILTER_WIDEBAND << 3) | 0b101); // MODE B: WIDEBAND, DEC_RATE = 1024
       FPGA_ADC_WRITE(0x04, 0x22); // POWER_MODE = MID; MCLK_DIV = 8
       FPGA_ADC_WRITE(0x07, 0x01); // DCLK_DIV = 4
-      break;
+      FPGA_ADC_SYNC();       // Apply the settings
+      return 0;
     }
 
     case AUDIO_SAMPLE_RATE_192KHZ: {
@@ -182,6 +190,8 @@ int audio_set_sample_rate(AudioSampleRate sample_rate){
       FPGA_ADC_WRITE(0x02, (AUDIO_FILTER_WIDEBAND << 3) | 0b000); // MODE B: WIDEBAND, DEC_RATE = 1024
       FPGA_ADC_WRITE(0x04, 0x33); // POWER_MODE = FAST; MCLK_DIV = 4
       FPGA_ADC_WRITE(0x07, 0x01); // DCLK_DIV = 4
+        FPGA_ADC_SYNC();       // Apply the settings
+    return 0;
     }
 
     default: {
@@ -189,11 +199,6 @@ int audio_set_sample_rate(AudioSampleRate sample_rate){
       return -1;
     }
   }
-
-  FPGA_ADC_SYNC();       // Apply the settings
-
-  s_audio_config.sample_rate = sample_rate;
-  return 0;
 }
 
 int reset_audio_fifo(void) {
@@ -208,7 +213,6 @@ int reset_audio_fifo(void) {
 
 int start_audio_acq(void) {
   CETI_LOG("Starting audio acquisition");
-  char cam_response[8];
   FPGA_FIFO_STOP(); // Stop any incoming data
   FPGA_FIFO_RESET(); // Reset the FIFO
   init_audio_buffers();
@@ -223,7 +227,6 @@ int start_audio_acq(void) {
 
 int stop_audio_acq(void) {
   CETI_LOG("Stopping audio acquisition");
-  char cam_response[8];
   FPGA_FIFO_STOP(); // stops the input stream
 
   if (flac_encoder) {
@@ -243,7 +246,7 @@ int stop_audio_acq(void) {
 
 int audio_thread_init(void) {
   if (!audio_setup(&g_config.audio)) {
-    CETI_LOG("Successfully set audio sampling rate to %d kHz", config->sample_rate);
+    CETI_LOG("Successfully set audio sampling rate to %d kHz", g_config.audio.sample_rate);
   } else {
     CETI_ERR("Failed to set initial audio configuration - ADC register did not read back as expected");
     return (-1);

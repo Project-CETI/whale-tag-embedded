@@ -112,6 +112,8 @@ typedef struct audio_config_t{
 //-----------------------------------------------------------------------------
 // Device Driver Methods
 int audio_setup(AudioConfig *config);
+int audio_set_bit_depth(AudioBitDepth bit_depth);
+int audio_set_filter_type(AudioFilterType filter_type);
 int audio_set_sample_rate(AudioSampleRate sample_rate);
 void init_audio_buffers();
 int setup_audio_default(void);
@@ -119,7 +121,7 @@ int reset_audio_fifo(void);
 int start_audio_acq(void);
 int stop_audio_acq(void);
 // Thread Methods
-int audio_thread_init(AudioConfig *config);
+int audio_thread_init(void);
 void createNewAudioDataFile(void);
 void formatRaw(void);
 void formatRawNoHeader3ch16bit(void);

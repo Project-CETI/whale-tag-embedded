@@ -43,7 +43,7 @@
 #define FPGA_ADC_READ(addr, value_ptr)    {\
     char fpga_response[NUM_BYTES_MESSAGE];\
     cam(1, (0x80 | (addr)), 0, 0, 0, NULL);\
-    cam(1, (0x80 | (addr)), 0, 0, 0, &recv_packet);\
+    cam(1, (0x80 | (addr)), 0, 0, 0, fpga_response);\
     *(value_ptr) = (fpga_response[4] << 8) | fpga_response[5];\
 }
 #define FPGA_ADC_SYNC()       cam(2, 0, 0, 0, 0, NULL)
