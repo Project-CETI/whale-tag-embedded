@@ -585,6 +585,7 @@ void audio_createNewFlacFile() {
                               : (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_96KHZ) ? 96000
                               : (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_192KHZ) ? 192000
                               : 750;
+  size_t samples_per_page = (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_16) ? AUDIO_BUFFER_SIZE_SAMPLE16 : AUDIO_BUFFER_SIZE_SAMPLE24;
 
   if (flac_encoder) {
     ok &= FLAC__stream_encoder_finish(flac_encoder);
@@ -609,7 +610,6 @@ void audio_createNewFlacFile() {
     return;
   }
 
-  size_t samples_per_page = (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_16) ? AUDIO_BUFFER_SIZE_SAMPLE16 : AUDIO_BUFFER_SIZE_SAMPLE24;
   ok &= FLAC__stream_encoder_set_channels(flac_encoder, CHANNELS);
   ok &= FLAC__stream_encoder_set_bits_per_sample(flac_encoder, flac_bit_depth);
   ok &= FLAC__stream_encoder_set_sample_rate(flac_encoder, flac_sample_rate);
