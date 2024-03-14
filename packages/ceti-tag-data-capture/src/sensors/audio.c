@@ -43,7 +43,7 @@ static int audio_buffer_toWrite = 0; // which buffer will be flushed to the outp
 static char audio_acqDataFileName[AUDIO_DATA_FILENAME_LEN] = {};
 static int audio_acqDataFileLength = 0;
 static FLAC__StreamEncoder *flac_encoder = 0;
-static FLAC__int32 buff[AUDIO_BUFFER_SIZE_SAMPLE16] = {0};
+static FLAC__int32 buff[AUDIO_BUFFER_SIZE_SAMPLE16][CHANNELS] = {0};
 static union {
     uint8_t raw[AUDIO_BUFFER_SIZE_BYTES];
     char    blocks[AUDIO_BUFFER_SIZE_BLOCKS][SPI_BLOCK_SIZE];
@@ -362,7 +362,7 @@ void *audio_thread_spi(void *paramPtr) {
     }
 
     int64_t global_time_startRead_us = get_global_time_us();
-    spiRead(spi_fd, audio_buffer[audio_buffer_toLog].buffer.blocks[block_counter], SPI_BLOCK_SIZE);
+    spiRead(spi_fd, audio_buffer[audio_buffer_toLog].blocks[block_counter], SPI_BLOCK_SIZE);
     // Make sure the GPIO flag for data available has been cleared.
     // It seems this is always the case, but just double check.
     while (gpioRead(AUDIO_DATA_AVAILABLE) && get_global_time_us() - global_time_startRead_us <= 10000)
@@ -486,7 +486,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
     if(g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24){
       for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE24; i_sample++) {
         for (size_t i_channel = 0; i_channel < CHANNELS; i_channel++) {
-          uint8_t *i_ptr = audio_buffer[audio_buffer_toWrite].sample24[i_channel];
+          uint8_t *i_ptr = audio_buffer[audio_buffer_toWrite].sample24[i_sample][i_channel];
           buff[i_sample][i_channel] = ((FLAC__int32)i_ptr[0] << 16) | ((FLAC__int32)i_ptr[1] << 8) | ((FLAC__int32)i_ptr[2] << 0);
         }
       }
@@ -494,6 +494,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
     } else {
       for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE16; i_sample++) {
         for (size_t i_channel = 0; i_channel < CHANNELS; i_channel++) {
+          uint8_t *i_ptr = audio_buffer[audio_buffer_toWrite].sample16[i_sample][i_channel];
           buff[i_sample][i_channel] = ((FLAC__int32)i_ptr[0] << 8) | ((FLAC__int32)i_ptr[1] << 0);
         }
       }
@@ -547,7 +548,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
       CETI_LOG("Flushing partial %d sample buffer.", samples_to_flush);
       for (size_t i_sample = 0; i_sample < samples_to_flush; i_sample++) {
         for (size_t i_channel = 0; i_channel < CHANNELS; i_channel++) {
-          uint8_t *i_ptr = audio_buffer[audio_buffer_toLog].sample24[i_channel];
+          uint8_t *i_ptr = audio_buffer[audio_buffer_toLog].sample24[i_sample][i_channel];
           buff[i_sample][i_channel] = ((FLAC__int32)i_ptr[0] << 16) | ((FLAC__int32)i_ptr[1] << 8) | ((FLAC__int32)i_ptr[2] << 0);
         }
       }
@@ -557,6 +558,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
       CETI_LOG("Flushing partial %d sample buffer.", samples_to_flush);
       for (size_t i_sample = 0; i_sample < samples_to_flush; i_sample++) {
         for (size_t i_channel = 0; i_channel < CHANNELS; i_channel++) {
+          uint8_t *i_ptr = audio_buffer[audio_buffer_toWrite].sample16[i_sample][i_channel];
           buff[i_sample][i_channel] = ((FLAC__int32)i_ptr[0] << 8) | ((FLAC__int32)i_ptr[1] << 0);
         }
       }
