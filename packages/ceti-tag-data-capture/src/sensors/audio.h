@@ -33,37 +33,28 @@
 //-----------------------------------------------------------------------------
 // Definitions/Configurations
 //-----------------------------------------------------------------------------
-
-// NUM_SPI_BLOCKS is the number of blocks acquired before writing out to
-// mass storage. A setting of 2100 will give buffer about 30 seconds at a time if
-// sample rate is 96 kHz. Example sizing of buffer (DesignMaps.xlsx has a
-// calcuator for this):
-//
 //  - SPI block HWM * 32 bytes = 8192 bytes (25% of the hardware FIFO in this example)
 //  - Sampling rate 96000 Hz
 //  - 6 bytes per sample set (3 channels, 16 bits per channel)
-//  - 1 SPI Block is then 8192/6 = 1365.333 sample sets or about 14 ms worth of data in
-//  - 30 seconds is 30/.014  = about 2142 SPI blocks
-//
 // N.B. Make NUM_SPI_BLOCKS an integer multiple of 3 for alignment
 // reasons
 
 // SPI Block Size
 #define HWM (256)                 // High Water Mark from Verilog code - these are 32 byte chunks (2 sample sets)
 #define SPI_BLOCK_SIZE (HWM * 32) // make SPI block size <= HWM * 32 otherwise may underflow
-#define SPI_BLOCK_SIZE_SAMPLES (SPI_BLOCK_SIZE / (CHANNELS * MIN_BYTES_PER_SAMPLE))
 
-//#define NUM_SPI_BLOCKS (2100*10)                 // 5 minute buffer
-#define NUM_SPI_BLOCKS (2100 * 2)                  // 1 minute buffer
-#define RAM_SIZE (NUM_SPI_BLOCKS * SPI_BLOCK_SIZE) // bytes
+// divisable by SPI_BLOCK_SIZE (256*32) = 8192,
+// and divisble by 16-bit sample size (3*2) = 6 bytes per 3 channel sample;
+// and divisible by 24-bit sample size (3*3) = 9 byte per 3 channel sample;
+#define AUDIO_LCM_BYTES (73728)
+
+//multiple of AUDIO_LCM_BYTES closest to 75 seconds @ 16-bit 96kSPS (43,200,000)
+#define AUDIO_BUFFER_SIZE_BYTES (43204608)  
+#define AUDIO_BUFFER_SIZE_BLOCKS (AUDIO_BUFFER_SIZE_BYTES/SPI_BLOCK_SIZE)
+#define AUDIO_BUFFER_SIZE_SAMPLE16 (AUDIO_BUFFER_SIZE_BYTES/ (sizeof(int16_t)*CHANNELS))
+#define AUDIO_BUFFER_SIZE_SAMPLE24 (AUDIO_BUFFER_SIZE_BYTES/ (3*CHANNELS))
 
 #define CHANNELS (3)
-#define MIN_BITS_PER_SAMPLE (16)
-#define MIN_BYTES_PER_SAMPLE (MIN_BITS_PER_SAMPLE / 8) 
-// At 96 kHz sampling rate; 16-bit; 3 channels 1 minute of data is 33750 KiB
-#define MAX_AUDIO_DATA_FILE_SIZE ((5 - 1) * 33750 * 1024) // Yields approx 5 minute files at 96 KSPS
-#define MAX_SAMPLES_PER_FILE (MAX_AUDIO_DATA_FILE_SIZE / CHANNELS / MIN_BYTES_PER_SAMPLE)
-#define MAX_SAMPLES_PER_RAM_PAGE (RAM_SIZE / CHANNELS / 2)
 #define AUDIO_DATA_FILENAME_LEN (100)
 
 // Data Acq SPI Settings and Audio Data Buffering

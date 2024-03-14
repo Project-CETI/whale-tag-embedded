@@ -43,12 +43,15 @@ static int audio_buffer_toWrite = 0; // which buffer will be flushed to the outp
 static char audio_acqDataFileName[AUDIO_DATA_FILENAME_LEN] = {};
 static int audio_acqDataFileLength = 0;
 static FLAC__StreamEncoder *flac_encoder = 0;
-static FLAC__int32 buff[MAX_SAMPLES_PER_RAM_PAGE][CHANNELS] = {0};
-struct audio_buffer_struct {
-  char buffer[RAM_SIZE];
-  int counter;
-};
-static struct audio_buffer_struct audio_buffers[2];
+static FLAC__int32 buff[AUDIO_BUFFER_SIZE_SAMPLE16] = {0};
+static union {
+    uint8_t raw[AUDIO_BUFFER_SIZE_BYTES];
+    char    blocks[AUDIO_BUFFER_SIZE_BLOCKS][SPI_BLOCK_SIZE];
+    uint8_t sample16[AUDIO_BUFFER_SIZE_SAMPLE16][CHANNELS][2];
+    uint8_t sample24[AUDIO_BUFFER_SIZE_SAMPLE24][CHANNELS][3];
+}audio_buffer[2];
+static int block_counter;
+
 int g_audio_overflow_detected = 0;
 int g_audio_force_overflow = 0;
 static int audio_overflow_detected_location = -1;
@@ -77,8 +80,7 @@ static bool s_audio_initialized = 0;
 
 //  Acquisition Hardware Setup and Control Utility Functions
 void init_audio_buffers() {
-  audio_buffers[0].counter = 0;
-  audio_buffers[1].counter = 0;
+  block_counter = 0;
   audio_buffer_toLog = 0;
   audio_buffer_toWrite = 0;
 }
@@ -360,7 +362,7 @@ void *audio_thread_spi(void *paramPtr) {
     }
 
     int64_t global_time_startRead_us = get_global_time_us();
-    spiRead(spi_fd, audio_buffers[audio_buffer_toLog].buffer + (audio_buffers[audio_buffer_toLog].counter * SPI_BLOCK_SIZE), SPI_BLOCK_SIZE);
+    spiRead(spi_fd, audio_buffer[audio_buffer_toLog].buffer.blocks[block_counter], SPI_BLOCK_SIZE);
     // Make sure the GPIO flag for data available has been cleared.
     // It seems this is always the case, but just double check.
     while (gpioRead(AUDIO_DATA_AVAILABLE) && get_global_time_us() - global_time_startRead_us <= 10000)
@@ -368,11 +370,9 @@ void *audio_thread_spi(void *paramPtr) {
 
     // When NUM_SPI_BLOCKS are in the ram buffer, switch to using the other buffer.
     // This will also trigger the writeData thread to write the previous buffer to disk.
-    if (audio_buffers[audio_buffer_toLog].counter == NUM_SPI_BLOCKS - 1) {
-      audio_buffer_toLog = !audio_buffer_toLog;
-      audio_buffers[audio_buffer_toLog].counter = 0; // reset for next chunk
-    } else {
-      audio_buffers[audio_buffer_toLog].counter++;
+    block_counter = (block_counter + 1) % AUDIO_BUFFER_SIZE_BLOCKS;
+    if (block_counter == 0) {
+      audio_buffer_toLog = !audio_buffer_toLog; //rotate to page
     }
 
     // Check if the FPGA buffer overflowed.
@@ -409,10 +409,6 @@ void *audio_thread_spi(void *paramPtr) {
 // Write Data Thread moves the RAM buffer to mass storage
 //-----------------------------------------------------------------------------
 void *audio_thread_writeFlac(void *paramPtr) {
-  uint32_t flac_bit_depth = (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24) ? 24 : 16;
-  size_t bytes_per_sample = (flac_bit_depth / 8);
-  size_t samples_per_ram_page = RAM_SIZE / (CHANNELS * bytes_per_sample);
-
   // Get the thread ID, so the system monitor can check its CPU assignment.
   g_audio_thread_writeData_tid = gettid();
 
@@ -479,24 +475,31 @@ void *audio_thread_writeFlac(void *paramPtr) {
 
     // Create a new output file if this is the first flush
     //  or if the file size limit has been reached.
-    if ((audio_acqDataFileLength > MAX_AUDIO_DATA_FILE_SIZE) || (flac_encoder == 0)) {
+    size_t filesize_bytes = AUDIO_BUFFER_SIZE_BYTES*((g_config.audio.bit_depth == AUDIO_BIT_DEPTH_16) ? 2 : 3);
+    filesize_bytes *= (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_96KHZ) ? 2 
+                        : (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_192KHZ) ? 4
+                        : 1; 
+    if ((audio_acqDataFileLength > (filesize_bytes - 1)) || (flac_encoder == 0)) {
       audio_createNewFlacFile();
     }
     // Write the buffer to a file.
-    for (size_t ix = 0; ix < samples_per_ram_page; ix++) {
-      for (size_t channel = 0; channel < CHANNELS; channel++) {
-        size_t idx = (CHANNELS * bytes_per_sample * ix) + (bytes_per_sample * channel);
-        //big endian int24 to native uint32
-        uint32_t raw = 0;
-        for(size_t i_byte = 0; i_byte < bytes_per_sample; i_byte++){
-          raw = (raw << 8) | (uint32_t)audio_buffers[audio_buffer_toWrite].buffer[idx + i_byte];
+    if(g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24){
+      for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE24; i_sample++) {
+        for (size_t i_channel = 0; i_channel < CHANNELS; i_channel++) {
+          uint8_t *i_ptr = audio_buffer[audio_buffer_toWrite].sample24[i_channel];
+          buff[i_sample][i_channel] = ((FLAC__int32)i_ptr[0] << 16) | ((FLAC__int32)i_ptr[1] << 8) | ((FLAC__int32)i_ptr[2] << 0);
         }
-        //maintain signedness (logic shift left, arthimetic shift right)
-        buff[ix][channel] = ((FLAC__int32)(raw << (8 *(sizeof(FLAC__int32) - bytes_per_sample)))) >> (8 *(sizeof(FLAC__int32)-bytes_per_sample));
       }
+      FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], AUDIO_BUFFER_SIZE_SAMPLE24);
+    } else {
+      for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE16; i_sample++) {
+        for (size_t i_channel = 0; i_channel < CHANNELS; i_channel++) {
+          buff[i_sample][i_channel] = ((FLAC__int32)i_ptr[0] << 8) | ((FLAC__int32)i_ptr[1] << 0);
+        }
+      }
+      FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], AUDIO_BUFFER_SIZE_SAMPLE16);
     }
-    FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], samples_per_ram_page);
-    audio_acqDataFileLength += RAM_SIZE;
+    audio_acqDataFileLength += AUDIO_BUFFER_SIZE_BYTES;
 
     // Switch to waiting on the other buffer.
     audio_buffer_toWrite = !audio_buffer_toWrite;
@@ -528,27 +531,37 @@ void *audio_thread_writeFlac(void *paramPtr) {
   FLAC__stream_encoder_finish(flac_encoder);
   
   //Flush remaining partial buffer.
-  if(audio_buffers[audio_buffer_toLog].counter != 0) {
-    int bytes_to_flush = (audio_buffers[audio_buffer_toLog].counter*SPI_BLOCK_SIZE);
-    int samples_to_flush = bytes_to_flush/(CHANNELS * bytes_per_sample);
-    CETI_LOG("Flushing partial %d sample buffer.", samples_to_flush);
+  if(block_counter != 0) {
     //Maybe create new file.
-    if ((audio_acqDataFileLength > MAX_AUDIO_DATA_FILE_SIZE) || (flac_encoder == 0)) {
+    size_t filesize_bytes = AUDIO_BUFFER_SIZE_BYTES*((g_config.audio.bit_depth == AUDIO_BIT_DEPTH_16) ? 2 : 3);
+    filesize_bytes *= (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_96KHZ) ? 2 
+                        : (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_192KHZ) ? 4
+                        : 1; 
+    if ((audio_acqDataFileLength > (filesize_bytes - 1)) || (flac_encoder == 0)) {
       audio_createNewFlacFile();
     }
 
-    for(int i_sample = 0; i_sample < samples_to_flush; i_sample++){
-      for(int i_channel = 0; i_channel < CHANNELS; i_channel++) {
-          size_t idx = (CHANNELS * bytes_per_sample * i_sample) + (bytes_per_sample * i_channel);
-          uint32_t raw = 0;
-          for(size_t i_byte = 0; i_byte < bytes_per_sample; i_byte++){
-            raw = (raw << 8) | (uint32_t)audio_buffers[audio_buffer_toWrite].buffer[idx + i_byte];
-          }
-          //maintain signedness
-          buff[i_sample][i_channel] = ((FLAC__int32)(raw << (8 *(sizeof(FLAC__int32)-bytes_per_sample)))) >> (8 *(sizeof(FLAC__int32)-bytes_per_sample));
+    int bytes_to_flush = (block_counter*SPI_BLOCK_SIZE);
+    if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24) {
+      int samples_to_flush = bytes_to_flush/(CHANNELS * 3);
+      CETI_LOG("Flushing partial %d sample buffer.", samples_to_flush);
+      for (size_t i_sample = 0; i_sample < samples_to_flush; i_sample++) {
+        for (size_t i_channel = 0; i_channel < CHANNELS; i_channel++) {
+          uint8_t *i_ptr = audio_buffer[audio_buffer_toLog].sample24[i_channel];
+          buff[i_sample][i_channel] = ((FLAC__int32)i_ptr[0] << 16) | ((FLAC__int32)i_ptr[1] << 8) | ((FLAC__int32)i_ptr[2] << 0);
+        }
       }
+      FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], samples_to_flush);
+    } else {
+      int samples_to_flush = bytes_to_flush/(CHANNELS * sizeof(uint16_t));
+      CETI_LOG("Flushing partial %d sample buffer.", samples_to_flush);
+      for (size_t i_sample = 0; i_sample < samples_to_flush; i_sample++) {
+        for (size_t i_channel = 0; i_channel < CHANNELS; i_channel++) {
+          buff[i_sample][i_channel] = ((FLAC__int32)i_ptr[0] << 8) | ((FLAC__int32)i_ptr[1] << 0);
+        }
+      }
+      FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], samples_to_flush);
     }
-    FLAC__stream_encoder_process_interleaved(flac_encoder, &buff[0][0], samples_to_flush);
   }
   FLAC__stream_encoder_finish(flac_encoder);
 
@@ -596,11 +609,11 @@ void audio_createNewFlacFile() {
     return;
   }
 
-
+  size_t samples_per_page = (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_16) ? AUDIO_BUFFER_SIZE_SAMPLE16 : AUDIO_BUFFER_SIZE_SAMPLE24;
   ok &= FLAC__stream_encoder_set_channels(flac_encoder, CHANNELS);
   ok &= FLAC__stream_encoder_set_bits_per_sample(flac_encoder, flac_bit_depth);
   ok &= FLAC__stream_encoder_set_sample_rate(flac_encoder, flac_sample_rate);
-  ok &= FLAC__stream_encoder_set_total_samples_estimate(flac_encoder, (RAM_SIZE / (CHANNELS * (flac_bit_depth / 8))));
+  ok &= FLAC__stream_encoder_set_total_samples_estimate(flac_encoder, samples_per_page);
 
   if (!ok) {
     CETI_ERR("FLAC encoder failed to set parameters for %s", audio_acqDataFileName);
@@ -685,12 +698,16 @@ void *audio_thread_writeRaw(void *paramPtr) {
 
       // Create a new output file if this is the first flush
       //  or if the file size limit has been reached.
-      if ((audio_acqDataFileLength > MAX_AUDIO_DATA_FILE_SIZE) || (acqData == NULL)) {
+      size_t filesize_bytes = AUDIO_BUFFER_SIZE_BYTES*((g_config.audio.bit_depth == AUDIO_BIT_DEPTH_16) ? 2 : 3);
+      filesize_bytes *= (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_96KHZ) ? 2 
+                        : (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_192KHZ) ? 4
+                        : 1; 
+      if ((audio_acqDataFileLength > (filesize_bytes - 1)) || (acqData == NULL)) {
         audio_createNewRawFile();
       }
       // Write the buffer to a file.
-      fwrite(audio_buffers[pageIndex].buffer, 1, RAM_SIZE, acqData);
-      audio_acqDataFileLength += RAM_SIZE;
+      fwrite(audio_buffer[pageIndex].raw, 1, AUDIO_BUFFER_SIZE_BYTES, acqData);
+      audio_acqDataFileLength += AUDIO_BUFFER_SIZE_BYTES;
       fflush(acqData);
       fsync(fileno(acqData));
 

@@ -61,7 +61,7 @@ audio_bitdepth = 16
 # Audio Sample Rate (kHz)
 # Sets sample rate of audio, round up to nearest valid value (48, 92, 192)
 # anything > 192 kHz is invalid
-# Units are in kHz
+# Units are integer values in kHz
 #------------------------------------------------------------------------------
 audio_sample_rate = 96
 
