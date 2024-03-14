@@ -486,13 +486,13 @@ void *audio_thread_writeFlac(void *paramPtr) {
     for (size_t ix = 0; ix < samples_per_ram_page; ix++) {
       for (size_t channel = 0; channel < CHANNELS; channel++) {
         size_t idx = (CHANNELS * bytes_per_sample * ix) + (bytes_per_sample * channel);
+        //big endian int24 to native uint32
         uint32_t raw = 0;
         for(size_t i_byte = 0; i_byte < bytes_per_sample; i_byte++){
           raw = (raw << 8) | (uint32_t)audio_buffers[audio_buffer_toWrite].buffer[idx + i_byte];
         }
-        //maintain signedness
-        FLAC__int32 signed_val = (FLAC__int32)(raw << (8 *(4-bytes_per_sample)));
-        buff[ix][channel] = signed_val / (1 << (8 *(4-bytes_per_sample)));
+        //maintain signedness (logic shift left, arthimetic shift right)
+        buff[ix][channel] = ((FLAC__int32)(raw << (8 *(sizeof(FLAC__int32) - bytes_per_sample)))) >> (8 *(sizeof(FLAC__int32)-bytes_per_sample));
       }
     }
     FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], samples_per_ram_page);
@@ -545,8 +545,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
             raw = (raw << 8) | (uint32_t)audio_buffers[audio_buffer_toWrite].buffer[idx + i_byte];
           }
           //maintain signedness
-          FLAC__int32 signed_val = (FLAC__int32)(raw << (8 *(4-bytes_per_sample)));
-          buff[i_sample][i_channel] = signed_val / (1 << (8 *(4-bytes_per_sample)));
+          buff[i_sample][i_channel] = ((FLAC__int32)(raw << (8 *(sizeof(FLAC__int32)-bytes_per_sample)))) >> (8 *(sizeof(FLAC__int32)-bytes_per_sample));
       }
     }
     FLAC__stream_encoder_process_interleaved(flac_encoder, &buff[0][0], samples_to_flush);
