@@ -178,7 +178,7 @@ int audio_set_sample_rate(AudioSampleRate sample_rate){
 
     case AUDIO_SAMPLE_RATE_96KHZ: {
       FPGA_ADC_WRITE(0x01, (AUDIO_FILTER_SINC5 << 3) | 0b000);    // MODE A: SINC5, DEC_RATE = 32
-      FPGA_ADC_WRITE(0x02, (AUDIO_FILTER_WIDEBAND << 3) | 0b101); // MODE B: WIDEBAND, DEC_RATE = 1024
+      FPGA_ADC_WRITE(0x02, (AUDIO_FILTER_WIDEBAND << 3) | 0b000); // MODE B: WIDEBAND, DEC_RATE = 1024
       FPGA_ADC_WRITE(0x04, 0x22); // POWER_MODE = MID; MCLK_DIV = 8
       FPGA_ADC_WRITE(0x07, 0x01); // DCLK_DIV = 4
       FPGA_ADC_SYNC();       // Apply the settings
