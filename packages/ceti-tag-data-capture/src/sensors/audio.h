@@ -14,7 +14,6 @@
 // Includes
 //-----------------------------------------------------------------------------
 #define _GNU_SOURCE // change how sched.h will be included
-
 #include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
 #include "../utils/logging.h"
@@ -59,7 +58,7 @@
 #define AUDIO_BUFFER_SIZE_SAMPLE16 (AUDIO_BUFFER_SIZE_BYTES/ (sizeof(int16_t)*CHANNELS))
 #define AUDIO_BUFFER_SIZE_SAMPLE24 (AUDIO_BUFFER_SIZE_BYTES/ (3*CHANNELS))
 
-#define AUDIO_BLOCK_FILL_SPEED_US(sample_rate, bit_depth) (SPI_BLOCK_SIZE * 1000000/(CHANNELS * (sample_rate) * ((bit_depth)/ 8)))
+#define AUDIO_BLOCK_FILL_SPEED_US(sample_rate, bit_depth) (SPI_BLOCK_SIZE * 1000000.0/(CHANNELS * (sample_rate) * ((bit_depth)/ 8)))
 
 #define AUDIO_DATA_FILENAME_LEN (100)
 
