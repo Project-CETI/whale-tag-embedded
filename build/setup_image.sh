@@ -118,10 +118,7 @@ dos2unix /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt
 mv /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt /home/pi/.bash_history
 
 # Add stm32flash functionality
-git clone https://git.code.sf.net/p/stm32flash/code stm32flash-code
-cd stm32flash-code
-sudo make install
-cd ..
+sudo apt install stm32flash
 
 # All done
 echo "( ・◡・)つ━☆   Build complete"
