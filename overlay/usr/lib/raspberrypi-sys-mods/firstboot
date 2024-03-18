@@ -360,6 +360,7 @@ main () {
   add_wifi
   add_swap
   configure_logging
+  sudo sh flash_recovery.sh
   raspi-config nonint do_overlayfs 0
 
   return 0
