@@ -40,21 +40,27 @@
 // reasons
 
 // SPI Block Size
-#define HWM (256)                 // High Water Mark from Verilog code - these are 32 byte chunks (2 sample sets)
+#define HWM (512)                 // High Water Mark from Verilog code - these are 32 byte chunks (2 sample sets)
 #define SPI_BLOCK_SIZE (HWM * 32) // make SPI block size <= HWM * 32 otherwise may underflow
 
-// divisable by SPI_BLOCK_SIZE (256*32) = 8192,
+// divisable by SPI_BLOCK_SIZE (512*32) = 8192,
 // and divisble by 16-bit sample size (3*2) = 6 bytes per 3 channel sample;
 // and divisible by 24-bit sample size (3*3) = 9 byte per 3 channel sample;
-#define AUDIO_LCM_BYTES (73728)
+// and divisible by 16-bit 4 channel = 8
+// and divisible by 24-bit 4 channel = 12
+#define AUDIO_LCM_BYTES (147456)
 
-//multiple of AUDIO_LCM_BYTES closest to 75 seconds @ 16-bit 96kSPS (43,200,000)
-#define AUDIO_BUFFER_SIZE_BYTES (43204608)  
+#define CHANNELS (3)
+#define MAX_CHANNELS (4)
+//multiple of AUDIO_LCM_BYTES closest to 75 seconds @ 16-bit, 96kSPS, (14401536)
+#define AUDIO_BUFFER_SIZE_BYTES_PER_CHANNEL (14401536)
+#define AUDIO_BUFFER_SIZE_BYTES (CHANNELS*AUDIO_BUFFER_SIZE_BYTES_PER_CHANNEL)
 #define AUDIO_BUFFER_SIZE_BLOCKS (AUDIO_BUFFER_SIZE_BYTES/SPI_BLOCK_SIZE)
 #define AUDIO_BUFFER_SIZE_SAMPLE16 (AUDIO_BUFFER_SIZE_BYTES/ (sizeof(int16_t)*CHANNELS))
 #define AUDIO_BUFFER_SIZE_SAMPLE24 (AUDIO_BUFFER_SIZE_BYTES/ (3*CHANNELS))
 
-#define CHANNELS (3)
+#define AUDIO_BLOCK_FILL_SPEED_US(sample_rate, bit_depth) (SPI_BLOCK_SIZE * 1000000/(CHANNELS * (sample_rate) * ((bit_depth)/ 8)))
+
 #define AUDIO_DATA_FILENAME_LEN (100)
 
 // Data Acq SPI Settings and Audio Data Buffering

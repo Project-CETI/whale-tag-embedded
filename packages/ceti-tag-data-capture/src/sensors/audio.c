@@ -10,8 +10,9 @@
 // Version    Date          Description
 //  0.0.0   10/10/21   Begin work, establish framework
 //  2.1.1   06/27/22   Fix first byte bug with SPI, verify 96 KSPS setting
-//  2.1.4   11/5/22    Simplify stopAcq()
+//  2.1.4   11/05/22   Simplify stopAcq()
 //  2.1.5   11/24/22   Correct MAX_FILE_SIZE definition
+//  2.3.0   03/16/24   Runtime configuration of samplerate & bitdepth
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
@@ -120,7 +121,9 @@ int audio_setup(AudioConfig *config){
   }while(result != expected_result);
 
   //set channel 4 to standby
+  #if CHANNELS==3
   FPGA_ADC_WRITE(0x00, 0x08);
+  #endif
 
   s_audio_initialized = 1;
   CETI_LOG("Audio successfully initialized");
@@ -145,7 +148,11 @@ int audio_set_bit_depth(AudioBitDepth bit_depth){
 int audio_set_filter_type(AudioFilterType filter_type){
   switch(filter_type){
     case AUDIO_FILTER_WIDEBAND:
+      #if CHANNELS==3
       FPGA_ADC_WRITE(0x03, 0x17); //channels 0-2 use mode B
+      #elif CHANNELS==4
+      FPGA_ADC_WRITE(0x03, 0x3F); //all channels use mode B
+      #endif
       break;
     case AUDIO_FILTER_SINC5:
       FPGA_ADC_WRITE(0x03, 0x00); //all channels use mode A
@@ -319,43 +326,27 @@ void *audio_thread_spi(void *paramPtr) {
 
   // Main loop to acquire audio data.
   g_audio_thread_spi_is_running = 1;
+  time_t expected_IQR_interval_us = AUDIO_BLOCK_FILL_SPEED_US(g_config.audio.sample_rate * 1000, 16 + 8 * g_config.audio.bit_depth);
 
   while (!g_stopAcquisition && !g_audio_overflow_detected) {
     // Wait for SPI data to be available.
     while (!gpioRead(AUDIO_DATA_AVAILABLE)) {
       // Reduce the CPU load a bit.
-      // Based on 30-second tests, there seems to be diminishing returns after about 1000us.
-      //   The following CPU loads were observed for various tested delay durations:
-      //     0: 86%, 10: 70%, 100: 29%, 1000: 20%, 5000: 22%
-      // Note that missing the exact rising edge by about 1ms should be acceptable based on the
-      //   data read timing - see the below comments on the next delay for more information.
-      usleep(1000);
+      usleep(expected_IQR_interval_us/10);
       // Check if the FPGA buffer overflowed.
       audio_check_for_overflow(1);
       continue;
     }
 
-    // Wait for SPI data to *really* be available?
-    // Note that this delay is surprisingly important.
-    //   If it is omitted or too short, an overflow happens almost immediately.
-    //   This may be because the GPIO has been set but data isn't actually available yet,
-    //    leading to a slow SPI read / timeout when trying to read the expected amount of data?
-    // Experimentally, the following delays [us] were tested with brief ~1-minute tests:
-    //   No quick overflows: 750, 1000, 1500, 2000
-    //   Overflows quickly : 100, 500
-    //   Overflows within 1 minute: 9000, 10000
-    // Note that it seems to take about 2.6ms (max ~4.13ms) to read the SPI data
-    //   and we are reading 14ms worth of data, so if we caught the GPIO right at
-    //   its edge we should be able to delay up to about 9ms without issue.
-    usleep(2000);
-
     // Cause an overflow for testing purposes if desired.
+    #ifdef DEBUG
     if (g_audio_force_overflow) {
       usleep(100000);
       g_audio_force_overflow = 0;
     }
+    #endif
 
-    // Read a block of data if an overflow has not occurred.
+    // // Read a block of data if an overflow has not occurred.
     audio_check_for_overflow(2);
     if (g_audio_overflow_detected) {
       break;
@@ -363,20 +354,28 @@ void *audio_thread_spi(void *paramPtr) {
 
     int64_t global_time_startRead_us = get_global_time_us();
     spiRead(spi_fd, audio_buffer[audio_buffer_toLog].blocks[block_counter], SPI_BLOCK_SIZE);
-    // Make sure the GPIO flag for data available has been cleared.
-    // It seems this is always the case, but just double check.
-    while (gpioRead(AUDIO_DATA_AVAILABLE) && get_global_time_us() - global_time_startRead_us <= 10000)
-      usleep(10);
 
     // When NUM_SPI_BLOCKS are in the ram buffer, switch to using the other buffer.
     // This will also trigger the writeData thread to write the previous buffer to disk.
     block_counter = (block_counter + 1) % AUDIO_BUFFER_SIZE_BLOCKS;
     if (block_counter == 0) {
+      CETI_DEBUG("%d blocks read", AUDIO_BUFFER_SIZE_BLOCKS);
       audio_buffer_toLog = !audio_buffer_toLog; //rotate to page
+    }
+
+    // don't wait if more data is ready
+    if (!gpioRead(AUDIO_DATA_AVAILABLE)) {
+      continue;
     }
 
     // Check if the FPGA buffer overflowed.
     audio_check_for_overflow(3);
+
+    //wait until expected next interrupt
+    time_t elapsed_time = get_global_time_us() - global_time_startRead_us;
+    if (elapsed_time < expected_IQR_interval_us){
+      usleep(expected_IQR_interval_us -  elapsed_time);
+    } 
   }
 
   // Close the SPI communication.
@@ -433,6 +432,13 @@ void *audio_thread_writeFlac(void *paramPtr) {
   else
     CETI_WARN("Failed to set priority");
 
+  // Calculate expected file size for given configuration
+  size_t filesize_bytes = AUDIO_BUFFER_SIZE_BYTES*((g_config.audio.bit_depth == AUDIO_BIT_DEPTH_16) ? 2 : 3);
+  filesize_bytes *= (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_96KHZ) ? 2 
+                      : (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_192KHZ) ? 4
+                      : 1; 
+  CETI_DEBUG("Audio file swapping every %lu bytes", filesize_bytes);
+
   // Wait for the SPI thread to finish initializing and start the main loop.
   while (!g_audio_thread_spi_is_running && !g_stopAcquisition && !g_audio_overflow_detected)
     usleep(1000);
@@ -475,10 +481,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
 
     // Create a new output file if this is the first flush
     //  or if the file size limit has been reached.
-    size_t filesize_bytes = AUDIO_BUFFER_SIZE_BYTES*((g_config.audio.bit_depth == AUDIO_BIT_DEPTH_16) ? 2 : 3);
-    filesize_bytes *= (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_96KHZ) ? 2 
-                        : (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_192KHZ) ? 4
-                        : 1; 
+
     if ((audio_acqDataFileLength > (filesize_bytes - 1)) || (flac_encoder == 0)) {
       audio_createNewFlacFile();
     }
@@ -501,6 +504,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
       FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], AUDIO_BUFFER_SIZE_SAMPLE16);
     }
     audio_acqDataFileLength += AUDIO_BUFFER_SIZE_BYTES;
+    CETI_DEBUG("%lu of %lu bytes converted to flac", audio_acqDataFileLength, filesize_bytes);
 
     // Switch to waiting on the other buffer.
     audio_buffer_toWrite = !audio_buffer_toWrite;
@@ -534,10 +538,6 @@ void *audio_thread_writeFlac(void *paramPtr) {
   //Flush remaining partial buffer.
   if(block_counter != 0) {
     //Maybe create new file.
-    size_t filesize_bytes = AUDIO_BUFFER_SIZE_BYTES*((g_config.audio.bit_depth == AUDIO_BIT_DEPTH_16) ? 2 : 3);
-    filesize_bytes *= (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_96KHZ) ? 2 
-                        : (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_192KHZ) ? 4
-                        : 1; 
     if ((audio_acqDataFileLength > (filesize_bytes - 1)) || (flac_encoder == 0)) {
       audio_createNewFlacFile();
     }
@@ -558,7 +558,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
       CETI_LOG("Flushing partial %d sample buffer.", samples_to_flush);
       for (size_t i_sample = 0; i_sample < samples_to_flush; i_sample++) {
         for (size_t i_channel = 0; i_channel < CHANNELS; i_channel++) {
-          uint8_t *i_ptr = audio_buffer[audio_buffer_toWrite].sample16[i_sample][i_channel];
+          uint8_t *i_ptr = audio_buffer[audio_buffer_toLog].sample16[i_sample][i_channel];
           buff[i_sample][i_channel] = ((FLAC__int32)i_ptr[0] << 8) | ((FLAC__int32)i_ptr[1] << 0);
         }
       }
@@ -611,6 +611,10 @@ void audio_createNewFlacFile() {
     flac_encoder = 0;
     return;
   }
+
+  CETI_DEBUG("Flac configured: channels: %d", CHANNELS);
+  CETI_DEBUG("Flac configured: bit depth: %d bits", flac_bit_depth);
+  CETI_DEBUG("Flac configured: sample_rate: %d sps", flac_sample_rate);
 
   ok &= FLAC__stream_encoder_set_channels(flac_encoder, CHANNELS);
   ok &= FLAC__stream_encoder_set_bits_per_sample(flac_encoder, flac_bit_depth);
