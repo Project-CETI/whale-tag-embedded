@@ -854,10 +854,10 @@ TestState test_internet(void){
 
     //wait for user to advance screen
     if(input == 0){
-    do{
-        ;
-    }while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0));
-
+        do{
+            ;
+        }while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0));
+    }
     return (input == 27) ? TEST_STATE_TERMINATE
          : (eth0_pass && wlan0_pass) ? TEST_STATE_PASSED
          : TEST_STATE_FAILED;
