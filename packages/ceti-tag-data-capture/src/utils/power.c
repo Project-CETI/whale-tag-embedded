@@ -79,3 +79,25 @@ void activity_led_disable(void) {
     close(led_brightness_file);
   }
 }
+
+void activity_led_enable(void) {
+  // disable activity LED trigger
+  int led_trigger_file = open(ACT_LED_TRIGGER_SYSFS_PATH, O_WRONLY);
+  if (led_trigger_file < 0) {
+    CETI_ERR("Could not open activity led trigger "
+             "file: " ACT_LED_TRIGGER_SYSFS_PATH);
+  } else {
+    write(led_trigger_file, "heartbeat", 4);
+    close(led_trigger_file);
+  }
+
+  // turn off activity LED
+  int led_brightness_file = open(ACT_LED_BRIGHTNESS_SYSFS_PATH, O_WRONLY);
+  if (led_brightness_file < 0) {
+    CETI_ERR("Could not open activity led brightness "
+             "file: " ACT_LED_BRIGHTNESS_SYSFS_PATH);
+  } else {
+    write(led_brightness_file, "1", 1);
+    close(led_brightness_file);
+  }
+}

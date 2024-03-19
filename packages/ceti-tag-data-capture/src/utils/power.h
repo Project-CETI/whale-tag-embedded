@@ -24,5 +24,6 @@ void wifi_disable(void);
 void wifi_kill(void);
 void usb_disable(void);
 void activity_led_disable(void);
+void activity_led_enable(void);
 
 #endif
