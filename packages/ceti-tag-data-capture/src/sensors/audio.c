@@ -224,7 +224,6 @@ int start_audio_acq(void) {
   CETI_LOG("Starting audio acquisition");
   FPGA_FIFO_STOP(); // Stop any incoming data
   FPGA_FIFO_RESET(); // Reset the FIFO
-  s_file_start_time_ms = get_global_time_ms(); //get start timestamp
   init_audio_buffers();
 #if ENABLE_AUDIO_FLAC
   audio_createNewFlacFile();
@@ -321,6 +320,7 @@ void *audio_thread_spi(void *paramPtr) {
   // Initialize state.
   CETI_LOG("Starting loop to fetch data via SPI");
   // Start the audio acquisition on the FPGA.
+  s_file_start_time_ms = get_global_time_ms();
   start_audio_acq();
 
   // Discard the very first byte in the SPI stream.
@@ -330,7 +330,6 @@ void *audio_thread_spi(void *paramPtr) {
   // Main loop to acquire audio data.
   g_audio_thread_spi_is_running = 1;
   time_t expected_IQR_interval_us = AUDIO_BLOCK_FILL_SPEED_US(g_config.audio.sample_rate * 1000, 16 + 8 * g_config.audio.bit_depth);
-  s_file_start_time_ms = get_global_time_ms();
   while (!g_stopAcquisition && !g_audio_overflow_detected) {
     // Wait for SPI data to be available.
     while (!gpioRead(AUDIO_DATA_AVAILABLE)) {

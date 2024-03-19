@@ -97,8 +97,8 @@ TestState test_ToDo(void){
 
     //get user input
     char input = '\0';
-    while(input == 0){
-        read(STDIN_FILENO, &input, 1);
+    while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)){
+        ;
     }
 
     if(input == 27)
@@ -251,7 +251,7 @@ TestState test_audio(void){
             printf("\e[%d;%dH\e[96m|\e[0m\n", line, 13 + (int)(width*target));
         } 
         printf("\e[4;%dH\e[96m|%4.2f\e[0m\n", 13 + (int)(width*target), target);
-    } while(read(STDIN_FILENO, &input, 1), input == 0);
+    } while((read(STDIN_FILENO, &input, 1) != 1) && input == 0);
     test_audio_terminate = 1;
 
     //record results
@@ -298,8 +298,8 @@ TestState test_batteries(void){
 
     //get user input
     char input = '\0';
-    while(input == 0){
-        read(STDIN_FILENO, &input, 1);
+    while ((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)){
+        ;
     }
 
     if(input == 27)
@@ -436,7 +436,7 @@ TestState test_ecg(void){
         // }
 
         fflush(stdin);
-    } while(read(STDIN_FILENO, &input, 1), input == 0);
+    } while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0));
 
     //stop thread
     test_ecg_terminate = 1;
@@ -448,8 +448,8 @@ TestState test_ecg(void){
     fprintf(results_file, "[%s]: All\n", all_pass ? "PASS" : "FAIL");
 
     // wait for user to advance screen
-    while((input == 0)){
-        read(STDIN_FILENO, &input, 1);
+    while((input == 0 && (read(STDIN_FILENO, &input, 1) != 1))){
+        ;
     }
 
     ecg_adc_cleanup();
@@ -521,8 +521,8 @@ TestState test_i2cdetect(void){
 
     //get user input
     char input = '\0';
-    while(input == 0){
-        read(STDIN_FILENO, &input, 1);
+    while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)){
+        ;
     }
 
     if(input == 27)
@@ -547,7 +547,7 @@ TestState test_imu(void){
     //initialize IMU
     if(setupIMU(IMU_QUAT_ENABLED) < 0) {
         printf(RED(FAIL) " IMU Communication Failure.\n");
-        while(input == 0){ read(STDIN_FILENO, &input, 1); }
+        while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)){ ; }
         bbI2CClose(IMU_BB_I2C_SDA);
         return TEST_STATE_FAILED; //imu communication error
     }
@@ -555,7 +555,7 @@ TestState test_imu(void){
     //get start angle
     printf("Instructions: rotate the tag to meet each green target position below\n\n");
 
-    while(read(STDIN_FILENO, &input, 1), input == 0){
+    while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)){
         EulerAngles_f64 euler_angles = {};
         
         //update test
@@ -657,7 +657,7 @@ TestState test_imu(void){
 
 // 2FA for VHF, polling of GPS
 TestState test_recovery(void){
-    char input;
+    char input = 0;
     int vhf_pass = false;
     int gps_pass = false;
     time_t last_tx_time;
@@ -673,7 +673,7 @@ TestState test_recovery(void){
     sentence[0] = 0;
     if (recovery_init()  != 0) {
         printf(RED(FAIL) "UART Communication Failure.\n");
-        while(input == 0){ read(STDIN_FILENO, &input, 1); }
+        while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)){ ; }
         fprintf(results_file, "[FAIL]: UART communication failure.\n");
         recovery_kill();
         return TEST_STATE_FAILED; //imu communication error
@@ -686,14 +686,14 @@ TestState test_recovery(void){
     recovery_set_aprs_callsign(&src_callsign);
     if ( recovery_get_aprs_callsign(&callsign) != 0 ) {
         printf(RED(FAIL) "Recovery query failure.\n");
-        while(input == 0){ read(STDIN_FILENO, &input, 1); }
+        while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)){ ; }
         fprintf(results_file, "[FAIL]: Recovery query failure.\n");
         recovery_kill();
         return TEST_STATE_FAILED; //imu communication error
     }
     if ( memcmp(&callsign, &src_callsign, sizeof(APRSCallsign)) != 0) {
         printf(RED(FAIL) "Recovery callsign failed to set properly.\n");
-        while(input == 0){ read(STDIN_FILENO, &input, 1); }
+        while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)){ ; }
         fprintf(results_file, "[FAIL]: Recovery callsign failed to set properly.\n");
         recovery_kill();
         return TEST_STATE_FAILED; //imu communication error
@@ -765,26 +765,27 @@ TestState test_recovery(void){
 
 
         // get user input
-        read(STDIN_FILENO, &input, 1);
-        if(!vhf_pass){
-            if( (('0' <= input) && (input <= '9')) 
-                || (('A' <= input) && (input <= 'Z')) 
-                || (('a' <= input) && (input <= 'z')) 
-            ){ //character
-                user_input[cursor] = input;
-                if (cursor < 3) {
-                    cursor += 1;
-                } 
-                input = 0;
-                if(memcmp(rand_str, user_input, 5) == 0){
-                    vhf_pass = true;
+        if(read(STDIN_FILENO, &input, 1) == 1){
+            if(!vhf_pass){
+                if( (('0' <= input) && (input <= '9')) 
+                    || (('A' <= input) && (input <= 'Z')) 
+                    || (('a' <= input) && (input <= 'z')) 
+                ){ //character
+                    user_input[cursor] = input;
+                    if (cursor < 3) {
+                        cursor += 1;
+                    } 
+                    input = 0;
+                    if(memcmp(rand_str, user_input, 5) == 0){
+                        vhf_pass = true;
+                    }
+                } else if ( input == '\177') { //backspace
+                    if(cursor != 0) {
+                        cursor -= 1;
+                    }
+                    user_input[cursor] = 0;
+                    input = 0;
                 }
-            } else if ( input == '\177') { //backspace
-                if(cursor != 0) {
-                    cursor -= 1;
-                }
-                user_input[cursor] = 0;
-                input = 0;
             }
         }
     }
@@ -833,7 +834,7 @@ TestState test_internet(void){
 
     printf("Instructions: connect ethernet and wifi\n\n");
 
-    while((input == 0) && !(eth0_pass && wlan0_pass)){
+    while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0) && !(eth0_pass && wlan0_pass)){
         //test connection
         if(!wlan0_pass)
             wlan0_pass |= checkInterfaceStatus("wlan0");
@@ -845,7 +846,6 @@ TestState test_internet(void){
         printf("\e[4;1H\e[0Kwlan0: %s\n", wlan0_pass ? GREEN(PASS) : YELLOW("Waiting for connection..."));
         printf("\e[7;1H\e[0K eth0: %s\n", eth0_pass ? GREEN(PASS) : YELLOW("Waiting for connection..."));
         fflush(stdin);
-        read(STDIN_FILENO, &input, 1);    
     }
 
     //record results
@@ -853,9 +853,10 @@ TestState test_internet(void){
     fprintf(results_file, "[%s]: eth0\n", eth0_pass ? "PASS" : "FAIL");
 
     //wait for user to advance screen
-    while((input == 0)){
-        read(STDIN_FILENO, &input, 1);
-    }
+    if(input == 0){
+    do{
+        ;
+    }while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0));
 
     return (input == 27) ? TEST_STATE_TERMINATE
          : (eth0_pass && wlan0_pass) ? TEST_STATE_PASSED
@@ -910,8 +911,8 @@ TestState test_light(void){
         printf("\e[8;%dH\e[96m|\e[0m\n", 17 + (ir_target*width/4096));
 
         //sleep for 1 second
-        for(int i = 0; (i < 10) && (input == 0); i++){
-            read(STDIN_FILENO, &input, 1);
+        for(int i = 0; (i < 10) && (read(STDIN_FILENO, &input, 1) != 1) && (input == 0); i++){
+            ;
         }
 
     }while(input == 0);
@@ -964,8 +965,8 @@ TestState test_pressure(void){
         printf("\e[5;%dH\e[96m|\e[0m\n", 18 + (int)(pressure_target*width/5.0));
 
         //sleep for 1 second
-        for(int i = 0; (i < 10) && (input == 0); i++){
-            read(STDIN_FILENO, &input, 1);
+        for(int i = 0; (i < 10) && (read(STDIN_FILENO, &input, 1) != 1) && (input == 0); i++){
+            ;
         }
     }while(input == 0);
 
@@ -1025,7 +1026,7 @@ TestState test_temperature(void){
         printf("CPU     : %4.1f : %s\n", temp_c[3], sensor_pass[3] ? GREEN(PASS) :  RED(FAIL));
         printf("GPU     : %4.1f : %s\n", temp_c[4], sensor_pass[4] ? GREEN(PASS) :  RED(FAIL));
         printf("Average : %4.1f", average_temp);        
-    } while(read(STDIN_FILENO, &input, 1), input == 0);
+    } while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0));
 
     //print results
     fprintf(results_file, "Pressure: %s\n", sensor_pass[0] ? PASS :  FAIL);
@@ -1156,7 +1157,7 @@ int main(void) {
     printf("Date: %s\n", buffer); //date
     printf("\e[%d;1HPress any key to continue (esq - quit)",lines);
     char input = 0;
-    while(read(STDIN_FILENO, &input, 1), input = 0){
+    while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)){
         ;
     }
 
