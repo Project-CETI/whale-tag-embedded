@@ -224,6 +224,7 @@ int start_audio_acq(void) {
   CETI_LOG("Starting audio acquisition");
   FPGA_FIFO_STOP(); // Stop any incoming data
   FPGA_FIFO_RESET(); // Reset the FIFO
+  s_file_start_time_ms = get_global_time_ms(); //get start timestamp
   init_audio_buffers();
 #if ENABLE_AUDIO_FLAC
   audio_createNewFlacFile();
@@ -252,6 +253,8 @@ int stop_audio_acq(void) {
 // SPI thread - Gets Data from HW FIFO on Interrupt
 //-----------------------------------------------------------------------------
 #include "../utils/config.h"
+
+static uint64_t s_file_start_time_ms = 0;
 
 int audio_thread_init(void) {
   if (!audio_setup(&g_config.audio)) {
@@ -327,7 +330,7 @@ void *audio_thread_spi(void *paramPtr) {
   // Main loop to acquire audio data.
   g_audio_thread_spi_is_running = 1;
   time_t expected_IQR_interval_us = AUDIO_BLOCK_FILL_SPEED_US(g_config.audio.sample_rate * 1000, 16 + 8 * g_config.audio.bit_depth);
-
+  s_file_start_time_ms = get_global_time_ms();
   while (!g_stopAcquisition && !g_audio_overflow_detected) {
     // Wait for SPI data to be available.
     while (!gpioRead(AUDIO_DATA_AVAILABLE)) {
@@ -352,6 +355,9 @@ void *audio_thread_spi(void *paramPtr) {
       break;
     }
 
+    if (block_counter + 1 == AUDIO_BUFFER_SIZE_BLOCKS){
+      s_file_start_time_ms = get_global_time_ms();
+    }
     int64_t global_time_startRead_us = get_global_time_us();
     spiRead(spi_fd, audio_buffer[audio_buffer_toLog].blocks[block_counter], SPI_BLOCK_SIZE);
 
@@ -481,10 +487,10 @@ void *audio_thread_writeFlac(void *paramPtr) {
 
     // Create a new output file if this is the first flush
     //  or if the file size limit has been reached.
-
     if ((audio_acqDataFileLength > (filesize_bytes - 1)) || (flac_encoder == 0)) {
       audio_createNewFlacFile();
     }
+
     // Write the buffer to a file.
     if(g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24){
       for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE24; i_sample++) {
@@ -505,6 +511,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
     }
     audio_acqDataFileLength += AUDIO_BUFFER_SIZE_BYTES;
     CETI_DEBUG("%lu of %lu bytes converted to flac", audio_acqDataFileLength, filesize_bytes);
+    
 
     // Switch to waiting on the other buffer.
     audio_buffer_toWrite = !audio_buffer_toWrite;
@@ -598,11 +605,8 @@ void audio_createNewFlacFile() {
     }
   }
 
-  // filename is the time in ms at the start of audio recording
-  struct timeval te;
-  gettimeofday(&te, NULL);
-  long long milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
-  snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%lld.flac", milliseconds);
+  // filename is the time in ms at the start of audio recording 
+  snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%lld.flac", s_file_start_time_ms);
   audio_acqDataFileLength = 0;
 
   /* allocate the encoder */
@@ -759,10 +763,7 @@ void audio_createNewRawFile() {
   }
 
   // filename is the time in ms at the start of audio recording
-  struct timeval te;
-  gettimeofday(&te, NULL);
-  long long milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
-  snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%lld.raw", milliseconds);
+  snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%lld.raw", s_file_start_time_ms);
   acqData = fopen(audio_acqDataFileName, "wb");
   audio_acqDataFileLength = 0;
   if (!acqData) {
