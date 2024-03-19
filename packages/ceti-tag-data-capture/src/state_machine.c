@@ -131,6 +131,10 @@ int stateMachine_set_state(wt_state_t new_state){
 
     //actions performed when exit present state
     switch(presentState){
+        case ST_REC_SUB:
+            activity_led_enable();
+            break;
+
         case ST_BRN_ON:
             #if ENABLE_BURNWIRE
             burnwireOff();
@@ -159,7 +163,8 @@ int stateMachine_set_state(wt_state_t new_state){
             #endif // ENABLE_RECOVERY
             break;
 
-        case ST_REC_SUB:
+        case ST_REC_SUB:   
+            activity_led_disable();
             #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
                 recovery_off();
