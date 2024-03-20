@@ -233,7 +233,7 @@ apply_custom () {
 
 add_wifi () {
   {
-    echo 'network={' f
+    echo 'network={'
     echo '	ssid="CETI"'
     echo '	psk="Talk2Whales"'
     echo '}'
@@ -360,7 +360,8 @@ main () {
   add_wifi
   add_swap
   configure_logging
-  sudo sh flash_recovery.sh
+  #SHAN systemctl stop ceti-tag-data-capture
+  sudo sh flash_recovery.sh # SHAN maybe change this
   raspi-config nonint do_overlayfs 0
 
   return 0
