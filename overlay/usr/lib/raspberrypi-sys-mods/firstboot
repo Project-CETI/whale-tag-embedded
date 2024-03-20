@@ -360,7 +360,7 @@ main () {
   add_wifi
   add_swap
   configure_logging
-  #SHAN systemctl stop ceti-tag-data-capture
+  systemctl stop ceti-tag-data-capture
   sudo sh flash_recovery.sh # SHAN maybe change this
   raspi-config nonint do_overlayfs 0
 
