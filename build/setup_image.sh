@@ -55,7 +55,6 @@ time apt install "${APT_NONINTERACTIVE}" --fix-broken --fix-missing --no-upgrade
   i2c-tools \
   netcat \
   zlib1g-dev \
-  stm32flash \
 
 apt "${APT_NONINTERACTIVE}" autoremove
 
@@ -117,6 +116,12 @@ tar -cf - -C "${OVERLAY_DIR}" --owner=pi --group=pi . | tar -xf - -C /
 rm -f /home/pi/.bash_history
 dos2unix /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt
 mv /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt /home/pi/.bash_history
+
+# Sourceforge install of stm32flash to get 0.7
+git clone https://git.code.sf.net/p/stm32flash/code stm32flash-code
+cd stm32flash-code
+sudo make install
+cd ..
 
 # All done
 echo "( ・◡・)つ━☆   Build complete"
