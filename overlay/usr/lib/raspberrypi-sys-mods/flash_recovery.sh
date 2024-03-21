@@ -30,11 +30,31 @@ sleep 1
 stm32flash /dev/serial0 > /dev/null 2>&1
 code=$?
 if [ $code -eq 1 ]
-then
-	sudo sh -c "echo 'could not init' >> /etc/flash.log"
-	echo "stm32flash cannot initialize device."
-	exit 1
+then	
+	counter=1
+	do
+		sudo sh -c "echo $counter >> /etc/flash.log"
+		raspi-gpio set 13 op dl
+		sleep 2
+		raspi-gpio set 13 dh
+		sleep 2
+		stm32flash /dev/serial0 > /dev/null 2>&1
+		code=$?
+		counter=$((counter + 1))
+	done while [ $code -eq 1 ] && [ $counter -le 5 ]
+	if [ $code -eq 1 ]
+	then
+		sudo sh -c "echo 'could not init' >> /etc/flash.log"
+		echo "stm32flash cannot initialize device."
+		exit 1
+	fi
 fi
+
+do
+	stm32flash /dev/serial0 > /dev/null 2>&1
+	code=$?
+
+
 sudo sh -c "echo 'initialized device' >> /etc/flash.log"
 
 # Conversion from elf to binary
