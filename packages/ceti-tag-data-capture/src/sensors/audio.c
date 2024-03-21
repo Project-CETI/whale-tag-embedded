@@ -329,7 +329,7 @@ void *audio_thread_spi(void *paramPtr) {
 
   // Main loop to acquire audio data.
   g_audio_thread_spi_is_running = 1;
-  time_t expected_IQR_interval_us = AUDIO_BLOCK_FILL_SPEED_US(g_config.audio.sample_rate * 1000, 16 + 8 * g_config.audio.bit_depth);
+  time_t expected_IQR_interval_us = AUDIO_BLOCK_FILL_SPEED_US(g_config.audio.sample_rate * 1000, g_config.audio.bit_depth);
   while (!g_stopAcquisition && !g_audio_overflow_detected) {
     // Wait for SPI data to be available.
     while (!gpioRead(AUDIO_DATA_AVAILABLE)) {
@@ -438,7 +438,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
     CETI_WARN("Failed to set priority");
 
   // Calculate expected file size for given configuration
-  size_t filesize_bytes = AUDIO_BUFFER_SIZE_BYTES*((g_config.audio.bit_depth == AUDIO_BIT_DEPTH_16) ? 2 : 3);
+  size_t filesize_bytes = AUDIO_BUFFER_SIZE_BYTES*(g_config.audio.bit_depth/8);
   filesize_bytes *= (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_96KHZ) ? 2 
                       : (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_192KHZ) ? 4
                       : 1; 
@@ -588,7 +588,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
 void audio_createNewFlacFile() {
   FLAC__bool ok = true;
   FLAC__StreamEncoderInitStatus init_status;
-  uint32_t flac_bit_depth = (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24) ? 24 : 16;
+  uint32_t flac_bit_depth = g_config.audio.bit_depth;
   uint32_t flac_sample_rate = (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_48KHZ) ? 48000
                               : (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_96KHZ) ? 96000
                               : (g_config.audio.sample_rate == AUDIO_SAMPLE_RATE_192KHZ) ? 192000

@@ -88,8 +88,8 @@ typedef enum audio_sample_rate_e{
 } AudioSampleRate;
 
 typedef enum audio_bit_depth_e {
-    AUDIO_BIT_DEPTH_16,
-    AUDIO_BIT_DEPTH_24,
+    AUDIO_BIT_DEPTH_16 = 16,
+    AUDIO_BIT_DEPTH_24 = 24,
 } AudioBitDepth;
 
 typedef enum audio_filter_type_e {
