@@ -360,7 +360,7 @@ main () {
   add_wifi
   add_swap
   configure_logging
-  sudo printf "starting flash script" >> ~/flash.log
+  sudo sh -c "echo 'starting flash script' >> /etc/flash.log"
   sudo sh flash_recovery.sh
   raspi-config nonint do_overlayfs 0
 

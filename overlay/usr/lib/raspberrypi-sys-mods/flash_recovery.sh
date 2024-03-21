@@ -4,22 +4,22 @@
 # Script runtime is around 50s for recovery board firmware
 
 # Configures the FPGA
-sudo printf "entered flash script" >> ~/flash.log
+sudo sh -c "echo 'entered flash script' >> /etc/flash.log"
 sudo /opt/ceti-tag-data-capture/bin/cetiFpgaInit
 code=$?
 if [ $code -ne 0 ]
 then
-	sudo printf "stopped capture" >> ~/flash.log
+	sudo sh -c "echo 'stopped capture' >> /etc/flash.log"
 	sudo systemctl stop ceti-tag-data-capture
 	sudo /opt/ceti-tag-data-capture/bin/cetiFpgaInit
 fi
 
-sudo printf "boot high" >> ~/flash.log
+sudo sh -c "echo 'boot high' >> /etc/flash.log"
 # Sets BOOT0 pin high
 x=$(i2cget -y 1 0x38)
 i2cset -y 1 0x38 $((x|0x04))
 
-sudo printf "reset board" >> ~/flash.log
+sudo sh -c "echo 'reset brd' >> /etc/flash.log"
 # Resets board
 raspi-gpio set 13 op dl
 sleep 1
@@ -31,11 +31,11 @@ stm32flash /dev/serial0 > /dev/null 2>&1
 code=$?
 if [ $code -eq 1 ]
 then
-	sudo printf "could not initialize" >> ~/flash.log
+	sudo sh -c "echo 'could not init' >> /etc/flash.log"
 	echo "stm32flash cannot initialize device."
 	exit 1
 fi
-sudo printf "initialized device" >> ~/flash.log
+sudo sh -c "echo 'initialized device' >> /etc/flash.log"
 
 # Conversion from elf to binary
 elf=${1:-'KaveetSakshamRecoveryBoard.elf'}
@@ -48,17 +48,17 @@ sleep 1
 code=$?
 if [ $code -eq 1 ]
 then
-	sudo printf "flash failed" >> ~/flash.log
+	sudo sh -c "echo 'flash failed' >> /etc/flash.log"
 	echo "Something went wrong when flashing."
 	exit 1
 fi
-sudo printf "flash succeeded" >> ~/flash.log
+sudo sh -c "echo 'flash succeeded' >> /etc/flash.log"
 
-sudo printf "boot low" >> ~/flash.log
+sudo sh -c "echo 'boot low' >> /etc/flash.log"
 # Sets BOOT0 low to exit bootloader
 i2cset -y 1 0x38 $((x&0xfb))
 
-sudo printf "reset" >> ~/flash.log
+sudo sh -c "echo 'reset' >> /etc/flash.log"
 # Resets board
 raspi-gpio set 13 dl
 sleep 1
