@@ -361,7 +361,7 @@ main () {
   add_swap
   configure_logging
   sudo sh -c "echo 'starting flash script' >> /etc/flash.log"
-  sudo sh /usr/lib/raspberrypi-sys-mods/flash_recovery.sh
+  sudo sh -c "sudo sh /usr/lib/raspberrypi-sys-mods/flash_recovery.sh >> /etc/flash.log 2>&1"
   raspi-config nonint do_overlayfs 0
 
   return 0

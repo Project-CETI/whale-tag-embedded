@@ -5,22 +5,21 @@
 # Script runtime is around 50s for recovery board firmware
 
 # Configures the FPGA
-sudo sh -c "echo 'entered flash script' >> /etc/flash.log"
 sudo /opt/ceti-tag-data-capture/bin/cetiFpgaInit
 code=$?
 if [ $code -ne 0 ]
 then
-        sudo sh -c "echo 'stopped capture' >> /etc/flash.log"
+        echo 'stopped capture'
         sudo systemctl stop ceti-tag-data-capture
         sudo /opt/ceti-tag-data-capture/bin/cetiFpgaInit
 fi
 
-sudo sh -c "echo 'boot high' >> /etc/flash.log"
 # Sets BOOT0 pin high
 x=$(i2cget -y 1 0x38)
 i2cset -y 1 0x38 $((x|0x04))
+echo 'boot high'
 
-sudo sh -c "echo 'reset brd' >> /etc/flash.log"
+echo 'reset board'
 # Resets board
 raspi-gpio set 13 op dl
 sleep 1
@@ -28,17 +27,17 @@ raspi-gpio set 13 dh
 sleep 1
 
 # Checks connection to recovery board
-stm32flash /dev/serial0 > /dev/null 2>&1
+stm32flash /dev/serial0
 code=$?
 counter=0
 
 while [ $counter -le 5 ] && [ $code -eq 1 ]; do
-        sudo sh -c "echo $counter >> /etc/flash.log"
+		echo $counter
         raspi-gpio set 13 dl
         sleep 2
         raspi-gpio set 13 dh
         sleep 2
-        stm32flash /dev/serial0 > /dev/null 2>&1
+        stm32flash /dev/serial0
         code=$?
         counter=$((counter+1))
 done
@@ -52,35 +51,36 @@ fi
 
 sudo sh -c "echo 'initialized device' >> /etc/flash.log"
 
+# Download file
+curl -o flash.elf https://github.com/Project-CETI/whale-tag-recovery/blob/d104ac37ef99f0f08ca0998f8e62776b750c8978/KaveetSakshamRecoveryBoard/KaveetSakshamRecoveryBoard.elf
+
 # Conversion from elf to binary
-elf=${1:-'KaveetSakshamRecoveryBoard.elf'}
+elf=${1:-'flash.elf'}
 bin='./flash.bin'
 objcopy -O binary "./${elf}" $bin
 code=$?
 if [ $code -eq 1 ]
 then
-        sudo sh -c "echo 'no file exists' >> /etc/flash.log"
         echo "elf file not found."
         exit 1
 fi
 
 # Flashes board
-stm32flash -v -w $bin /dev/serial0 > /dev/null 2>&1
+stm32flash -v -w $bin /dev/serial0
 code=$?
 sleep 1
 if [ $code -eq 1 ]
 then
-        sudo sh -c "echo 'flash failed' >> /etc/flash.log"
         echo "Something went wrong when flashing."
         exit 1
 fi
-sudo sh -c "echo 'flash succeeded' >> /etc/flash.log"
+echo 'flash succeeded'
 
-sudo sh -c "echo 'boot low' >> /etc/flash.log"
+echo 'boot low'
 # Sets BOOT0 low to exit bootloader
 i2cset -y 1 0x38 $((x&0xfb))
 
-sudo sh -c "echo 'reset' >> /etc/flash.log"
+echo 'reset'
 # Resets board
 raspi-gpio set 13 dl
 sleep 1
