@@ -73,6 +73,8 @@ raspi-config nonint do_i2c 0
   echo "dtparam=i2c_vc_baudrate=400000"
   echo "dtparam=i2c_arm_baudrate=400000"
 } >> /boot/config.txt
+raspi-config nonint do_i2c 0
+raspi-config nonint do_serial 2
 
 # Setup UART for flashing recovery board
 echo "dtoverlay=miniuart-bt" >> /boot/config.txt

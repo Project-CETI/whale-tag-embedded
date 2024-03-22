@@ -51,7 +51,8 @@ fi
 echo 'initialized device'
 
 # Download file
-curl -o flash.elf https://github.com/Project-CETI/whale-tag-recovery/blob/d104ac37ef99f0f08ca0998f8e62776b750c8978/KaveetSakshamRecoveryBoard/KaveetSakshamRecoveryBoard.elf
+curl -LJO "https://github.com/Project-CETI/whale-tag-recovery/raw/dev/v2_3/KaveetSakshamRecoveryBoard/KaveetSakshamRecoveryBoard.elf"
+sudo mv KaveetSakshamRecoveryBoard.elf ./flash.elf
 
 # Conversion from elf to binary
 elf=${1:-'flash.elf'}
