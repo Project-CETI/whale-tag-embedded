@@ -32,7 +32,7 @@ code=$?
 counter=0
 
 while [ $counter -le 5 ] && [ $code -eq 1 ]; do
-		echo $counter
+	echo $counter
         raspi-gpio set 13 dl
         sleep 2
         raspi-gpio set 13 dh
@@ -44,12 +44,11 @@ done
 
 if [ $code -eq 1 ]
 then
-        sudo sh -c "echo 'could not init' >> /etc/flash.log"
         echo "stm32flash cannot initialize device."
         exit 1
 fi
 
-sudo sh -c "echo 'initialized device' >> /etc/flash.log"
+echo 'initialized device'
 
 # Download file
 curl -o flash.elf https://github.com/Project-CETI/whale-tag-recovery/blob/d104ac37ef99f0f08ca0998f8e62776b750c8978/KaveetSakshamRecoveryBoard/KaveetSakshamRecoveryBoard.elf
