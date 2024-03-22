@@ -4,6 +4,13 @@
 # Instructions to fix: https://www.youtube.com/watch?v=tCcxFMU1OFE
 # Script runtime is around 50s for recovery board firmware
 
+# Cat important files
+echo 'config.txt'
+sudo cat /boot/config.txt
+echo 'cmdline.txt'
+sudo cat /boot/cmdline.txt
+vcgencmd get_config int
+
 # Configures the FPGA
 sudo /opt/ceti-tag-data-capture/bin/cetiFpgaInit
 code=$?
