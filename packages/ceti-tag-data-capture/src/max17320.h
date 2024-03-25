@@ -11,6 +11,7 @@
 // Include files
 #define _GNU_SOURCE // change how sched.h will be included
 
+#include <stdbool.h>
 #include "launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 #include "utils/logging.h"
