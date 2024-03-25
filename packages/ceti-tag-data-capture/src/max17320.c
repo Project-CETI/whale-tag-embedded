@@ -53,17 +53,18 @@ int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev) {
 
 int max17320_get_status(MAX17320_HandleTypeDef *dev) {
     uint8_t data_buf[2] = {0};
+    uint16_t status_read = 0;
     int ret = -1;
     int fd=i2cOpen(1,MAX17320_ADDR,0);
     if(fd < 0) {
         CETI_ERR("Failed to connect to the battery gauge");
     }
     else {
-        uint16_t status_read = i2cReadWordData(fd, MAX17320_REG_STATUS);
+        status_read = i2cReadWordData(fd, MAX17320_REG_STATUS);
         dev->status = __statusRegister_from_raw(status_read);
     }
     CETI_LOG("Read from MAX17320");
-    CETI_LOG("Read %u", dev->status);
+    CETI_LOG("Read %u", status_read);
     i2cClose(fd);
     return ret;
 }
