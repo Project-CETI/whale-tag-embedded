@@ -63,7 +63,7 @@ int max17320_get_status(MAX17320_HandleTypeDef *dev) {
         dev->status = __statusRegister_from_raw(status_read);
     }
     CETI_LOG("Read from MAX17320");
-    CETI_LOG("Read %02x", dev->status);
+    CETI_LOG("Read %u", dev->status);
     i2cClose(fd);
     return ret;
 }
