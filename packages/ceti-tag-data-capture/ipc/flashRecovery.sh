@@ -8,7 +8,7 @@ sudo /opt/ceti-tag-data-capture/bin/cetiFpgaInit
 code=$?
 if [ $code -ne 0 ]
 then
-        echo 'Data capture has been halted.'
+        echo 'Halting data capture...'
         sudo systemctl stop ceti-tag-data-capture
         sudo /opt/ceti-tag-data-capture/bin/cetiFpgaInit
 fi
