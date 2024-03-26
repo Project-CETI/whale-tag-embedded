@@ -112,6 +112,7 @@ typedef struct __MAX17320_HandleTypeDef {
 int max17320_init(MAX17320_HandleTypeDef *dev);
 int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev);
 int max17320_get_status(MAX17320_HandleTypeDef *dev);
+int max17320_get_remaining_capacity(MAX17320_HandleTypeDef *dev);
 int max17320_get_state_of_charge(MAX17320_HandleTypeDef *dev);
 int max17320_get_voltages(MAX17320_HandleTypeDef *dev);
 int max17320_get_temperature(MAX17320_HandleTypeDef *dev);
