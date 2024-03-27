@@ -71,7 +71,8 @@ int max17320_get_status(MAX17320_HandleTypeDef *dev) {
         read = i2cReadWordData(fd, MAX17320_REG_STATUS);
         dev->status = __statusRegister_from_raw(read);
     }
-    CETI_LOG("MAX17320 Status: %u", read);
+    //CETI_LOG("MAX17320 Status: %u", read);
+    CETI_LOG("status %d: %.4x\n", read, read);
     i2cClose(fd);
     return ret;
 }
@@ -88,7 +89,8 @@ int max17320_get_remaining_capacity(MAX17320_HandleTypeDef* dev) {
         read = i2cReadWordData(fd, MAX17320_REG_REP_CAPACITY);
         dev->remaining_capacity = read * (CAPACITY_LSB / R_SENSE_VAL);
     }
-    CETI_LOG("MAX17320 Remaining Capacity: %u", read);
+    //CETI_LOG("MAX17320 Remaining Capacity: %u", read);
+    CETI_LOG("remaining cap %d: %.4x\n", read, read);
     i2cClose(fd);
     return ret;
 }
@@ -105,7 +107,8 @@ int max17320_get_state_of_charge(MAX17320_HandleTypeDef *dev) {
         read = i2cReadWordData(fd, MAX17320_REG_REP_SOC);
         dev->state_of_charge = read * PERCENTAGE_LSB;
     }
-    CETI_LOG("MAX17320 State of Charge: %u", read);
+    //CETI_LOG("MAX17320 State of Charge: %u", read);
+    CETI_LOG("state of charge %d: %.4x\n", read, read);
     i2cClose(fd);
     return ret;
 }
@@ -122,19 +125,23 @@ int max17320_get_voltages(MAX17320_HandleTypeDef *dev) {
         // Cell 1 Voltage
         read = i2cReadWordData(fd, MAX17320_REG_CELL1_VOLTAGE);
         dev->cell_1_voltage = read * CELL_VOLTAGE_LSB;
-        CETI_LOG("MAX17320 Cell 1 Voltage: %u", read);
+        //CETI_LOG("MAX17320 Cell 1 Voltage: %u", read);
+        CETI_LOG("cell 1 voltage %d: %.4x\n", read, read);
         // Cell 2 Voltage
         read = i2cReadWordData(fd, MAX17320_REG_CELL2_VOLTAGE);
         dev->cell_2_voltage = read * CELL_VOLTAGE_LSB;
-        CETI_LOG("MAX17320 Cell 2 Voltage: %u", read);
+        //CETI_LOG("MAX17320 Cell 2 Voltage: %u", read);
+        CETI_LOG("cell 2 voltage %d: %.4x\n", read, read);
         // Total Battery Voltage
         read = i2cReadWordData(fd, MAX17320_REG_TOTAL_BAT_VOLTAGE);
         dev->total_battery_voltage = read * PACK_VOLTAGE_LSB;
-        CETI_LOG("MAX17320 Total Battery Voltage: %u", read);
+        //CETI_LOG("MAX17320 Total Battery Voltage: %u", read);
+        CETI_LOG("battery voltage %d: %.4x\n", read, read);
         // Pack Side Voltage
         read = i2cReadWordData(fd, MAX17320_REG_PACK_SIDE_VOLTAGE);
         dev->pack_side_voltage = read * PACK_VOLTAGE_LSB;
-        CETI_LOG("MAX17320 Pack Side Voltage: %u", read);
+        //CETI_LOG("MAX17320 Pack Side Voltage: %u", read);
+        CETI_LOG("pack side voltage %d: %.4x\n", read, read);
     }
     i2cClose(fd);
     return ret;
@@ -152,7 +159,8 @@ int max17320_get_temperature(MAX17320_HandleTypeDef *dev) {
         read = i2cReadWordData(fd, MAX17320_REG_TEMPERATURE);
         dev->temperature = read * TEMPERATURE_LSB;
     }
-    CETI_LOG("MAX17320 Temperature: %u", read);
+    //CETI_LOG("MAX17320 Temperature: %u", read);
+    CETI_LOG("temperature %d: %.4x\n", read, read);
     i2cClose(fd);
     return ret;
 }
@@ -168,7 +176,8 @@ int max17320_get_battery_current(MAX17320_HandleTypeDef *dev) {
         read = i2cReadWordData(fd, MAX17320_REG_BATT_CURRENT);
         dev->battery_current = read * (CURRENT_LSB/R_SENSE_VAL);
     }
-    CETI_LOG("MAX17320 Battery Current: %u", read);
+    //CETI_LOG("MAX17320 Battery Current: %u", read);
+    CETI_LOG("battery current %d: %.4x\n", read, read);
     i2cClose(fd);
     return ret;
 }
@@ -184,7 +193,8 @@ int max17320_get_average_battery_current(MAX17320_HandleTypeDef *dev) {
         read = i2cReadWordData(fd, MAX17320_REG_AVG_BATT_CURRENT);
         dev->average_current = read * (CURRENT_LSB/R_SENSE_VAL);
     }
-    CETI_LOG("MAX17320 Avg Battery Current: %u", read);
+    //CETI_LOG("MAX17320 Avg Battery Current: %u", read);
+    CETI_LOG("average battery current %d: %.4x\n", read, read);
     i2cClose(fd);
     return ret;
 }
@@ -200,7 +210,8 @@ int max17320_get_time_to_empty(MAX17320_HandleTypeDef *dev) {
         read = i2cReadWordData(fd, MAX17320_REG_TIME_TO_EMPTY);
         dev->time_to_empty = read * (TIME_LSB / SECOND_TO_HOUR);
     }
-    CETI_LOG("MAX17320 Time to Empty: %u", read);
+    //CETI_LOG("MAX17320 Time to Empty: %u", read);
+    CETI_LOG("time to empty %d: %.4x\n", read, read);
     i2cClose(fd);
     return ret;
 }
@@ -216,7 +227,8 @@ int max17320_get_time_to_full(MAX17320_HandleTypeDef *dev) {
         read = i2cReadWordData(fd, MAX17320_REG_TIME_TO_FULL);
         dev->time_to_full = read * (TIME_LSB / SECOND_TO_HOUR);
     }
-    CETI_LOG("MAX17320 Time to Full: %u", read);
+    //CETI_LOG("MAX17320 Time to Full: %u", read);
+    CETI_LOG("time to full %d: %.4x\n", read, read);
     i2cClose(fd);
     return ret;
 }
