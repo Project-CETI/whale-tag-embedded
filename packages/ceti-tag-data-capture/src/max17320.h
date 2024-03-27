@@ -36,7 +36,9 @@
 #define MAX17320_REG_CURRENT_ALT_THR	0x0AC
 #define MAX17320_REG_VOLTAGE_ALT_THR	0x001
 #define MAX17320_REG_COMM_STAT			0x061
+#define MAX17320_REG_COMMAND			0x060
 #define MAX17320_REG_DEV_NAME           0x021
+#define MAX17320_REG_REMAINING_WRITES	0x0FD
 
 // LSB Conversion Macros
 #define R_SENSE_VAL						0.001 // Ω
@@ -66,6 +68,8 @@
 #define MAX17320_TIMEOUT                1000
 #define SECOND_TO_HOUR					3600
 #define CLEARED_WRITE_PROT              0x0000
+#define DETERMINE_REMAINING_UPDATES     0xE29B   
+#define TRECALL							5000						             
 
 // 8-bit to 16-bit conversion
 #define TO_16_BIT(b1, b2)				((uint16_t)(b2 << 8) | (uint16_t)b1)

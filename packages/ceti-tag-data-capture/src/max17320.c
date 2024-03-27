@@ -64,11 +64,26 @@ int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev) {
         ret = -1;
     }
     ret = i2cWriteWordData(fd, MAX17320_REG_COMM_STAT, CLEARED_WRITE_PROT);
+    usleep(TRECALL);
     read = i2cReadWordData(fd, MAX17320_REG_COMM_STAT);
     CETI_LOG("MAX17320 ComStat 1: 0x%.4x", read);
     ret = i2cWriteWordData(fd, MAX17320_REG_COMM_STAT, CLEARED_WRITE_PROT);
+    usleep(TRECALL);
     read = i2cReadWordData(fd, MAX17320_REG_COMM_STAT);
     CETI_LOG("MAX17320 ComStat 2: 0x%.4x", read);
+    ret = i2cWriteWordData(fd, MAX17320_REG_COMMAND, DETERMINE_REMAINING_UPDATES);
+    usleep(TRECALL);
+    read = i2cReadWordData(fd, MAX17320_REG_COMMAND);
+    CETI_LOG("MAX17320 Command: 0x%.4x", read);
+    int fd2=i2cOpen(1, MAX17320_ADDR_SEC, 0);
+    if (fd2 < 0) {
+        CETI_ERR("Failed to connect to the battery gauge address 2");
+        ret = -1;
+    }
+    read = i2cReadWordData(fd2, MAX17320_REG_REMAINING_WRITES);
+    CETI_LOG("MAX17320 1FDh: 0x%.4x", read);
+    i2cClose(fd2);
+    i2cClose(fd);
     return ret;
 }
 
