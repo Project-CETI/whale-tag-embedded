@@ -39,6 +39,14 @@ int max17320_init(MAX17320_HandleTypeDef *dev) {
     int ret = -1;
     // check status
     ret = max17320_get_status(dev);
+    ret = max17320_get_remaining_capacity(dev);
+    ret = max17320_get_state_of_charge(dev);
+    ret = max17320_get_voltages(dev);
+    ret = max17320_get_temperature(dev);
+    ret = max17320_get_battery_current(dev);
+    ret = max17320_get_average_battery_current(dev);
+    ret = max17320_get_time_to_empty(dev);
+    ret = max17320_get_time_to_full(dev);
     // Open an output file to write data.
     if(init_data_file(battery_data_file, MAX17320_DATA_FILEPATH,
                         battery_data_file_headers,  num_battery_data_file_headers,
