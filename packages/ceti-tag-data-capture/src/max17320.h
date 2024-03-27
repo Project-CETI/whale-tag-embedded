@@ -65,6 +65,7 @@
 // Other Macros
 #define MAX17320_TIMEOUT                1000
 #define SECOND_TO_HOUR					3600
+#define CLEARED_WRITE_PROT              0x0000
 
 // 8-bit to 16-bit conversion
 #define TO_16_BIT(b1, b2)				((uint16_t)(b2 << 8) | (uint16_t)b1)
