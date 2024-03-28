@@ -53,6 +53,7 @@ static inline int max17320_write(MAX17320_HandleTypeDef *dev, uint16_t memory, u
     }
     i2cClose(fd);
     // TODO: Add error checking based on function
+    // Can add verification but there are some exceptions
     return ret;
 }
 
@@ -161,6 +162,7 @@ int max17320_get_status(MAX17320_HandleTypeDef *dev) {
 
 int max17320_get_remaining_capacity(MAX17320_HandleTypeDef* dev) {
     uint16_t read = 0;
+    uint16_t test_read = 0;
     int ret = 0;
     int fd=i2cOpen(1,MAX17320_ADDR,0);
     if(fd < 0) {
@@ -169,9 +171,11 @@ int max17320_get_remaining_capacity(MAX17320_HandleTypeDef* dev) {
     }
     else {
         read = i2cReadWordData(fd, MAX17320_REG_REP_CAPACITY) * (CAPACITY_LSB / R_SENSE_VAL);
+        ret = max17320_read(fd, MAX17320_REG_REP_CAPACITY, &test_read);
         dev->remaining_capacity = read;
     }
     CETI_LOG("MAX17320 Remaining Capacity: %u mAh", read);
+    CETI_LOG("MAX17320 Remaining Capacity Test: %u mAh", test_read);
     i2cClose(fd);
     return ret;
 }
