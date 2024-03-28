@@ -41,7 +41,7 @@ static inline int max17320_write(MAX17320_HandleTypeDef *dev, uint16_t memory, u
     uint16_t addr = MAX17320_ADDR;
     if (memory > 0xFF) {
         memory = memory & 0xFF;
-        addr = MAX17320_ADDR_SEC
+        addr = MAX17320_ADDR_SEC;
     }
     int fd=i2cOpen(1, addr, 0);
     if (fd < 0) {
@@ -61,7 +61,7 @@ static inline int max17320_read(MAX17320_HandleTypeDef *dev, uint16_t memory, ui
     uint16_t addr = MAX17320_ADDR;
     if (memory > 0xFF) {
         memory = memory & 0xFF;
-        addr = MAX17320_ADDR_SEC
+        addr = MAX17320_ADDR_SEC;
     }
     int fd=i2cOpen(1, addr, 0);
     if (fd < 0) {
