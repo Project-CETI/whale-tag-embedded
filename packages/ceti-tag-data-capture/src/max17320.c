@@ -104,14 +104,12 @@ int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev) {
     {
         ret = i2cWriteWordData(fd, MAX17320_REG_COMM_STAT, CLEARED_WRITE_PROT);
         usleep(TRECALL);
-        CETI_LOG("MAX17320 comm stat %u: %u", counter, read);
         counter--;
     }
     read = i2cReadWordData(fd, MAX17320_REG_COMM_STAT);
     if (read != CLEARED_WRITE_PROT)
     {
         CETI_ERR("MAX17320 Clearing write protection failed");
-        CETI_ERR("MAX17320 comm stat reg: %u", read);
         ret = -1;
     }
     i2cClose(fd);
@@ -358,6 +356,6 @@ int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
         decoded = decoded >> 1;
     }
     dev->remaining_writes = (8-count);
-    CETI_LOG("MAX17320 Remaining Writes: %u hrs", dev->remaining_writes);
+    CETI_LOG("MAX17320 Remaining Writes: %u", dev->remaining_writes);
     return ret;
 }
