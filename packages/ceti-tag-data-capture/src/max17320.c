@@ -291,7 +291,7 @@ int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
     i2cClose(fd);
 
     // Connect to second bus to read remaining writes
-    int fd=i2cOpen(1,MAX17320_ADDR_SEC,0);
+    fd=i2cOpen(1,MAX17320_ADDR_SEC,0);
     if(fd < 0) {
         CETI_ERR("Failed to connect to the battery gauge");
         ret = -1;
@@ -301,7 +301,7 @@ int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
 
     uint8_t first_byte = (read>>8) & 0xff;
     uint8_t last_byte = read & 0xff;
-    uint8_t decoded = first | last;
+    uint8_t decoded = first_byte | last_byte;
     uint8_t count = 0;
     while (decoded > 0)
     {
