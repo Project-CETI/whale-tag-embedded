@@ -69,6 +69,7 @@ int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev) {
     read = i2cReadWordData(fd, MAX17320_REG_COMM_STAT);
     if (read != CLEARED_WRITE_PROT)
     {
+        CETI_ERR("MAX17320 Clearing write protection failed");
         ret = -1;
     }
     return ret;
