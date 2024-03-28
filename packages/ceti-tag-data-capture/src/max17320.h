@@ -68,8 +68,9 @@
 #define MAX17320_TIMEOUT                1000
 #define SECOND_TO_HOUR					3600
 #define CLEARED_WRITE_PROT              0x0000
+#define LOCKED_WRITE_PROT               0x00F9
 #define DETERMINE_REMAINING_UPDATES     0xE29B   
-#define TRECALL							5000						             
+#define TRECALL							5000		             
 
 // 8-bit to 16-bit conversion
 #define TO_16_BIT(b1, b2)				((uint16_t)(b2 << 8) | (uint16_t)b1)
@@ -112,10 +113,12 @@ typedef struct __MAX17320_HandleTypeDef {
     float time_to_empty; // h
     float time_to_full; // h
 
+	uint8_t remaining_writes;
 } MAX17320_HandleTypeDef;
 
 int max17320_init(MAX17320_HandleTypeDef *dev);
 int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev);
+int max17320_lock_write_protection(MAX17320_HandleTypeDef *dev);
 int max17320_get_status(MAX17320_HandleTypeDef *dev);
 int max17320_get_remaining_capacity(MAX17320_HandleTypeDef *dev);
 int max17320_get_state_of_charge(MAX17320_HandleTypeDef *dev);
@@ -127,5 +130,6 @@ int max17320_get_time_to_empty(MAX17320_HandleTypeDef *dev);
 int max17320_get_time_to_full(MAX17320_HandleTypeDef *dev);
 int max17320_set_alert_thresholds(MAX17320_HandleTypeDef *dev);
 int max17320_configure_cell_balancing(MAX17320_HandleTypeDef *dev);
+int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev);
 
 #endif // MAX17320_H

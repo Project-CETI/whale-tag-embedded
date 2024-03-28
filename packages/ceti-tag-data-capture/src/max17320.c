@@ -10,6 +10,7 @@
 // Global variables
 // TODO add battery thread
 // TODO we've created a struct, they just have global vars, evaluate what is needed
+// TODO error checking for all writes/reads
 static FILE* battery_data_file = NULL;
 static char battery_data_file_notes[256] = "";
 static const char* battery_data_file_headers[] = {
@@ -39,14 +40,8 @@ int max17320_init(MAX17320_HandleTypeDef *dev) {
     int ret = -1;
     // check status
     ret = max17320_get_status(dev);
-    ret = max17320_get_remaining_capacity(dev);
-    ret = max17320_get_state_of_charge(dev);
-    ret = max17320_get_voltages(dev);
-    ret = max17320_get_temperature(dev);
-    ret = max17320_get_battery_current(dev);
-    ret = max17320_get_average_battery_current(dev);
-    ret = max17320_get_time_to_empty(dev);
-    ret = max17320_get_time_to_full(dev);
+    ret = max17320_get_remaining_writes(dev);
+    
     // Open an output file to write data.
     if(init_data_file(battery_data_file, MAX17320_DATA_FILEPATH,
                         battery_data_file_headers,  num_battery_data_file_headers,
@@ -57,33 +52,49 @@ int max17320_init(MAX17320_HandleTypeDef *dev) {
 
 int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev) {
     int ret = 0;
-    uint16_t read = 0;
+    uint16_t read;
     int fd=i2cOpen(1, MAX17320_ADDR, 0);
     if (fd < 0) {
         CETI_ERR("Failed to connect to the battery gauge");
         ret = -1;
     }
-    ret = i2cWriteWordData(fd, MAX17320_REG_COMM_STAT, CLEARED_WRITE_PROT);
-    usleep(TRECALL);
+    // Through testing, it was determined that three writes are needed to properly clear protection
+    uint8_t counter = 3;
+    while (counter > 0)
+    {
+        ret = i2cWriteWordData(fd, MAX17320_REG_COMM_STAT, CLEARED_WRITE_PROT);
+        usleep(TRECALL);
+        counter--;
+    }
     read = i2cReadWordData(fd, MAX17320_REG_COMM_STAT);
-    CETI_LOG("MAX17320 ComStat 1: 0x%.4x", read);
-    ret = i2cWriteWordData(fd, MAX17320_REG_COMM_STAT, CLEARED_WRITE_PROT);
-    usleep(TRECALL);
-    read = i2cReadWordData(fd, MAX17320_REG_COMM_STAT);
-    CETI_LOG("MAX17320 ComStat 2: 0x%.4x", read);
-    ret = i2cWriteWordData(fd, MAX17320_REG_COMMAND, DETERMINE_REMAINING_UPDATES);
-    usleep(TRECALL);
-    read = i2cReadWordData(fd, MAX17320_REG_COMMAND);
-    CETI_LOG("MAX17320 Command: 0x%.4x", read);
-    int fd2=i2cOpen(1, MAX17320_ADDR_SEC, 0);
-    if (fd2 < 0) {
-        CETI_ERR("Failed to connect to the battery gauge address 2");
+    if (read != CLEARED_WRITE_PROT)
+    {
         ret = -1;
     }
-    read = i2cReadWordData(fd2, MAX17320_REG_REMAINING_WRITES);
-    CETI_LOG("MAX17320 1FDh: 0x%.4x", read);
-    i2cClose(fd2);
-    i2cClose(fd);
+    return ret;
+}
+
+int max17320_lock_write_protection(MAX17320_HandleTypeDef *dev) {
+    int ret = 0;
+    uint16_t read;
+    int fd=i2cOpen(1, MAX17320_ADDR, 0);
+    if (fd < 0) {
+        CETI_ERR("Failed to connect to the battery gauge");
+        ret = -1;
+    }
+
+    uint8_t counter = 2;
+    while (counter > 0)
+    {
+        ret = i2cWriteWordData(fd, MAX17320_REG_COMM_STAT, LOCKED_WRITE_PROT);
+        usleep(TRECALL);
+        counter--;
+    }
+    read = i2cReadWordData(fd, MAX17320_REG_COMM_STAT);
+    if (read != LOCKED_WRITE_PROT)
+    {
+        ret = -1;
+    }
     return ret;
 }
 
@@ -249,9 +260,58 @@ int max17320_get_time_to_full(MAX17320_HandleTypeDef *dev) {
     i2cClose(fd);
     return ret;
 }
+
 int max17320_set_alert_thresholds(MAX17320_HandleTypeDef *dev) {
     // TODO
 }
+
 int max17320_configure_cell_balancing(MAX17320_HandleTypeDef *dev) {
     // TODO
+}
+
+int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
+    int ret = 0;
+    uint16_t read;
+    // Clear write protection
+    ret = max17320_clear_write_protection(dev);
+    if (ret < 0)
+    {
+        return ret;
+    }
+    
+    // Connect to first bus to write to command register
+    int fd=i2cOpen(1,MAX17320_ADDR,0);
+    if(fd < 0) {
+        CETI_ERR("Failed to connect to the battery gauge");
+        ret = -1;
+    }
+    // Write to command register
+    ret = i2cWriteWordData(fd, MAX17320_REG_COMMAND, DETERMINE_REMAINING_UPDATES);
+    usleep(TRECALL);
+    i2cClose(fd);
+
+    // Connect to second bus to read remaining writes
+    int fd=i2cOpen(1,MAX17320_ADDR_SEC,0);
+    if(fd < 0) {
+        CETI_ERR("Failed to connect to the battery gauge");
+        ret = -1;
+    }
+    read = i2cReadWordData(fd, MAX17320_REG_REMAINING_WRITES);
+    i2cClose(fd);
+
+    uint8_t first_byte = (read>>8) & 0xff;
+    uint8_t last_byte = read & 0xff;
+    uint8_t decoded = first | last;
+    uint8_t count = 0;
+    while (decoded > 0)
+    {
+        if (decoded & 1)
+        {
+            count++;
+        }
+        decoded = decoded >> 1;
+    }
+    dev->remaining_writes = (8-count);
+    CETI_LOG("MAX17320 Remaining Writes: %u hrs", dev->remaining_writes);
+    return ret;
 }
