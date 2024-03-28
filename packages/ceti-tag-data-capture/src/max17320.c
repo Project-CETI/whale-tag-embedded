@@ -36,6 +36,46 @@ static inline max17320_Reg_Status __statusRegister_from_raw(uint16_t raw) {
     };
 }
 
+static inline int max17320_write(MAX17320_HandleTypeDef *dev, uint16_t memory, uint16_t data) {
+    int ret = 0;
+    uint16_t addr = MAX17320_ADDR;
+    if (memory > 0xFF) {
+        memory = memory & 0xFF;
+        addr = MAX17320_ADDR_SEC
+    }
+    int fd=i2cOpen(1, addr, 0);
+    if (fd < 0) {
+        CETI_ERR("Failed to connect to the battery gauge");
+        ret = -1;
+    }
+    else {
+        ret = i2cWriteWordData(fd, memory, data);
+    }
+    i2cClose(fd);
+    // TODO: Add error checking based on function
+    return ret;
+}
+
+static inline int max17320_read(MAX17320_HandleTypeDef *dev, uint16_t memory, uint16_t *storage) {
+    int ret = 0;
+    uint16_t addr = MAX17320_ADDR;
+    if (memory > 0xFF) {
+        memory = memory & 0xFF;
+        addr = MAX17320_ADDR_SEC
+    }
+    int fd=i2cOpen(1, addr, 0);
+    if (fd < 0) {
+        CETI_ERR("Failed to connect to the battery gauge");
+        ret = -1;
+    }
+    else {
+        *storage = i2cReadWordData(fd, memory);
+    }
+    i2cClose(fd);
+    return ret;
+    // TODO before using ensure all header registers for 0x0b are in full form
+}
+
 int max17320_init(MAX17320_HandleTypeDef *dev) {
     int ret = -1;
     // check status
@@ -64,14 +104,17 @@ int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev) {
     {
         ret = i2cWriteWordData(fd, MAX17320_REG_COMM_STAT, CLEARED_WRITE_PROT);
         usleep(TRECALL);
+        CETI_LOG("MAX17320 comm stat %u: %u", counter, read);
         counter--;
     }
     read = i2cReadWordData(fd, MAX17320_REG_COMM_STAT);
     if (read != CLEARED_WRITE_PROT)
     {
         CETI_ERR("MAX17320 Clearing write protection failed");
+        CETI_ERR("MAX17320 comm stat reg: %u", read);
         ret = -1;
     }
+    i2cClose(fd);
     return ret;
 }
 
@@ -96,6 +139,8 @@ int max17320_lock_write_protection(MAX17320_HandleTypeDef *dev) {
     {
         ret = -1;
     }
+
+    i2cClose(fd);
     return ret;
 }
 
