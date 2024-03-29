@@ -93,11 +93,12 @@ int max17320_init(MAX17320_HandleTypeDef *dev) {
 
 int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev) {
     uint16_t read = 0;
+    int ret = 0;
     // Through testing, it was determined that three writes are needed to properly clear protection
     uint8_t counter = 3;
     while (counter > 0)
     {
-        int ret = max17320_write(dev, MAX17320_REG_COMM_STAT, CLEARED_WRITE_PROT);
+        ret = max17320_write(dev, MAX17320_REG_COMM_STAT, CLEARED_WRITE_PROT);
         usleep(TRECALL);
         counter--;
     }
@@ -113,6 +114,7 @@ int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev) {
 int max17320_lock_write_protection(MAX17320_HandleTypeDef *dev) {
     uint16_t read = 0;
     uint8_t counter = 2;
+    int ret = 0;
     while (counter > 0)
     {
         ret = max17320_write(dev, MAX17320_REG_COMM_STAT, LOCKED_WRITE_PROT);
@@ -195,7 +197,7 @@ int max17320_get_battery_current(MAX17320_HandleTypeDef *dev) {
 
 int max17320_get_average_battery_current(MAX17320_HandleTypeDef *dev) {
     int16_t read = 0;
-    int read = max17320_read(dev, MAX17320_REG_AVG_BATT_CURRENT, &read);
+    int ret = max17320_read(dev, MAX17320_REG_AVG_BATT_CURRENT, &read);
     dev->average_current = read * (CURRENT_LSB/R_SENSE_VAL) * 100;
     CETI_LOG("MAX17320 Avg Battery Current: %u mA", dev->average_current);
     return ret;
