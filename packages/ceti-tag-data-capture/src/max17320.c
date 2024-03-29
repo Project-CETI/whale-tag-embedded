@@ -227,7 +227,7 @@ int max17320_configure_cell_balancing(MAX17320_HandleTypeDef *dev) {
 int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
     uint16_t read = 0;
     // Clear write protection
-    ret = max17320_clear_write_protection(dev);
+    int ret = max17320_clear_write_protection(dev);
     if (ret < 0)
     {
         return ret;
