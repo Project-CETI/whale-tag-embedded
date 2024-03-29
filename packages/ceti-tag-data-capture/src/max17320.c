@@ -97,11 +97,11 @@ int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev) {
     uint8_t counter = 3;
     while (counter > 0)
     {
-        int ret = max17320_write(fd, MAX17320_REG_COMM_STAT, CLEARED_WRITE_PROT);
+        int ret = max17320_write(dev, MAX17320_REG_COMM_STAT, CLEARED_WRITE_PROT);
         usleep(TRECALL);
         counter--;
     }
-    ret |= max17320_read(fd, MAX17320_REG_COMM_STAT, &read);
+    ret |= max17320_read(dev, MAX17320_REG_COMM_STAT, &read);
     if (read != CLEARED_WRITE_PROT)
     {
         CETI_ERR("MAX17320 Clearing write protection failed, CommStat: 0x%.4x", read);
@@ -115,11 +115,11 @@ int max17320_lock_write_protection(MAX17320_HandleTypeDef *dev) {
     uint8_t counter = 2;
     while (counter > 0)
     {
-        ret = max17320_write(fd, MAX17320_REG_COMM_STAT, LOCKED_WRITE_PROT);
+        ret = max17320_write(dev, MAX17320_REG_COMM_STAT, LOCKED_WRITE_PROT);
         usleep(TRECALL);
         counter--;
     }
-    ret |= max17320_read(fd, MAX17320_REG_COMM_STAT, &read);
+    ret |= max17320_read(dev, MAX17320_REG_COMM_STAT, &read);
     if (read != LOCKED_WRITE_PROT)
     {
         CETI_ERR("MAX17320 Locking write protection failed, CommStat: 0x%.4x", read);
@@ -130,7 +130,7 @@ int max17320_lock_write_protection(MAX17320_HandleTypeDef *dev) {
 
 int max17320_get_status(MAX17320_HandleTypeDef *dev) {
     uint16_t read = 0;
-    int ret = max17320_read(fd, MAX17320_REG_STATUS, &read);
+    int ret = max17320_read(dev, MAX17320_REG_STATUS, &read);
     dev->status = __statusRegister_from_raw(read);
     CETI_LOG("MAX17320 Status: 0x%.4x", read);
     return ret;
@@ -138,7 +138,7 @@ int max17320_get_status(MAX17320_HandleTypeDef *dev) {
 
 int max17320_get_remaining_capacity(MAX17320_HandleTypeDef* dev) {
     uint16_t read = 0;
-    int ret = max17320_read(fd, MAX17320_REG_REP_CAPACITY, &read);
+    int ret = max17320_read(dev, MAX17320_REG_REP_CAPACITY, &read);
     dev->remaining_capacity = read * (CAPACITY_LSB / R_SENSE_VAL);
     CETI_LOG("MAX17320 Remaining Capacity: %u mAh", dev->remaining_capacity);
     return ret;
@@ -146,7 +146,7 @@ int max17320_get_remaining_capacity(MAX17320_HandleTypeDef* dev) {
 
 int max17320_get_state_of_charge(MAX17320_HandleTypeDef *dev) {
     uint16_t read = 0;
-    int ret = max17320_read(fd, MAX17320_REG_REP_SOC, &read);
+    int ret = max17320_read(dev, MAX17320_REG_REP_SOC, &read);
     dev->state_of_charge = read * PERCENTAGE_LSB;
     CETI_LOG("MAX17320 State of Charge: %u %%", dev->state_of_charge);
     return ret;
@@ -155,22 +155,22 @@ int max17320_get_state_of_charge(MAX17320_HandleTypeDef *dev) {
 int max17320_get_voltages(MAX17320_HandleTypeDef *dev) {
     uint16_t read = 0;
     // Cell 1 Voltage
-    int ret = max17320_read(fd, MAX17320_REG_CELL1_VOLTAGE, &read);
+    int ret = max17320_read(dev, MAX17320_REG_CELL1_VOLTAGE, &read);
     dev->cell_1_voltage = read * CELL_VOLTAGE_LSB;
     CETI_LOG("MAX17320 Cell 1 Voltage: %u V", dev->cell_1_voltage);
 
     // Cell 2 Voltage
-    ret |= max17320_read(fd, MAX17320_REG_CELL2_VOLTAGE, &read);
+    ret |= max17320_read(dev, MAX17320_REG_CELL2_VOLTAGE, &read);
     dev->cell_2_voltage = read * CELL_VOLTAGE_LSB;
     CETI_LOG("MAX17320 Cell 2 Voltage: %u V", dev->cell_2_voltage);
 
     // Total Battery Voltage
-    ret |= max17320_read(fd, MAX17320_REG_TOTAL_BAT_VOLTAGE, &read);
+    ret |= max17320_read(dev, MAX17320_REG_TOTAL_BAT_VOLTAGE, &read);
     dev->total_battery_voltage = read * PACK_VOLTAGE_LSB;
     CETI_LOG("MAX17320 Total Battery Voltage: %u V", dev->total_battery_voltage);
     
     // Pack Side Voltage
-    ret |= max17320_read(fd, MAX17320_REG_PACK_SIDE_VOLTAGE, &read);
+    ret |= max17320_read(dev, MAX17320_REG_PACK_SIDE_VOLTAGE, &read);
     dev->pack_side_voltage = read * PACK_VOLTAGE_LSB;
     CETI_LOG("MAX17320 Pack Side Voltage: %u V", dev->pack_side_voltage);
     
@@ -179,7 +179,7 @@ int max17320_get_voltages(MAX17320_HandleTypeDef *dev) {
 
 int max17320_get_temperature(MAX17320_HandleTypeDef *dev) {
     int16_t read = 0;
-    int ret = max17320_read(fd, MAX17320_REG_TEMPERATURE, &read);
+    int ret = max17320_read(dev, MAX17320_REG_TEMPERATURE, &read);
     dev->temperature = read * TEMPERATURE_LSB;
     CETI_LOG("MAX17320 Temperature: %u °C", dev->temperature);
     return ret;
@@ -187,7 +187,7 @@ int max17320_get_temperature(MAX17320_HandleTypeDef *dev) {
 
 int max17320_get_battery_current(MAX17320_HandleTypeDef *dev) {
     int16_t read = 0;
-    int ret = max17320_read(fd, MAX17320_REG_BATT_CURRENT, &read);
+    int ret = max17320_read(dev, MAX17320_REG_BATT_CURRENT, &read);
     dev->battery_current = read * (CURRENT_LSB/R_SENSE_VAL) * 100;
     CETI_LOG("MAX17320 Battery Current: %u mA", dev->battery_current);
     return ret;
@@ -195,7 +195,7 @@ int max17320_get_battery_current(MAX17320_HandleTypeDef *dev) {
 
 int max17320_get_average_battery_current(MAX17320_HandleTypeDef *dev) {
     int16_t read = 0;
-    int read = max17320_read(fd, MAX17320_REG_AVG_BATT_CURRENT, &read);
+    int read = max17320_read(dev, MAX17320_REG_AVG_BATT_CURRENT, &read);
     dev->average_current = read * (CURRENT_LSB/R_SENSE_VAL) * 100;
     CETI_LOG("MAX17320 Avg Battery Current: %u mA", dev->average_current);
     return ret;
@@ -203,14 +203,14 @@ int max17320_get_average_battery_current(MAX17320_HandleTypeDef *dev) {
 
 int max17320_get_time_to_empty(MAX17320_HandleTypeDef *dev) {
     uint16_t read = 0;
-    int ret = max17320_read(fd, MAX17320_REG_TIME_TO_EMPTY, &read);
+    int ret = max17320_read(dev, MAX17320_REG_TIME_TO_EMPTY, &read);
     dev->time_to_empty = read * (TIME_LSB / SECOND_TO_HOUR);
     CETI_LOG("MAX17320 Time to Empty: %u hrs", dev->time_to_empty);
     return ret;
 }
 int max17320_get_time_to_full(MAX17320_HandleTypeDef *dev) {
     uint16_t read = 0;
-    int ret = max17320_read(fd, MAX17320_REG_TIME_TO_FULL, &read);
+    int ret = max17320_read(dev, MAX17320_REG_TIME_TO_FULL, &read);
     dev->time_to_full = read * (TIME_LSB / SECOND_TO_HOUR);
     CETI_LOG("MAX17320 Time to Full: %u hrs", dev->time_to_full);
     return ret;
@@ -234,11 +234,11 @@ int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
     }
     
     // Write to command register
-    ret = max17320_write(fd, MAX17320_REG_COMMAND, DETERMINE_REMAINING_UPDATES);
+    ret = max17320_write(dev, MAX17320_REG_COMMAND, DETERMINE_REMAINING_UPDATES);
     usleep(TRECALL);
 
     // Read from register that holds remaining writes
-    ret |= max17320_read(fd, MAX17320_REG_REMAINING_WRITES, &read);
+    ret |= max17320_read(dev, MAX17320_REG_REMAINING_WRITES, &read);
 
     // Decode remaining writes
     uint8_t first_byte = (read>>8) & 0xff;
