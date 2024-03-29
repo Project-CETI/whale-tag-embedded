@@ -256,6 +256,7 @@ int init_tag() {
   result += init_battery() == 0 ? 0 : -1;
   // TODO: Evaluate if a device makes sense vs a global struct
   result += max17320_get_remaining_writes(&bms) == 0 ? 0 : -1;
+  result += max17320_get_remaining_capacity(&bms) == 0 ? 0 : -1;
 #endif
 
 #if ENABLE_BURNWIRE
