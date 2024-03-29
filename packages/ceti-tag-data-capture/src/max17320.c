@@ -142,7 +142,20 @@ int max17320_get_remaining_capacity(MAX17320_HandleTypeDef* dev) {
     uint16_t read = 0;
     int ret = max17320_read(dev, MAX17320_REG_REP_CAPACITY, &read);
     dev->remaining_capacity = read * (CAPACITY_LSB / R_SENSE_VAL);
-    CETI_LOG("MAX17320 Remaining Capacity: %u mAh", dev->remaining_capacity);
+    CETI_LOG("MAX17320 Remaining Capacity Saved: %u mAh", dev->remaining_capacity);
+
+    // Try old way
+    int fd=i2cOpen(1, MAX17320_ADDR, 0);
+    if (fd < 0) {
+        CETI_ERR("Failed to connect to the battery gauge");
+        ret = -1;
+    }
+    else {
+        oldread = i2cReadWordData(fd, MAX17320_REG_REP_CAPACITY) * (CAPACITY_LSB / R_SENSE_VAL);
+        CETI_LOG("MAX17320 Remaining Capacity Old: %u mAh", oldread);
+        CETI_LOG("MAX17320 Remaining Capacity Raw: %u mAh", read);
+    }
+    i2cClose(fd);
     return ret;
 }
 
