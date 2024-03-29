@@ -72,9 +72,6 @@
 #define DETERMINE_REMAINING_UPDATES     0xE29B   
 #define TRECALL							5000		             
 
-// 8-bit to 16-bit conversion
-#define TO_16_BIT(b1, b2)				((uint16_t)(b2 << 8) | (uint16_t)b1)
-
 // shift a value (val) but amount (s) and width (w)
 #define _RSHIFT(val, s, w) (((val) >> (s)) & ((1 << (w)) - 1)) 
 
