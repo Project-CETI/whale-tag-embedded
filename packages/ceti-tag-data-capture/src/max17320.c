@@ -155,9 +155,10 @@ int max17320_get_remaining_capacity(MAX17320_HandleTypeDef* dev) {
     else {
         uint16_t oldread = i2cReadWordData(fd, MAX17320_REG_REP_CAPACITY) * (CAPACITY_LSB / R_SENSE_VAL);
         CETI_LOG("MAX17320 Remaining Capacity Old: %u mAh", oldread);
-        CETI_LOG("MAX17320 Remaining Capacity Raw: %u mAh", read * (CAPACITY_LSB / R_SENSE_VAL));
+        CETI_LOG("MAX17320 Remaining Capacity Just Factor Early: %u mAh", (CAPACITY_LSB / R_SENSE_VAL));
+        CETI_LOG("MAX17320 Remaining Capacity Raw: %f mAh", read * (CAPACITY_LSB / R_SENSE_VAL));
         CETI_LOG("MAX17320 Remaining Capacity Just Read: %u mAh", read);
-        CETI_LOG("MAX17320 Remaining Capacity Just Factor: %u mAh", (CAPACITY_LSB / R_SENSE_VAL));
+        CETI_LOG("MAX17320 Remaining Capacity Just Factor: %f mAh", (CAPACITY_LSB / R_SENSE_VAL));
     }
     i2cClose(fd);
     return ret;
