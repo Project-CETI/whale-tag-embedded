@@ -142,7 +142,7 @@ int max17320_get_remaining_capacity(MAX17320_HandleTypeDef* dev) {
     uint16_t read = 0;
     int ret = max17320_read(dev, MAX17320_REG_REP_CAPACITY, &read);
     dev->remaining_capacity = read * (CAPACITY_LSB / R_SENSE_VAL);
-    CETI_LOG("MAX17320 Remaining Capacity Saved: %f mAh", dev->remaining_capacity);
+    CETI_LOG("MAX17320 Remaining Capacity: %.0f mAh", dev->remaining_capacity);
     return ret;
 }
 
@@ -150,7 +150,7 @@ int max17320_get_state_of_charge(MAX17320_HandleTypeDef *dev) {
     uint16_t read = 0;
     int ret = max17320_read(dev, MAX17320_REG_REP_SOC, &read);
     dev->state_of_charge = read * PERCENTAGE_LSB;
-    CETI_LOG("MAX17320 State of Charge: %u %%", dev->state_of_charge);
+    CETI_LOG("MAX17320 State of Charge: %.0f %%", dev->state_of_charge);
     return ret;
 }
 
@@ -159,22 +159,22 @@ int max17320_get_voltages(MAX17320_HandleTypeDef *dev) {
     // Cell 1 Voltage
     int ret = max17320_read(dev, MAX17320_REG_CELL1_VOLTAGE, &read);
     dev->cell_1_voltage = read * CELL_VOLTAGE_LSB;
-    CETI_LOG("MAX17320 Cell 1 Voltage: %u V", dev->cell_1_voltage);
+    CETI_LOG("MAX17320 Cell 1 Voltage: %.0f V", dev->cell_1_voltage);
 
     // Cell 2 Voltage
     ret |= max17320_read(dev, MAX17320_REG_CELL2_VOLTAGE, &read);
     dev->cell_2_voltage = read * CELL_VOLTAGE_LSB;
-    CETI_LOG("MAX17320 Cell 2 Voltage: %u V", dev->cell_2_voltage);
+    CETI_LOG("MAX17320 Cell 2 Voltage: %.0f V", dev->cell_2_voltage);
 
     // Total Battery Voltage
     ret |= max17320_read(dev, MAX17320_REG_TOTAL_BAT_VOLTAGE, &read);
     dev->total_battery_voltage = read * PACK_VOLTAGE_LSB;
-    CETI_LOG("MAX17320 Total Battery Voltage: %u V", dev->total_battery_voltage);
+    CETI_LOG("MAX17320 Total Battery Voltage: %.0f V", dev->total_battery_voltage);
     
     // Pack Side Voltage
     ret |= max17320_read(dev, MAX17320_REG_PACK_SIDE_VOLTAGE, &read);
     dev->pack_side_voltage = read * PACK_VOLTAGE_LSB;
-    CETI_LOG("MAX17320 Pack Side Voltage: %u V", dev->pack_side_voltage);
+    CETI_LOG("MAX17320 Pack Side Voltage: %.0f V", dev->pack_side_voltage);
     
     return ret;
 }
@@ -183,7 +183,7 @@ int max17320_get_temperature(MAX17320_HandleTypeDef *dev) {
     int16_t read = 0;
     int ret = max17320_read(dev, MAX17320_REG_TEMPERATURE, &read);
     dev->temperature = read * TEMPERATURE_LSB;
-    CETI_LOG("MAX17320 Temperature: %u °C", dev->temperature);
+    CETI_LOG("MAX17320 Temperature: %.0f °C", dev->temperature);
     return ret;
 }
 
@@ -191,7 +191,7 @@ int max17320_get_battery_current(MAX17320_HandleTypeDef *dev) {
     int16_t read = 0;
     int ret = max17320_read(dev, MAX17320_REG_BATT_CURRENT, &read);
     dev->battery_current = read * (CURRENT_LSB/R_SENSE_VAL) * 100;
-    CETI_LOG("MAX17320 Battery Current: %u mA", dev->battery_current);
+    CETI_LOG("MAX17320 Battery Current: %.0f mA", dev->battery_current);
     return ret;
 }
 
@@ -199,7 +199,7 @@ int max17320_get_average_battery_current(MAX17320_HandleTypeDef *dev) {
     int16_t read = 0;
     int ret = max17320_read(dev, MAX17320_REG_AVG_BATT_CURRENT, &read);
     dev->average_current = read * (CURRENT_LSB/R_SENSE_VAL) * 100;
-    CETI_LOG("MAX17320 Avg Battery Current: %u mA", dev->average_current);
+    CETI_LOG("MAX17320 Avg Battery Current: %.0f mA", dev->average_current);
     return ret;
 }
 
@@ -207,14 +207,14 @@ int max17320_get_time_to_empty(MAX17320_HandleTypeDef *dev) {
     uint16_t read = 0;
     int ret = max17320_read(dev, MAX17320_REG_TIME_TO_EMPTY, &read);
     dev->time_to_empty = read * (TIME_LSB / SECOND_TO_HOUR);
-    CETI_LOG("MAX17320 Time to Empty: %u hrs", dev->time_to_empty);
+    CETI_LOG("MAX17320 Time to Empty: %.0f hrs", dev->time_to_empty);
     return ret;
 }
 int max17320_get_time_to_full(MAX17320_HandleTypeDef *dev) {
     uint16_t read = 0;
     int ret = max17320_read(dev, MAX17320_REG_TIME_TO_FULL, &read);
     dev->time_to_full = read * (TIME_LSB / SECOND_TO_HOUR);
-    CETI_LOG("MAX17320 Time to Full: %u hrs", dev->time_to_full);
+    CETI_LOG("MAX17320 Time to Full: %.0f hrs", dev->time_to_full);
     return ret;
 }
 
@@ -256,6 +256,6 @@ int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
         decoded = decoded >> 1;
     }
     dev->remaining_writes = (8-count);
-    CETI_LOG("MAX17320 Remaining Writes: %u", dev->remaining_writes);
+    CETI_LOG("MAX17320 Remaining Writes: %.0f", dev->remaining_writes);
     return ret;
 }
