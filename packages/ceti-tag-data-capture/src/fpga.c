@@ -7,10 +7,15 @@
 //-----------------------------------------------------------------------------
 
 #include "fpga.h"
-#include "launcher.h" //for g_process_path
+#include <pigpio.h>
+#include <stdio.h>  // for FILE
+#include <stdlib.h> // for malloc()
+#include <unistd.h> // for usleep()
 
-//-----------------------------------------------------------------------------
-int init_fpga(void) {
+/*****************************************************************************
+ * Device Code
+*/
+ResultFPGA init_fpga(const char *fpga_bitstream_path) {
 
   // Power present flag used by FPGA during shutdown
   gpioSetMode(POWER_FLAG, PI_OUTPUT);
@@ -18,18 +23,14 @@ int init_fpga(void) {
 
   // Configure the FPGA and log version
   char fpgaCamResponse[16];
-  if (!loadFpgaBitstream()) {
-    cam(0x10, 0, 0, 0, 0, fpgaCamResponse);
-    CETI_LOG("Successfully configured the FPGA, Ver: 0x%02X%02X ", fpgaCamResponse[4], fpgaCamResponse[5]);
-  } else {
-    CETI_ERR("FPGA initial configuration failed");
-    return (-1);
+  ResultFPGA result = loadFpgaBitstream(fpga_bitstream_path);
+  if (result == FPGA_OK) {
+      cam(0x10, 0, 0, 0, 0, fpgaCamResponse);
+      CETI_LOG("Successfully configured the FPGA, Ver: 0x%02X%02X ", fpgaCamResponse[4], fpgaCamResponse[5]);
   }
-  return 0;
+  return result;
 }
-
-//-----------------------------------------------------------------------------
-int loadFpgaBitstream(void) {
+ResultFPGA loadFpgaBitstream(const char *fpga_bitstream_path) {
   FILE *pConfigFile; // pointer to configuration file
   char *pConfig;     // pointer to configuration buffer
 
@@ -47,23 +48,18 @@ int loadFpgaBitstream(void) {
   gpioWrite(PROG_B, 0);
 
   // allocate the buffer
-  pConfig = malloc(BITSTREAM_SIZE_BYTES); // allocate memory for the
-                                          // configuration bitstream
+  pConfig = malloc(BITSTREAM_SIZE_BYTES); // allocate memory for the configuration bitstream
   if (pConfig == NULL) {
-    CETI_ERR("Failed to allocate memory for the configuration file");
-    return 1;
+    return FPGA_ERR_CONFIG_MALLOC;
   }
 
   // read the FPGA configuration file
   // ToDo: replace with mmap, do not hardcode bitstreamsize
-  char fpga_bitstream_path[512];
-  strncpy(fpga_bitstream_path, g_process_path, sizeof(fpga_bitstream_path) - 1);
-  strncat(fpga_bitstream_path, FPGA_BITSTREAM, sizeof(fpga_bitstream_path) - 1);
   pConfigFile = fopen(fpga_bitstream_path, "rb");
   if (pConfigFile == NULL) {
-    CETI_ERR("cannot open input file: %s", fpga_bitstream_path);
-    return 1;
+    return FPGA_ERR_BIN_OPEN;
   }
+
   fread(pConfig, 1, BITSTREAM_SIZE_BYTES, pConfigFile);
   fclose(pConfigFile);
 
@@ -88,7 +84,7 @@ int loadFpgaBitstream(void) {
     }
   }
 
-  return (!gpioRead(DONE));
+  return gpioRead(DONE) ? FPGA_OK : FPGA_ERR_N_DONE;
 }
 
 //-----------------------------------------------------------------------------

@@ -255,7 +255,32 @@ int init_tag() {
 
 // Initialize selectively enabled components.
 #if ENABLE_FPGA
-  result += init_fpga() == 0 ? 0 : -1;
+  char fpga_bitstream_path[512];
+  strncpy(fpga_bitstream_path, g_process_path, sizeof(fpga_bitstream_path) - 1);
+  snprintf(fpga_bitstream_path, sizeof(fpga_bitstream_path), "%s../config/top.%dch.%dbit.bin", g_process_path, CHANNELS, g_config.audio.bit_depth);
+  // strncat(fpga_bitstream_path, FPGA_BITSTREAM, sizeof(fpga_bitstream_path) - 1);
+  ResultFPGA fpga_result = init_fpga(fpga_bitstream_path);
+
+  switch (fpga_result) {
+    case FPGA_ERR_CONFIG_MALLOC:
+      CETI_ERR("Failed to allocate memory for the fpga configuration file");
+      result += -1;
+      break;
+
+    case FPGA_ERR_BIN_OPEN:
+      CETI_ERR("Cannot open FPGA input file: %s", fpga_bitstream_path);
+      result += -1;
+      break;
+
+    case FPGA_ERR_N_DONE:
+      CETI_ERR("FPGA initial configuration failed");
+      result += -1;
+      break;
+
+    case FPGA_OK:
+    default:
+      break;
+  }
 #endif
 
 #if ENABLE_BATTERY_GAUGE
@@ -279,7 +304,11 @@ int init_tag() {
 #endif
 
 #if ENABLE_RECOVERY
+if(g_config.recovery.enabled) {
   result += recovery_thread_init() == 0 ? 0 : -1;
+} else {
+  recovery_kill();
+}
 #endif
 
 #if ENABLE_BOARDTEMPERATURE_SENSOR

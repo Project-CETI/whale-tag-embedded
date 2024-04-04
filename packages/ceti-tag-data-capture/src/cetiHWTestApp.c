@@ -1110,7 +1110,28 @@ int main(void) {
         bytes--;
     }
 
-    init_fpga();
+    char fpga_bitstream_path[512];
+    strncpy(fpga_bitstream_path, g_process_path, sizeof(fpga_bitstream_path) - 1);
+    strncat(fpga_bitstream_path, FPGA_BITSTREAM, sizeof(fpga_bitstream_path) - 1);
+    ResultFPGA fpga_result = init_fpga(fpga_bitstream_path);
+
+    switch (fpga_result) {
+        case FPGA_ERR_CONFIG_MALLOC:
+            CETI_ERR("Failed to allocate memory for the fpga configuration file");
+            return fpga_result;
+
+        case FPGA_ERR_BIN_OPEN:
+            CETI_ERR("Cannot open FPGA input file: %s", fpga_bitstream_path);
+            return fpga_result;
+
+        case FPGA_ERR_N_DONE:
+            CETI_ERR("FPGA initial configuration failed");
+            return fpga_result;
+
+        case FPGA_OK:
+        default:
+            break;
+    }
     light_wake();
     enableRawMode();
 #ifdef TIOCGSIZE

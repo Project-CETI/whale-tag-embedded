@@ -17,7 +17,7 @@
 SRC        = $(shell find src -type f -iname '*.c' 2> /dev/null)
 OBJ        = $(SRC:.c=.o)
 CC         = gcc
-CFLAGS     = -Wall -O2
+CFLAGS     = -Wall -O2 -Wdate-time -D_FORTIFY_SOURCE=2
 LDFLAGS    = -lpthread -lpigpio -lFLAC -lm
 APP        = cetiTagApp
 HW_TEST    = cetiHWTestApp
@@ -28,7 +28,6 @@ IPCDIR    ?= ipc
 CONFIGDIR ?= config
 DATADIR   ?= data
 DESTDIR   ?= opt/ceti-tag-data-capture
-
 
 $(APP): $(APP_OBJ)
 .PHONY: \
@@ -41,7 +40,7 @@ $(APP): $(APP_OBJ)
 	
 build: $(APP) $(HW_TEST)
 
-debug: CFLAGS := -Wall -g -DDEBUG
+debug: CFLAGS := -Wall -g -Wdate-time -D_FORTIFY_SOURCE=2 -DDEBUG 
 debug: $(APP) $(HW_TEST)
 
 binary: $(APP)
@@ -69,3 +68,6 @@ clean:
 
 test:
 	$(MAKE) test -C test
+
+## -Ofast optimization used in trying to acheive higher audio data rates
+# src/sensors/audio.o: CFLAGS := -Wall -Ofast -Wdate-time -D_FORTIFY_SOURCE=2

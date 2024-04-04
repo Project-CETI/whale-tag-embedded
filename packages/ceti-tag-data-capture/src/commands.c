@@ -205,7 +205,7 @@ int handle_command(void) {
         CETI_LOG("Configuring the FPGA");
 
         #if ENABLE_FPGA
-        if (!loadFpgaBitstream()) {
+        if (!loadFpgaBitstream("/opt/ceti-tag-data-capture/config/top.bin")) {
             CETI_LOG("FPGA Configuration Succeeded");
             g_rsp_pipe = fopen(rsp_pipe_path, "w");
             fprintf(g_rsp_pipe,

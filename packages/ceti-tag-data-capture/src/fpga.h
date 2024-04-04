@@ -56,13 +56,15 @@
 
 #define POWER_FLAG 17
 
-#include <pigpio.h>
-#include <stdio.h>  // for FILE
-#include <stdlib.h> // for malloc()
-#include <unistd.h> // for usleep()
+typedef enum  {
+    FPGA_OK,
+    FPGA_ERR_CONFIG_MALLOC = -1,
+    FPGA_ERR_BIN_OPEN = -2,
+    FPGA_ERR_N_DONE = -3,
+} ResultFPGA;
 
-int init_fpga(void);
-int loadFpgaBitstream(void);
+ResultFPGA init_fpga(const char *fpga_bitstream_path);
+ResultFPGA loadFpgaBitstream(const char *fpga_bitstream_path);
 void cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
          unsigned int pld0, unsigned int pld1, char *pResponse);
 

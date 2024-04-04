@@ -222,14 +222,14 @@ int reset_audio_fifo(void) {
 
 int start_audio_acq(void) {
   CETI_LOG("Starting audio acquisition");
-  FPGA_FIFO_STOP(); // Stop any incoming data
-  FPGA_FIFO_RESET(); // Reset the FIFO
   init_audio_buffers();
 #if ENABLE_AUDIO_FLAC
   audio_createNewFlacFile();
 #else
   audio_createNewRawFile();
 #endif
+  FPGA_FIFO_STOP(); // Stop any incoming data
+  FPGA_FIFO_RESET(); // Reset the FIFO
   FPGA_FIFO_START(); // starts the stream
   return 0;
 }
@@ -253,7 +253,8 @@ int stop_audio_acq(void) {
 //-----------------------------------------------------------------------------
 #include "../utils/config.h"
 
-static uint64_t s_file_start_time_ms = 0;
+static struct timeval s_file_start_time;
+static struct timeval s_block_start_time;
 
 int audio_thread_init(void) {
   if (!audio_setup(&g_config.audio)) {
@@ -317,26 +318,27 @@ void *audio_thread_spi(void *paramPtr) {
   // Check if the audio is already overflowed.
   audio_check_for_overflow(0);
 
+  // Main loop to acquire audio data.
+  g_audio_thread_spi_is_running = 1;
+  time_t expected_IQR_interval_us = AUDIO_BLOCK_FILL_SPEED_US(g_config.audio.sample_rate * 1000, g_config.audio.bit_depth);
+  time_t retry_sleep_us = expected_IQR_interval_us/20;
+
   // Initialize state.
   CETI_LOG("Starting loop to fetch data via SPI");
   // Start the audio acquisition on the FPGA.
-  s_file_start_time_ms = get_global_time_ms();
+  gettimeofday(&s_file_start_time, NULL);
+
   start_audio_acq();
 
   // Discard the very first byte in the SPI stream.
   char first_byte;
   spiRead(spi_fd, &first_byte, 1);
-
-  // Main loop to acquire audio data.
-  g_audio_thread_spi_is_running = 1;
-  time_t expected_IQR_interval_us = AUDIO_BLOCK_FILL_SPEED_US(g_config.audio.sample_rate * 1000, g_config.audio.bit_depth);
   while (!g_stopAcquisition && !g_audio_overflow_detected) {
     // Wait for SPI data to be available.
     while (!gpioRead(AUDIO_DATA_AVAILABLE)) {
       // Reduce the CPU load a bit.
-      usleep(expected_IQR_interval_us/10);
+      usleep(retry_sleep_us);
       // Check if the FPGA buffer overflowed.
-      audio_check_for_overflow(1);
       continue;
     }
 
@@ -348,24 +350,24 @@ void *audio_thread_spi(void *paramPtr) {
     }
     #endif
 
-    // // Read a block of data if an overflow has not occurred.
+    // Read a block of data if an overflow has not occurred.
     audio_check_for_overflow(2);
     if (g_audio_overflow_detected) {
       break;
     }
 
-    if (block_counter + 1 == AUDIO_BUFFER_SIZE_BLOCKS){
-      s_file_start_time_ms = get_global_time_ms();
-    }
-    int64_t global_time_startRead_us = get_global_time_us();
+    struct timeval current_timeval;
+    gettimeofday(&current_timeval, NULL);
     spiRead(spi_fd, audio_buffer[audio_buffer_toLog].blocks[block_counter], SPI_BLOCK_SIZE);
 
     // When NUM_SPI_BLOCKS are in the ram buffer, switch to using the other buffer.
     // This will also trigger the writeData thread to write the previous buffer to disk.
-    block_counter = (block_counter + 1) % AUDIO_BUFFER_SIZE_BLOCKS;
-    if (block_counter == 0) {
+    block_counter = (block_counter + 1);
+    if (block_counter == AUDIO_BUFFER_SIZE_BLOCKS) {
+      block_counter = 0;
+      s_block_start_time = current_timeval;
       CETI_DEBUG("%d blocks read", AUDIO_BUFFER_SIZE_BLOCKS);
-      audio_buffer_toLog = !audio_buffer_toLog; //rotate to page
+      audio_buffer_toLog ^= 1; //rotate to page
     }
 
     // don't wait if more data is ready
@@ -373,11 +375,12 @@ void *audio_thread_spi(void *paramPtr) {
       continue;
     }
 
+    // only perform checks/sleep if we have time to
     // Check if the FPGA buffer overflowed.
     audio_check_for_overflow(3);
 
     //wait until expected next interrupt
-    time_t elapsed_time = get_global_time_us() - global_time_startRead_us;
+    time_t elapsed_time = get_global_time_us() - (int64_t)(current_timeval.tv_sec * 1000000LL) - (int64_t)(current_timeval.tv_usec);
     if (elapsed_time < expected_IQR_interval_us){
       usleep(expected_IQR_interval_us -  elapsed_time);
     } 
@@ -462,6 +465,12 @@ void *audio_thread_writeFlac(void *paramPtr) {
       continue;
     }
 
+    //store previous block timestamp for file create timestamp
+    struct timeval next_file_name = {};
+    if ((audio_acqDataFileLength +  AUDIO_BUFFER_SIZE_BYTES > (filesize_bytes - 1)) || (flac_encoder == 0)) {
+      s_file_start_time = s_block_start_time;
+    }
+
     // Log that a write is starting.
     long long global_time_us = get_global_time_us();
     while (audio_writing_to_status_file)
@@ -484,18 +493,15 @@ void *audio_thread_writeFlac(void *paramPtr) {
     fclose(audio_status_file);
     audio_writing_to_status_file = 0;
 
-    // Create a new output file if this is the first flush
-    //  or if the file size limit has been reached.
-    if ((audio_acqDataFileLength > (filesize_bytes - 1)) || (flac_encoder == 0)) {
-      audio_createNewFlacFile();
-    }
+
 
     // Write the buffer to a file.
     if(g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24){
       for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE24; i_sample++) {
         for (size_t i_channel = 0; i_channel < CHANNELS; i_channel++) {
           uint8_t *i_ptr = audio_buffer[audio_buffer_toWrite].sample24[i_sample][i_channel];
-          buff[i_sample][i_channel] = ((FLAC__int32)i_ptr[0] << 16) | ((FLAC__int32)i_ptr[1] << 8) | ((FLAC__int32)i_ptr[2] << 0);
+          FLAC__int32 value = ((FLAC__int32)i_ptr[0] << 24) | ((FLAC__int32)i_ptr[1] << 16) | ((FLAC__int32)i_ptr[2] << 8);
+          buff[i_sample][i_channel] = value / (1 << 8);
         }
       }
       FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], AUDIO_BUFFER_SIZE_SAMPLE24);
@@ -503,7 +509,8 @@ void *audio_thread_writeFlac(void *paramPtr) {
       for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE16; i_sample++) {
         for (size_t i_channel = 0; i_channel < CHANNELS; i_channel++) {
           uint8_t *i_ptr = audio_buffer[audio_buffer_toWrite].sample16[i_sample][i_channel];
-          buff[i_sample][i_channel] = ((FLAC__int32)i_ptr[0] << 8) | ((FLAC__int32)i_ptr[1] << 0);
+          FLAC__int32 value = ((FLAC__int32)i_ptr[0] << 24) | ((FLAC__int32)i_ptr[1] << 16);
+          buff[i_sample][i_channel] = value / (1 << 16);
         }
       }
       FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], AUDIO_BUFFER_SIZE_SAMPLE16);
@@ -511,6 +518,11 @@ void *audio_thread_writeFlac(void *paramPtr) {
     audio_acqDataFileLength += AUDIO_BUFFER_SIZE_BYTES;
     CETI_DEBUG("%lu of %lu bytes converted to flac", audio_acqDataFileLength, filesize_bytes);
     
+    // Create a new output file if this is the first flush
+    //  or if the file size limit has been reached.
+    if ((audio_acqDataFileLength > (filesize_bytes - 1)) || (flac_encoder == 0)) {
+      audio_createNewFlacFile();
+    }
 
     // Switch to waiting on the other buffer.
     audio_buffer_toWrite = !audio_buffer_toWrite;
@@ -555,7 +567,8 @@ void *audio_thread_writeFlac(void *paramPtr) {
       for (size_t i_sample = 0; i_sample < samples_to_flush; i_sample++) {
         for (size_t i_channel = 0; i_channel < CHANNELS; i_channel++) {
           uint8_t *i_ptr = audio_buffer[audio_buffer_toLog].sample24[i_sample][i_channel];
-          buff[i_sample][i_channel] = ((FLAC__int32)i_ptr[0] << 16) | ((FLAC__int32)i_ptr[1] << 8) | ((FLAC__int32)i_ptr[2] << 0);
+          FLAC__int32 value = ((FLAC__int32)i_ptr[0] << 24) | ((FLAC__int32)i_ptr[1] << 16) | ((FLAC__int32)i_ptr[2] << 8);
+          buff[i_sample][i_channel] = value / (1 << 8);
         }
       }
       FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], samples_to_flush);
@@ -565,7 +578,8 @@ void *audio_thread_writeFlac(void *paramPtr) {
       for (size_t i_sample = 0; i_sample < samples_to_flush; i_sample++) {
         for (size_t i_channel = 0; i_channel < CHANNELS; i_channel++) {
           uint8_t *i_ptr = audio_buffer[audio_buffer_toLog].sample16[i_sample][i_channel];
-          buff[i_sample][i_channel] = ((FLAC__int32)i_ptr[0] << 8) | ((FLAC__int32)i_ptr[1] << 0);
+          FLAC__int32 value = ((FLAC__int32)i_ptr[0] << 24) | ((FLAC__int32)i_ptr[1] << 16);
+          buff[i_sample][i_channel] = value / (1 << 16);
         }
       }
       FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], samples_to_flush);
@@ -605,7 +619,7 @@ void audio_createNewFlacFile() {
   }
 
   // filename is the time in ms at the start of audio recording 
-  snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%lld.flac", s_file_start_time_ms);
+  snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%ld.flac", (int64_t)(s_file_start_time.tv_sec * 1000LL) - (int64_t)(s_file_start_time.tv_usec)/1000);
   audio_acqDataFileLength = 0;
 
   /* allocate the encoder */
@@ -762,7 +776,7 @@ void audio_createNewRawFile() {
   }
 
   // filename is the time in ms at the start of audio recording
-  snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%lld.raw", s_file_start_time_ms);
+  snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%lu.raw", (uint64_t)(s_file_start_time.tv_sec * 1000LL) - (uint64_t)(s_file_start_time.tv_usec)/1000);
   acqData = fopen(audio_acqDataFileName, "wb");
   audio_acqDataFileLength = 0;
   if (!acqData) {
@@ -780,7 +794,7 @@ void audio_check_for_overflow(int location_index) {
 #if AUDIO_OVERFLOW_GPIO >= 0
   g_audio_overflow_detected = g_audio_overflow_detected || gpioRead(AUDIO_OVERFLOW_GPIO);
   if (g_audio_overflow_detected) {
-    CETI_LOG("*** OVERFLOW detected at location %d ***", location_index);
+    CETI_LOG("*** OVERFLOW detected at location %d, block %d***", location_index, block_counter);
     audio_overflow_detected_location = location_index;
     long long global_time_us = get_global_time_us();
     while (audio_writing_to_status_file)
