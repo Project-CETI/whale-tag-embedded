@@ -21,6 +21,7 @@
 #define MAX17320_ADDR                   0x36  // For internal memory range 000h-0FFh
 #define MAX17320_ADDR_SEC               0x0b  // For internal memory range 180h-1FFh
 
+// TODO: Remove Unused Registers
 #define MAX17320_REG_STATUS             0x000
 #define MAX17320_REG_REP_CAPACITY       0x005
 #define MAX17320_REG_REP_SOC            0x006
@@ -39,6 +40,48 @@
 #define MAX17320_REG_COMMAND			0x060
 #define MAX17320_REG_DEV_NAME           0x021
 #define MAX17320_REG_REMAINING_WRITES	0x1FD
+#define MAX17320_REG_CONFIG2			0x0AB
+
+// Registers for Non-Volatile Writes
+#define MAX17320_REG_NPACKCFG			0x1B5
+#define MAX17320_REG_NNVCFG0			0x1B8
+#define MAX17320_REG_NNVCFG1			0x1B9
+#define MAX17320_REG_NNVCFG2			0x1BA
+#define MAX17320_REG_NUVPRTTH			0x1D0
+#define MAX17320_REG_NTPRTTH1			0x1D1
+#define MAX17320_REG_NIPRTTH1			0x1D3
+#define MAX17320_REG_NBALTH				0x1D4
+#define MAX17320_REG_NPROTMISCTH		0x1D6
+#define MAX17320_REG_NPROTCFG			0x1D7
+#define MAX17320_REG_NJEITAV			0x1D9
+#define MAX17320_REG_NOVPRTTH			0x1DA
+#define MAX17320_REG_NDELAYCFG			0x1DC
+#define MAX17320_REG_NODSCCFG			0x1DE
+#define MAX17320_REG_NCONFIG			0x1B0
+#define MAX17320_REG_NTHERMCFG			0x1CA
+#define MAX17320_REG_NVEMPTY			0x19E
+#define MAX17320_REG_NFULLSOCTHR		0x1C6
+
+// Data for Non-Volatile Writes
+// Refer to 'NV Write Decisions BMS FW' Spreadsheet for details
+#define MAX17320_VAL_NPACKCFG			0xC204
+#define MAX17320_VAL_NNVCFG0			0x0830
+#define MAX17320_VAL_NNVCFG1			0x2100
+#define MAX17320_VAL_NNVCFG2			0x822D
+#define MAX17320_VAL_NUVPRTTH			0xA002
+#define MAX17320_VAL_NTPRTTH1			0x280A
+#define MAX17320_VAL_NIPRTTH1			0x03FD
+#define MAX17320_VAL_NBALTH				0x0CAA
+#define MAX17320_VAL_NPROTMISCTH		0x0313
+#define MAX17320_VAL_NPROTCFG			0x0C08
+#define MAX17320_VAL_NJEITAV			0xEC00
+#define MAX17320_VAL_NOVPRTTH			0xB3A0
+#define MAX17320_VAL_NDELAYCFG			0x0035
+#define MAX17320_VAL_NODSCCFG			0x4058
+#define MAX17320_VAL_NCONFIG			0x0290
+#define MAX17320_VAL_NTHERMCFG			0x71BE
+#define MAX17320_VAL_NVEMPTY			0x9659
+#define MAX17320_VAL_NFULLSOCTHR		0x5005
 
 // LSB Conversion Macros
 #define R_SENSE_VAL						0.001 // Ω
@@ -67,10 +110,15 @@
 // Other Macros
 #define MAX17320_TIMEOUT                1000
 #define SECOND_TO_HOUR					3600
-#define CLEARED_WRITE_PROT              0x0000
+#define CLEAR_WRITE_PROT                0x0000
+#define CLEARED_WRITE_PROT              0x0004
 #define LOCKED_WRITE_PROT               0x00F9
 #define DETERMINE_REMAINING_UPDATES     0xE29B   
-#define TRECALL							5000		             
+#define INITIATE_BLOCK_COPY             0xE904
+#define TRECALL							5000
+#define TBLOCK							7370000
+#define MAX17320_RESET 					0x000F
+#define MAX17320_RESET_FW				0x8000	             
 
 // shift a value (val) but amount (s) and width (w)
 #define _RSHIFT(val, s, w) (((val) >> (s)) & ((1 << (w)) - 1)) 
@@ -125,8 +173,11 @@ int max17320_get_battery_current(MAX17320_HandleTypeDef *dev);
 int max17320_get_average_battery_current(MAX17320_HandleTypeDef *dev);
 int max17320_get_time_to_empty(MAX17320_HandleTypeDef *dev);
 int max17320_get_time_to_full(MAX17320_HandleTypeDef *dev);
-int max17320_set_alert_thresholds(MAX17320_HandleTypeDef *dev);
-int max17320_configure_cell_balancing(MAX17320_HandleTypeDef *dev);
 int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev);
+int max17320_reset(MAX17320_HandleTypeDef *dev);
+int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev);
+int max17320_verify_nonvolatile(MAX17320_HandleTypeDef *dev);
+
+// Add functions for reset and starting charge/discharge
 
 #endif // MAX17320_H
