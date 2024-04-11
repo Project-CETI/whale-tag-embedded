@@ -8,7 +8,7 @@
 #include "max17320.h"
 
 // Global variables
-// TODO add battery thread
+// TODO add battery thread?
 // TODO we've created a struct, they just have global vars, evaluate what is needed
 // TODO error checking for all writes/reads
 static FILE* battery_data_file = NULL;
@@ -74,14 +74,13 @@ static inline int max17320_read(MAX17320_HandleTypeDef *dev, uint16_t memory, ui
     }
     i2cClose(fd);
     return ret;
-    // TODO before using ensure all header registers for 0x0b are in full form
 }
 
 int max17320_init(MAX17320_HandleTypeDef *dev) {
     int ret = -1;
     // check status
     ret = max17320_get_status(dev);
-    ret = max17320_get_remaining_writes(dev);
+    ret = max17320_nonvolatile_write(dev);
     
     // TODO: Proper logging in seperate file
     // if(init_data_file(battery_data_file, MAX17320_DATA_FILEPATH,
@@ -269,7 +268,8 @@ static inline int max17320_setup_nv_write(MAX17320_HandleTypeDef *dev) {
     ret |= max17320_write(dev, MAX17320_REG_COMM_STAT, CLEAR_WRITE_PROT);
 
     // Initiate a block copy
-    ret |= max17320_write(dev, MAX17320_REG_COMMAND, INITIATE_BLOCK_COPY);
+    // TODO: Uncomment later
+    // ret |= max17320_write(dev, MAX17320_REG_COMMAND, INITIATE_BLOCK_COPY);
     usleep(TBLOCK);
     return ret;
 }
@@ -284,21 +284,21 @@ int max17320_reset(MAX17320_HandleTypeDef *dev) {
 int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
     int ret = max17320_verify_nv_write(dev);
     if (ret == 0) {
-        CETI_LOG("Nonvolatile settings already written")
+        CETI_LOG("Nonvolatile settings already written");
         return ret;
     }
+    CETI_LOG("Nonvolatile settings will be re-written");
     
     ret |= max17320_get_remaining_writes(dev);
     if (dev->remaining_writes < 4) {
         ret = -1;
-        CETI_LOG("Remaining nonvolatile writes 3 or less, not rewriting")
+        CETI_LOG("Remaining nonvolatile writes 3 or less, not rewriting");
         return ret;
     }
     
     // Clear write protection
     uint16_t read = 0;
     ret |= max17320_clear_write_protection(dev);
-    
     if (ret < 0)
     {
         return ret;
@@ -311,18 +311,19 @@ int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
         ret |= max17320_read(dev, MAX17320_REG_COMM_STAT, &read);
     } while ((read & 0x0004) == 0x0004); // Checking error bit
 
-    // Send full reset command to the IC
-    ret |= max17320_reset(dev);
-    // Reset firmware
-    ret |= max17320_clear_write_protection(dev);
-    ret |= max17320_write(dev, MAX17320_REG_CONFIG2, MAX17320_RESET_FW);
-    ret |= max17320_read(dev, MAX17320_REG_CONFIG2, &read);
-    // Wait for POR_CMD bit to clear
-    while ((read & 0x4000) == 0x4000) {
-        ret |= max17320_read(dev, MAX17320_REG_CONFIG2, &read);
-    }
-    // Lock write protection
-    ret |= max17320_lock_write_protection(dev);
+    // TODO: Uncomment later
+        // // Send full reset command to the IC
+        // ret |= max17320_reset(dev);
+        // // Reset firmware
+        // ret |= max17320_clear_write_protection(dev);
+        // ret |= max17320_write(dev, MAX17320_REG_CONFIG2, MAX17320_RESET_FW);
+        // ret |= max17320_read(dev, MAX17320_REG_CONFIG2, &read);
+        // // Wait for POR_CMD bit to clear
+        // while ((read & 0x4000) == 0x4000) {
+        //     ret |= max17320_read(dev, MAX17320_REG_CONFIG2, &read);
+        // }
+        // // Lock write protection
+        // ret |= max17320_lock_write_protection(dev);
     return ret;
 }
 
