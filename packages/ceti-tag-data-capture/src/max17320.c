@@ -220,6 +220,7 @@ int max17320_get_time_to_full(MAX17320_HandleTypeDef *dev) {
 static inline int max17320_verify_nv_write(MAX17320_HandleTypeDef *dev) {
     // Verify whether each non volatile write has been completed
     int16_t read = 0;
+    int ret = 0;
 
     uint16_t registers[] = {MAX17320_REG_NPACKCFG, MAX17320_REG_NNVCFG0, MAX17320_REG_NNVCFG1, MAX17320_REG_NNVCFG2, MAX17320_REG_NUVPRTTH, MAX17320_REG_NTPRTTH1, MAX17320_REG_NIPRTTH1,
                             MAX17320_REG_NBALTH, MAX17320_REG_NPROTMISCTH, MAX17320_REG_NPROTCFG, MAX17320_REG_NJEITAV, MAX17320_REG_NOVPRTTH, MAX17320_REG_NDELAYCFG, MAX17320_REG_NODSCCFG,
