@@ -343,6 +343,7 @@ int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
 
     // Read from register that holds remaining writes
     ret |= max17320_read(dev, MAX17320_REG_REMAINING_WRITES, &read);
+    CETI_LOG("MAX17320 Remaining Writes Register Read: %.4f", read);
 
     // Decode remaining writes
     uint8_t first_byte = (read>>8) & 0xff;
