@@ -45,7 +45,7 @@ static inline int max17320_write(MAX17320_HandleTypeDef *dev, uint16_t memory, u
     }
     int fd=i2cOpen(1, addr, 0);
     if (fd < 0) {
-        CETI_ERR("Failed to connect to the battery gauge");
+        CETI_ERR("Failed to connect to the MAX17320 battery gauge");
         ret = -1;
     }
     else {
@@ -66,7 +66,7 @@ static inline int max17320_read(MAX17320_HandleTypeDef *dev, uint16_t memory, ui
     }
     int fd=i2cOpen(1, addr, 0);
     if (fd < 0) {
-        CETI_ERR("Failed to connect to the battery gauge");
+        CETI_ERR("Failed to connect to the MAX17320 battery gauge");
         ret = -1;
     }
     else {
@@ -219,7 +219,7 @@ int max17320_get_time_to_full(MAX17320_HandleTypeDef *dev) {
 
 static inline int max17320_verify_nv_write(MAX17320_HandleTypeDef *dev) {
     // Verify whether each non volatile write has been completed
-    int16_t read = 0;
+    uint16_t read = 0;
     int ret = 0;
 
     uint16_t registers[] = {MAX17320_REG_NPACKCFG, MAX17320_REG_NNVCFG0, MAX17320_REG_NNVCFG1, MAX17320_REG_NNVCFG2, MAX17320_REG_NUVPRTTH, MAX17320_REG_NTPRTTH1, MAX17320_REG_NIPRTTH1,
@@ -233,7 +233,10 @@ static inline int max17320_verify_nv_write(MAX17320_HandleTypeDef *dev) {
         ret |= max17320_read(dev, registers[i], &read);
         if (read != data[i]){
             ret |= 1;
-            CETI_LOG("MAX17320 0x%.4x reads 0x%.4x", registers[i], read);
+            CETI_LOG("MAX17320 Wrong 0x%.3x reads 0x%.4x", registers[i], read);
+        }
+        else {
+            CETI_LOG("MAX17320 Right 0x%.3x reads 0x%.4x", registers[i], read);
         }
     }
     return ret;
@@ -262,7 +265,7 @@ static inline int max17320_setup_nv_write(MAX17320_HandleTypeDef *dev) {
     ret |= max17320_write(dev, MAX17320_REG_NFULLSOCTHR, MAX17320_VAL_NFULLSOCTHR);
     if (ret < 0)
     {
-        CETI_ERR("Error setting non-volatile registers");
+        CETI_ERR("MAX17320 Error setting non-volatile registers");
         return ret;
     }
 
@@ -290,15 +293,15 @@ int max17320_reset(MAX17320_HandleTypeDef *dev) {
 int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
     int ret = max17320_verify_nv_write(dev);
     if (ret == 0) {
-        CETI_LOG("Nonvolatile settings already written");
+        CETI_LOG("MAX17320 Nonvolatile settings already written");
         return ret;
     }
-    CETI_LOG("Nonvolatile settings will be re-written");
+    CETI_LOG("MAX17320 Nonvolatile settings will be re-written");
     
     ret |= max17320_get_remaining_writes(dev);
     if (dev->remaining_writes < 4) {
         ret = -1;
-        CETI_LOG("Remaining nonvolatile writes 3 or less, not rewriting");
+        CETI_LOG("MAX17320 Remaining nonvolatile writes 3 or less, not rewriting");
         return ret;
     }
     
