@@ -232,10 +232,11 @@ static inline int max17320_verify_nv_write(MAX17320_HandleTypeDef *dev) {
     for (int i = 0; i < sizeof(registers); i++) {
         ret |= max17320_read(dev, registers[i], &read);
         if (read != data[i]){
-            return -1;
+            ret |= 1;
+            CETI_LOG("MAX17320 0x%.4x reads 0x%.4x", registers[i], read);
         }
     }
-    return 0;
+    return ret;
 }
 
 static inline int max17320_setup_nv_write(MAX17320_HandleTypeDef *dev) {
@@ -267,6 +268,10 @@ static inline int max17320_setup_nv_write(MAX17320_HandleTypeDef *dev) {
 
     // Clear CommStat.NVError bit
     ret |= max17320_write(dev, MAX17320_REG_COMM_STAT, CLEAR_WRITE_PROT);
+    if (max17320_verify_nv_write(dev) == 0) {
+        CETI_LOG("MAX17320: Write successful");
+    }
+    CETI_LOG("MAX17320: Write has errors");
 
     // Initiate a block copy
     // TODO: Uncomment later
@@ -349,7 +354,6 @@ int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
     uint8_t first_byte = (read>>8) & 0xff;
     uint8_t last_byte = read & 0xff;
     uint8_t decoded = first_byte | last_byte;
-    CETI_LOG("MAX17320 Decoded: %u", decoded);
     uint8_t count = 0;
     while (decoded > 0)
     {
@@ -357,10 +361,8 @@ int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
         {
             count++;
         }
-        CETI_LOG("MAX17320 Loop: %u", decoded);
         decoded = decoded >> 1;
     }
-    CETI_LOG("MAX17320 Count: %u", count);
     dev->remaining_writes = (8-count);
     CETI_LOG("MAX17320 Remaining Writes: %u", dev->remaining_writes);
     ret |= max17320_lock_write_protection(dev);
