@@ -343,13 +343,13 @@ int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
 
     // Read from register that holds remaining writes
     ret |= max17320_read(dev, MAX17320_REG_REMAINING_WRITES, &read);
-    CETI_LOG("MAX17320 Remaining Writes Register Read: %.4x", read);
+    CETI_LOG("MAX17320 Remaining Writes Register Read: 0x%.4x", read);
 
     // Decode remaining writes
     uint8_t first_byte = (read>>8) & 0xff;
     uint8_t last_byte = read & 0xff;
     uint8_t decoded = first_byte | last_byte;
-    CETI_LOG("MAX17320 Decoded: %.4x", decoded);
+    CETI_LOG("MAX17320 Decoded: %u", decoded);
     uint8_t count = 0;
     while (decoded > 0)
     {
@@ -357,11 +357,12 @@ int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
         {
             count++;
         }
+        CETI_LOG("MAX17320 Loop: %u", decoded);
         decoded = decoded >> 1;
     }
-    CETI_LOG("MAX17320 Count: %f", count);
+    CETI_LOG("MAX17320 Count: %u", count);
     dev->remaining_writes = (8-count);
-    CETI_LOG("MAX17320 Remaining Writes: %.0f", dev->remaining_writes);
+    CETI_LOG("MAX17320 Remaining Writes: %u", dev->remaining_writes);
     ret |= max17320_lock_write_protection(dev);
     return ret;
 }
