@@ -102,12 +102,12 @@ int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev) {
         counter--;
     }
     ret |= max17320_read(dev, MAX17320_REG_COMM_STAT, &read);
-    if (read != CLEARED_WRITE_PROT)
+    if (read == CLEARED_WRITE_PROT || read == CLEAR_WRITE_PROT)
     {
-        CETI_ERR("MAX17320 Clearing write protection failed, CommStat: 0x%.4x", read);
-        ret = -1;
+        return ret;
     }
-    return ret;
+    CETI_ERR("MAX17320 Clearing write protection failed, CommStat: 0x%.4x", read);
+    ret = -1;
 }
 
 int max17320_lock_write_protection(MAX17320_HandleTypeDef *dev) {
