@@ -229,7 +229,7 @@ static inline int max17320_verify_nv_write(MAX17320_HandleTypeDef *dev) {
                        MAX17320_VAL_NBALTH, MAX17320_VAL_NPROTMISCTH, MAX17320_VAL_NPROTCFG, MAX17320_VAL_NJEITAV, MAX17320_VAL_NOVPRTTH, MAX17320_VAL_NDELAYCFG, MAX17320_VAL_NODSCCFG,
                        MAX17320_VAL_NCONFIG, MAX17320_VAL_NTHERMCFG, MAX17320_VAL_NVEMPTY, MAX17320_VAL_NFULLSOCTHR};
     
-    for (int i = 0; i < sizeof(registers); i++) {
+    for (int i = 0; i < 18; i++) {
         ret |= max17320_read(dev, registers[i], &read);
         if (read != data[i]){
             ret |= 1;
