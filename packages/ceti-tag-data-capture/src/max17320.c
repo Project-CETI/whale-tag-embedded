@@ -297,12 +297,12 @@ int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
     // }
     CETI_LOG("MAX17320 Nonvolatile settings will be re-written");
     
-    ret |= max17320_get_remaining_writes(dev);
-    if (dev->remaining_writes < 4) {
-        ret = -1;
-        CETI_LOG("MAX17320 Remaining nonvolatile writes 3 or less, not rewriting");
-        return ret;
-    }
+    // ret |= max17320_get_remaining_writes(dev);
+    // if (dev->remaining_writes < 4) {
+    //     ret = -1;
+    //     CETI_LOG("MAX17320 Remaining nonvolatile writes 3 or less, not rewriting");
+    //     return ret;
+    // }
     
     // Clear write protection
     uint16_t read = 0;
