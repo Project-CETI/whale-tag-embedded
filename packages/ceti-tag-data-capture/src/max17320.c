@@ -233,10 +233,6 @@ static inline int max17320_verify_nv_write(MAX17320_HandleTypeDef *dev) {
         ret |= max17320_read(dev, registers[i], &read);
         if (read != data[i]){
             ret |= 1;
-            CETI_LOG("MAX17320 Wrong 0x%.3x reads 0x%.4x", registers[i], read);
-        }
-        else {
-            CETI_LOG("MAX17320 Right 0x%.3x reads 0x%.4x", registers[i], read);
         }
     }
     return ret;
@@ -272,14 +268,14 @@ static inline int max17320_setup_nv_write(MAX17320_HandleTypeDef *dev) {
     // Clear CommStat.NVError bit
     ret |= max17320_write(dev, MAX17320_REG_COMM_STAT, CLEAR_WRITE_PROT);
     if (max17320_verify_nv_write(dev) == 0) {
-        CETI_LOG("MAX17320: Write successful");
+        CETI_LOG("MAX17320: Write successful, initiating block copy");
+        // Initiate a block copy
+        ret |= max17320_write(dev, MAX17320_REG_COMMAND, INITIATE_BLOCK_COPY);
+        usleep(TBLOCK);
+        return ret;
     }
-    CETI_LOG("MAX17320: Write has errors");
-
-    // Initiate a block copy
-    // TODO: Uncomment later
-    // ret |= max17320_write(dev, MAX17320_REG_COMMAND, INITIATE_BLOCK_COPY);
-    usleep(TBLOCK);
+    CETI_LOG("MAX17320: Write has errors, not initiating block copy");
+    ret = -1;
     return ret;
 }
 
@@ -314,25 +310,33 @@ int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
     }
 
     // Write all registers, clear error bit, and send block copy command
-    // TODO: Add error checking here
     do {
         ret |= max17320_setup_nv_write(dev);
         ret |= max17320_read(dev, MAX17320_REG_COMM_STAT, &read);
-    } while ((read & 0x0004) == 0x0004); // Checking error bit
+        if (ret < 0)
+        {
+            CETI_LOG("Something went wrong with register write");
+            return ret;
+        }
+    } while ((read & 0x0004) == 0x0004); // Checking error bit, waiting for it to be clear
 
-    // TODO: Uncomment later
-        // // Send full reset command to the IC
-        // ret |= max17320_reset(dev);
-        // // Reset firmware
-        // ret |= max17320_clear_write_protection(dev);
-        // ret |= max17320_write(dev, MAX17320_REG_CONFIG2, MAX17320_RESET_FW);
-        // ret |= max17320_read(dev, MAX17320_REG_CONFIG2, &read);
-        // // Wait for POR_CMD bit to clear
-        // while ((read & 0x4000) == 0x4000) {
-        //     ret |= max17320_read(dev, MAX17320_REG_CONFIG2, &read);
-        // }
-        // // Lock write protection
-        // ret |= max17320_lock_write_protection(dev);
+    if (ret == 0) {
+        CETI_LOG("Block copy complete, resetting system...");
+        // Send full reset command to the IC
+        ret |= max17320_reset(dev);
+        // Reset firmware
+        ret |= max17320_clear_write_protection(dev);
+        ret |= max17320_write(dev, MAX17320_REG_CONFIG2, MAX17320_RESET_FW);
+        ret |= max17320_read(dev, MAX17320_REG_CONFIG2, &read);
+        // Wait for POR_CMD bit to clear
+        while ((read & 0x4000) == 0x4000) {
+            ret |= max17320_read(dev, MAX17320_REG_CONFIG2, &read);
+        }
+        // Lock write protection
+        CETI_LOG("Non-volatile settings written");
+        ret |= max17320_lock_write_protection(dev);
+    }
+
     return ret;
 }
 
