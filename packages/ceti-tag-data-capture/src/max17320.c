@@ -269,8 +269,9 @@ static inline int max17320_setup_nv_write(MAX17320_HandleTypeDef *dev) {
     ret |= max17320_write(dev, MAX17320_REG_COMM_STAT, CLEAR_WRITE_PROT);
     if (max17320_verify_nv_write(dev) == 0) {
         CETI_LOG("MAX17320: Write successful, initiating block copy");
+        // TODO: uncomment
         // Initiate a block copy
-        ret |= max17320_write(dev, MAX17320_REG_COMMAND, INITIATE_BLOCK_COPY);
+        // ret |= max17320_write(dev, MAX17320_REG_COMMAND, INITIATE_BLOCK_COPY);
         usleep(TBLOCK);
         return ret;
     }
@@ -287,11 +288,13 @@ int max17320_reset(MAX17320_HandleTypeDef *dev) {
 }
 
 int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
-    int ret = max17320_verify_nv_write(dev);
-    if (ret == 0) {
-        CETI_LOG("MAX17320 Nonvolatile settings already written");
-        return ret;
-    }
+    int ret = 0;
+    // TODO: Uncomment
+    // int ret = max17320_verify_nv_write(dev);
+    // if (ret == 0) {
+    //     CETI_LOG("MAX17320 Nonvolatile settings already written");
+    //     return ret;
+    // }
     CETI_LOG("MAX17320 Nonvolatile settings will be re-written");
     
     ret |= max17320_get_remaining_writes(dev);
@@ -315,13 +318,13 @@ int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
         ret |= max17320_read(dev, MAX17320_REG_COMM_STAT, &read);
         if (ret < 0)
         {
-            CETI_LOG("Something went wrong with register write");
+            CETI_LOG("MAX17320 Something went wrong with register write");
             return ret;
         }
     } while ((read & 0x0004) == 0x0004); // Checking error bit, waiting for it to be clear
 
     if (ret == 0) {
-        CETI_LOG("Block copy complete, resetting system...");
+        CETI_LOG("MAX17320 Block copy complete, resetting system...");
         // Send full reset command to the IC
         ret |= max17320_reset(dev);
         // Reset firmware
@@ -333,7 +336,7 @@ int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
             ret |= max17320_read(dev, MAX17320_REG_CONFIG2, &read);
         }
         // Lock write protection
-        CETI_LOG("Non-volatile settings written");
+        CETI_LOG("MAX17320 Non-volatile settings written");
         ret |= max17320_lock_write_protection(dev);
     }
 
