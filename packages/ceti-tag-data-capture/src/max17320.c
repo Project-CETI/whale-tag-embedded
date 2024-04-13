@@ -108,6 +108,7 @@ int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev) {
     }
     CETI_ERR("MAX17320 Clearing write protection failed, CommStat: 0x%.4x", read);
     ret = -1;
+    return ret;
 }
 
 int max17320_lock_write_protection(MAX17320_HandleTypeDef *dev) {
@@ -269,10 +270,10 @@ static inline int max17320_setup_nv_write(MAX17320_HandleTypeDef *dev) {
     ret |= max17320_write(dev, MAX17320_REG_COMM_STAT, CLEAR_WRITE_PROT);
     if (max17320_verify_nv_write(dev) == 0) {
         CETI_LOG("MAX17320: Write successful, initiating block copy");
-        // TODO: uncomment
         // Initiate a block copy
-        // ret |= max17320_write(dev, MAX17320_REG_COMMAND, INITIATE_BLOCK_COPY);
-        usleep(TBLOCK);
+        ret |= max17320_write(dev, MAX17320_REG_COMMAND, INITIATE_BLOCK_COPY);
+        // TODO: find right value
+        sleep(1);
         return ret;
     }
     CETI_LOG("MAX17320: Write has errors, not initiating block copy");
@@ -297,12 +298,12 @@ int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
     // }
     CETI_LOG("MAX17320 Nonvolatile settings will be re-written");
     
-    // ret |= max17320_get_remaining_writes(dev);
-    // if (dev->remaining_writes < 4) {
-    //     ret = -1;
-    //     CETI_LOG("MAX17320 Remaining nonvolatile writes 3 or less, not rewriting");
-    //     return ret;
-    // }
+    ret |= max17320_get_remaining_writes(dev);
+    if (dev->remaining_writes < 3) {
+        ret = -1;
+        CETI_LOG("MAX17320 Remaining nonvolatile writes 2 or less, not rewriting");
+        return ret;
+    }
     
     // Clear write protection
     uint16_t read = 0;
@@ -313,15 +314,26 @@ int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
     }
 
     // Write all registers, clear error bit, and send block copy command
-    do {
-        ret |= max17320_setup_nv_write(dev);
-        ret |= max17320_read(dev, MAX17320_REG_COMM_STAT, &read);
-        if (ret < 0)
-        {
-            CETI_LOG("MAX17320 Something went wrong with register write");
-            return ret;
-        }
-    } while ((read & 0x0004) == 0x0004); // Checking error bit, waiting for it to be clear
+    ret |= max17320_setup_nv_write(dev);
+    ret |= max17320_read(dev, MAX17320_REG_COMM_STAT, &read);
+    if (ret < 0)
+    {
+        CETI_LOG("MAX17320 Something went wrong with register write");
+        return ret;
+    }
+    while((read & 0x0004) == 0x0004) {
+        CETI_LOG("MAX17320 waiting for bit to clear");
+    }
+    // TODO Uncomment
+    // do {
+    //     ret |= max17320_setup_nv_write(dev);
+    //     ret |= max17320_read(dev, MAX17320_REG_COMM_STAT, &read);
+    //     if (ret < 0)
+    //     {
+    //         CETI_LOG("MAX17320 Something went wrong with register write");
+    //         return ret;
+    //     }
+    // } while ((read & 0x0004) == 0x0004); // Checking error bit, waiting for it to be clear
 
     if (ret == 0) {
         CETI_LOG("MAX17320 Block copy complete, resetting system...");
