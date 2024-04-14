@@ -92,7 +92,6 @@
 
 #if ENABLE_BATTERY_GAUGE
 #include "battery.h"
-#include "max17320.h"
 #endif
 
 #if ENABLE_BURNWIRE

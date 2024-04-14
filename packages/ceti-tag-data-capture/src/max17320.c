@@ -53,6 +53,7 @@ static inline int max17320_write(MAX17320_HandleTypeDef *dev, uint16_t memory, u
     }
     i2cClose(fd);
     // TODO: Add error checking based on function
+    // TODO: Log to different file?
     // Can add verification but there are some exceptions (clearing write)
     return ret;
 }
@@ -80,12 +81,6 @@ int max17320_init(MAX17320_HandleTypeDef *dev) {
     int ret = -1;
     ret = max17320_clear_write_protection(dev);
     ret |= max17320_nonvolatile_write(dev);
-    
-    // TODO: Proper logging in seperate file
-    // if(init_data_file(battery_data_file, MAX17320_DATA_FILEPATH,
-    //                     battery_data_file_headers,  num_battery_data_file_headers,
-    //                     battery_data_file_notes, "init_battery()") < 0)
-    //     ret = -1;
     return ret;
 }
 
@@ -182,7 +177,10 @@ int max17320_get_temperature(MAX17320_HandleTypeDef *dev) {
     int16_t read = 0;
     int ret = max17320_read(dev, MAX17320_REG_TEMPERATURE, &read);
     dev->temperature = read * TEMPERATURE_LSB;
-    CETI_LOG("MAX17320 Temperature: %.0f °C", dev->temperature);
+    CETI_LOG("MAX17320 Thermistor Temperature: %.0f °C", dev->temperature);
+    ret |= max17320_read(dev, MAX17320_REG_DIETEMP, &read);
+    dev->die_temperature = read * TEMPERATURE_LSB;
+    CETI_LOG("MAX17320 Die Temperature: %.0f °C", dev->die_temperature);
     return ret;
 }
 

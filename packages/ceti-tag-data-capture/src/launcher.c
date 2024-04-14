@@ -16,8 +16,6 @@ int g_exit = 0;
 int g_stopAcquisition = 0;
 char g_process_path[256] = "/opt/ceti-tag-data-capture/bin";
 
-MAX17320_HandleTypeDef bms;
-
 void sig_handler(int signum) {
   g_exit = 1;
 }
@@ -254,7 +252,6 @@ int init_tag() {
 
 #if ENABLE_BATTERY_GAUGE
   result += init_battery() == 0 ? 0 : -1;
-  result += max17320_init(&bms) == 0 ? 0 : -1;
 #endif
 
 #if ENABLE_BURNWIRE

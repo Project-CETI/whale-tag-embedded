@@ -41,6 +41,7 @@
 #define MAX17320_REG_DEV_NAME           0x021
 #define MAX17320_REG_REMAINING_WRITES	0x1FD
 #define MAX17320_REG_CONFIG2			0x0AB
+#define MAX17320_REG_DIETEMP            0x034
 
 // Registers for Non-Volatile Writes
 #define MAX17320_REG_NPACKCFG			0x1B5
@@ -155,6 +156,7 @@ typedef struct __MAX17320_HandleTypeDef {
     uint16_t pack_side_voltage; // Pack-side voltage input into system
 
     int16_t temperature; // °C
+	int16_t die_temperature; // °C
 
     int16_t battery_current; // A
     int16_t average_current; // A

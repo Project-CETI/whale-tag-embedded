@@ -18,10 +18,14 @@
 #include "launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 #include "utils/logging.h"
+#include "max17320.h"
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
+// Set to 0 if DS2778 is used
+#define MAX17320 1
+
 #define ADDR_BATT_GAUGE 0x59
 
 // DS2778 Gas Gauge Registers and Settings

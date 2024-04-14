@@ -138,7 +138,15 @@ void* boardTemperature_thread(void* paramPtr) {
 //-----------------------------------------------------------------------------
 
 int getBoardTemperature(int *pBoardTemp) {
-
+  if (pBoardTemp == NULL) {
+    CETI_ERR("Process failed: Null pointer passed in to store data.");
+    return (-1);
+  }
+  #if MAX17320 == 1
+    int ret = max17320_get_temperature(dev);
+    *pBoardTemp = dev->die_temperature;
+    return ret;
+  #else
     int fd = i2cOpen(1,ADDR_BOARDTEMPERATURE,0);
     if(fd < 0) {
         CETI_ERR("Failed to connect to the temperature sensor");
@@ -148,10 +156,19 @@ int getBoardTemperature(int *pBoardTemp) {
     *pBoardTemp = i2cReadByteData(fd,0x00);
     i2cClose(fd);
     return(0);
+  #endif
 }
 
 int getBatteryTemperature(int *pBattTemp) {
-
+  if (pBattTemp == NULL) {
+    CETI_ERR("Process failed: Null pointer passed in to store data.");
+    return (-1);
+  }
+  #if MAX17320 == 1
+    int ret = max17320_get_temperature(dev);
+    *pBattTemp = dev->temperature;
+    return ret;
+  #else
     int fd = i2cOpen(1,ADDR_BOARDTEMPERATURE,0);
     if(fd < 0) {
         CETI_ERR("Failed to connect to the temperature sensor");
@@ -161,6 +178,7 @@ int getBatteryTemperature(int *pBattTemp) {
     *pBattTemp = i2cReadByteData(fd,0x01);
     i2cClose(fd);
     return(0);
+  #endif
 }
 
 // This function does both at once, experimental for chasing the bus crash behavior
@@ -169,7 +187,16 @@ int getBatteryTemperature(int *pBattTemp) {
 // releases it. 
 
 int getTemperatures(int *pBoardTemp, int *pBattTemp) {
-
+  if (pBattTemp == NULL || pBoardTemp == NULL) {
+    CETI_ERR("Process failed: Null pointers passed in to store data.");
+    return (-1);
+  }
+  #if MAX17320 == 1
+    int ret = max17320_get_temperature(dev);
+    *pBoardTemp = dev->die_temperature;
+    *pBattTemp = dev->temperature;
+    return ret;
+  #else
     int fd = i2cOpen(1,ADDR_BOARDTEMPERATURE,0);
     if(fd < 0) {
         CETI_ERR("Failed to connect to the temperature sensor");
@@ -180,6 +207,7 @@ int getTemperatures(int *pBoardTemp, int *pBattTemp) {
     *pBattTemp  = i2cReadByteData(fd,0x01);
     i2cClose(fd);
     return(0);
+  #endif
 }
 
 int resetBattTempFlags() {

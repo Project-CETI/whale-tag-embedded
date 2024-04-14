@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "max17320.h": "c",
-        "launcher.h": "c"
+        "launcher.h": "c",
+        "boardtemperature.h": "c",
+        "battery.h": "c"
     }
 }

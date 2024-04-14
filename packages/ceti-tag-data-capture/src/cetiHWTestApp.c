@@ -475,9 +475,13 @@ TestState test_i2cdetect(void){
         i2cClose(fd);
 
     light_valid = (light_verify() == 0);
-
-    if((bms_valid = !((fd = i2cOpen(1, ADDR_BATT_GAUGE, 0)) < 0)))
-        i2cClose(fd);
+    #if MAX17320 == 1
+        if((bms_valid = !((fd = i2cOpen(1, MAX17320_ADDR, 0)) < 0)))
+            i2cClose(fd);
+    #else
+        if((bms_valid = !((fd = i2cOpen(1, ADDR_BATT_GAUGE, 0)) < 0)))
+            i2cClose(fd);
+    #endif
 
     if((temp_valid = !((fd = i2cOpen(1, ADDR_BOARDTEMPERATURE, 0)) < 0)))
         i2cClose(fd);
@@ -499,7 +503,11 @@ TestState test_i2cdetect(void){
     fprintf(results_file, "[%s]: 1: 0x%02x: Burnwire IOX\n", iox_valid ? "PASS" : "FAIL", ADDR_MAINTAG_IOX);
     fprintf(results_file, "[%s]: 1: 0x%02x: Depth\n", depth_valid ? "PASS" : "FAIL", ADDR_PRESSURETEMPERATURE);
     fprintf(results_file, "[%s]: 1: 0x%02x: Temperature\n", temp_valid ? "PASS" : "FAIL", ADDR_BOARDTEMPERATURE);
-    fprintf(results_file, "[%s]: 1: 0x%02x: BMS\n", bms_valid ? "PASS" : "FAIL", ADDR_BATT_GAUGE);
+    #if MAX17320 == 1
+        fprintf(results_file, "[%s]: 1: 0x%02x: BMS\n", bms_valid ? "PASS" : "FAIL", MAX17320_ADDR);
+    #else
+        fprintf(results_file, "[%s]: 1: 0x%02x: BMS\n", bms_valid ? "PASS" : "FAIL", ADDR_BATT_GAUGE);
+    #endif
     fprintf(results_file, "[%s]: 1: 0x%02x: RTC\n", rtc_valid ? "PASS" : "FAIL", ADDR_RTC);
 
     // display results
@@ -509,7 +517,11 @@ TestState test_i2cdetect(void){
     printf("1: 0x%02x: Burnwire IOX: %s\n", ADDR_MAINTAG_IOX, iox_valid ? GREEN(PASS) :  RED(FAIL));
     printf("1: 0x%02x:        Depth: %s\n", ADDR_PRESSURETEMPERATURE, depth_valid ? GREEN(PASS) :  RED(FAIL));
     printf("1: 0x%02x:  Temperature: %s\n", ADDR_BOARDTEMPERATURE, temp_valid ? GREEN(PASS) :  RED(FAIL));
-    printf("1: 0x%02x:          BMS: %s\n", ADDR_BATT_GAUGE, bms_valid ? GREEN(PASS) :  RED(FAIL));
+    #if MAX17320 == 1
+        printf("1: 0x%02x:          BMS: %s\n", MAX17320_ADDR, bms_valid ? GREEN(PASS) :  RED(FAIL));
+    #else
+        printf("1: 0x%02x:          BMS: %s\n", ADDR_BATT_GAUGE, bms_valid ? GREEN(PASS) :  RED(FAIL));
+    #endif
     printf("1: 0x%02x:          RTC: %s\n", ADDR_RTC, rtc_valid ? GREEN(PASS) :  RED(FAIL));
     fflush(stdin);
 
