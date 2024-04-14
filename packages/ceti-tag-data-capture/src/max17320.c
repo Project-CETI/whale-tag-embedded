@@ -280,13 +280,12 @@ static inline int max17320_setup_nv_write(MAX17320_HandleTypeDef *dev) {
 
 int max17320_reset(MAX17320_HandleTypeDef *dev) {
     // Performs full reset
-    ret |= max17320_write(dev, MAX17320_REG_COMMAND, MAX17320_RESET);
+    int ret = max17320_write(dev, MAX17320_REG_COMMAND, MAX17320_RESET);
     usleep(10000);
     return ret;
 }
 
 int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
-    int ret = 0;
     int ret = max17320_verify_nv_write(dev);
     if (ret == 0) {
         CETI_LOG("MAX17320 Nonvolatile settings already written");

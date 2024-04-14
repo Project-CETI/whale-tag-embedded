@@ -142,7 +142,6 @@ int getBatteryData(double* battery_v1_v, double* battery_v2_v,
     }
     #if MAX17320 == 1
       int ret = max17320_get_voltages(dev);
-      // TODO: Check meeting notes for more todos
       *battery_v1_v = dev->cell_1_voltage;
       *battery_v2_v = dev->cell_2_voltage;
       ret |= max17320_get_battery_current(dev);
