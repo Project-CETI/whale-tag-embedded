@@ -25,7 +25,7 @@ double g_latest_battery_v2_v;
 double g_latest_battery_i_mA;
 
 #if MAX17320 == 1
-  MAX17320_HandleTypeDef bms;
+  MAX17320_HandleTypeDef dev;
 #endif
 
 //-----------------------------------------------------------------------------
@@ -186,7 +186,7 @@ int getBatteryData(double* battery_v1_v, double* battery_v2_v,
 //-----------------------------------------------------------------------------
 int enableCharging(void) {
   #if MAX17320 == 1
-    int ret |= max17320_enable_charging(dev);
+    int ret = max17320_enable_charging(dev);
     return ret;
   #else
     int fd, temp;
@@ -218,7 +218,7 @@ int enableCharging(void) {
 
 int disableCharging(void) {
   #if MAX17320 == 1
-    int ret |= max17320_disable_charging(dev);
+    int ret = max17320_disable_charging(dev);
     return ret;
   #else
     int fd, temp;
@@ -251,7 +251,7 @@ int disableCharging(void) {
 
 int enableDischarging(void) {
   #if MAX17320 == 1
-    int ret |= max17320_enable_discharging(dev);
+    int ret = max17320_enable_discharging(dev);
     return ret;
   #else
     int fd, temp;
