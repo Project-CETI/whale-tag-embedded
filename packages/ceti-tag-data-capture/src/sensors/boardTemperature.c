@@ -143,8 +143,8 @@ int getBoardTemperature(int *pBoardTemp) {
     return (-1);
   }
   #if MAX17320 == 1
-    int ret = max17320_get_temperature(dev);
-    *pBoardTemp = dev->die_temperature;
+    int ret = max17320_get_temperature(&dev);
+    *pBoardTemp = dev.die_temperature;
     return ret;
   #else
     int fd = i2cOpen(1,ADDR_BOARDTEMPERATURE,0);
@@ -165,8 +165,8 @@ int getBatteryTemperature(int *pBattTemp) {
     return (-1);
   }
   #if MAX17320 == 1
-    int ret = max17320_get_temperature(dev);
-    *pBattTemp = dev->temperature;
+    int ret = max17320_get_temperature(&dev);
+    *pBattTemp = dev.temperature;
     return ret;
   #else
     int fd = i2cOpen(1,ADDR_BOARDTEMPERATURE,0);
@@ -192,9 +192,9 @@ int getTemperatures(int *pBoardTemp, int *pBattTemp) {
     return (-1);
   }
   #if MAX17320 == 1
-    int ret = max17320_get_temperature(dev);
-    *pBoardTemp = dev->die_temperature;
-    *pBattTemp = dev->temperature;
+    int ret = max17320_get_temperature(&dev);
+    *pBoardTemp = dev.die_temperature;
+    *pBattTemp = dev.temperature;
     return ret;
   #else
     int fd = i2cOpen(1,ADDR_BOARDTEMPERATURE,0);
