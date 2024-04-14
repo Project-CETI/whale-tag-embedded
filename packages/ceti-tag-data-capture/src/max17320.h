@@ -188,4 +188,6 @@ int max17320_enable_discharging(MAX17320_HandleTypeDef *dev);
 int max17320_disable_charging(MAX17320_HandleTypeDef *dev);
 int max17320_disable_discharging(MAX17320_HandleTypeDef *dev);
 
+extern MAX17320_HandleTypeDef dev;
+
 #endif // MAX17320_H

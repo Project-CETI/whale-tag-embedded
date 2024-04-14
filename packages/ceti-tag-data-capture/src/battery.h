@@ -70,8 +70,5 @@ extern int g_battery_thread_is_running;
 extern double g_latest_battery_v1_v;
 extern double g_latest_battery_v2_v;
 extern double g_latest_battery_i_mA;
-#if MAX17320 == 1
-  extern MAX17320_HandleTypeDef dev;
-#endif
 
 #endif // BATTERY_H
