@@ -118,7 +118,11 @@
 #define TRECALL							5000
 #define TBLOCK							7370000
 #define MAX17320_RESET 					0x000F
-#define MAX17320_RESET_FW				0x8000	             
+#define MAX17320_RESET_FW				0x8000
+#define CHARGE_ON						0xFEFF
+#define CHARGE_OFF						0x0100
+#define DISCHARGE_ON					0xFDFF
+#define DISCHARGE_OFF          			0x0200   
 
 // shift a value (val) but amount (s) and width (w)
 #define _RSHIFT(val, s, w) (((val) >> (s)) & ((1 << (w)) - 1)) 
@@ -177,7 +181,9 @@ int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev);
 int max17320_reset(MAX17320_HandleTypeDef *dev);
 int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev);
 int max17320_verify_nonvolatile(MAX17320_HandleTypeDef *dev);
-
-// Add functions for reset and starting charge/discharge
+int max17320_enable_charging(MAX17320_HandleTypeDef *dev);
+int max17320_enable_discharging(MAX17320_HandleTypeDef *dev);
+int max17320_disable_charging(MAX17320_HandleTypeDef *dev);
+int max17320_disable_discharging(MAX17320_HandleTypeDef *dev);
 
 #endif // MAX17320_H

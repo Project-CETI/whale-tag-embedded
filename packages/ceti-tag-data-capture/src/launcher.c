@@ -254,8 +254,7 @@ int init_tag() {
 
 #if ENABLE_BATTERY_GAUGE
   result += init_battery() == 0 ? 0 : -1;
-  // TODO: Evaluate if a device makes sense vs a global struct
-  result += max17320_nonvolatile_write(&bms) == 0 ? 0 : -1;
+  result += max17320_init(&bms) == 0 ? 0 : -1;
 #endif
 
 #if ENABLE_BURNWIRE
