@@ -172,9 +172,26 @@ void ecg_adc_set_voltage_reference(uint8_t vref)
 }
 
 // Set which channel to use for the main ECG signal.
-void ecg_adc_set_channel(int channel)
-{
+void ecg_adc_set_channel(int channel) {
   ecg_adc_channel = channel;
+  ecg_adc_config &= ECG_ADC_MUX_MASK;
+  switch(channel) {
+    case(0):
+      ecg_adc_config |= ECG_ADC_MUX_SINGLE_0;
+      break;
+    case(1):
+      ecg_adc_config |= ECG_ADC_MUX_SINGLE_1;
+      break;
+    case(2):
+      ecg_adc_config |= ECG_ADC_MUX_SINGLE_2;
+      break;
+    case(3):
+      ecg_adc_config |= ECG_ADC_MUX_SINGLE_3;
+      break;
+    default:
+      break;
+  }
+  ecg_adc_config_apply();
 }
 
 //-----------------------------------------------------------------------------
@@ -325,7 +342,6 @@ void ecg_adc_update_data(int* exit_flag, long long timeout_us)
   // Will update g_ecg_adc_latest_reading and g_ecg_adc_latest_reading_global_time_us.
   #if !(ECG_ADC_DATA_READY_USE_INTERRUPT || ECG_ADC_DATA_READY_USE_TIMER)
   ecg_adc_read_data(exit_flag, timeout_us);
-  // ecg_adc_read_singleEnded(ecg_adc_channel, exit_flag, timeout_us);
   #endif
 }
 
