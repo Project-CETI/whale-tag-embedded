@@ -109,10 +109,32 @@ rm /etc/init.d/resize2fs_once
 # Copy filesystem overlay.
 tar -cf - -C "${OVERLAY_DIR}" --owner=pi --group=pi . | tar -xf - -C /
 
+# Disable symlink of interferring periodic systemd services
+rm /etc/systemd/system/timers.target.wants/apt-daily.timer
+rm /etc/systemd/system/timers.target.wants/apt-daily-upgrade.timer
+rm /etc/systemd/system/timers.target.wants/man-db.timer
+
 # Add useful commands to the bash history.
 rm -f /home/pi/.bash_history
 dos2unix /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt
 mv /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt /home/pi/.bash_history
 
 # All done
-echo "( ・◡・)つ━☆   Build complete"
+cat << "EOF"
+                         _.-----._        ___
+                      .-`- ```  `-`-._ _.'   \
+                   .'/             `_./       \
+        ___./\    //            _.-'           |
+      _/     /   // _      __.-'               | 
+  _.-'      <___/__/ \____/                    /
+.`_.-----`-.                                _.'
+            `-_                    O   __.-'.
+              |`.                    <'__.-|     Build complete
+              \\ `.             _   __---`||
+               \'  `-....     ,'/  /      ''
+                \\     /  _.-` (_.'      //  
+                 \'. (_.-`              //
+                  `.'.                 .'
+                    `.' _        _ _.-'
+                       `-.-____-.-'  
+EOF
