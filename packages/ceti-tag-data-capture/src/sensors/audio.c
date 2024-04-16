@@ -94,6 +94,12 @@ int audio_setup(AudioConfig *config){
   }
 
   //update filter
+  //ToDo: why does the first audio config write fail?
+  if (audio_set_filter_type(config->filter_type) != 0){
+    CETI_ERR("Failed to set audio filter type");
+    return -1;
+  }
+
   if (audio_set_filter_type(config->filter_type) != 0){
     CETI_ERR("Failed to set audio filter type");
     return -1;
