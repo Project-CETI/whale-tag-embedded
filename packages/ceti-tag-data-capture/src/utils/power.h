@@ -13,7 +13,8 @@
 // Configuration
 //-----------------------------------------------------------------------------
 #define WIFI_IFNAME "wlan0"
-#define USB_SYSFS_PATH "/sys/devices/platform/soc/20980000.usb/buspower"
+#define ETHERNET_IFNAME "eth0"
+#define USB_SYSFS_PATH "/sys/devices/platform/soc/3f980000.usb/buspower"
 #define ACT_LED_TRIGGER_SYSFS_PATH "/sys/class/leds/ACT/trigger"
 #define ACT_LED_BRIGHTNESS_SYSFS_PATH "/sys/class/leds/ACT/brightness"
 
@@ -22,7 +23,9 @@
 //-----------------------------------------------------------------------------
 void wifi_disable(void);
 void wifi_kill(void);
-void usb_disable(void);
+void eth0_disable(void);
+void usb_kill(void);
+void bluetooth_kill(void);
 void activity_led_disable(void);
 void activity_led_enable(void);
 

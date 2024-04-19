@@ -277,17 +277,23 @@ int updateStateMachine() {
         #endif
 
         #if ENABLE_PRESSURETEMPERATURE_SENSOR
+        #if !FORCE_NETWORKS_OFF
         if ((g_latest_pressureTemperature_pressure_bar > g_config.dive_pressure)
             && (current_rtc_count - last_reset_rtc_count > (WIFI_GRACE_PERIOD_MIN * 60))
         ){
+        #endif
             //disable wifi
             wifi_disable(); 
             wifi_kill();
-            // usb_disable();
+            bluetooth_kill();
+            eth0_disable();
+            // usb_kill();
             activity_led_disable();
             stateMachine_set_state(ST_REC_SUB);// 1st dive after deploy
             break;
+        #if !FORCE_NETWORKS_OFF
         }
+        #endif
         #endif
 
         break;

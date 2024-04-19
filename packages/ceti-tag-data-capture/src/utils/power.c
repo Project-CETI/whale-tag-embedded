@@ -39,33 +39,64 @@ void wifi_disable(void) {
 }
 
 void wifi_kill(void) {
-  system("rfkill block wifi");
+  if (system("rfkill block wifi") != 0){
+    CETI_ERR("Failed to kill wifi");
+  }
 }
 
-void usb_disable(void) {
+void eth0_disable(void) {
+  int sock = -1;
+  struct ifreq wrq = {.ifr_name = ETHERNET_IFNAME};
+
+  if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+    CETI_ERR("Unable to open ethernet socket.");
+    return;
+  }
+
+  if (ioctl(sock, SIOCGIFFLAGS, &wrq) < 0) {
+    CETI_ERR("Unable to read eth0 interface flags.");
+    return;
+  }
+
+  // disable eth0
+  wrq.ifr_flags &= ~IFF_UP;
+
+  if (ioctl(sock, SIOCSIFFLAGS, &wrq) < 0) {
+    CETI_ERR("Unable to write eth0 interface flags.");
+    return;
+  }
+}
+
+void usb_kill(void) {
   // disable activity LED trigger
   int led_trigger_file = open(USB_SYSFS_PATH, O_WRONLY);
   if (led_trigger_file < 0) {
     CETI_ERR("Could not open usb power bus file: " USB_SYSFS_PATH);
   } else {
-    write(led_trigger_file, "0", 1);
+    if (write(led_trigger_file, "0", 1) != 1) {
+      CETI_WARN("Write to %s failed", USB_SYSFS_PATH);
+    }
     close(led_trigger_file);
   }
 }
 
-// ToDo: Implement
-void usb_kill(void) {
-
+void bluetooth_kill(void) {
+  if (system("rfkill block bluetooth") != 0) {
+    CETI_WARN("Failed to kill bluetooth");
+  }
 }
 
 void activity_led_disable(void) {
   // disable activity LED trigger
   int led_trigger_file = open(ACT_LED_TRIGGER_SYSFS_PATH, O_WRONLY);
   if (led_trigger_file < 0) {
-    CETI_ERR("Could not open activity led trigger "
+    CETI_WARN("Could not open activity led trigger "
              "file: " ACT_LED_TRIGGER_SYSFS_PATH);
   } else {
-    write(led_trigger_file, "none", 4);
+    if (write(led_trigger_file, "none", 4) != 4){
+      CETI_WARN("Write to %s failed", ACT_LED_TRIGGER_SYSFS_PATH);
+    }
+
     close(led_trigger_file);
   }
 
@@ -75,7 +106,9 @@ void activity_led_disable(void) {
     CETI_ERR("Could not open activity led brightness "
              "file: " ACT_LED_BRIGHTNESS_SYSFS_PATH);
   } else {
-    write(led_brightness_file, "0", 1);
+    if (write(led_brightness_file, "0", 1) != 1) {
+      CETI_WARN("Write to %s failed", ACT_LED_BRIGHTNESS_SYSFS_PATH);
+    }
     close(led_brightness_file);
   }
 }
@@ -84,20 +117,24 @@ void activity_led_enable(void) {
   // disable activity LED trigger
   int led_trigger_file = open(ACT_LED_TRIGGER_SYSFS_PATH, O_WRONLY);
   if (led_trigger_file < 0) {
-    CETI_ERR("Could not open activity led trigger "
+    CETI_WARN("Could not open activity led trigger "
              "file: " ACT_LED_TRIGGER_SYSFS_PATH);
   } else {
-    write(led_trigger_file, "heartbeat", 4);
+    if (write(led_trigger_file, "heartbeat", strlen("heartbeat")) != strlen("heartbeat")){
+      CETI_WARN("Write to %s failed", ACT_LED_TRIGGER_SYSFS_PATH);
+    }
     close(led_trigger_file);
   }
 
-  // turn off activity LED
+  // turn on activity LED
   int led_brightness_file = open(ACT_LED_BRIGHTNESS_SYSFS_PATH, O_WRONLY);
   if (led_brightness_file < 0) {
-    CETI_ERR("Could not open activity led brightness "
+    CETI_WARN("Could not open activity led brightness "
              "file: " ACT_LED_BRIGHTNESS_SYSFS_PATH);
   } else {
-    write(led_brightness_file, "1", 1);
+    if (write(led_brightness_file, "1", 1) != 1) {
+      CETI_WARN("Write to %s failed", ACT_LED_BRIGHTNESS_SYSFS_PATH);
+    }
     close(led_brightness_file);
   }
 }
