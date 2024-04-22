@@ -13,17 +13,25 @@ then
         sudo /opt/ceti-tag-data-capture/bin/cetiFpgaInit
 fi
 
-# Sets BOOT0 pin high
+# Initializes settings to power high, boot low
 x=$(i2cget -y 1 0x38)
-i2cset -y 1 0x38 $((x|0x04))
+y=$((x|0x04))
+i2cset -y 1 0x38 $((y&0xfd))
+x=$(i2cget -y 1 0x38)
+
+# Sets BOOT0 pin high
+i2cset -y 1 0x38 $((x|0x02))
+x=$(i2cget -y 1 0x38)
 echo 'Boot pin has been set high.'
 
 echo 'Resetting recovery board...'
 # Resets board
-raspi-gpio set 13 op dl
+i2cset -y 1 0x38 $((x&0xfb))
 sleep 1
-raspi-gpio set 13 dh
+x=$(i2cget -y 1 0x38)
+i2cset -y 1 0x38 $((x|0x04))
 sleep 1
+x=$(i2cget -y 1 0x38)
 
 # Checks connection to recovery board
 stm32flash /dev/serial0 > /dev/null 2>&1
@@ -62,12 +70,14 @@ fi
 echo 'Flashing stm32 has succeeded'
 
 # Sets BOOT0 low to exit bootloader
-i2cset -y 1 0x38 $((x&0xfb))
+i2cset -y 1 0x38 $((x&0xfd))
+x=$(i2cget -y 1 0x38)
 echo 'Boot pin has been set low'
 
 echo 'Resetting recovery board...'
 # Resets board
-raspi-gpio set 13 dl
+i2cset -y 1 0x38 $((x&0xfb))
 sleep 1
-raspi-gpio set 13 dh
+x=$(i2cget -y 1 0x38)
+i2cset -y 1 0x38 $((x|0x04))
 sleep 1
