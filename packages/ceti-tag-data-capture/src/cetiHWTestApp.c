@@ -476,6 +476,7 @@ TestState test_i2cdetect(void){
 
     light_valid = (light_verify() == 0);
     #if MAX17320 == 1
+        // TODO: This test can be changed to reading the devname, or incorporate the second address
         if((bms_valid = !((fd = i2cOpen(1, MAX17320_ADDR, 0)) < 0)))
             i2cClose(fd);
     #else

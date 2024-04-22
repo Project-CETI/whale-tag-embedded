@@ -138,13 +138,10 @@ void* boardTemperature_thread(void* paramPtr) {
 //-----------------------------------------------------------------------------
 
 int getBoardTemperature(int *pBoardTemp) {
-  if (pBoardTemp == NULL) {
-    CETI_ERR("Process failed: Null pointer passed in to store data.");
-    return (-1);
-  }
   #if MAX17320 == 1
     int ret = max17320_get_temperature(&dev);
-    *pBoardTemp = dev.die_temperature;
+    if (pBoardTemp != NULL)
+      *pBoardTemp = dev.die_temperature;
     return ret;
   #else
     int fd = i2cOpen(1,ADDR_BOARDTEMPERATURE,0);
@@ -152,21 +149,18 @@ int getBoardTemperature(int *pBoardTemp) {
         CETI_ERR("Failed to connect to the temperature sensor");
         return(-1);
     }
-
-    *pBoardTemp = i2cReadByteData(fd,0x00);
+    if (pBoardTemp != NULL)
+      *pBoardTemp = i2cReadByteData(fd,0x00);
     i2cClose(fd);
     return(0);
   #endif
 }
 
 int getBatteryTemperature(int *pBattTemp) {
-  if (pBattTemp == NULL) {
-    CETI_ERR("Process failed: Null pointer passed in to store data.");
-    return (-1);
-  }
   #if MAX17320 == 1
     int ret = max17320_get_temperature(&dev);
-    *pBattTemp = dev.temperature;
+    if (pBattTemp != NULL)
+      *pBattTemp = dev.temperature;
     return ret;
   #else
     int fd = i2cOpen(1,ADDR_BOARDTEMPERATURE,0);
@@ -174,8 +168,8 @@ int getBatteryTemperature(int *pBattTemp) {
         CETI_ERR("Failed to connect to the temperature sensor");
         return(-1);
     }
-
-    *pBattTemp = i2cReadByteData(fd,0x01);
+    if (pBattTemp != NULL)
+      *pBattTemp = i2cReadByteData(fd,0x01);
     i2cClose(fd);
     return(0);
   #endif
@@ -187,14 +181,12 @@ int getBatteryTemperature(int *pBattTemp) {
 // releases it. 
 
 int getTemperatures(int *pBoardTemp, int *pBattTemp) {
-  if (pBattTemp == NULL || pBoardTemp == NULL) {
-    CETI_ERR("Process failed: Null pointers passed in to store data.");
-    return (-1);
-  }
   #if MAX17320 == 1
     int ret = max17320_get_temperature(&dev);
-    *pBoardTemp = dev.die_temperature;
-    *pBattTemp = dev.temperature;
+    if (pBoardTemp != NULL)
+      *pBoardTemp = dev.die_temperature;
+    if (pBattTemp != NULL)
+      *pBattTemp = dev.temperature;
     return ret;
   #else
     int fd = i2cOpen(1,ADDR_BOARDTEMPERATURE,0);
@@ -202,9 +194,11 @@ int getTemperatures(int *pBoardTemp, int *pBattTemp) {
         CETI_ERR("Failed to connect to the temperature sensor");
         return(-1);
     }
-    *pBoardTemp = i2cReadByteData(fd,0x0);
+    if (pBoardTemp != NULL)
+      *pBoardTemp = i2cReadByteData(fd,0x0);
     usleep(1000*10);  //experimental
-    *pBattTemp  = i2cReadByteData(fd,0x01);
+    if (pBattTemp != NULL)
+      *pBattTemp  = i2cReadByteData(fd,0x01);
     i2cClose(fd);
     return(0);
   #endif

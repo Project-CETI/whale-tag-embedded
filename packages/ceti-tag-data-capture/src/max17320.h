@@ -97,17 +97,6 @@
 #define CURRENT_ALT_LSB					0.4 // mV, must divide by R_sense to get mA value
 #define VOLTAGE_ALT_LSB					0.02 // V
 
-// Alert and Other Thresholds
-#define MAX17320_MIN_CURRENT_THR		0x00
-#define MAX17320_MAX_CURRENT_THR		0x00
-#define MAX17320_MIN_VOLTAGE_THR		4.0 // V
-#define MAX17320_MAX_VOLTAGE_THR		3.0 // V
-#define MAX17320_MIN_TEMP_THR			0x00 // Not defined yet
-#define MAX17320_MAX_TEMP_THR			0x00
-#define MAX17320_MIN_SOC_THR			0x00 // Not defined yet
-#define MAX17320_MAX_SOC_THR			0x00
-#define MAX17320_CELL_BAL_THR			0b011 // Corresponds to a 10.0 mV threshold
-
 // Other Macros
 #define MAX17320_TIMEOUT                1000
 #define SECOND_TO_HOUR					3600
@@ -116,8 +105,7 @@
 #define LOCKED_WRITE_PROT               0x00F9
 #define DETERMINE_REMAINING_UPDATES     0xE29B   
 #define INITIATE_BLOCK_COPY             0xE904
-#define TRECALL							5000
-#define TBLOCK							7370000
+#define TRECALL_US						5000
 #define MAX17320_RESET 					0x000F
 #define MAX17320_RESET_FW				0x8000
 #define CHARGE_ON						0xFEFF

@@ -8,9 +8,6 @@
 #include "max17320.h"
 
 // Global variables
-// TODO add battery thread?
-// TODO we've created a struct, they just have global vars, evaluate what is needed
-// TODO error checking for all writes/reads
 static FILE* battery_data_file = NULL;
 static char battery_data_file_notes[256] = "";
 static const char* battery_data_file_headers[] = {
@@ -52,9 +49,7 @@ static inline int max17320_write(MAX17320_HandleTypeDef *dev, uint16_t memory, u
         ret = i2cWriteWordData(fd, memory, data);
     }
     i2cClose(fd);
-    // TODO: Add error checking based on function
-    // TODO: Log to different file?
-    // Can add verification but there are some exceptions (clearing write)
+    // TODO: Add error checking but note that there are some exceptions (clearing write)
     return ret;
 }
 
@@ -92,7 +87,7 @@ int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev) {
     while (counter > 0)
     {
         ret = max17320_write(dev, MAX17320_REG_COMM_STAT, CLEAR_WRITE_PROT);
-        usleep(TRECALL);
+        usleep(TRECALL_US);
         counter--;
     }
     ret |= max17320_read(dev, MAX17320_REG_COMM_STAT, &read);
@@ -112,7 +107,7 @@ int max17320_lock_write_protection(MAX17320_HandleTypeDef *dev) {
     while (counter > 0)
     {
         ret = max17320_write(dev, MAX17320_REG_COMM_STAT, LOCKED_WRITE_PROT);
-        usleep(TRECALL);
+        usleep(TRECALL_US);
         counter--;
     }
     ret |= max17320_read(dev, MAX17320_REG_COMM_STAT, &read);
@@ -358,7 +353,7 @@ int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
     
     // Write to command register
     ret = max17320_write(dev, MAX17320_REG_COMMAND, DETERMINE_REMAINING_UPDATES);
-    usleep(TRECALL);
+    usleep(TRECALL_US);
 
     // Read from register that holds remaining writes
     ret |= max17320_read(dev, MAX17320_REG_REMAINING_WRITES, &read);

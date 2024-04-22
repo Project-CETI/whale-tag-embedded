@@ -135,16 +135,15 @@ void* battery_thread(void* paramPtr) {
 //-----------------------------------------------------------------------------
 int getBatteryData(double* battery_v1_v, double* battery_v2_v,
                    double* battery_i_mA) {
-    if (battery_v1_v == NULL || battery_v1_v == NULL || battery_v1_v == NULL) {
-      CETI_ERR("Process failed: Null pointers passed in to store data.");
-      return (-1);
-    }
     #if MAX17320 == 1
       int ret = max17320_get_voltages(&dev);
-      *battery_v1_v = dev.cell_1_voltage;
-      *battery_v2_v = dev.cell_2_voltage;
+      if (battery_v1_v != NULL)
+        *battery_v1_v = dev.cell_1_voltage;
+      if (battery_v2_v != NULL)
+        *battery_v2_v = dev.cell_2_voltage;
       ret |= max17320_get_battery_current(&dev);
-      *battery_i_mA = dev.battery_current;
+      if (battery_i_mA != NULL)
+        *battery_i_mA = dev.battery_current;
       return ret;
     #else
       int fd, result;
@@ -160,20 +159,23 @@ int getBatteryData(double* battery_v1_v, double* battery_v2_v,
       result = i2cReadByteData(fd, BATT_CELL_1_V_LS);
       voltage = (voltage | (result >> 5));
       voltage = (voltage | (result >> 5));
-      *battery_v1_v = 4.883e-3 * voltage;
+      if (battery_v1_v != NULL)
+        *battery_v1_v = 4.883e-3 * voltage;
 
       result = i2cReadByteData(fd, BATT_CELL_2_V_MS);
       voltage = result << 3;
       result = i2cReadByteData(fd, BATT_CELL_2_V_LS);
       voltage = (voltage | (result >> 5));
       voltage = (voltage | (result >> 5));
-      *battery_v2_v = 4.883e-3 * voltage;
+      if (battery_v2_v != NULL)
+        *battery_v2_v = 4.883e-3 * voltage;
 
       result = i2cReadByteData(fd, BATT_I_MS);
       current = result << 8;
       result = i2cReadByteData(fd, BATT_I_LS);
       current = current | result;
-      *battery_i_mA = 1000 * current * (1.5625e-6 / BATT_R_SENSE);
+      if (battery_i_mA != NULL)
+        *battery_i_mA = 1000 * current * (1.5625e-6 / BATT_R_SENSE);
 
       i2cClose(fd);
       return (0);
