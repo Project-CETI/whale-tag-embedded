@@ -23,5 +23,5 @@ int main(void){
         bytes--;
     }
 
-    return init_fpga();
+    return init_fpga(strncat(g_process_path, FPGA_BITSTREAM, sizeof(g_process_path)));
 }
