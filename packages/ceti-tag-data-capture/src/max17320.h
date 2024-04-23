@@ -135,22 +135,22 @@ typedef struct {
 // Device struct
 typedef struct __MAX17320_HandleTypeDef {
 	max17320_Reg_Status status;
-	uint16_t remaining_capacity; // mAh
-    uint16_t state_of_charge; // %
+	double remaining_capacity; // mAh
+    double state_of_charge; // %
 
-    uint16_t cell_1_voltage; // Voltage of cell connected between MID and NEG
-    uint16_t cell_2_voltage; // Voltage of cell connected between POS and MID
-    uint16_t total_battery_voltage; // Total battery pack voltage between POS and NEG
-    uint16_t pack_side_voltage; // Pack-side voltage input into system
+    double cell_1_voltage; // Voltage of cell connected between MID and NEG
+    double cell_2_voltage; // Voltage of cell connected between POS and MID
+    double total_battery_voltage; // Total battery pack voltage between POS and NEG
+    double pack_side_voltage; // Pack-side voltage input into system
 
-    int16_t temperature; // °C
-	int16_t die_temperature; // °C
+    double temperature; // °C
+	double die_temperature; // °C
 
-    int16_t battery_current; // A
-    int16_t average_current; // A
+    double battery_current; // A
+    double average_current; // A
 
-    uint16_t time_to_empty; // h
-    uint16_t time_to_full; // h
+    double time_to_empty; // h
+    double time_to_full; // h
 
 	uint8_t remaining_writes;
 } MAX17320_HandleTypeDef;
