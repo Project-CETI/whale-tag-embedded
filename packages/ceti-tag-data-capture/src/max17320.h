@@ -90,7 +90,7 @@
 #define PERCENTAGE_LSB					1/256 // %
 #define CELL_VOLTAGE_LSB				0.000078125 // V
 #define PACK_VOLTAGE_LSB				0.0003125; // V
-#define CURRENT_LSB						0.0015625 // mV, must divide by R_sense to get mA value
+#define CURRENT_LSB						1.5625 // uV, must divide by R_sense to get mA value
 #define TEMPERATURE_LSB					1/256 // °C
 #define RESISTANCE_LSB					1/4096 // Ω
 #define TIME_LSB						5.625 // s
