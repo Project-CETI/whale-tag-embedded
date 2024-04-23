@@ -2,6 +2,7 @@
 # To start run ls -lA /dev/serial* and ensure /dev/serial0 -> ttyAMA0
 # Instructions to fix: https://www.youtube.com/watch?v=tCcxFMU1OFE
 # Script runtime is around 50s for recovery board firmware
+# Run using sudo bash flashRecovery.sh <optionalarg>
 
 # Configures the FPGA
 sudo /opt/ceti-tag-data-capture/bin/cetiFpgaInit
@@ -45,18 +46,36 @@ fi
 
 echo 'stm32 device has been initialized.'
 
-# Check for elf file existence
-if ! [ -f /opt/ceti-tag-data-capture/ipc/flash.elf ]; then
-        echo "File does not exist. Downloading..."
-        # Download file
-        curl -LJO "https://github.com/Project-CETI/whale-tag-recovery/raw/dev/v2_3/KaveetSakshamRecoveryBoard/KaveetSakshamRecoveryBoard.elf"
-        sudo mv KaveetSakshamRecoveryBoard.elf /opt/ceti-tag-data-capture/ipc/flash.elf
+if [ -z "$1" ]; then
+        # Check for elf file existence
+        if ! [ -f /opt/ceti-tag-data-capture/ipc/flash.elf ]; then
+                echo "File does not exist. Downloading..."
+                # Download file
+                curl -LJO "https://github.com/Project-CETI/whale-tag-recovery/raw/dev/v2_3/KaveetSakshamRecoveryBoard/KaveetSakshamRecoveryBoard.elf"
+                sudo mv KaveetSakshamRecoveryBoard.elf /opt/ceti-tag-data-capture/ipc/flash.elf
+        fi
+
+        # Conversion from elf to binary
+        elf='/opt/ceti-tag-data-capture/ipc/flash.elf'
+        bin='/opt/ceti-tag-data-capture/ipc/flash.bin'
+        sudo objcopy -O binary $elf $bin
+elif [[  $1 == *.bin ]]; then
+        bin="$1"
+elif [ $1 == *.elf ]; then
+        elf="$1"
+        bin='/opt/ceti-tag-data-capture/ipc/flash.bin'
+        sudo objcopy -O binary $elf $bin
+else
+        echo 'Invalid argument supplied'
+        exit 1
 fi
 
-# Conversion from elf to binary
-elf='/opt/ceti-tag-data-capture/ipc/flash.elf'
-bin='/opt/ceti-tag-data-capture/ipc/flash.bin'
-sudo objcopy -O binary $elf $bin
+
+# Check that bin file exists
+if ! test -f "$bin"; then
+  echo "Bin file does not exist."
+  exit 1
+fi
 
 # Flashes board
 stm32flash -v -w $bin /dev/serial0
