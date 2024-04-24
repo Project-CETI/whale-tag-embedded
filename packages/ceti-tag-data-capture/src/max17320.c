@@ -297,10 +297,25 @@ static inline int max17320_setup_nv_write(MAX17320_HandleTypeDef *dev) {
     return ret;
 }
 
+int max17320_gauge_reset(MAX17320_HandleTypeDef *dev) {
+    int ret = max17320_clear_write_protection(dev);
+    // Reset firmware
+    ret |= max17320_write(dev, MAX17320_REG_CONFIG2, MAX17320_RESET_FW);
+    ret |= max17320_read(dev, MAX17320_REG_CONFIG2, &read);
+    // Wait for POR_CMD bit to clear
+    while ((read & 0x8000) == 0x8000) {
+        // Watch for getting stuck here
+        ret |= max17320_read(dev, MAX17320_REG_CONFIG2, &read);
+    }
+    return ret;
+}
+
 int max17320_reset(MAX17320_HandleTypeDef *dev) {
     // Performs full reset
-    int ret = max17320_write(dev, MAX17320_REG_COMMAND, MAX17320_RESET);
+    int ret = max17320_clear_write_protection(dev);
+    ret |= max17320_write(dev, MAX17320_REG_COMMAND, MAX17320_RESET);
     usleep(10000);
+    ret |= max17320_gauge_reset(dev);
     return ret;
 }
 
@@ -349,17 +364,11 @@ int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
         CETI_LOG("MAX17320 Block copy complete, resetting system...");
         // Send full reset command to the IC
         ret |= max17320_reset(dev);
-        // Reset firmware
-        ret |= max17320_clear_write_protection(dev);
-        ret |= max17320_write(dev, MAX17320_REG_CONFIG2, MAX17320_RESET_FW);
-        ret |= max17320_read(dev, MAX17320_REG_CONFIG2, &read);
-        // Wait for POR_CMD bit to clear
-        while ((read & 0x4000) == 0x4000) {
-            ret |= max17320_read(dev, MAX17320_REG_CONFIG2, &read);
-        }
-        // Lock write protection
-        CETI_LOG("MAX17320 Non-volatile settings written");
-        // Commented out for now, to not affect previous settings for FETS when unlocking
+        if (ret == 0)
+            CETI_LOG("MAX17320 Non-volatile settings written");
+        else
+            CETI_ERR("Something went wrong resetting the system");
+        // Lock write protection, commented out for now
         // ret |= max17320_lock_write_protection(dev);
     }
 

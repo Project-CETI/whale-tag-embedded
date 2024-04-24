@@ -168,6 +168,7 @@ int max17320_get_average_battery_current(MAX17320_HandleTypeDef *dev);
 int max17320_get_time_to_empty(MAX17320_HandleTypeDef *dev);
 int max17320_get_time_to_full(MAX17320_HandleTypeDef *dev);
 int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev);
+int max17320_gauge_reset(MAX17320_HandleTypeDef *dev);
 int max17320_reset(MAX17320_HandleTypeDef *dev);
 int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev);
 int max17320_verify_nonvolatile(MAX17320_HandleTypeDef *dev);
