@@ -360,6 +360,7 @@ static inline int max17320_setup_nv_write(MAX17320_HandleTypeDef *dev) {
 }
 
 int max17320_gauge_reset(MAX17320_HandleTypeDef *dev) {
+    uint16_t read = 0;
     int ret = max17320_clear_write_protection(dev);
     // Reset firmware
     ret |= max17320_write(dev, MAX17320_REG_CONFIG2, MAX17320_RESET_FW);
