@@ -175,7 +175,7 @@ int max17320_get_prot_status(MAX17320_HandleTypeDef *dev) {
     uint16_t read = 0;
     int ret = max17320_read(dev, MAX17320_REG_PROTSTATUS, &read);
     if (ret >= 0) {
-        dev->status = __protStatusRegister_from_raw(read);
+        dev->prot_status = __protStatusRegister_from_raw(read);
         CETI_LOG("MAX17320 ProtStatus: 0x%.4x", read);
     }
     return ret;
@@ -185,7 +185,7 @@ int max17320_get_prot_alrt(MAX17320_HandleTypeDef *dev) {
     uint16_t read = 0;
     int ret = max17320_read(dev, MAX17320_REG_PROTALRT, &read);
     if (ret >= 0) {
-        dev->status = __protAlrtRegister_from_raw(read);
+        dev->prot_alert = __protAlrtRegister_from_raw(read);
         CETI_LOG("MAX17320 ProtAlrt: 0x%.4x", read);
     }
     return ret;
