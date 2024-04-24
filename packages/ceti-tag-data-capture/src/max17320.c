@@ -33,6 +33,48 @@ static inline max17320_Reg_Status __statusRegister_from_raw(uint16_t raw) {
     };
 }
 
+static inline max17320_Reg_ProtStatus __protStatusRegister_from_raw(uint16_t raw) {
+    return (max17320_Reg_ProtStatus) {
+        .ship = _RSHIFT(raw, 0, 1),
+        .perm_fail = _RSHIFT(raw, 6, 1),
+        .die_overtemperature = _RSHIFT(raw, 5, 1),
+        .res_d_fault = _RSHIFT(raw, 1, 1),
+        .overdischarge_current = _RSHIFT(raw, 2, 1),
+        .undervoltage = _RSHIFT(raw, 3, 1),
+        .too_hot_discharge = _RSHIFT(raw, 4, 1),
+        .overcharge_current = _RSHIFT(raw, 10, 1),
+        .overvoltage = _RSHIFT(raw, 11, 1),
+        .too_hot_charge = _RSHIFT(raw, 14, 1),
+        .too_cold_charge = _RSHIFT(raw, 12, 1),
+        .capacity_overflow = _RSHIFT(raw, 9, 1),
+        .full = _RSHIFT(raw, 13, 1),
+        .watchdog_timer = _RSHIFT(raw, 15, 1),
+        .imbalance = _RSHIFT(raw, 7, 1),
+        .prequal_timeout = _RSHIFT(raw, 8, 1),
+    };
+}
+
+static inline max17320_Reg_ProtAlrt __protAlrtRegister_from_raw(uint16_t raw) {
+    return (max17320_Reg_ProtAlrt) {
+        .leak_detection = _RSHIFT(raw, 0, 1),
+        .perm_fail = _RSHIFT(raw, 6, 1),
+        .die_overtemperature = _RSHIFT(raw, 5, 1),
+        .res_d_fault = _RSHIFT(raw, 1, 1),
+        .overdischarge_current = _RSHIFT(raw, 2, 1),
+        .undervoltage = _RSHIFT(raw, 3, 1),
+        .too_hot_discharge = _RSHIFT(raw, 4, 1),
+        .overcharge_current = _RSHIFT(raw, 10, 1),
+        .overvoltage = _RSHIFT(raw, 11, 1),
+        .too_hot_charge = _RSHIFT(raw, 14, 1),
+        .too_cold_charge = _RSHIFT(raw, 12, 1),
+        .capacity_overflow = _RSHIFT(raw, 9, 1),
+        .full = _RSHIFT(raw, 13, 1),
+        .watchdog_timer = _RSHIFT(raw, 15, 1),
+        .imbalance = _RSHIFT(raw, 7, 1),
+        .prequal_timeout = _RSHIFT(raw, 8, 1),
+    };
+}
+
 static inline int max17320_write(MAX17320_HandleTypeDef *dev, uint16_t memory, uint16_t data) {
     int ret = 0;
     uint16_t addr = MAX17320_ADDR;
@@ -125,6 +167,26 @@ int max17320_get_status(MAX17320_HandleTypeDef *dev) {
     if (ret >= 0) {
         dev->status = __statusRegister_from_raw(read);
         CETI_LOG("MAX17320 Status: 0x%.4x", read);
+    }
+    return ret;
+}
+
+int max17320_get_prot_status(MAX17320_HandleTypeDef *dev) {
+    uint16_t read = 0;
+    int ret = max17320_read(dev, MAX17320_REG_PROTSTATUS, &read);
+    if (ret >= 0) {
+        dev->status = __protStatusRegister_from_raw(read);
+        CETI_LOG("MAX17320 ProtStatus: 0x%.4x", read);
+    }
+    return ret;
+}
+
+int max17320_get_prot_alrt(MAX17320_HandleTypeDef *dev) {
+    uint16_t read = 0;
+    int ret = max17320_read(dev, MAX17320_REG_PROTALRT, &read);
+    if (ret >= 0) {
+        dev->status = __protAlrtRegister_from_raw(read);
+        CETI_LOG("MAX17320 ProtAlrt: 0x%.4x", read);
     }
     return ret;
 }

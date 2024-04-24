@@ -23,6 +23,8 @@
 
 // TODO: Remove Unused Registers
 #define MAX17320_REG_STATUS             0x000
+#define MAX17320_REG_PROTSTATUS			0x0D9
+#define MAX17320_REG_PROTALRT			0x0AF
 #define MAX17320_REG_REP_CAPACITY       0x005
 #define MAX17320_REG_REP_SOC            0x006
 #define MAX17320_REG_CELL1_VOLTAGE      0x0D8
@@ -132,9 +134,53 @@ typedef struct {
 
 } max17320_Reg_Status;
 
+typedef struct {
+	bool ship;
+	bool perm_fail;
+	bool die_overtemperature; // chg & dis fault
+	bool res_d_fault; // unexplained in the datasheet
+	// Discharge faults
+	bool overdischarge_current;
+	bool undervoltage;
+	bool too_hot_discharge;
+	// Charge faults
+	bool overcharge_current;
+	bool overvoltage;
+	bool too_hot_charge;
+	bool too_cold_charge;
+	bool capacity_overflow;
+	bool full;
+	bool watchdog_timer;
+	bool imbalance;
+	bool prequal_timeout;
+} max17320_Reg_ProtStatus;
+
+typedef struct {
+	bool leak_detection;
+	bool perm_fail;
+	bool die_overtemperature; // chg & dis fault
+	bool res_d_fault; // unexplained in the datasheet
+	// Discharge faults
+	bool overdischarge_current;
+	bool undervoltage;
+	bool too_hot_discharge;
+	// Charge faults
+	bool overcharge_current;
+	bool overvoltage;
+	bool too_hot_charge;
+	bool too_cold_charge;
+	bool capacity_overflow;
+	bool full;
+	bool watchdog_timer;
+	bool imbalance;
+	bool prequal_timeout;
+} max17320_Reg_ProtAlrt;
+
 // Device struct
 typedef struct __MAX17320_HandleTypeDef {
 	max17320_Reg_Status status;
+	max17320_Reg_ProtStatus prot_status;
+	max17320_Reg_ProtAlrt prot_alert;
 	double remaining_capacity; // mAh
     double state_of_charge; // %
 
@@ -159,6 +205,8 @@ int max17320_init(MAX17320_HandleTypeDef *dev);
 int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev);
 int max17320_lock_write_protection(MAX17320_HandleTypeDef *dev);
 int max17320_get_status(MAX17320_HandleTypeDef *dev);
+int max17320_get_prot_status(MAX17320_HandleTypeDef *dev);
+int max17320_get_prot_alrt(MAX17320_HandleTypeDef *dev);
 int max17320_get_remaining_capacity(MAX17320_HandleTypeDef *dev);
 int max17320_get_state_of_charge(MAX17320_HandleTypeDef *dev);
 int max17320_get_voltages(MAX17320_HandleTypeDef *dev);
