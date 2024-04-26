@@ -359,7 +359,7 @@ int max17320_gauge_reset(MAX17320_HandleTypeDef *dev) {
     while ((read & 0x8000) == 0x8000) {
         // Watch for getting stuck here
         ret |= max17320_read(dev, MAX17320_REG_CONFIG2, &read);
-        ETI_DEBUG("MAX17320 waiting for bit to clear post reset");
+        CETI_DEBUG("MAX17320 waiting for bit to clear post reset");
     }
     return ret;
 }
