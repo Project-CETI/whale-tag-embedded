@@ -7,16 +7,6 @@
 
 #include "max17320.h"
 
-// Global variables
-static FILE* battery_data_file = NULL;
-static char battery_data_file_notes[256] = "";
-static const char* battery_data_file_headers[] = {
-  "Battery V1 [V]",
-  "Battery V2 [V]",
-  "Battery I [mA]",
-  };
-static const int num_battery_data_file_headers = 3;
-
 static inline max17320_Reg_Status __statusRegister_from_raw(uint16_t raw) {
     return (max17320_Reg_Status) {
         .power_on_reset = _RSHIFT(raw, 1, 1),
@@ -166,7 +156,7 @@ int max17320_get_status(MAX17320_HandleTypeDef *dev) {
     int ret = max17320_read(dev, MAX17320_REG_STATUS, &read);
     if (ret >= 0) {
         dev->status = __statusRegister_from_raw(read);
-        CETI_LOG("MAX17320 Status: 0x%.4x", read);
+        CETI_DEBUG("MAX17320 Status: 0x%.4x", read);
     }
     return ret;
 }
@@ -176,7 +166,7 @@ int max17320_get_prot_status(MAX17320_HandleTypeDef *dev) {
     int ret = max17320_read(dev, MAX17320_REG_PROTSTATUS, &read);
     if (ret >= 0) {
         dev->prot_status = __protStatusRegister_from_raw(read);
-        CETI_LOG("MAX17320 ProtStatus: 0x%.4x", read);
+        CETI_DEBUG("MAX17320 ProtStatus: 0x%.4x", read);
     }
     return ret;
 }
@@ -186,7 +176,7 @@ int max17320_get_prot_alrt(MAX17320_HandleTypeDef *dev) {
     int ret = max17320_read(dev, MAX17320_REG_PROTALRT, &read);
     if (ret >= 0) {
         dev->prot_alert = __protAlrtRegister_from_raw(read);
-        CETI_LOG("MAX17320 ProtAlrt: 0x%.4x", read);
+        CETI_DEBUG("MAX17320 ProtAlrt: 0x%.4x", read);
     }
     return ret;
 }
@@ -196,7 +186,7 @@ int max17320_get_remaining_capacity(MAX17320_HandleTypeDef* dev) {
     int ret = max17320_read(dev, MAX17320_REG_REP_CAPACITY, &read);
     if (ret >= 0) {
         dev->remaining_capacity = read * (CAPACITY_LSB / R_SENSE_VAL);
-        CETI_LOG("MAX17320 Remaining Capacity: %.2f mAh", dev->remaining_capacity);
+        CETI_DEBUG("MAX17320 Remaining Capacity: %.2f mAh", dev->remaining_capacity);
     }
     return ret;
 }
@@ -206,7 +196,7 @@ int max17320_get_state_of_charge(MAX17320_HandleTypeDef *dev) {
     int ret = max17320_read(dev, MAX17320_REG_REP_SOC, &read);
     if (ret >= 0) {
         dev->state_of_charge = read * PERCENTAGE_LSB;
-        CETI_LOG("MAX17320 State of Charge: %.2f %%", dev->state_of_charge);
+        CETI_DEBUG("MAX17320 State of Charge: %.2f %%", dev->state_of_charge);
     }
     return ret;
 }
@@ -217,28 +207,28 @@ int max17320_get_voltages(MAX17320_HandleTypeDef *dev) {
     int ret = max17320_read(dev, MAX17320_REG_CELL1_VOLTAGE, &read);
     if (ret >= 0) {
         dev->cell_1_voltage = read * CELL_VOLTAGE_LSB;
-        CETI_LOG("MAX17320 Cell 1 Voltage: %.2f V", dev->cell_1_voltage);
+        CETI_DEBUG("MAX17320 Cell 1 Voltage: %.2f V", dev->cell_1_voltage);
     }
 
     // Cell 2 Voltage
     ret |= max17320_read(dev, MAX17320_REG_CELL2_VOLTAGE, &read);
     if (ret >= 0) {
         dev->cell_2_voltage = read * CELL_VOLTAGE_LSB;
-        CETI_LOG("MAX17320 Cell 2 Voltage: %.2f V", dev->cell_2_voltage);
+        CETI_DEBUG("MAX17320 Cell 2 Voltage: %.2f V", dev->cell_2_voltage);
     }
 
     // Total Battery Voltage
     ret |= max17320_read(dev, MAX17320_REG_TOTAL_BAT_VOLTAGE, &read);
     if (ret >= 0) {
         dev->total_battery_voltage = read * PACK_VOLTAGE_LSB;
-        CETI_LOG("MAX17320 Total Battery Voltage: %.2f V", dev->total_battery_voltage);
+        CETI_DEBUG("MAX17320 Total Battery Voltage: %.2f V", dev->total_battery_voltage);
     }
     
     // Pack Side Voltage
     ret |= max17320_read(dev, MAX17320_REG_PACK_SIDE_VOLTAGE, &read);
     if (ret >= 0) {
         dev->pack_side_voltage = read * PACK_VOLTAGE_LSB;
-        CETI_LOG("MAX17320 Pack Side Voltage: %.2f V", dev->pack_side_voltage);
+        CETI_DEBUG("MAX17320 Pack Side Voltage: %.2f V", dev->pack_side_voltage);
     }
     
     return ret;
@@ -249,12 +239,12 @@ int max17320_get_temperature(MAX17320_HandleTypeDef *dev) {
     int ret = max17320_read(dev, MAX17320_REG_TEMPERATURE, &read);
     if (ret >= 0) {
         dev->temperature = read * TEMPERATURE_LSB;
-        CETI_LOG("MAX17320 Thermistor Temperature: %.2f °C", dev->temperature);
+        CETI_DEBUG("MAX17320 Thermistor Temperature: %.2f °C", dev->temperature);
     }
     ret |= max17320_read(dev, MAX17320_REG_DIETEMP, &read);
     if (ret >= 0) {
         dev->die_temperature = read * TEMPERATURE_LSB;
-        CETI_LOG("MAX17320 Die Temperature: %.2f °C", dev->die_temperature);
+        CETI_DEBUG("MAX17320 Die Temperature: %.2f °C", dev->die_temperature);
     }
     return ret;
 }
@@ -264,7 +254,7 @@ int max17320_get_battery_current(MAX17320_HandleTypeDef *dev) {
     int ret = max17320_read(dev, MAX17320_REG_BATT_CURRENT, &read);
     if (ret >= 0) {
         dev->battery_current = (read * (CURRENT_LSB/R_SENSE_VAL)) / 1000;
-        CETI_LOG("MAX17320 Battery Current: %.2f mA", dev->battery_current);
+        CETI_DEBUG("MAX17320 Battery Current: %.2f mA", dev->battery_current);
     }
     return ret;
 }
@@ -273,7 +263,7 @@ int max17320_get_average_battery_current(MAX17320_HandleTypeDef *dev) {
     int16_t read = 0;
     int ret = max17320_read(dev, MAX17320_REG_AVG_BATT_CURRENT, &read);
     dev->average_current = (read * (CURRENT_LSB/R_SENSE_VAL)) / 1000;
-    CETI_LOG("MAX17320 Avg Battery Current: %.2f mA", dev->average_current);
+    CETI_DEBUG("MAX17320 Avg Battery Current: %.2f mA", dev->average_current);
     return ret;
 }
 
@@ -282,7 +272,7 @@ int max17320_get_time_to_empty(MAX17320_HandleTypeDef *dev) {
     int ret = max17320_read(dev, MAX17320_REG_TIME_TO_EMPTY, &read);
     if (ret >= 0) {
         dev->time_to_empty = read * (TIME_LSB / SECOND_TO_HOUR);
-        CETI_LOG("MAX17320 Time to Empty: %.2f hrs", dev->time_to_empty);
+        CETI_DEBUG("MAX17320 Time to Empty: %.2f hrs", dev->time_to_empty);
     }
     return ret;
 }
@@ -291,7 +281,7 @@ int max17320_get_time_to_full(MAX17320_HandleTypeDef *dev) {
     int ret = max17320_read(dev, MAX17320_REG_TIME_TO_FULL, &read);
     if (ret >= 0) {
         dev->time_to_full = read * (TIME_LSB / SECOND_TO_HOUR);
-        CETI_LOG("MAX17320 Time to Full: %.2f hrs", dev->time_to_full);
+        CETI_DEBUG("MAX17320 Time to Full: %.2f hrs", dev->time_to_full);
     }
     return ret;
 }
@@ -354,7 +344,7 @@ static inline int max17320_setup_nv_write(MAX17320_HandleTypeDef *dev) {
         sleep(1);
         return ret;
     }
-    CETI_LOG("MAX17320: Write has errors, not initiating block copy");
+    CETI_ERR("MAX17320: Write has errors, not initiating block copy");
     ret = -1;
     return ret;
 }
@@ -369,6 +359,7 @@ int max17320_gauge_reset(MAX17320_HandleTypeDef *dev) {
     while ((read & 0x8000) == 0x8000) {
         // Watch for getting stuck here
         ret |= max17320_read(dev, MAX17320_REG_CONFIG2, &read);
+        ETI_DEBUG("MAX17320 waiting for bit to clear post reset");
     }
     return ret;
 }
@@ -413,13 +404,13 @@ int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
     ret |= max17320_setup_nv_write(dev);
     if (ret < 0)
     {
-        CETI_LOG("MAX17320 Something went wrong with register write");
+        CETI_ERR("MAX17320 Something went wrong with register write");
         return ret;
     }
     ret |= max17320_read(dev, MAX17320_REG_COMM_STAT, &read);
     while((read & 0x0004) == 0x0004) {
         ret |= max17320_read(dev, MAX17320_REG_COMM_STAT, &read);
-        CETI_LOG("MAX17320 waiting for bit to clear");
+        CETI_DEBUG("MAX17320 waiting for bit to clear post write");
         // TODO: Determine proper way to exit this loop
     }
 
@@ -453,7 +444,7 @@ int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
 
     // Read from register that holds remaining writes
     ret |= max17320_read(dev, MAX17320_REG_REMAINING_WRITES, &read);
-    CETI_LOG("MAX17320 Remaining Writes Register Read: 0x%.4x", read);
+    CETI_DEBUG("MAX17320 Remaining Writes Register Read: 0x%.4x", read);
 
     // Decode remaining writes
     uint8_t first_byte = (read>>8) & 0xff;
@@ -481,7 +472,7 @@ int max17320_enable_charging(MAX17320_HandleTypeDef *dev) {
         CETI_LOG("MAX17320 Charge FET Enabled");
     }
     else {
-        CETI_LOG("MAX17320 Charge FET could not be enabled");
+        CETI_ERR("MAX17320 Charge FET could not be enabled");
     }
     return ret;
 }
@@ -492,7 +483,7 @@ int max17320_enable_discharging(MAX17320_HandleTypeDef *dev) {
         CETI_LOG("MAX17320 Discharge FET Enabled");
     }
     else {
-        CETI_LOG("MAX17320 Discharge FET could not be enabled");
+        CETI_ERR("MAX17320 Discharge FET could not be enabled");
     }
     return ret;
 }
@@ -503,7 +494,7 @@ int max17320_disable_charging(MAX17320_HandleTypeDef *dev) {
         CETI_LOG("MAX17320 Charge FET Disabled");
     }
     else {
-        CETI_LOG("MAX17320 Charge FET could not be disabled");
+        CETI_ERR("MAX17320 Charge FET could not be disabled");
     }
     return ret;
 }
@@ -514,7 +505,7 @@ int max17320_disable_discharging(MAX17320_HandleTypeDef *dev) {
         CETI_LOG("MAX17320 Discharge FET Disabled");
     }
     else {
-        CETI_LOG("MAX17320 Discharge FET could not be disabled");
+        CETI_ERR("MAX17320 Discharge FET could not be disabled");
     }
     return ret;
 }
