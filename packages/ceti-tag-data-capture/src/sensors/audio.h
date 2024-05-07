@@ -14,7 +14,6 @@
 // Includes
 //-----------------------------------------------------------------------------
 #define _GNU_SOURCE // change how sched.h will be included
-
 #include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
 #include "../utils/logging.h"
@@ -33,38 +32,34 @@
 //-----------------------------------------------------------------------------
 // Definitions/Configurations
 //-----------------------------------------------------------------------------
-
-// NUM_SPI_BLOCKS is the number of blocks acquired before writing out to
-// mass storage. A setting of 2100 will give buffer about 30 seconds at a time if
-// sample rate is 96 kHz. Example sizing of buffer (DesignMaps.xlsx has a
-// calcuator for this):
-//
 //  - SPI block HWM * 32 bytes = 8192 bytes (25% of the hardware FIFO in this example)
 //  - Sampling rate 96000 Hz
 //  - 6 bytes per sample set (3 channels, 16 bits per channel)
-//  - 1 SPI Block is then 8192/6 = 1365.333 sample sets or about 14 ms worth of data in
-//  - 30 seconds is 30/.014  = about 2142 SPI blocks
-//
 // N.B. Make NUM_SPI_BLOCKS an integer multiple of 3 for alignment
 // reasons
 
 // SPI Block Size
-#define HWM (256)                 // High Water Mark from Verilog code - these are 32 byte chunks (2 sample sets)
+#define HWM (512)                 // High Water Mark from Verilog code - these are 32 byte chunks (2 sample sets)
 #define SPI_BLOCK_SIZE (HWM * 32) // make SPI block size <= HWM * 32 otherwise may underflow
-#define SPI_BLOCK_SIZE_SAMPLES (SPI_BLOCK_SIZE / (CHANNELS * BYTES_PER_SAMPLE))
 
-//#define NUM_SPI_BLOCKS (2100*10)                 // 5 minute buffer
-#define NUM_SPI_BLOCKS (2100 * 2)                  // 1 minute buffer
-#define RAM_SIZE (NUM_SPI_BLOCKS * SPI_BLOCK_SIZE) // bytes
+// divisable by SPI_BLOCK_SIZE (512*32) = 8192,
+// and divisble by 16-bit sample size (3*2) = 6 bytes per 3 channel sample;
+// and divisible by 24-bit sample size (3*3) = 9 byte per 3 channel sample;
+// and divisible by 16-bit 4 channel = 8
+// and divisible by 24-bit 4 channel = 12
+#define AUDIO_LCM_BYTES (147456)
 
-#define SAMPLE_RATE (96000)
 #define CHANNELS (3)
-#define BITS_PER_SAMPLE (16)
-#define BYTES_PER_SAMPLE (BITS_PER_SAMPLE / 8) 
-// At 96 kHz sampling rate; 16-bit; 3 channels 1 minute of data is 33750 KiB
-#define MAX_AUDIO_DATA_FILE_SIZE ((5 - 1) * 33750 * 1024) // Yields approx 5 minute files at 96 KSPS
-#define MAX_SAMPLES_PER_FILE (MAX_AUDIO_DATA_FILE_SIZE / CHANNELS / BYTES_PER_SAMPLE)
-#define SAMPLES_PER_RAM_PAGE (RAM_SIZE / CHANNELS / BYTES_PER_SAMPLE)
+#define MAX_CHANNELS (4)
+//multiple of AUDIO_LCM_BYTES closest to 75 seconds @ 16-bit, 96kSPS, (14401536)
+#define AUDIO_BUFFER_SIZE_BYTES_PER_CHANNEL (14401536)
+#define AUDIO_BUFFER_SIZE_BYTES (CHANNELS*AUDIO_BUFFER_SIZE_BYTES_PER_CHANNEL)
+#define AUDIO_BUFFER_SIZE_BLOCKS (AUDIO_BUFFER_SIZE_BYTES/SPI_BLOCK_SIZE)
+#define AUDIO_BUFFER_SIZE_SAMPLE16 (AUDIO_BUFFER_SIZE_BYTES/ (sizeof(int16_t)*CHANNELS))
+#define AUDIO_BUFFER_SIZE_SAMPLE24 (AUDIO_BUFFER_SIZE_BYTES/ (3*CHANNELS))
+
+#define AUDIO_BLOCK_FILL_SPEED_US(sample_rate, bit_depth) (SPI_BLOCK_SIZE * 1000000.0/(CHANNELS * (sample_rate) * ((bit_depth)/ 8)))
+
 #define AUDIO_DATA_FILENAME_LEN (100)
 
 // Data Acq SPI Settings and Audio Data Buffering
@@ -83,18 +78,46 @@
 
 #define AUDIO_DATA_AVAILABLE (22)
 
+// value assigned to kHz value for easy printing, but enum limit number of options
+
+typedef enum audio_sample_rate_e{
+    AUDIO_SAMPLE_RATE_DEFAULT,
+    AUDIO_SAMPLE_RATE_48KHZ = 48,
+    AUDIO_SAMPLE_RATE_96KHZ = 96,
+    AUDIO_SAMPLE_RATE_192KHZ = 192,
+} AudioSampleRate;
+
+typedef enum audio_bit_depth_e {
+    AUDIO_BIT_DEPTH_16 = 16,
+    AUDIO_BIT_DEPTH_24 = 24,
+} AudioBitDepth;
+
+typedef enum audio_filter_type_e {
+    AUDIO_FILTER_WIDEBAND = 0,
+    AUDIO_FILTER_SINC5 = 1,
+} AudioFilterType;
+
+typedef struct audio_config_t{
+    AudioFilterType filter_type;
+    AudioSampleRate sample_rate;
+    AudioBitDepth bit_depth;
+} AudioConfig;
+
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
-int init_audio();
+// Device Driver Methods
+int audio_setup(AudioConfig *config);
+int audio_set_bit_depth(AudioBitDepth bit_depth);
+int audio_set_filter_type(AudioFilterType filter_type);
+int audio_set_sample_rate(AudioSampleRate sample_rate);
 void init_audio_buffers();
 int setup_audio_default(void);
-int setup_audio_48kHz(void);
-int setup_audio_96kHz(void);
-int setup_audio_192kHz(void);
 int reset_audio_fifo(void);
 int start_audio_acq(void);
 int stop_audio_acq(void);
+// Thread Methods
+int audio_thread_init(void);
 void createNewAudioDataFile(void);
 void formatRaw(void);
 void formatRawNoHeader3ch16bit(void);

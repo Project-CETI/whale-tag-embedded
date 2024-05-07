@@ -131,6 +131,10 @@ int stateMachine_set_state(wt_state_t new_state){
 
     //actions performed when exit present state
     switch(presentState){
+        case ST_REC_SUB:
+            activity_led_enable();
+            break;
+
         case ST_BRN_ON:
             #if ENABLE_BURNWIRE
             burnwireOff();
@@ -159,7 +163,8 @@ int stateMachine_set_state(wt_state_t new_state){
             #endif // ENABLE_RECOVERY
             break;
 
-        case ST_REC_SUB:
+        case ST_REC_SUB:   
+            activity_led_disable();
             #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
                 recovery_off();
@@ -213,13 +218,6 @@ int updateStateMachine() {
 
     // ---------------- Configuration ----------------
     case (ST_CONFIG): {
-        // Load the deployment configuration
-        char config_file_path[512];
-        strncpy(config_file_path, g_process_path, sizeof(config_file_path) - 1);
-        strncat(config_file_path, CETI_CONFIG_FILE, sizeof(config_file_path) - 1);
-        CETI_LOG("Configuring the deployment parameters from %s", config_file_path);
-        config_read(config_file_path);
-
         //configure recovery board
         #if ENABLE_RECOVERY
         if (g_config.recovery.enabled) {
@@ -279,17 +277,23 @@ int updateStateMachine() {
         #endif
 
         #if ENABLE_PRESSURETEMPERATURE_SENSOR
+        #if !FORCE_NETWORKS_OFF
         if ((g_latest_pressureTemperature_pressure_bar > g_config.dive_pressure)
             && (current_rtc_count - last_reset_rtc_count > (WIFI_GRACE_PERIOD_MIN * 60))
         ){
+        #endif
             //disable wifi
             wifi_disable(); 
             wifi_kill();
-            // usb_disable();
+            bluetooth_kill();
+            eth0_disable();
+            // usb_kill();
             activity_led_disable();
             stateMachine_set_state(ST_REC_SUB);// 1st dive after deploy
             break;
+        #if !FORCE_NETWORKS_OFF
         }
+        #endif
         #endif
 
         break;

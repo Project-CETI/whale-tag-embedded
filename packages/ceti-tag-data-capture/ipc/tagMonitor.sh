@@ -3,10 +3,16 @@
 # New for 2.1-4 release  11/5/22
 # Supervisor script for the Tag application
 
-# remount rootfs readonly
+#unblock wifi (if deployed in volitile state)
+sudo rfkill unblock all
+sudo ifconfig wlan0 up
+
+#unblock USB/ethernet
+sudo ifconfig eth0 up
+
+# # remount rootfs readonly
 mount /boot -o remount,ro
 
-#wake the tag (if )
 ./tagWake.sh
 
 # Launch the main recording application in the background.

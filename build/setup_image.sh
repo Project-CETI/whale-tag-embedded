@@ -74,6 +74,9 @@ raspi-config nonint do_i2c 0
   echo "dtparam=i2c_arm_baudrate=400000"
 } >> /boot/config.txt
 
+# Setup UART for flashing recovery board
+echo "dtoverlay=miniuart-bt" >> /boot/config.txt
+
 # Set timezone
 raspi-config nonint do_change_timezone "America/Dominica"
 
@@ -109,10 +112,38 @@ rm /etc/init.d/resize2fs_once
 # Copy filesystem overlay.
 tar -cf - -C "${OVERLAY_DIR}" --owner=pi --group=pi . | tar -xf - -C /
 
+# Disable periodic systemd services
+rm -f /etc/systemd/system/timers.target.wants/apt-daily.timer
+rm -f /etc/systemd/system/timers.target.wants/apt-daily-upgrade.timer
+rm -f /etc/systemd/system/timers.target.wants/man-db.timer
+
 # Add useful commands to the bash history.
 rm -f /home/pi/.bash_history
 dos2unix /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt
 mv /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt /home/pi/.bash_history
 
+# Sourceforge install of stm32flash to get 0.7
+git clone https://git.code.sf.net/p/stm32flash/code stm32flash-code
+cd stm32flash-code
+sudo make install
+cd ..
+
 # All done
-echo "( ・◡・)つ━☆   Build complete"
+cat << "EOF"
+                         _.-----._        ___
+                      .-`- ```  `-`-._ _.'   \
+                   .'/             `_./       \
+        ___./\    //            _.-'           |
+      _/     /   // _      __.-'               |
+  _.-'      <___/__/ \____/                    /
+.`_.-----`-.                                _.'
+            `-_                    O   __.-'.
+              |`.                    <'__.-|     Build complete
+              \\ `.             _   __---`||
+               \'  `-....     ,'/  /      ''
+                \\     /  _.-` (_.'      //
+                 \'. (_.-`              //
+                  `.'.                 .'
+                    `.' _        _ _.-'
+                       `-.-____-.-'  
+EOF

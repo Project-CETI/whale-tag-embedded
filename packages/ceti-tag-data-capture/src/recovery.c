@@ -460,7 +460,7 @@ int recovery_set_comment(const char *message){
         }
     };
     memcpy(pkt.msg.value, message, len);
-    return __recovery_write(&pkt, sizeof(pkt));
+    return __recovery_write(&pkt, sizeof(pkt.header) + len);
 }
 
 int recovery_set_critical_voltage(float voltage){

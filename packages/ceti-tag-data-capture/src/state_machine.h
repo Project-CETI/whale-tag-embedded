@@ -33,6 +33,7 @@
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
+#define FORCE_NETWORKS_OFF 0
 #define CETI_CONFIG_FILE "../config/ceti-config.txt"
 
 typedef enum {   // Tag operational states for deployment sequencing
