@@ -33,11 +33,12 @@ double g_latest_battery_i_mA;
 int init_battery() {
   #if MAX17320 == 1
     int ret = max17320_init(&dev);
-    if (ret < 0)
+    if (ret < 0){
       CETI_ERR("Failed to connect to MAX17320 Fuel Gauge");
-    else
-      CETI_LOG("Successfully initialized MAX17320 Fuel Gauge");
-    return ret;
+      return ret;
+    }
+    
+    CETI_LOG("Successfully initialized MAX17320 Fuel Gauge");
   #else
     int fd;
     if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
