@@ -1,5 +1,5 @@
 //-----------------------------------------------------------------------------
-// Project:      CETI Tag Electronics
+// Project:      // CETI Tag Electronics
 // Version:      Refer to _versioning.h
 // Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
 // Contributors: Saksham Ahuja, Matt Cummings, Shanaya Barretto, Michael Salino-Hugg
@@ -65,6 +65,11 @@ static inline max17320_Reg_ProtAlrt __protAlrtRegister_from_raw(uint16_t raw) {
     };
 }
 
+static inline double __current_mA_from_raw(uint16_t raw, double r_sense_mOhm){
+    double current_uv = ((double)((int16_t)raw))*CURRENT_LSB_uV;
+    return current_uv/r_sense_mOhm;
+}
+
 static inline int max17320_write(MAX17320_HandleTypeDef *dev, uint16_t memory, uint16_t data) {
     int ret = 0;
     uint16_t addr = MAX17320_ADDR;
@@ -72,7 +77,7 @@ static inline int max17320_write(MAX17320_HandleTypeDef *dev, uint16_t memory, u
         memory = memory & 0xFF;
         addr = MAX17320_ADDR_SEC;
     }
-    int fd=i2cOpen(1, addr, 0);
+    int fd=i2cOpen(1, (addr), 0);
     if (fd < 0) {
         CETI_ERR("Failed to connect to the MAX17320 battery gauge");
         ret = -1;
@@ -250,21 +255,24 @@ int max17320_get_temperature(MAX17320_HandleTypeDef *dev) {
 }
 
 int max17320_get_battery_current(MAX17320_HandleTypeDef *dev) {
-    int16_t read = 0;
+    uint16_t read = 0;
     int ret = max17320_read(dev, MAX17320_REG_BATT_CURRENT, &read);
     if (ret >= 0) {
-        dev->battery_current = (read * (CURRENT_LSB/R_SENSE_VAL)) / 1000;
+        dev->battery_current = __current_mA_from_raw(read, (R_SENSE_VAL*1000.0));
         CETI_DEBUG("MAX17320 Battery Current: %.2f mA", dev->battery_current);
     }
     return ret;
 }
 
 int max17320_get_average_battery_current(MAX17320_HandleTypeDef *dev) {
-    int16_t read = 0;
+    uint16_t read = 0;
     int ret = max17320_read(dev, MAX17320_REG_AVG_BATT_CURRENT, &read);
-    dev->average_current = (read * (CURRENT_LSB/R_SENSE_VAL)) / 1000;
+    if(ret < 0)
+        return ret;
+
+    dev->average_current = __current_mA_from_raw(read, (R_SENSE_VAL*1000.0));
     CETI_DEBUG("MAX17320 Avg Battery Current: %.2f mA", dev->average_current);
-    return ret;
+    return 0;
 }
 
 int max17320_get_time_to_empty(MAX17320_HandleTypeDef *dev) {
