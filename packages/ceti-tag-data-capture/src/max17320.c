@@ -240,7 +240,7 @@ int max17320_get_voltages(MAX17320_HandleTypeDef *dev) {
 }
 
 int max17320_get_temperature(MAX17320_HandleTypeDef *dev) {
-    int16_t read = 0;
+    uint16_t read = 0;
     int ret = max17320_read(dev, MAX17320_REG_TEMPERATURE, &read);
     if (ret >= 0) {
         dev->temperature = read * TEMPERATURE_LSB;
@@ -257,10 +257,13 @@ int max17320_get_temperature(MAX17320_HandleTypeDef *dev) {
 int max17320_get_battery_current(MAX17320_HandleTypeDef *dev) {
     uint16_t read = 0;
     int ret = max17320_read(dev, MAX17320_REG_BATT_CURRENT, &read);
-    if (ret >= 0) {
-        dev->battery_current = __current_mA_from_raw(read, (R_SENSE_VAL*1000.0));
-        CETI_DEBUG("MAX17320 Battery Current: %.2f mA", dev->battery_current);
+    if (ret < 0) {
+            return ret;
     }
+
+    dev->battery_current = __current_mA_from_raw(read, (R_SENSE_VAL*1000.0));
+    CETI_DEBUG("MAX17320 Battery Current: %.2f mA", dev->battery_current);
+    
     return ret;
 }
 
@@ -301,10 +304,10 @@ static inline int max17320_verify_nv_write(MAX17320_HandleTypeDef *dev) {
 
     uint16_t registers[] = {MAX17320_REG_NPACKCFG, MAX17320_REG_NNVCFG0, MAX17320_REG_NNVCFG1, MAX17320_REG_NNVCFG2, MAX17320_REG_NUVPRTTH, MAX17320_REG_NTPRTTH1, MAX17320_REG_NIPRTTH1,
                             MAX17320_REG_NBALTH, MAX17320_REG_NPROTMISCTH, MAX17320_REG_NPROTCFG, MAX17320_REG_NJEITAV, MAX17320_REG_NOVPRTTH, MAX17320_REG_NDELAYCFG, MAX17320_REG_NODSCCFG,
-                            MAX17320_REG_NCONFIG, MAX17320_REG_NTHERMCFG, MAX17320_REG_NVEMPTY, MAX17320_REG_NFULLSOCTHR};
+                            MAX17320_REG_NCONFIG, MAX17320_REG_NTHERMCFG, MAX17320_REG_NVEMPTY, MAX17320_REG_NFULLSOCTHR, MAX17320_REG_nRSense};
     uint16_t data[] = {MAX17320_VAL_NPACKCFG, MAX17320_VAL_NNVCFG0, MAX17320_VAL_NNVCFG1, MAX17320_VAL_NNVCFG2, MAX17320_VAL_NUVPRTTH, MAX17320_VAL_NTPRTTH1, MAX17320_VAL_NIPRTTH1,
                        MAX17320_VAL_NBALTH, MAX17320_VAL_NPROTMISCTH, MAX17320_VAL_NPROTCFG, MAX17320_VAL_NJEITAV, MAX17320_VAL_NOVPRTTH, MAX17320_VAL_NDELAYCFG, MAX17320_VAL_NODSCCFG,
-                       MAX17320_VAL_NCONFIG, MAX17320_VAL_NTHERMCFG, MAX17320_VAL_NVEMPTY, MAX17320_VAL_NFULLSOCTHR};
+                       MAX17320_VAL_NCONFIG, MAX17320_VAL_NTHERMCFG, MAX17320_VAL_NVEMPTY, MAX17320_VAL_NFULLSOCTHR, 100};
     
     for (int i = 0; i < 18; i++) {
         ret |= max17320_read(dev, registers[i], &read);
@@ -336,8 +339,9 @@ static inline int max17320_setup_nv_write(MAX17320_HandleTypeDef *dev) {
     ret |= max17320_write(dev, MAX17320_REG_NTHERMCFG, MAX17320_VAL_NTHERMCFG);
     ret |= max17320_write(dev, MAX17320_REG_NVEMPTY, MAX17320_VAL_NVEMPTY);
     ret |= max17320_write(dev, MAX17320_REG_NFULLSOCTHR, MAX17320_VAL_NFULLSOCTHR);
-    if (ret < 0)
-    {
+    ret |= max17320_write(dev, MAX17320_REG_nRSense, 100);
+    
+    if (ret < 0) {
         CETI_ERR("MAX17320 Error setting non-volatile registers");
         return ret;
     }
@@ -345,7 +349,7 @@ static inline int max17320_setup_nv_write(MAX17320_HandleTypeDef *dev) {
     // Clear CommStat.NVError bit
     ret |= max17320_write(dev, MAX17320_REG_COMM_STAT, CLEAR_WRITE_PROT);
     if (max17320_verify_nv_write(dev) == 0) {
-        CETI_LOG("MAX17320: Write successful, initiating block copy");
+        CETI_DEBUG("MAX17320: Write successful, initiating block copy");
         // Initiate a block copy
         ret |= max17320_write(dev, MAX17320_REG_COMMAND, INITIATE_BLOCK_COPY);
         // TODO: find right value
@@ -384,10 +388,10 @@ int max17320_reset(MAX17320_HandleTypeDef *dev) {
 int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
     int ret = max17320_verify_nv_write(dev);
     if (ret == 0) {
-        CETI_LOG("MAX17320 Nonvolatile settings already written");
+        CETI_DEBUG("MAX17320 Nonvolatile settings already written");
         return ret;
     }
-    CETI_LOG("MAX17320 Nonvolatile settings will be re-written");
+    CETI_DEBUG("MAX17320 Nonvolatile settings will be re-written");
     
     ret |= max17320_get_remaining_writes(dev);
     if (ret < 0)
@@ -396,7 +400,7 @@ int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
     }
     if (dev->remaining_writes < 3) {
         ret = -1;
-        CETI_LOG("MAX17320 Remaining nonvolatile writes less than 3, not rewriting");
+        CETI_DEBUG("MAX17320 Remaining nonvolatile writes less than 3, not rewriting");
         return ret;
     }
     
@@ -410,8 +414,7 @@ int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
 
     // Write all registers, clear error bit, and send block copy command
     ret |= max17320_setup_nv_write(dev);
-    if (ret < 0)
-    {
+    if (ret < 0) {
         CETI_ERR("MAX17320 Something went wrong with register write");
         return ret;
     }
@@ -423,15 +426,16 @@ int max17320_nonvolatile_write(MAX17320_HandleTypeDef *dev) {
     }
 
     if (ret == 0) {
-        CETI_LOG("MAX17320 Block copy complete, resetting system...");
+        CETI_DEBUG("MAX17320 Block copy complete, resetting system...");
         // Send full reset command to the IC
         ret |= max17320_reset(dev);
-        if (ret == 0)
-            CETI_LOG("MAX17320 Non-volatile settings written");
-        else
+        if (ret == 0) {
+            CETI_DEBUG("MAX17320 Non-volatile settings written");
+        } else {
             CETI_ERR("Something went wrong resetting the system");
         // Lock write protection, commented out for now
         // ret |= max17320_lock_write_protection(dev);
+        }
     }
 
     return ret;
@@ -468,7 +472,7 @@ int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
         decoded = decoded >> 1;
     }
     dev->remaining_writes = (8-count);
-    CETI_LOG("MAX17320 Remaining Writes: %u", dev->remaining_writes);
+    CETI_DEBUG("MAX17320 Remaining Writes: %u", dev->remaining_writes);
     // Commented out for now, to not affect previous settings for FETS when unlocking
     // ret |= max17320_lock_write_protection(dev);
     return ret;
@@ -477,7 +481,7 @@ int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
 int max17320_enable_charging(MAX17320_HandleTypeDef *dev) {
     int ret = max17320_write(dev, MAX17320_REG_COMM_STAT, CHARGE_ON);
     if (ret >= 0) {
-        CETI_LOG("MAX17320 Charge FET Enabled");
+        CETI_DEBUG("MAX17320 Charge FET Enabled");
     }
     else {
         CETI_ERR("MAX17320 Charge FET could not be enabled");
@@ -488,7 +492,7 @@ int max17320_enable_charging(MAX17320_HandleTypeDef *dev) {
 int max17320_enable_discharging(MAX17320_HandleTypeDef *dev) {
     int ret = max17320_write(dev, MAX17320_REG_COMM_STAT, DISCHARGE_ON);
     if (ret >= 0) {
-        CETI_LOG("MAX17320 Discharge FET Enabled");
+        CETI_DEBUG("MAX17320 Discharge FET Enabled");
     }
     else {
         CETI_ERR("MAX17320 Discharge FET could not be enabled");
@@ -499,7 +503,7 @@ int max17320_enable_discharging(MAX17320_HandleTypeDef *dev) {
 int max17320_disable_charging(MAX17320_HandleTypeDef *dev) {
     int ret = max17320_write(dev, MAX17320_REG_COMM_STAT, CHARGE_OFF);
     if (ret >= 0) {
-        CETI_LOG("MAX17320 Charge FET Disabled");
+        CETI_DEBUG("MAX17320 Charge FET Disabled");
     }
     else {
         CETI_ERR("MAX17320 Charge FET could not be disabled");
@@ -510,7 +514,7 @@ int max17320_disable_charging(MAX17320_HandleTypeDef *dev) {
 int max17320_disable_discharging(MAX17320_HandleTypeDef *dev) {
     int ret = max17320_write(dev, MAX17320_REG_COMM_STAT, DISCHARGE_OFF);
     if (ret >= 0) {
-        CETI_LOG("MAX17320 Discharge FET Disabled");
+        CETI_DEBUG("MAX17320 Discharge FET Disabled");
     }
     else {
         CETI_ERR("MAX17320 Discharge FET could not be disabled");

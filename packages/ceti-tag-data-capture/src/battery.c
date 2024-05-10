@@ -37,9 +37,7 @@ int init_battery() {
       CETI_ERR("Failed to connect to MAX17320 Fuel Gauge");
       return ret;
     }
-    
-    CETI_LOG("Successfully initialized MAX17320 Fuel Gauge");
-  #else
+    #else
     int fd;
     if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
       CETI_ERR("Failed to connect to the battery gauge");
@@ -49,9 +47,9 @@ int init_battery() {
       i2cWriteByteData(fd,BATT_CTL,BATT_CTL_VAL); //establish undervoltage cutoff
       i2cWriteByteData(fd,BATT_OVER_VOLTAGE,BATT_OV_VAL); //establish undervoltage cutoff
     }
-    CETI_LOG("Successfully initialized the battery gauge");
   #endif
   // Open an output file to write data.
+  CETI_LOG("Successfully initialized the battery gauge");
   if(init_data_file(battery_data_file, BATTERY_DATA_FILEPATH,
                     battery_data_file_headers,  num_battery_data_file_headers,
                     battery_data_file_notes, "init_battery()") < 0)

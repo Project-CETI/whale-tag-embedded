@@ -64,6 +64,7 @@
 #define MAX17320_REG_NTHERMCFG			0x1CA
 #define MAX17320_REG_NVEMPTY			0x19E
 #define MAX17320_REG_NFULLSOCTHR		0x1C6
+#define MAX17320_REG_nRSense			0x1CF
 
 // Data for Non-Volatile Writes
 // Refer to 'NV Write Decisions BMS FW' Spreadsheet for details
