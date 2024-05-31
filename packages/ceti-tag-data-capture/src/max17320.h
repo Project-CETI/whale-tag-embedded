@@ -16,8 +16,7 @@
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 #include "utils/logging.h"
 
-// Device Address
-// Addresses appear shifted 1 bit right on the pi, datasheet reports addresses 0x6C & 0x16
+// BMS I2C Device Address
 #define MAX17320_ADDR                   0x36  // For internal memory range 000h-0FFh
 #define MAX17320_ADDR_SEC               0x0b  // For internal memory range 180h-1FFh
 
@@ -74,7 +73,7 @@
 #define MAX17320_VAL_NNVCFG2			0x822D
 #define MAX17320_VAL_NUVPRTTH			0xA002
 #define MAX17320_VAL_NTPRTTH1			0x280A
-#define MAX17320_VAL_NIPRTTH1			0x03FD
+#define MAX17320_VAL_NIPRTTH1			0x32CE   // MRC - change to OCCP 2A, OCDP 2A if Rsense 0.010
 #define MAX17320_VAL_NBALTH				0x0CAA
 #define MAX17320_VAL_NPROTMISCTH		0x0313
 #define MAX17320_VAL_NPROTCFG			0x0C08
@@ -88,7 +87,7 @@
 #define MAX17320_VAL_NFULLSOCTHR		0x5005
 
 // LSB Conversion Macros
-#define R_SENSE_VAL						0.001 // Ω
+#define R_SENSE_VAL						0.010 // Ω  MRC changed from 0.001 for integration
 #define CAPACITY_LSB					0.005 // mVh, must divide by R_sense to get mAh value
 #define PERCENTAGE_LSB					1/256 // %
 #define CELL_VOLTAGE_LSB				0.000078125 // V

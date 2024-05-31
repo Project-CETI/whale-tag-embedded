@@ -16,10 +16,19 @@
 //  2.1.6   12/03/22   Added ECG
 //  2.2.0   03/25/22   Refactored codebase, testing on Pi Zero 2
 //  2.2.1   11/8/23    Adding battery temperature monitoring
+//  2.3.0   05/31/24   Changes for V2_3 hardware, new branch, preliminary work
 
 #ifndef CETI_VERSIONING_H
 #define CETI_VERSIONING_H
 
-#define CETI_VERSION "v2_2.1 - Adding battery temperature monitoring, in test"
+#define CETI_VERSION "v2_3.0 New hardware design - V2.3"
 
 #endif // CETI_VERSIONING_H
+
+/*------------------------------------------------------------------------------
+
+2.3.0 	This version is specific to new hardware and is not backward compatible
+
+
+
+//----------------------------------------------------------------------------*/
