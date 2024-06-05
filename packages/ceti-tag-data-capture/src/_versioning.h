@@ -29,6 +29,4 @@
 
 2.3.0 	This version is specific to new hardware and is not backward compatible
 
-
-
 //----------------------------------------------------------------------------*/

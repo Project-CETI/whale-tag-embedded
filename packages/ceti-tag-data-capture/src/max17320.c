@@ -109,12 +109,7 @@ static inline int max17320_read(MAX17320_HandleTypeDef *dev, uint16_t memory, ui
     return ret;
 }
 
-int max17320_init(MAX17320_HandleTypeDef *dev) {
-    int ret = -1;
-    ret = max17320_clear_write_protection(dev);
-    ret |= max17320_nonvolatile_write(dev);
-    return ret;
-}
+
 
 int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev) {
     uint16_t read = 0;
@@ -519,5 +514,47 @@ int max17320_disable_discharging(MAX17320_HandleTypeDef *dev) {
     else {
         CETI_ERR("MAX17320 Discharge FET could not be disabled");
     }
+    return ret;
+}
+
+//-----------------------------------------------------------------------------
+int max17320_init(MAX17320_HandleTypeDef *dev) {
+
+    int ret = 0;
+
+// TODO MRC 
+// Don't change nonvolatile BMS chip entries each time the device is booted
+// These should only be set once at the factory only 7 writes are available
+// Instead, load the values needed directly at run time while we get this running.
+// Once design is stable this can be put back or a special BMS
+// configuration procedure can be created.  During development we 
+// will probably need to change a lot of these values.
+// So, commenting the instruction to write NV
+//
+// The chip is designed to work more or less independently of a host, but 
+// in our case this really isn't necessary. We can save settings in our
+// code.  
+// Having said that, having built-in NV values is a great feature because
+// the batteries will be protected even if the softwware fails to run OK
+// TODO MRC work out best way to manage settings stored on the BMS chip 
+// * Initialize at run time anyhow using desired values and,
+// * Configure once when Tag is manufactured
+// Belts AND suspenders
+
+//-----------------------------------------------------------------------------
+//  ret |= max17320_nonvolatile_write(dev);
+//-----------------------------------------------------------------------------
+
+//  Special for development, write shadow RAM for now at run time with
+//  key registers to get the chip running for hardware integration
+//  
+
+    ret = max17320_clear_write_protection(dev);   //Need to allow writes    
+    ret |= max17320_write(dev, MAX17320_REG_DESIGN_CAP, DESIGN_CAP);    //establish design capacity (5000 mAH)
+    ret |= max17320_write(dev, MAX17320_REG_NIPRTTH1, MAX17320_VAL_NIPRTTH1); //set new slow current limits for development (2A) 
+    ret |= max17320_write(dev, MAX17320_REG_NBALTH, MAX17320_VAL_NBALTH);    //disable imbalance charge term for development   
+
+    // TODO relock the protection for final design
+
     return ret;
 }

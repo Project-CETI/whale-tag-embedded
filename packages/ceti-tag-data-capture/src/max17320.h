@@ -30,6 +30,9 @@
 #define MAX17320_REG_CELL2_VOLTAGE      0x0D7
 #define MAX17320_REG_TOTAL_BAT_VOLTAGE  0x0DA
 #define MAX17320_REG_PACK_SIDE_VOLTAGE	0x0DB
+
+#define MAX17320_REG_DESIGN_CAP			0x018
+
 #define MAX17320_REG_TEMPERATURE		0x01B
 #define MAX17320_REG_BATT_CURRENT		0x01C
 #define MAX17320_REG_AVG_BATT_CURRENT	0x01D
@@ -74,7 +77,7 @@
 #define MAX17320_VAL_NUVPRTTH			0xA002
 #define MAX17320_VAL_NTPRTTH1			0x280A
 #define MAX17320_VAL_NIPRTTH1			0x32CE   // MRC - change to OCCP 2A, OCDP 2A if Rsense 0.010
-#define MAX17320_VAL_NBALTH				0x0CAA
+#define MAX17320_VAL_NBALTH				0x0CA0	 // MRC - change so that imbalance doesn't block charging (consider putting in a limit at some point)
 #define MAX17320_VAL_NPROTMISCTH		0x0313
 #define MAX17320_VAL_NPROTCFG			0x0C08
 #define MAX17320_VAL_NJEITAV			0xEC00
@@ -114,6 +117,8 @@
 #define CHARGE_OFF						0x0100
 #define DISCHARGE_ON					0xFDFF
 #define DISCHARGE_OFF          			0x0200   
+
+#define DESIGN_CAP 						0x2710	//5000 mAH if R_SENSE_VAL = 0.010
 
 // shift a value (val) but amount (s) and width (w)
 #define _RSHIFT(val, s, w) (((val) >> (s)) & ((1 << (w)) - 1)) 
