@@ -3,6 +3,29 @@
 # New for 2.1-4 release  11/5/22
 # Supervisor script for the Tag application
 
+#handle SIGTERM from systemctl
+_term() {
+  echo "stopping cetiTagApp"
+  echo "quit" > cetiCommand
+  #cat cetiResponse
+  echo "Waiting on child process $child to finish..."
+  kill --TERM  "$child" 2>/dev/null
+
+  # I'm not sure why this is needed, but it seems our child
+  # process sometimes gets detected
+  child_pid=$(pidof cetiTagApp)
+  if [ "$child_pid" ]; then
+    kill --TERM  "$child_pid" 2>/dev/null
+  fi
+  
+  ## Wait for cetiTagApp to finish
+  wait "$child"
+  echo "Child process $child complete"
+  echo "Good bye"
+  exit 0;
+}
+trap _term SIGTERM
+
 #unblock wifi (if deployed in volitile state)
 sudo rfkill unblock all
 sudo ifconfig wlan0 up
@@ -17,6 +40,8 @@ mount /boot -o remount,ro
 
 # Launch the main recording application in the background.
 sudo /opt/ceti-tag-data-capture/bin/cetiTagApp &
+child=$!
+
 # Wait for the main loops to start so it is ready to receive commands.
 sleep 15
 data_acquisition_running=1
