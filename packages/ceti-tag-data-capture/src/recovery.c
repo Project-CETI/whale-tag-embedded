@@ -520,6 +520,8 @@ int recovery_init(void) {
         printf("\n state mutex init has failed\n"); 
         return -2; 
     } 
+    gpioWrite(13, 0); //turn off recovery
+    usleep(50000); // sleep a bit
     gpioWrite(13, 1); //turn on recovery
 
      pthread_mutex_lock(&s_recovery_board_model.state_lock);
