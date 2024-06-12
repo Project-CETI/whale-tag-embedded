@@ -263,6 +263,10 @@ static struct timeval s_file_start_time;
 static struct timeval s_block_start_time;
 
 int audio_thread_init(void) {
+#if !ENABLE_RUNTIME_AUDIO
+  g_config.audio.bit_depth = AUDIO_BIT_DEPTH_16;
+  g_config.audio.sample_rate = AUDIO_SAMPLE_RATE_96KHZ;
+#endif
   if (!audio_setup(&g_config.audio)) {
     CETI_LOG("Successfully set audio sampling rate to %d kHz", g_config.audio.sample_rate);
   } else {

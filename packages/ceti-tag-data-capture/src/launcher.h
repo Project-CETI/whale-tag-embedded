@@ -28,6 +28,7 @@
 #define ENABLE_BURNWIRE 1
 #define ENABLE_GOPROS 0
 
+#define ENABLE_RUNTIME_AUDIO 0
 //-----------------------------------------------------------------------------
 // State Change Configurations
 //-----------------------------------------------------------------------------
