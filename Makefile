@@ -33,7 +33,10 @@ PACKAGE_INSTALL = $(BUILD_DIR)/install_packages.sh
 BUILD_SCRIPTS = $(PACKAGE_BUILD) $(ENV_SETUP) $(PACKAGE_INSTALL)
 DOS2UNIX_TIMESTAMPS = $(patsubst %.sh, %.timestamp, $(BUILD_SCRIPTS))
 
-RPI_TOOL = $(BUILD_DIR)/rpi-image
+RPI_APPEND   = sudo $(BUILD_DIR)/rpi-image append
+RPI_DOWNLOAD = $(BUILD_DIR)/rpi-image download
+RPI_EXPAND   = sudo $(BUILD_DIR)/rpi-image expand
+RPI_RUN 	 = sudo $(BUILD_DIR)/rpi-image run
 
 .PHONY: \
 	help \
@@ -62,7 +65,12 @@ build: $(DOCKER_IMAGE)
 	@echo "Building $(TARGET) inside docker image"
 	docker run --privileged -i --tty --workdir /whale-tag-embedded \
 		--volume .:/whale-tag-embedded \
-		$(DOCKER_IMAGE) /bin/bash -c "$(MAKE) $(TARGET)"
+		$(DOCKER_IMAGE) /bin/bash -c ' \
+			groupadd --gid $(shell id -g) $(shell id -g -n); \
+			useradd -m -e "" -s /bin/bash --gid $(shell id -g) --uid $(shell id -u) $(shell id -u -n); \
+			passwd -d $(shell id -u -n); \
+			echo "$(shell id -u -n) ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers; \
+			sudo -E -u $(shell id -u -n) $(MAKE) $(TARGET)'
 	@echo "$$(< $(BUILD_DIR)/logo.txt)"
 
 clean:
@@ -71,10 +79,10 @@ clean:
 
 deep_clean: clean docker-image-remove
 	$(foreach dir, $(DIR), rm -rf $(dir);)
-	$(foreach package, $(PACKAGES), $(MAKE) clean -C $(package);)
+	$(foreach package, $(PACKAGES), $(MAKE) clean -C $(PACKAGE_DIR)/$(package);)
 
 test:
-	$(foreach package, $(PACKAGES), $(MAKE) test -C $(package))
+	$(foreach package, $(PACKAGES), $(MAKE) test -C $(PACKAGE_DIR)/$(package);)
 
 packages:
 	$(MAKE) build TARGET="$(PACKAGES)"
@@ -86,14 +94,14 @@ $(DIRS):
 # Download starting image
 $(RASPIOS_IMG): | $(IMG_DIR)
 	@echo "Downloading the latest raspios..."
-	$(RPI_TOOL) download --suffix raspios-bullseye-arm64-lite --output "$@"
+	$(RPI_DOWNLOAD) --suffix raspios-bullseye-arm64-lite --output "$@"
 
 # Setup raspberry pi environment
 $(ENV_IMG): $(RASPIOS_IMG) $(patsubst %.sh, %.timestamp, $(ENV_SETUP))
 	cp -f $(RASPIOS_IMG) $@.tmp
-	$(RPI_TOOL) expand --size +512M --image "$@.tmp"
-	$(RPI_TOOL) append --size 128M --filesystem ext4 --label cetiData --image "$@.tmp"
-	$(RPI_TOOL) run --image "$@.tmp" \
+	$(RPI_EXPAND) --size +512M --image "$@.tmp"
+	$(RPI_APPEND) --size 128M --filesystem ext4 --label cetiData --image "$@.tmp"
+	$(RPI_RUN) --image "$@.tmp" \
 		--bind "$(OVERLAY_DIR):/overlay" \
 		--bind-ro "$(ENV_SETUP):/setup_image.sh" \
 		"/setup_image.sh" "/overlay"
@@ -101,7 +109,7 @@ $(ENV_IMG): $(RASPIOS_IMG) $(patsubst %.sh, %.timestamp, $(ENV_SETUP))
 
 # Create debian packages
 $(PACKAGES): $(ENV_IMG) $(patsubst %.sh, %.timestamp, $(PACKAGE_BUILD)) | $(OUT_DIR)
-	$(RPI_TOOL) run --image "$(ENV_IMG)" \
+	$(RPI_RUN) --image "$(ENV_IMG)" \
 		--bind "$(PACKAGE_DIR)/$@:/$(PACKAGE_DIR)" \
 		--bind "$(OUT_DIR):/$(OUT_DIR)" \
 		--bind-ro "$(PACKAGE_BUILD):/make_dpkg.sh" \
@@ -110,7 +118,7 @@ $(PACKAGES): $(ENV_IMG) $(patsubst %.sh, %.timestamp, $(PACKAGE_BUILD)) | $(OUT_
 # Generate target image with installed packages
 $(TARGET_IMG): $(ENV_IMG) $(PACKAGES) $(patsubst %.sh, %.timestamp, $(PACKAGE_INSTALL))| $(OUT_DIR)
 	cp -f $< $@.tmp
-	$(RPI_TOOL) run --image "$@.tmp" \
+	$(RPI_RUN) --image "$@.tmp" \
 		--bind "$(PACKAGE_DIR):/packages" \
 		--bind "$(OUT_DIR):/out" \
 		--bind-ro "$(PACKAGE_INSTALL):/install_packages.sh" \
