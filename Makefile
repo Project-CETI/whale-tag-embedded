@@ -1,21 +1,51 @@
+#Change target to build substeps in Docker
+TARGET ?= $(TARGET_IMG)
+
 SHELL := /bin/bash
 MAKEFILE_DIR := $(shell realpath $(dir $(lastword $(MAKEFILE_LIST))))
 DOCKER_IMAGE ?= sdcard-builder
-OUT_DIR ?= $(MAKEFILE_DIR)/out
-PACKAGE_DIR ?= $(MAKEFILE_DIR)/packages
-BUILD_DIR ?= $(MAKEFILE_DIR)/build
-RASPIOS_IMAGE="$(MAKEFILE_DIR)/raspios/raspios_lite.img"
-PACKAGES := $(wildcard $(PACKAGE_DIR)/*/.)
+PACKAGE_DIR ?= packages
+#Todo: package list can probably be programatically determined
+PACKAGES = ceti-tag-data-capture
+
+DOS2UNIX_FILES = $(shell ls $(BUILD_DIR)/*.sh \
+	$(PACKAGE_DIR)/*.sh \
+	$(PACKAGE_DIR)/*/debian/* \
+	2>/dev/null)
+
+BUILD_DIR ?= build
+OVERLAY_DIR ?= overlay
+
+OUT_DIR ?= out
+TARGET_IMG = $(OUT_DIR)/sdcard.img
+
+IMG_DIR ?= raspios
+RASPIOS_IMG = $(IMG_DIR)/raspios.img
+ENV_IMG = $(IMG_DIR)/environment.img
+
+#Generated directories
+DIRS = $(IMG_DIR) $(OUT_DIR)
+
+#Tools
+PACKAGE_BUILD = $(BUILD_DIR)/make_dpkg.sh
+ENV_SETUP = $(BUILD_DIR)/setup_image.sh
+PACKAGE_INSTALL = $(BUILD_DIR)/install_packages.sh
+BUILD_SCRIPTS = $(PACKAGE_BUILD) $(ENV_SETUP) $(PACKAGE_INSTALL)
+DOS2UNIX_TIMESTAMPS = $(patsubst %.sh, %.timestamp, $(BUILD_SCRIPTS))
+
+RPI_TOOL = $(BUILD_DIR)/rpi-image
 
 .PHONY: \
 	help \
 	clean \
 	deep_clean \
 	build \
+	test \
+	packages \
 	docker-image \
 	docker-image-remove \
 	docker-shell \
-	test
+	$(PACKAGES)
 
 .DEFAULT := build-sdcard-img
 
@@ -23,23 +53,69 @@ help:
 	@echo "make build"
 	@echo "make clean"
 
+#convert dos2unix files
+$(DOS2UNIX_TIMESTAMPS): %.timestamp : %.sh
+	dos2unix $^
+	touch $@
+
 build: $(DOCKER_IMAGE)
-	dos2unix $(BUILD_DIR)/*
-	dos2unix $(PACKAGE_DIR)/*
-	dos2unix $(PACKAGE_DIR)/*/debian/*
-	mkdir -p $(OUT_DIR)
-	$(BUILD_DIR)/build.sh $(OUT_DIR)
+	@echo "Building $(TARGET) inside docker image"
+	docker run --privileged -i --tty --workdir /whale-tag-embedded \
+		--volume .:/whale-tag-embedded \
+		$(DOCKER_IMAGE) /bin/bash -c "$(MAKE) $(TARGET) -j12"
+	@echo "$$(< $(BUILD_DIR)/logo.txt)"
 
 clean:
 	rm -rf $(BUILD_DIR)/__pycache__
 	rm -rf $(OUT_DIR)
 
+deep_clean: clean docker-image-remove
+	$(foreach dir, $(DIR), rm -rf $(dir);)
+	$(foreach package, $(PACKAGES), $(MAKE) clean -C $(package);)
+
 test:
 	$(foreach package, $(PACKAGES), $(MAKE) test -C $(package))
 
-deep_clean: clean docker-image-remove
-	rm -rf raspios
-	$(foreach package, $(PACKAGES), $(MAKE) clean -C $(package);)
+packages:
+	$(MAKE) build TARGET="$(PACKAGES)"
+
+# Create directories
+$(DIRS):
+	mkdir -p $@
+
+# Download starting image
+$(RASPIOS_IMG): | $(IMG_DIR)
+	@echo "Downloading the latest raspios..."
+	$(RPI_TOOL) download --suffix raspios-bullseye-arm64-lite --output "$@"
+
+# Setup raspberry pi environment
+$(ENV_IMG): $(RASPIOS_IMG) $(patsubst %.sh, %.timestamp, $(ENV_SETUP))
+	cp -f $(RASPIOS_IMG) $@.tmp
+	$(RPI_TOOL) expand --size +512M --image "$@.tmp"
+	$(RPI_TOOL) append --size 128M --filesystem ext4 --label cetiData --image "$@.tmp"
+	$(RPI_TOOL) run --image "$@.tmp" \
+		--bind "$(OVERLAY_DIR):/overlay" \
+		--bind-ro "$(ENV_SETUP):/setup_image.sh" \
+		"/setup_image.sh" "/overlay"
+	mv -f $@.tmp $@
+
+# Create debian packages
+$(PACKAGES): $(ENV_IMG) $(patsubst %.sh, %.timestamp, $(PACKAGE_BUILD)) | $(OUT_DIR)
+	$(RPI_TOOL) run --image "$(ENV_IMG)" \
+		--bind "$(PACKAGE_DIR)/$@:/$(PACKAGE_DIR)" \
+		--bind "$(OUT_DIR):/$(OUT_DIR)" \
+		--bind-ro "$(PACKAGE_BUILD):/make_dpkg.sh" \
+		"/make_dpkg.sh" "/$(PACKAGE_DIR)" "/$(OUT_DIR)"
+ 
+# Generate target image with installed packages
+$(TARGET_IMG): $(ENV_IMG) $(PACKAGES) $(patsubst %.sh, %.timestamp, $(PACKAGE_INSTALL))| $(OUT_DIR)
+	cp -f $< $@.tmp
+	$(RPI_TOOL) run --image "$@.tmp" \
+		--bind "$(PACKAGE_DIR):/packages" \
+		--bind "$(OUT_DIR):/out" \
+		--bind-ro "$(PACKAGE_INSTALL):/install_packages.sh" \
+		"/install_packages.sh" "/out"
+	mv -f $@.tmp $@
 
 # Docker helpers
 $(DOCKER_IMAGE):

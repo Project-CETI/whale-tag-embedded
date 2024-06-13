@@ -1,41 +1,16 @@
 #!/bin/bash
 set -e
 
-if [ "$#" -ne 4 ]; then
-    echo "$0 <out_dir> <build-dir> <overlay-dir> <packages-dir>" >&2
+if [ "$#" -ne 1 ]; then
+    echo "$0 <overlay-dir>" >&2
     exit 1
 fi
 
-OUT_DIR="$1"
-OVERLAY_DIR="$3"
+OVERLAY_DIR="$1"
 
 APT_NONINTERACTIVE="-y"
 export DEBIAN_FRONTEND="noninteractive"
 export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=yes
-
-function install_package {
-  deb_file="$1"
-  package=$(dpkg-deb -f "${deb_file}" Package)
-  sha256=$(sha256sum "${deb_file}" | awk '{print $1}')
-  sha256_file="/tmp/${package}.sha256"
-
-  if ! dpkg -l "${package}" ; then
-    echo "Package ${package} is not installed."
-    dpkg -i "${deb_file}"
-    echo "${sha256}" > "${sha256_file}"
-  else
-    echo "Package ${package} is already installed."
-    installed_sha256="$(cat "${sha256_file}" 2>/dev/null || echo '')"
-    if [[ "${installed_sha256}" != "${sha256}" ]]; then
-      echo "Checksums do not ${package} match."
-      dpkg --purge --force-all "${package}"
-      dpkg -i "${deb_file}"
-      echo "${sha256}" > "${sha256_file}"
-    else
-      echo "Checksums for ${package} match."
-    fi
-  fi
-}
 
 apt update
 
@@ -99,10 +74,6 @@ chmod 777 /data
 # Add entry in fstab to mount a data partition to /data by label if present
 echo "/dev/disk/by-label/cetiData /data ext4 defaults,nofail 0 0" >> /etc/fstab
 
-# Build and install whale tag software as debian packages
-/packages/make_dpkg.sh "${OUT_DIR}"
-install_package "$(ls "${OUT_DIR}"/ceti-tag-data-capture_*.deb)"
-
 # Do not run pi wizard
 rm -rf /etc/xdg/autostart/piwiz.desktop
 
@@ -124,26 +95,5 @@ mv /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt /home/pi/.bash_history
 
 # Sourceforge install of stm32flash to get 0.7
 git clone https://git.code.sf.net/p/stm32flash/code stm32flash-code
-cd stm32flash-code
-sudo make install
-cd ..
-
-# All done
-cat << "EOF"
-                         _.-----._        ___
-                      .-`- ```  `-`-._ _.'   \
-                   .'/             `_./       \
-        ___./\    //            _.-'           |
-      _/     /   // _      __.-'               |
-  _.-'      <___/__/ \____/                    /
-.`_.-----`-.                                _.'
-            `-_                    O   __.-'.
-              |`.                    <'__.-|     Build complete
-              \\ `.             _   __---`||
-               \'  `-....     ,'/  /      ''
-                \\     /  _.-` (_.'      //
-                 \'. (_.-`              //
-                  `.'.                 .'
-                    `.' _        _ _.-'
-                       `-.-____-.-'  
-EOF
+make install -C stm32flash-code -j4
+rm -rf stm32flash-code

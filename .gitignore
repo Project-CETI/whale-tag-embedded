@@ -131,6 +131,7 @@ dmypy.json
 out/
 raspbian/
 raspios.img
+raspios/
 packages/ceti-tag-data-capture/bin/
 packages/ceti-tag-data-capture/data
-
+*.timestamp
