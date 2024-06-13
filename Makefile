@@ -113,7 +113,7 @@ $(ENV_IMG): $(RASPIOS_IMG) $(patsubst %.sh, %.timestamp, $(ENV_SETUP)) $(RPI_TOO
 	mv -f $@.tmp $@
 
 # Create debian packages
-$(PACKAGES): $(ENV_IMG) $(patsubst %.sh, %.timestamp, $(PACKAGE_BUILD)) | $(OUT_DIR)
+$(PACKAGES): $(ENV_IMG) $(patsubst %.sh, %.timestamp, $(PACKAGE_BUILD)) $(RPI_TOOL_TS) | $(OUT_DIR)
 	$(RPI_RUN) --image "$(ENV_IMG)" \
 		--bind "$(PACKAGE_DIR)/$@:/$(PACKAGE_DIR)" \
 		--bind "$(OUT_DIR):/$(OUT_DIR)" \
@@ -121,7 +121,7 @@ $(PACKAGES): $(ENV_IMG) $(patsubst %.sh, %.timestamp, $(PACKAGE_BUILD)) | $(OUT_
 		"/make_dpkg.sh" "/$(PACKAGE_DIR)" "/$(OUT_DIR)"
  
 # Generate target image with installed packages
-$(TARGET_IMG): $(ENV_IMG) $(PACKAGES) $(patsubst %.sh, %.timestamp, $(PACKAGE_INSTALL))| $(OUT_DIR)
+$(TARGET_IMG): $(ENV_IMG) $(PACKAGES) $(patsubst %.sh, %.timestamp, $(PACKAGE_INSTALL)) $(RPI_TOOL_TS)| $(OUT_DIR)
 	cp -f $< $@.tmp
 	$(RPI_RUN) --image "$@.tmp" \
 		--bind "$(PACKAGE_DIR):/packages" \
