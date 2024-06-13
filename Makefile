@@ -62,7 +62,7 @@ build: $(DOCKER_IMAGE)
 	@echo "Building $(TARGET) inside docker image"
 	docker run --privileged -i --tty --workdir /whale-tag-embedded \
 		--volume .:/whale-tag-embedded \
-		$(DOCKER_IMAGE) /bin/bash -c "$(MAKE) $(TARGET) -j12"
+		$(DOCKER_IMAGE) /bin/bash -c "$(MAKE) $(TARGET)"
 	@echo "$$(< $(BUILD_DIR)/logo.txt)"
 
 clean:
