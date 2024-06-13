@@ -13,8 +13,8 @@ DOS2UNIX_FILES = $(shell ls $(BUILD_DIR)/*.sh \
 	$(PACKAGE_DIR)/*/debian/* \
 	2>/dev/null)
 
-BUILD_DIR ?= build
 OVERLAY_DIR ?= overlay
+OVERLAY_FILES = $(shell find $(OVERLAY_DIR) -type f 2> /dev/null)
 
 OUT_DIR ?= out
 TARGET_IMG = $(OUT_DIR)/sdcard.img
@@ -27,17 +27,18 @@ ENV_IMG = $(IMG_DIR)/environment.img
 DIRS = $(IMG_DIR) $(OUT_DIR)
 
 #Tools
+BUILD_DIR ?= build
 PACKAGE_BUILD = $(BUILD_DIR)/make_dpkg.sh
 ENV_SETUP = $(BUILD_DIR)/setup_image.sh
 PACKAGE_INSTALL = $(BUILD_DIR)/install_packages.sh
 BUILD_SCRIPTS = $(PACKAGE_BUILD) $(ENV_SETUP) $(PACKAGE_INSTALL)
 DOS2UNIX_TIMESTAMPS = $(patsubst %.sh, %.timestamp, $(BUILD_SCRIPTS))
-RPI_TOOL_TS = $(BUILD_DIR)/rpi-image.timestamp
 
 RPI_APPEND   = sudo $(BUILD_DIR)/rpi-image append
 RPI_DOWNLOAD = $(BUILD_DIR)/rpi-image download
 RPI_EXPAND   = sudo $(BUILD_DIR)/rpi-image expand
 RPI_RUN 	 = sudo $(BUILD_DIR)/rpi-image run
+RPI_TOOL_TS = $(BUILD_DIR)/rpi-image.timestamp
 
 .PHONY: \
 	help \
@@ -56,6 +57,8 @@ RPI_RUN 	 = sudo $(BUILD_DIR)/rpi-image run
 help:
 	@echo "make build"
 	@echo "make clean"
+	@echo "make deep_clean"
+	@echo "make packages"
 
 #convert dos2unix files
 $(DOS2UNIX_TIMESTAMPS): %.timestamp : %.sh
@@ -102,7 +105,7 @@ $(RASPIOS_IMG): | $(IMG_DIR)
 	$(RPI_DOWNLOAD) --suffix raspios-bullseye-arm64-lite --output "$@"
 
 # Setup raspberry pi environment
-$(ENV_IMG): $(RASPIOS_IMG) $(patsubst %.sh, %.timestamp, $(ENV_SETUP)) $(RPI_TOOL_TS)
+$(ENV_IMG): $(RASPIOS_IMG) $(patsubst %.sh, %.timestamp, $(ENV_SETUP)) $(OVERLAY_FILES) $(RPI_TOOL_TS)
 	cp -f $(RASPIOS_IMG) $@.tmp
 	$(RPI_EXPAND) --size +512M --image "$@.tmp"
 	$(RPI_APPEND) --size 128M --filesystem ext4 --label cetiData --image "$@.tmp"
@@ -114,6 +117,7 @@ $(ENV_IMG): $(RASPIOS_IMG) $(patsubst %.sh, %.timestamp, $(ENV_SETUP)) $(RPI_TOO
 
 # Create debian packages
 $(PACKAGES): $(ENV_IMG) $(patsubst %.sh, %.timestamp, $(PACKAGE_BUILD)) $(RPI_TOOL_TS) | $(OUT_DIR)
+	dos2unix $(PACKAGE_DIR)/$@/debian/*
 	$(RPI_RUN) --image "$(ENV_IMG)" \
 		--bind "$(PACKAGE_DIR)/$@:/$(PACKAGE_DIR)" \
 		--bind "$(OUT_DIR):/$(OUT_DIR)" \
