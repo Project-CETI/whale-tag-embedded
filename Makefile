@@ -103,8 +103,7 @@ $(RASPIOS_IMG): | $(IMG_DIR)
 
 # Setup raspberry pi environment
 $(ENV_IMG): $(RASPIOS_IMG) $(patsubst %.sh, %.timestamp, $(ENV_SETUP)) $(RPI_TOOL_TS)
-	# cp -f $(RASPIOS_IMG) $@.tmp
-	whoami
+	cp -f $(RASPIOS_IMG) $@.tmp
 	$(RPI_EXPAND) --size +512M --image "$@.tmp"
 	$(RPI_APPEND) --size 128M --filesystem ext4 --label cetiData --image "$@.tmp"
 	$(RPI_RUN) --image "$@.tmp" \
