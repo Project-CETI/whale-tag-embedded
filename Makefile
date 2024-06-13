@@ -32,6 +32,7 @@ ENV_SETUP = $(BUILD_DIR)/setup_image.sh
 PACKAGE_INSTALL = $(BUILD_DIR)/install_packages.sh
 BUILD_SCRIPTS = $(PACKAGE_BUILD) $(ENV_SETUP) $(PACKAGE_INSTALL)
 DOS2UNIX_TIMESTAMPS = $(patsubst %.sh, %.timestamp, $(BUILD_SCRIPTS))
+RPI_TOOL_TS = $(BUILD_DIR)/rpi-image.timestamp
 
 RPI_APPEND   = sudo $(BUILD_DIR)/rpi-image append
 RPI_DOWNLOAD = $(BUILD_DIR)/rpi-image download
@@ -58,6 +59,10 @@ help:
 
 #convert dos2unix files
 $(DOS2UNIX_TIMESTAMPS): %.timestamp : %.sh
+	dos2unix $^
+	touch $@
+
+$(RPI_TOOL_TS): %.timestamp : %
 	dos2unix $^
 	touch $@
 
@@ -97,8 +102,9 @@ $(RASPIOS_IMG): | $(IMG_DIR)
 	$(RPI_DOWNLOAD) --suffix raspios-bullseye-arm64-lite --output "$@"
 
 # Setup raspberry pi environment
-$(ENV_IMG): $(RASPIOS_IMG) $(patsubst %.sh, %.timestamp, $(ENV_SETUP))
-	cp -f $(RASPIOS_IMG) $@.tmp
+$(ENV_IMG): $(RASPIOS_IMG) $(patsubst %.sh, %.timestamp, $(ENV_SETUP)) $(RPI_TOOL_TS)
+	# cp -f $(RASPIOS_IMG) $@.tmp
+	whoami
 	$(RPI_EXPAND) --size +512M --image "$@.tmp"
 	$(RPI_APPEND) --size 128M --filesystem ext4 --label cetiData --image "$@.tmp"
 	$(RPI_RUN) --image "$@.tmp" \
