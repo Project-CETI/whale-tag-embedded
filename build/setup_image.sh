@@ -65,6 +65,9 @@ date -s "$(curl -s --head http://google.com | grep ^Date: | sed 's/Date: //g')"
 #  so kernel/system processes are scheduled on other cores.
 sed -i '$ s/$/ isolcpus=2,3/' /boot/cmdline.txt
 
+# Disable rfkill state restore and set default state to wifi on
+sed -i '$ s/$/ systemd.restore_state=0' /boot/cmdline.txt
+sed -i '$ s/$/ rfkill.default_state=1' /boot/cmdline.txt
 
 # Setup hardware parameters for i2c
 raspi-config nonint do_i2c 0

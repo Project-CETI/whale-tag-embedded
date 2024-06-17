@@ -6,20 +6,14 @@
 #handle SIGTERM from systemctl
 _term() {
   echo "stopping cetiTagApp"
-  echo "quit" > cetiCommand
+  #echo "quit" > cetiCommand
   #cat cetiResponse
-  echo "Waiting on child process $child to finish..."
   kill --TERM  "$child" 2>/dev/null
 
-  # I'm not sure why this is needed, but it seems our child
-  # process sometimes gets detected
-  child_pid=$(pidof cetiTagApp)
-  if [ "$child_pid" ]; then
-    kill --TERM  "$child_pid" 2>/dev/null
-  fi
-  
   ## Wait for cetiTagApp to finish
+  echo "Waiting on child process $child to finish..."
   wait "$child"
+
   echo "Child process $child complete"
   echo "Good bye"
   exit 0;
@@ -27,7 +21,6 @@ _term() {
 trap _term SIGTERM
 
 #unblock wifi (if deployed in volitile state)
-sudo rfkill unblock all
 sudo ifconfig wlan0 up
 
 #unblock USB/ethernet
@@ -148,16 +141,3 @@ do
     echo "FIFO is OK; no overflow detected"
   fi
 done
-
-# Some cleanup on the way out...
-echo "stopping cetiTagApp"
-echo "quit" > cetiCommand
-cat cetiResponse
-sleep 120
-
-# Optionally disable the service, must be reenabled when waking the tag up
-# echo "disabling ceti-tag-data-capture service"
-# systemctl disable ceti-tag-data-capture
-
-echo "good night!"
-
