@@ -63,10 +63,12 @@ help:
 #convert dos2unix files
 $(DOS2UNIX_TIMESTAMPS): %.timestamp : %.sh
 	dos2unix $^
+	chmod a+x $^
 	touch $@
 
 $(RPI_TOOL_TS): %.timestamp : %
 	dos2unix $^
+	chmod a+x $^
 	touch $@
 
 build: $(DOCKER_IMAGE)
@@ -82,6 +84,7 @@ build: $(DOCKER_IMAGE)
 	@echo "$$(< $(BUILD_DIR)/logo.txt)"
 
 clean:
+	rm -f $(DOS2UNIX_TIMESTAMPS) $(RPI_TOOL_TS)
 	rm -rf $(BUILD_DIR)/__pycache__
 	rm -rf $(OUT_DIR)
 
