@@ -167,7 +167,7 @@ static int __recovery_write(const void *pkt, size_t size) {
     char packet_debug[512];
     int len = 0;
     for (int i = 0; i < size; i++ ){
-        len += sprintf(&packet_debug[len], "%02x ", ((uint8_t*)pkt)[i]);
+        len += sprintf(&packet_debug[len], "%02xh ", ((uint8_t*)pkt)[i]);
     }
     CETI_LOG("Pi->Rec: {%s}\n", packet_debug);
     #endif
@@ -229,19 +229,28 @@ int recovery_get_packet(RecPkt *packet, time_t timeout_us) {
         }
 
         // read message if any
-        if(packet->common.header.length == 0)
-            return 0;
+        if(packet->common.header.length != 0){
+            expected_bytes = packet->common.header.length;
+            if (bytes_avail < expected_bytes){ // not enough bytes to complete msg
+                continue;                      // get more bytes
+            }
 
-        expected_bytes = packet->common.header.length;
-        if (bytes_avail < expected_bytes){ // not enough bytes to complete msg
-            continue;                      // get more bytes
+            int result = serRead(recovery_fd, packet->common.msg, expected_bytes);
+            if (result < 0) { // UART Error
+                CETI_ERR("Recovery board UART error");
+                return -1;
+            }
         }
 
-        int result = serRead(recovery_fd, packet->common.msg, expected_bytes);
-        if (result < 0) { // UART Error
-            CETI_ERR("Recovery board UART error");
-            return -1;
+        #ifdef DEBUG
+        char packet_debug[512];
+        size_t size = sizeof(RecPktHeader) + packet->common.header.length;
+        int len = 0;
+        for (int i = 0; i < size; i++ ){
+            len += sprintf(&packet_debug[len], "%02xh ", ((uint8_t*)packet)[i]);
         }
+        CETI_LOG("Rec->Pi: {%s}\n", packet_debug);
+        #endif
 
         return 0; // Success !!! 
     } while ((timeout_us == 0)  || ((get_global_time_us() - start_time_us) < timeout_us));
@@ -739,6 +748,9 @@ void* recovery_thread(void* paramPtr) {
         pthread_mutex_lock(&s_recovery_board_model.state_lock); //prevents recovery board turning off mid communication
         switch(s_recovery_board_model.state) {
             case REC_STATE_WAIT: {
+                #if RECOVERY_TX_CONTINUOUS
+                recovery_message("Test DM underwater");
+                #endif
                 #if RECOVERY_WDT_ENABLED
                 //check if watchdog needs reset
                 const int wdt_resend_us = (RECOVERY_WDT_TRIGGER_TIME_MIN*60)*1000000;
@@ -758,6 +770,9 @@ void* recovery_thread(void* paramPtr) {
                 int result;
                 long long polling_sleep_duration_us;
 
+                #if RECOVERY_TX_CONTINUOUS
+                recovery_message("Test DM at surface");
+                #endif
                 recovery_data_file = fopen(RECOVERY_DATA_FILEPATH, "at");
                 if(recovery_data_file == NULL) {
                     pthread_mutex_unlock(&s_recovery_board_model.state_lock); //release recovery state
