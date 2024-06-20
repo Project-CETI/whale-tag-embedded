@@ -32,6 +32,7 @@
 // Reference pressure is a 1 bar abs
 #define PRESSURE_MIN 0   // bar
 #define PRESSURE_MAX 200 // bar
+#define PRESSURE_ZERO_AT_STARTUP 0 // whether to take a reading at startup and subtract that from all future readings
 
 //-----------------------------------------------------------------------------
 // Methods

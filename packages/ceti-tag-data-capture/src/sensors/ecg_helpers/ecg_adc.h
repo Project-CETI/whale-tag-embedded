@@ -117,7 +117,7 @@ void ecg_adc_config_reset();
 void ecg_adc_config_apply();
 void ecg_adc_write_config_register(uint8_t data);
 uint8_t ecg_adc_read_register(uint8_t reg);
-int ecg_adc_raw_read_data(void);
+long ecg_adc_raw_read_data(void);
 int ecg_adc_read_data(int* exit_flag, long long timeout_us);
 int ecg_adc_read_data_ready();
 

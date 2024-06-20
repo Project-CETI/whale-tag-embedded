@@ -46,7 +46,8 @@ int init_goPros()
   }
 
   // Initialize the Python communication (paths are relative to the bin directory where this program runs).
-  system("python3 ../src/sensors/goPros_python_interface/goPros_interface.py &");
+  if(system("python3 ../src/sensors/goPros_python_interface/goPros_interface.py &") != 0)
+    return -1;
   usleep(5000000); // wait until python starts
   if(create_goPros_socket(GOPRO_PYTHON_PORT) < 0)
   {

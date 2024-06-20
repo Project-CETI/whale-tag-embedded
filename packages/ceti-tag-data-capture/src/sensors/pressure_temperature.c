@@ -79,7 +79,6 @@ int pressure_get_calibrated(double *pressure_bar, double * temperature_c) {
   if(getPressureTemperature(&raw_pressure_bar, temperature_c) != 0){
     return -1;
   }
-
   *pressure_bar = raw_pressure_bar - s_pressure_zero_bar;
   return 0;
 }
@@ -90,9 +89,14 @@ int pressure_get_calibrated(double *pressure_bar, double * temperature_c) {
 // CetiTagApp - Main thread
 //-----------------------------------------------------------------------------
 int init_pressureTemperature() {
-  if (pressure_zero() != 0){
+  #if PRESSURE_ZERO_AT_STARTUP
+  if(pressure_zero() != 0) {
+    CETI_ERR("Could not read an initial pressure value for calibration");
     return -2;
   }
+  #else
+  CETI_LOG("Note: not using an initial pressure value for calibration");
+  #endif
   CETI_LOG("Successfully initialized the pressure/temperature sensor.");
 
   // Open an output file to write data.

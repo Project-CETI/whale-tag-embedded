@@ -76,6 +76,24 @@ do
 
   echo "cell voltages are $v1 $v2"
 
+# If either cell is less than 3.10 V:
+#    - stop data acquisition to gracefully exit the thread loops and close files
+
+  check1=$( echo "$v1 < 3.10" | bc )
+  check2=$( echo "$v2 < 3.10" | bc )
+
+  if [ "$check1" -gt 0 ] || [ "$check2" -gt 0 ] 
+  then
+    echo "low battery cell detected; stopping data acquisition"
+    echo "stopDataAcq" > cetiCommand
+    sleep 1
+    cat cetiResponse
+    echo "signaled to stop data acquisition"
+    data_acquisition_running=0
+  else
+      echo "battery is OK"
+  fi
+
 # If either cell is less than 3.00 V:
 #    -signal the FPGA to disable charging and discharging
 #    -schedule Pi shutdown

@@ -320,6 +320,11 @@ static int __recovery_get_aprs_ssid(uint8_t *ssid){
 }
 
 int recovery_get_aprs_callsign(APRSCallsign *callsign){
+    if(!g_recovery_initialized){
+        CETI_ERR("Recovery board uninitialized.");
+        return -1;
+    }
+
     int result = 0;
     result |= __recovery_get_aprs_callsign(callsign->callsign);
     result |= __recovery_get_aprs_ssid(&callsign->ssid);
@@ -327,6 +332,11 @@ int recovery_get_aprs_callsign(APRSCallsign *callsign){
 }
 
 int recovery_get_aprs_freq_mhz(float *p_freq_MHz){
+    if(!g_recovery_initialized){
+        CETI_ERR("Recovery board uninitialized.");
+        return -1;
+    }
+
     //send query cmd
     RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_QUERY_APRS_FREQ);
     RecPkt ret_pkt = {};
@@ -392,6 +402,11 @@ static int __recovery_set_aprs_ssid(uint8_t ssid){
 }
 
 int recovery_set_aprs_callsign(const APRSCallsign *callsign){
+    if(!g_recovery_initialized){
+        CETI_ERR("Recovery board uninitialized.");
+        return -1;
+    }
+
     int result;
     result = __recovery_set_aprs_callsign(callsign->callsign);
     result |= __recovery_set_aprs_ssid(callsign->ssid);
@@ -399,6 +414,11 @@ int recovery_set_aprs_callsign(const APRSCallsign *callsign){
 }
 
 int recovery_set_aprs_freq_mhz(float freq_MHz){
+    if(!g_recovery_initialized){
+        CETI_ERR("Recovery board uninitialized.");
+        return -1;
+    }
+
     RecPkt_float pkt = {
         .header = {
             .key = RECOVERY_PACKET_KEY_VALUE,
@@ -449,6 +469,11 @@ static int __recovery_set_aprs_rx_ssid(uint8_t ssid){
 }
 
 int recovery_set_aprs_message_recipient(const APRSCallsign *callsign){
+    if(!g_recovery_initialized){
+        CETI_ERR("Recovery board uninitialized.");
+        return -1;
+    }
+
     int result;
     result = __recovery_set_aprs_rx_callsign(callsign->callsign);
     result |= __recovery_set_aprs_rx_ssid(callsign->ssid);
@@ -456,6 +481,11 @@ int recovery_set_aprs_message_recipient(const APRSCallsign *callsign){
 }
 
 int recovery_set_comment(const char *message){
+    if(!g_recovery_initialized) {
+        CETI_ERR("Recovery board uninitialized.");
+        return -1;
+    }
+
     size_t len = strlen(message);
     if (len > 40) {
         len = 40;
@@ -473,6 +503,11 @@ int recovery_set_comment(const char *message){
 }
 
 int recovery_set_critical_voltage(float voltage){
+    if(!g_recovery_initialized){
+        CETI_ERR("Recovery board uninitialized.");
+        return -1;
+    }
+
     RecPkt_float pkt = {
         .header = {
             .key = RECOVERY_PACKET_KEY_VALUE,
@@ -485,6 +520,11 @@ int recovery_set_critical_voltage(float voltage){
 }
 
 int recovery_set_power_level(RecoveryPowerLevel power_level){
+    if(!g_recovery_initialized){
+        CETI_ERR("Recovery board uninitialized.");
+        return -1;
+    }
+
     struct __attribute__ ((__packed__, scalar_storage_order ("little-endian"))) {
         RecPktHeader header;
         RecConfigTxLevelPkt msg;
@@ -501,6 +541,11 @@ int recovery_set_power_level(RecoveryPowerLevel power_level){
 }
 
 int recovery_message(const char *message){
+    if(!g_recovery_initialized){
+        CETI_ERR("Recovery board uninitialized.");
+        return -1;
+    }
+
     size_t message_len = strlen(message);
     if (message_len > 67) {
         return -1;
@@ -525,6 +570,8 @@ int recovery_message(const char *message){
 
 // initializes recovery board from powered off state
 int recovery_init(void) {
+    g_recovery_initialized = false;
+
     if (pthread_mutex_init(&s_recovery_board_model.state_lock, NULL) != 0) { 
         printf("\n state mutex init has failed\n"); 
         return -2; 
@@ -533,7 +580,7 @@ int recovery_init(void) {
     usleep(50000); // sleep a bit
     gpioWrite(13, 1); //turn on recovery
 
-     pthread_mutex_lock(&s_recovery_board_model.state_lock);
+    pthread_mutex_lock(&s_recovery_board_model.state_lock);
     s_recovery_board_model.state = REC_STATE_APRS;
     pthread_mutex_unlock(&s_recovery_board_model.state_lock);
 
@@ -547,13 +594,11 @@ int recovery_init(void) {
         return (-1);
     }
 
-    g_recovery_initialized = true;
     APRSCallsign callsign;
     // // // get call sign to ensure uart
     if (recovery_get_aprs_callsign(&callsign) == 0){
         CETI_LOG("Callsign: \"%s-%d\".", callsign.callsign, callsign.ssid);
     } else {
-        g_recovery_initialized = false;
         CETI_ERR("Did not receive recovery board response.");
         serClose(recovery_fd);
         gpioWrite(13, 0);
@@ -562,6 +607,7 @@ int recovery_init(void) {
     recovery_on();
 
     CETI_LOG("Successfully initialized the recovery board");
+    g_recovery_initialized = true;
     return 0;
 }
 
@@ -659,6 +705,11 @@ int recovery_restart(void) {
 // Get GPS
 //-----------------------------------------------------------------------------
 int recovery_get_gps_data(char gpsLocation[static GPS_LOCATION_LENGTH], time_t timeout_us){
+    if(!g_recovery_initialized){
+        CETI_ERR("Recovery board uninitialized.");
+        return 0;
+    }
+
     RecPkt pkt;
     int result = 0;
 
@@ -731,20 +782,22 @@ void* recovery_thread(void* paramPtr) {
     CETI_LOG("Starting loop to periodically acquire data");
     g_recovery_thread_is_running = 1;
 
-    if (!g_recovery_initialized){
-        for (int retry_count = 0; recovery_init() != 0; retry_count++){
-            if(g_exit){
+    if(!g_recovery_initialized) {
+        for(int retry_count = 0; retry_count < 5; retry_count++) {
+            if(g_exit) {
                 break;
             }
-            
-            if(retry_count == 5) {
-                CETI_ERR("Unable to initialize recovery board");
-                return NULL;
+            if(recovery_init() == 0) {
+              break;
             }
+            usleep(100000); // wait a bit before retrying
         }
     }
+    if(!g_recovery_initialized) {
+        CETI_ERR("Unable to initialize recovery board");
+    }
 
-    while (!g_exit) {
+    while (!g_exit && g_recovery_initialized) {
         pthread_mutex_lock(&s_recovery_board_model.state_lock); //prevents recovery board turning off mid communication
         switch(s_recovery_board_model.state) {
             case REC_STATE_WAIT: {
@@ -760,8 +813,8 @@ void* recovery_thread(void* paramPtr) {
                 }
                 #endif
                 pthread_mutex_unlock(&s_recovery_board_model.state_lock);
-                sleep(1);
-                break; 
+                usleep(RECOVERY_SAMPLING_PERIOD_US);
+                break;
             }
 
             case REC_STATE_APRS: { 
@@ -778,9 +831,7 @@ void* recovery_thread(void* paramPtr) {
                     pthread_mutex_unlock(&s_recovery_board_model.state_lock); //release recovery state
                     CETI_ERR("Failed to open data output file: %s", RECOVERY_DATA_FILEPATH);
                     // Sleep a bit before retrying.
-                    for(int i = 0; i < 10 && !g_exit; i++) {
-                        usleep(100000);
-                    }
+                    usleep(1000000);
                     break;
                 }
 
@@ -825,9 +876,9 @@ void* recovery_thread(void* paramPtr) {
                 break;
             }
 
-            default: { //Do nothing
+            default: { // Do nothing
                 pthread_mutex_unlock(&s_recovery_board_model.state_lock);
-                sleep(1);
+                usleep(RECOVERY_SAMPLING_PERIOD_US);
                 break;
             }
         }

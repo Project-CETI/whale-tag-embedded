@@ -121,7 +121,7 @@ void ecg_adc_set_gain(uint8_t gain)
 {
   ecg_adc_config &= ECG_ADC_GAIN_MASK;
   ecg_adc_config |= gain;
-  ecg_adc_config_apply();
+  ecg_adc_config_apply(); // Will only send the config if it has changed.
 }
 
 // Set the data rate of the ADC for continuous conversion mode.
@@ -146,7 +146,7 @@ void ecg_adc_set_data_rate(int rate)
     default:
       break;
   }
-  ecg_adc_config_apply();
+  ecg_adc_config_apply(); // Will only send the config if it has changed.
 }
 
 // Set the conversion mode of the ADC.
@@ -155,7 +155,7 @@ void ecg_adc_set_conversion_mode(uint8_t mode)
 {
   ecg_adc_config &= ECG_ADC_MODE_MASK;
   ecg_adc_config |= mode;
-  ecg_adc_config_apply();
+  ecg_adc_config_apply(); // Will only send the config if it has changed.
   if(mode == ECG_ADC_MODE_CONTINUOUS)
 	  ecg_adc_is_singleShot = 0;
   else
@@ -168,7 +168,7 @@ void ecg_adc_set_voltage_reference(uint8_t vref)
 {
   ecg_adc_config &= ECG_ADC_VREF_MASK;
   ecg_adc_config |= vref;
-  ecg_adc_config_apply();
+  ecg_adc_config_apply(); // Will only send the config if it has changed.
 }
 
 // Set which channel to use for the main ECG signal.
@@ -191,7 +191,7 @@ void ecg_adc_set_channel(int channel) {
     default:
       break;
   }
-  ecg_adc_config_apply();
+  ecg_adc_config_apply(); // Will only send the config if it has changed.
 }
 
 //-----------------------------------------------------------------------------
@@ -341,7 +341,7 @@ void ecg_adc_update_data(int* exit_flag, long long timeout_us)
   // Otherwise, acquire the new data sample and timestamp.
   // Will update g_ecg_adc_latest_reading and g_ecg_adc_latest_reading_global_time_us.
   #if !(ECG_ADC_DATA_READY_USE_INTERRUPT || ECG_ADC_DATA_READY_USE_TIMER)
-  ecg_adc_read_data(exit_flag, timeout_us);
+  ecg_adc_read_singleEnded(ecg_adc_channel, exit_flag, timeout_us);
   #endif
 }
 
@@ -360,11 +360,8 @@ int ecg_adc_read_data(int* exit_flag, long long timeout_us)
   long long wait_for_data_startTime_us = get_global_time_us();
   while(!data_is_ready
           && !*exit_flag
-          && get_global_time_us() - wait_for_data_startTime_us < timeout_us
-  ){
-    data_is_ready = (ecg_adc_read_data_ready() == 0);
-  }
-
+          && get_global_time_us() - wait_for_data_startTime_us < timeout_us)
+    data_is_ready = (ecg_adc_read_data_ready() == 0 ? 1 : 0);
   if(!data_is_ready)
   {
     // Indicate that there was an error, so the main program will try to set up the ECG again.
@@ -376,9 +373,9 @@ int ecg_adc_read_data(int* exit_flag, long long timeout_us)
   #endif
 
   // Read the data!
-  uint8_t result_bytes[3] = {0};
+  char result_bytes[3] = {0};
   i2cWriteByte(ecg_adc_i2c_device, ECG_ADC_CMD_RREG);
-  i2cReadDevice(ecg_adc_i2c_device, (char *)result_bytes, 3);
+  i2cReadDevice(ecg_adc_i2c_device, result_bytes, 3);
   #if ECG_ADC_DEBUG_PRINTOUTS
   printf(" \t\t %d %d %d  \t\t ", result_bytes[0], result_bytes[1], result_bytes[2]);
   #endif
@@ -395,21 +392,22 @@ int ecg_adc_read_data(int* exit_flag, long long timeout_us)
   return 0;
 }
 
-int32_t ecg_adc_raw_read_data(void){
-    // Read the data!
-  uint8_t result_bytes[3] = {0};
+long ecg_adc_raw_read_data(void) {
+  // Read the data!
+  char result_bytes[3] = {0};
   i2cWriteByte(ecg_adc_i2c_device, ECG_ADC_CMD_RREG);
-  i2cReadDevice(ecg_adc_i2c_device, (char *)result_bytes, 3);
+  i2cReadDevice(ecg_adc_i2c_device, result_bytes, 3);
   #if ECG_ADC_DEBUG_PRINTOUTS
   printf(" \t\t %d %d %d  \t\t ", result_bytes[0], result_bytes[1], result_bytes[2]);
   #endif
 
   // Parse the data bytes into a single long number.
-  int32_t result_data = (((int32_t) result_bytes[0]) << 24) 
-                      | (((int32_t) result_bytes[1]) << 16) 
+  int32_t result_data = (((int32_t) result_bytes[0]) << 24)
+                      | (((int32_t) result_bytes[1]) << 16)
                       | (((int32_t) result_bytes[2]) << 8);
   result_data >>= 8; //convert to 24-bit value in 32-bit storage
-  return result_data;
+  long ecg_reading = result_data;
+  return ecg_reading;
 }
 
 // Read a single-ended measurement from the desired channel.
@@ -418,7 +416,7 @@ int32_t ecg_adc_raw_read_data(void){
 // @param channel Can be 0, 1, 2, or 3.
 long ecg_adc_read_singleEnded(int channel, int* exit_flag, long long timeout_us)
 {
-  // // Update the configuration for the desired channel if needed.
+  // Update the configuration for the desired channel if needed.
 	ecg_adc_config &= ECG_ADC_MUX_MASK;
 	switch(channel)
 	{
@@ -451,7 +449,7 @@ long ecg_adc_read_differential_0_1(int* exit_flag, long long timeout_us)
   // Update the configuration for the desired channel if needed.
   ecg_adc_config &= ECG_ADC_MUX_MASK;
   ecg_adc_config |= ECG_ADC_MUX_DIFF_0_1;
-  ecg_adc_config_apply();
+  ecg_adc_config_apply(); // Will only send the config if it has changed.
   // Read the data.
   ecg_adc_read_data(exit_flag, timeout_us);
   return g_ecg_adc_latest_reading;
@@ -465,7 +463,7 @@ long ecg_adc_read_differential_2_3(int* exit_flag, long long timeout_us)
   // Update the configuration for the desired channel if needed.
   ecg_adc_config &= ECG_ADC_MUX_MASK;
   ecg_adc_config |= ECG_ADC_MUX_DIFF_2_3;
-  ecg_adc_config_apply();
+  ecg_adc_config_apply(); // Will only send the config if it has changed.
   // Read the data.
   ecg_adc_read_data(exit_flag, timeout_us);
   return g_ecg_adc_latest_reading;
@@ -479,7 +477,7 @@ long ecg_adc_read_differential_1_2(int* exit_flag, long long timeout_us)
   // Update the configuration for the desired channel if needed.
   ecg_adc_config &= ECG_ADC_MUX_MASK;
   ecg_adc_config |= ECG_ADC_MUX_DIFF_1_2;
-  ecg_adc_config_apply();
+  ecg_adc_config_apply(); // Will only send the config if it has changed.
   // Read the data.
   ecg_adc_read_data(exit_flag, timeout_us);
   return g_ecg_adc_latest_reading;
@@ -493,7 +491,7 @@ long ecg_adc_read_shorted(int* exit_flag, long long timeout_us)
   // Update the configuration for the desired channel if needed.
   ecg_adc_config &= ECG_ADC_MUX_MASK;
   ecg_adc_config |= ECG_ADC_MUX_SHORTED;
-  ecg_adc_config_apply();
+  ecg_adc_config_apply(); // Will only send the config if it has changed.
   // Read the data.
   ecg_adc_read_data(exit_flag, timeout_us);
   return g_ecg_adc_latest_reading;

@@ -23,8 +23,8 @@ TagConfig g_config = {
         .sample_rate = CONFIG_DEFAULT_AUDIO_SAMPLE_RATE,
         .bit_depth = CONFIG_DEFAULT_AUDIO_SAMPLE_RATE,
     },
-    .surface_pressure   = CONFIG_DEFAULT_SURFACE_PRESSURE_BAR,
-    .dive_pressure      = CONFIG_DEFAULT_DIVE_PRESSURE_BAR,
+    .surface_pressure   = CONFIG_DEFAULT_SURFACE_PRESSURE_BAR, // depth_m is roughly 10*pressure_bar
+    .dive_pressure      = CONFIG_DEFAULT_DIVE_PRESSURE_BAR, // depth_m is roughly 10*pressure_bar
     .release_voltage_v  = CONFIG_DEFAULT_RELEASE_VOLTAGE_V,
     .critical_voltage_v = CONFIG_DEFAULT_CRITICAL_VOLTAGE_V,
     .timeout_s          = CONFIG_DEFAULT_TIMEOUT_S,

@@ -60,7 +60,9 @@ ResultFPGA loadFpgaBitstream(const char *fpga_bitstream_path) {
     return FPGA_ERR_BIN_OPEN;
   }
 
-  fread(pConfig, 1, BITSTREAM_SIZE_BYTES, pConfigFile);
+  int fread_result = fread(pConfig, 1, BITSTREAM_SIZE_BYTES, pConfigFile);
+  if(fread_result < BITSTREAM_SIZE_BYTES)
+    CETI_ERR("Read %d bytes instead of %d bytes from the FPGA bitstream configuration file %s", fread_result, BITSTREAM_SIZE_BYTES, fpga_bitstream_path);
   fclose(pConfigFile);
 
   // Relase PROG_B

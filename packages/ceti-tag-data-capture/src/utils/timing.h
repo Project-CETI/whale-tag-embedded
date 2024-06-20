@@ -37,7 +37,7 @@ int resetRtcCount();
 unsigned int getTimeDeploy(void);
 int64_t get_global_time_us();
 int64_t get_global_time_ms();
-void sync_global_time_init(void);
+int sync_global_time_init(void);
 void *rtc_thread(void *paramPtr);
 
 //-----------------------------------------------------------------------------

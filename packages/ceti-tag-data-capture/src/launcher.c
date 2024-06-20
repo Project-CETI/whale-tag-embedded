@@ -104,9 +104,11 @@ int main(void) {
 #endif
 // Recovery board (GPS).
 #if ENABLE_RECOVERY
-  pthread_create(&thread_ids[num_threads], NULL, &recovery_thread, NULL);
-  threads_running[num_threads] = &g_recovery_thread_is_running;
-  num_threads++;
+  if(g_config.recovery.enabled) {
+    pthread_create(&thread_ids[num_threads], NULL, &recovery_thread, NULL);
+    threads_running[num_threads] = &g_recovery_thread_is_running;
+    num_threads++;
+  }
 #endif
 // ECG
 #if ENABLE_ECG
@@ -339,12 +341,12 @@ if(g_config.recovery.enabled) {
   result += init_goPros() == 0 ? 0 : -1;
 #endif
 
-  if (result < 0){
+  result += sync_global_time_init();
+
+  if (result < 0) {
     CETI_ERR("Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
     return result;
   }
-
-  sync_global_time_init();
 
   return result;
 }

@@ -475,8 +475,8 @@ void *audio_thread_writeFlac(void *paramPtr) {
       continue;
     }
 
-    //store previous block timestamp for file create timestamp
-    struct timeval next_file_name = {};
+    // store previous block timestamp for file create timestamp
+    //struct timeval next_file_name = {};
     if ((audio_acqDataFileLength +  AUDIO_BUFFER_SIZE_BYTES > (filesize_bytes - 1)) || (flac_encoder == 0)) {
       s_file_start_time = s_block_start_time;
     }
