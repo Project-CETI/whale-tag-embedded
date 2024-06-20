@@ -28,7 +28,8 @@
 #define CLOCK (21)                         // GPIO 21
 #define DATA (20)                          // GPIO 20
 #define FPGA_BITSTREAM "../config/top.bin" // fpga bitstream
-#define BITSTREAM_SIZE_BYTES (243048 * 2)  // See Xilinx Configuration User Guide UG332
+#define FPGA_BITSTREAM_SIZE_BYTES (243048 * 2)  // See Xilinx Configuration User Guide UG332
+#define FPGA_BITSTREAM_CONFIG_FILE_SIZE_BYTES (149516)
 
 //-----------------------------------------------------------------------------
 // GPIO For CAM

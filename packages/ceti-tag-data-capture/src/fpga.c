@@ -48,7 +48,7 @@ ResultFPGA loadFpgaBitstream(const char *fpga_bitstream_path) {
   gpioWrite(PROG_B, 0);
 
   // allocate the buffer
-  pConfig = malloc(BITSTREAM_SIZE_BYTES); // allocate memory for the configuration bitstream
+  pConfig = malloc(FPGA_BITSTREAM_SIZE_BYTES); // allocate memory for the configuration bitstream
   if (pConfig == NULL) {
     return FPGA_ERR_CONFIG_MALLOC;
   }
@@ -60,9 +60,9 @@ ResultFPGA loadFpgaBitstream(const char *fpga_bitstream_path) {
     return FPGA_ERR_BIN_OPEN;
   }
 
-  int fread_result = fread(pConfig, 1, BITSTREAM_SIZE_BYTES, pConfigFile);
-  if(fread_result < BITSTREAM_SIZE_BYTES)
-    CETI_ERR("Read %d bytes instead of %d bytes from the FPGA bitstream configuration file %s", fread_result, BITSTREAM_SIZE_BYTES, fpga_bitstream_path);
+  int fread_result = fread(pConfig, 1, FPGA_BITSTREAM_SIZE_BYTES, pConfigFile);
+  if(fread_result != FPGA_BITSTREAM_CONFIG_FILE_SIZE_BYTES)
+    CETI_ERR("Read %d bytes instead of %d bytes from the FPGA bitstream configuration file %s", fread_result, FPGA_BITSTREAM_CONFIG_FILE_SIZE_BYTES, fpga_bitstream_path);
   fclose(pConfigFile);
 
   // Relase PROG_B
@@ -70,7 +70,7 @@ ResultFPGA loadFpgaBitstream(const char *fpga_bitstream_path) {
   gpioWrite(PROG_B, 1);
 
   // Clock out the bitstream byte by byte MSB first
-  for (j = 0; j < BITSTREAM_SIZE_BYTES; j++) {
+  for (j = 0; j < FPGA_BITSTREAM_SIZE_BYTES; j++) {
     data_byte = pConfig[j];
 
     for (i = 0; i < 8; i++) {
