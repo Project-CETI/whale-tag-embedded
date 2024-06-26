@@ -26,8 +26,6 @@
 #define ENABLE_RECOVERY 1
 #define ENABLE_SYSTEMMONITOR 1
 #define ENABLE_BURNWIRE 1
-#define ENABLE_GOPROS 0
-
 #define ENABLE_RUNTIME_AUDIO 0
 
 //-----------------------------------------------------------------------------
@@ -67,7 +65,6 @@
 #define COMMAND_CPU 0
 #define STATEMACHINE_CPU 0
 #define SYSTEMMONITOR_CPU 0
-#define GOPROS_CPU ECG_GETDATA_CPU // Note that the wearable tag will not use ECG
 
 #define ECG_DATA_FILEPATH_BASE "/data/data_ecg" // will append a counter and create new files according to a maximum size
 #define BATTERY_DATA_FILEPATH "/data/data_battery.csv"
@@ -80,7 +77,6 @@
 #define STATEMACHINE_DATA_FILEPATH "/data/data_state.csv"
 #define STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH "/data/burnwire_timeout_start_time_s.csv"
 #define SYSTEMMONITOR_DATA_FILEPATH "/data/data_systemMonitor.csv"
-#define GOPROS_DATA_FILEPATH "/data/data_goPros.csv"
 
 //-----------------------------------------------------------------------------
 // Includes
@@ -135,10 +131,6 @@
 // Include this regardless of ENABLE_SYSTEMMONITOR
 //  since the launcher will use its helpers to check disk usage.
 #include "systemMonitor.h"
-
-#if ENABLE_GOPROS
-#include "sensors/goPros.h"
-#endif
 
 //-----------------------------------------------------------------------------
 // Global variables
