@@ -3,6 +3,28 @@
 # New for 2.1-4 release  11/5/22
 # Supervisor script for the Tag application
 
+#handle SIGTERM from systemctl
+_term() {
+  echo "stopping cetiTagApp"
+  #echo "quit" > cetiCommand
+  #cat cetiResponse
+  kill --TERM  "$child" 2>/dev/null
+
+  ## Wait for cetiTagApp to finish
+  echo "Waiting on child process $child to finish..."
+  wait "$child"
+
+  echo "Child process $child complete"
+  echo "Good bye"
+  exit 0;
+}
+trap _term SIGTERM
+
+#unblock wifi (if deployed in volitile state)
+sudo ifconfig wlan0 up
+
+#unblock USB/ethernet
+sudo ifconfig eth0 up
 
 # # remount rootfs readonly
 mount /boot -o remount,ro
@@ -11,6 +33,8 @@ mount /boot -o remount,ro
 
 # Launch the main recording application in the background.
 sudo /opt/ceti-tag-data-capture/bin/cetiTagApp &
+child=$!
+
 # Wait for the main loops to start so it is ready to receive commands.
 sleep 15
 data_acquisition_running=1
@@ -51,6 +75,24 @@ do
   v2=$(cat cetiResponse)
 
   echo "cell voltages are $v1 $v2"
+
+# If either cell is less than 3.10 V:
+#    - stop data acquisition to gracefully exit the thread loops and close files
+
+  check1=$( echo "$v1 < 3.10" | bc )
+  check2=$( echo "$v2 < 3.10" | bc )
+
+  if [ "$check1" -gt 0 ] || [ "$check2" -gt 0 ] 
+  then
+    echo "low battery cell detected; stopping data acquisition"
+    echo "stopDataAcq" > cetiCommand
+    sleep 1
+    cat cetiResponse
+    echo "signaled to stop data acquisition"
+    data_acquisition_running=0
+  else
+      echo "battery is OK"
+  fi
 
 # If either cell is less than 3.00 V:
 #    -signal the FPGA to disable charging and discharging
@@ -117,16 +159,3 @@ do
     echo "FIFO is OK; no overflow detected"
   fi
 done
-
-# Some cleanup on the way out...
-echo "stopping cetiTagApp"
-echo "quit" > cetiCommand
-cat cetiResponse
-sleep 120
-
-# Optionally disable the service, must be reenabled when waking the tag up
-# echo "disabling ceti-tag-data-capture service"
-# systemctl disable ceti-tag-data-capture
-
-echo "good night!"
-

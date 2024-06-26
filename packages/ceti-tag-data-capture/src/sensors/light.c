@@ -182,4 +182,5 @@ int light_wake(void){
 
     LIGHT_TRY_OPEN(fd);
     return i2cWriteByteData(fd,0x80,0x1); // wake the light sensor up
+    i2cClose(fd);
 }

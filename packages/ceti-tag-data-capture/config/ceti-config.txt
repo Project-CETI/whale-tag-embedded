@@ -10,8 +10,10 @@
 # Units are bar absolute with reference value of 1 bar (absolute) abs
 # See Keller 4LD...9LD data sheet
 #
-P1=0.04
-P2=0.10
+# Depth in meters is approximately 10*pressure_bar
+#
+P1=0.3
+P2=0.5
 #
 #------------------------------------------------------------------------------
 # Battery Thresholds V1 and V2

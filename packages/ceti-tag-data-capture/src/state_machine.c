@@ -20,11 +20,12 @@
 // Global/static variables
 //-----------------------------------------------------------------------------
 static int presentState = ST_CONFIG;
+static int networking_is_enabled = 1;
 // RTC counts
-static unsigned int start_rtc_count = 0;
-static unsigned int last_reset_rtc_count = 0;
-static int current_rtc_count = 0;
-static uint32_t burnTimeStart = 0;
+static unsigned int start_rtc_s = 0;
+static unsigned int burnwire_timeout_start_rtc_s = 0;
+static int current_rtc_count_s = 0;
+static uint32_t burnwire_started_time_s = 0;
 // Output file
 int g_stateMachine_thread_is_running = 0;
 static FILE* stateMachine_data_file = NULL;
@@ -77,7 +78,7 @@ void* stateMachine_thread(void* paramPtr) {
     while (!g_exit) {
       // Acquire timing information for when the next state will begin processing.
       global_time_us = get_global_time_us();
-      current_rtc_count = getRtcCount();
+      current_rtc_count_s = getRtcCount();
       state_to_process = presentState;
 
       // Process the next state.
@@ -93,7 +94,7 @@ void* stateMachine_thread(void* paramPtr) {
         {
           // Write timing information.
           fprintf(stateMachine_data_file, "%lld", global_time_us);
-          fprintf(stateMachine_data_file, ",%d", current_rtc_count);
+          fprintf(stateMachine_data_file, ",%d", current_rtc_count_s);
           // Write any notes, then clear them so they are only written once.
           fprintf(stateMachine_data_file, ",%s", stateMachine_data_file_notes);
           strcpy(stateMachine_data_file_notes, "");
@@ -113,6 +114,9 @@ void* stateMachine_thread(void* paramPtr) {
           usleep(polling_sleep_duration_us);
       }
     }
+    // Clear the persistent burnwire timeout start time if one exists.
+    remove(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH);
+
     g_stateMachine_thread_is_running = 0;
     CETI_LOG("Done!");
     return NULL;
@@ -125,13 +129,13 @@ void* stateMachine_thread(void* paramPtr) {
 int stateMachine_set_state(wt_state_t new_state){
     //nothing to do
     if(new_state == presentState){
-        CETI_LOG("Already in state %s", get_state_str(presentState));
+        // CETI_LOG("Already in state %s", get_state_str(presentState));
         return 0;
     }
 
     //actions performed when exit present state
     switch(presentState){
-        case ST_REC_SUB:
+        case ST_RECORD_DIVING:
             activity_led_enable();
             break;
 
@@ -153,7 +157,7 @@ int stateMachine_set_state(wt_state_t new_state){
             break;
     }
 
-    //actions performed when entering the new state
+    // Actions performed when entering the new state
     switch(new_state){
         case ST_DEPLOY:
             #if ENABLE_RECOVERY
@@ -163,16 +167,26 @@ int stateMachine_set_state(wt_state_t new_state){
             #endif // ENABLE_RECOVERY
             break;
 
-        case ST_REC_SUB:   
+        case ST_RECORD_DIVING:
             activity_led_disable();
             #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
                 recovery_off();
             }
             #endif // ENABLE_RECOVERY
+            // Record this time as the burnwire timeout start time if one has not already been recorded,
+            //  since we now know that this is a real deployment.
+            if(access(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, F_OK) == -1) {
+              burnwire_timeout_start_rtc_s = getRtcCount();
+              CETI_LOG("Starting dive; recording burnwire timeout start time %u", burnwire_timeout_start_rtc_s);
+              FILE* file_burnwire_timeout_start_rtc_s = NULL;
+              file_burnwire_timeout_start_rtc_s = fopen(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, "w");
+              fprintf(file_burnwire_timeout_start_rtc_s, "%u", burnwire_timeout_start_rtc_s);
+              fclose(file_burnwire_timeout_start_rtc_s);
+            }
             break;
 
-        case ST_REC_SURF:
+        case ST_RECORD_SURFACE:
             #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
                 recovery_on();
@@ -182,10 +196,13 @@ int stateMachine_set_state(wt_state_t new_state){
             break;
 
         case ST_BRN_ON:
-            burnTimeStart = current_rtc_count;
+            // Turn on the burnwire and record the start time.
             #if ENABLE_BURNWIRE
             burnwireOn();
+            burnwire_started_time_s = current_rtc_count_s;
             #endif // ENABLE_BURNWIRE
+            // Clear the persistent burnwire timeout start time if one exists.
+            remove(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH);
             break;
 
         case ST_RETRIEVE:
@@ -218,7 +235,7 @@ int updateStateMachine() {
 
     // ---------------- Configuration ----------------
     case (ST_CONFIG): {
-        //configure recovery board
+        // configure recovery board
         #if ENABLE_RECOVERY
         if (g_config.recovery.enabled) {
             if ((recovery_set_critical_voltage(g_config.critical_voltage_v) == 0) 
@@ -247,23 +264,69 @@ int updateStateMachine() {
             recovery_kill();
         }
         #endif // ENABLE_RECOVERY
+        
+        // Transition to the start state.
         stateMachine_set_state(ST_START);
         break;
     }
 
     // ---------------- Startup ----------------
     case (ST_START):
-        start_rtc_count = getTimeDeploy(); // new v0.5 gets start time from the csv
-        last_reset_rtc_count = getRtcCount(); //start_time since last restart (used to keep wifi-enabled)
-        CETI_LOG("Deploy Start: %u", start_rtc_count);
-        stateMachine_set_state(ST_DEPLOY);
+        // Record the time of startup (used to keep wifi-enabled)
+        start_rtc_s = getRtcCount(); 
+        
+        // See if a start time for burnwire timeouts has been previously saved.
+        //  This would happen if there was an unexpected shutdown during a deployment.
+        // If the file is present, use the timestamp it contains.
+        // Otherwise, set the timeout start to the current time.
+        //  Note that the target time will be at first dive to ensure it's a real deployment,
+        //  but will use current time for now in case there is never a dive.
+        burnwire_timeout_start_rtc_s = getRtcCount(); // default to the current time
+        FILE* file_burnwire_timeout_start_rtc_s = NULL;
+        char line[512];
+        file_burnwire_timeout_start_rtc_s = fopen(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, "r");
+        if(file_burnwire_timeout_start_rtc_s != NULL) {
+          CETI_LOG("Loading a previously saved burnwire timeout start time");
+          char* fgets_result = fgets(line, 512, file_burnwire_timeout_start_rtc_s);
+          fclose(file_burnwire_timeout_start_rtc_s);
+          if(fgets_result != NULL)
+          {
+            unsigned int loaded_start_rtc_s = strtoul(line, NULL, 10);
+            if(loaded_start_rtc_s != 0) // will be 0 if the conversion to integer failed
+              burnwire_timeout_start_rtc_s = loaded_start_rtc_s;
+          }
+        }
+        CETI_LOG("Using the following burnwire timeout start time: %u", burnwire_timeout_start_rtc_s);
+
+        // Turn off networking if desired.
+        #if FORCE_NETWORKS_OFF_ON_START
+        wifi_disable();
+        wifi_kill();
+        bluetooth_kill();
+        eth0_disable();
+        #endif
+
+        // // Transition to the deployment state.
+        // stateMachine_set_state(ST_DEPLOY);
+
+        // Transition to the appropriate recording state.
+        #if ENABLE_PRESSURETEMPERATURE_SENSOR
+        if(g_latest_pressureTemperature_pressure_bar > g_config.dive_pressure) {
+            stateMachine_set_state(ST_RECORD_DIVING);
+        }
+        else {
+            stateMachine_set_state(ST_RECORD_SURFACE);
+        }
+        #else
+        stateMachine_set_state(ST_RECORD_DIVING);
+        #endif
         break;
 
     // ---------------- Just deployed ----------------
+    // Waiting for 1st dive
     case (ST_DEPLOY):
-        // Waiting for 1st dive
-        if((current_rtc_count - start_rtc_count > g_config.timeout_s)) {
-            CETI_LOG("TIME OUT!!! Initializing Burn");
+        if(current_rtc_count_s - burnwire_timeout_start_rtc_s > g_config.timeout_s) {
+            CETI_LOG("TIMEOUT!!! Initializing Burn");
             stateMachine_set_state(ST_BRN_ON);
             break;
         }
@@ -277,34 +340,35 @@ int updateStateMachine() {
         #endif
 
         #if ENABLE_PRESSURETEMPERATURE_SENSOR
-        #if !FORCE_NETWORKS_OFF
-        if ((g_latest_pressureTemperature_pressure_bar > g_config.dive_pressure)
-            && (current_rtc_count - last_reset_rtc_count > (WIFI_GRACE_PERIOD_MIN * 60))
-        ){
-        #endif
-            //disable wifi
-            wifi_disable(); 
-            wifi_kill();
-            bluetooth_kill();
-            eth0_disable();
-            // usb_kill();
-            activity_led_disable();
-            stateMachine_set_state(ST_REC_SUB);// 1st dive after deploy
+        if(g_latest_pressureTemperature_pressure_bar > g_config.dive_pressure) {
+            stateMachine_set_state(ST_RECORD_DIVING); // 1st dive after deploy
             break;
-        #if !FORCE_NETWORKS_OFF
         }
-        #endif
         #endif
 
         break;
 
-    case (ST_REC_SUB):
-       if(current_rtc_count - start_rtc_count > g_config.timeout_s) {
-            CETI_LOG("TIME OUT!!! Initializing Burn");
+    // Recording while sumberged
+    case (ST_RECORD_DIVING):
+       // Turn off networking if the grace period has passed.
+       if(networking_is_enabled && (current_rtc_count_s - start_rtc_s > (WIFI_GRACE_PERIOD_MIN * 60))) {
+         wifi_disable();
+         wifi_kill();
+         bluetooth_kill();
+         eth0_disable();
+         // usb_kill();
+         activity_led_disable();
+         networking_is_enabled = 0;
+       }
+
+       // Turn on the burnwire if the timeout has passed since the deployment started.
+       if(current_rtc_count_s - burnwire_timeout_start_rtc_s > g_config.timeout_s) {
+            CETI_LOG("TIMEOUT!!! Initializing Burn");
             stateMachine_set_state(ST_BRN_ON);
             break;
         }
-        // Recording while sumberged
+
+        // Turn on the burnwire if the battery voltage is low.
         #if ENABLE_BATTERY_GAUGE
         if ((g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v)) {
             CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
@@ -313,56 +377,65 @@ int updateStateMachine() {
         }
         #endif //ENABLE_BATTERY_GAUGE
 
+        // Transition state if at the surface.
         #if ENABLE_PRESSURETEMPERATURE_SENSOR
         if (g_latest_pressureTemperature_pressure_bar < g_config.surface_pressure) {
-            stateMachine_set_state(ST_REC_SURF); // came to surface
+            stateMachine_set_state(ST_RECORD_SURFACE); // came to surface
             break;
         }
         #endif // ENABLE_PRESSURE_SENSOR
 
-    case (ST_REC_SURF):
-        if(current_rtc_count - start_rtc_count > g_config.timeout_s) {
+    // Recording while at surface, trying to get a GPS fix
+    case (ST_RECORD_SURFACE):
+        // Turn on the burnwire if the timeout has passed since the deployment started.
+        if(current_rtc_count_s - burnwire_timeout_start_rtc_s > g_config.timeout_s) {
+            CETI_LOG("TIMEOUT!!! Initializing Burn");
             stateMachine_set_state(ST_BRN_ON);
             break;
         }
-        // Recording while at surface, trying to get a GPS fix
+
+        // Turn on the burnwire if the battery voltage is low.
         #if ENABLE_BATTERY_GAUGE
         if ((g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.release_voltage_v)) {
+            CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
             stateMachine_set_state(ST_BRN_ON);
             break;
         }
         #endif
 
+        // Transition state if diving.
         #if ENABLE_PRESSURETEMPERATURE_SENSOR
         if (g_latest_pressureTemperature_pressure_bar > g_config.dive_pressure) {
-            stateMachine_set_state(ST_REC_SUB); //back down...
+            stateMachine_set_state(ST_RECORD_DIVING); // back down...
             break;
         }
         #endif
 
         break;
 
+    // Releasing via the burnwire
     case (ST_BRN_ON):
-        // Releasing
-            //wait untl burn complete to switch state
-        if (current_rtc_count - burnTimeStart > g_config.burn_interval_s) {
+        // Shutdown if the battery is too low.
         #if ENABLE_BATTERY_GAUGE
-            if (g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.critical_voltage_v) {
-                stateMachine_set_state(ST_SHUTDOWN);// critical battery
-
-                break;
-            }
+        if(g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.critical_voltage_v) {
+            stateMachine_set_state(ST_SHUTDOWN);// critical battery
+            break;
+        }
         #endif
 
-            // update 220109 to leave burnwire on without time limit
-            // Leave burn wire on for 20 minutes or until the battery is depleted
+        // switch state once the burn is complete
+        #if ENABLE_BURNWIRE
+        if(current_rtc_count_s - burnwire_started_time_s > g_config.burn_interval_s) {
             stateMachine_set_state(ST_RETRIEVE);
         }
+        #else
+        stateMachine_set_state(ST_RETRIEVE);
+        #endif
 
         break;
 
+    //  Waiting to be retrieved.
     case (ST_RETRIEVE):
-        //  Waiting to be retrieved.
         #if ENABLE_BATTERY_GAUGE
         // critical battery
         if (g_latest_battery_v1_v + g_latest_battery_v2_v < g_config.critical_voltage_v) {
@@ -373,9 +446,9 @@ int updateStateMachine() {
 
         break;
 
+    //  Shut everything off in an orderly way if battery is critical to
+    //  reduce file system corruption risk
     case (ST_SHUTDOWN):
-        //  Shut everything off in an orderly way if battery is critical to
-        //  reduce file system corruption risk
         CETI_ERR("!!! Battery critical !!!");
         #if ENABLE_BURNWIRE
         burnwireOff();
@@ -386,14 +459,7 @@ int updateStateMachine() {
         }
         #endif // ENABLE_RECOVERY
 
-        // 221026 The following system("halt") call has never actually worked - it does
-        // not shutoff the Pi as intended. This is being changed so
-        // that a new external agent (tagMonitor.sh) will manage the shutdown. As part
-        // of this change, the ST_SHUTDOWN state becomes redundant in
-        // a sense and may be removed as the architecture firms up.  For the time
-        // being just comment out the call.
-
-        //system("halt");
+        // Note that tagMonitor.sh will trigger an actual powerdown once the battery levels drop a bit more.
 
         break;
     }
@@ -409,4 +475,3 @@ const char* get_state_str(wt_state_t state){
     }
     return state_str[state];
 }
-

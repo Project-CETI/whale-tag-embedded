@@ -18,6 +18,8 @@ int g_stopAcquisition = 0;
 char g_process_path[256] = "/opt/ceti-tag-data-capture/bin";
 
 void sig_handler(int signum) {
+  CETI_LOG("Received termination request.");
+  g_stopAcquisition = 1;
   g_exit = 1;
 }
 
@@ -102,9 +104,11 @@ int main(void) {
 #endif
 // Recovery board (GPS).
 #if ENABLE_RECOVERY
-  pthread_create(&thread_ids[num_threads], NULL, &recovery_thread, NULL);
-  threads_running[num_threads] = &g_recovery_thread_is_running;
-  num_threads++;
+  if(g_config.recovery.enabled) {
+    pthread_create(&thread_ids[num_threads], NULL, &recovery_thread, NULL);
+    threads_running[num_threads] = &g_recovery_thread_is_running;
+    num_threads++;
+  }
 #endif
 // ECG
 #if ENABLE_ECG
@@ -159,6 +163,8 @@ int main(void) {
   while (!g_exit) {
     // Let threads do their work.
     usleep(100000);
+    if(g_exit)
+      break;
 
 // Check if the audio needs to be restarted after an overflow.
 #if ENABLE_AUDIO
@@ -257,7 +263,11 @@ int init_tag() {
 #if ENABLE_FPGA
   char fpga_bitstream_path[512];
   strncpy(fpga_bitstream_path, g_process_path, sizeof(fpga_bitstream_path) - 1);
+#if ENABLE_RUNTIME_AUDIO
   snprintf(fpga_bitstream_path, sizeof(fpga_bitstream_path), "%s../config/top.%dch.%dbit.bin", g_process_path, CHANNELS, g_config.audio.bit_depth);
+#else
+  snprintf(fpga_bitstream_path, sizeof(fpga_bitstream_path), "%s../config/top.bin", g_process_path);
+#endif
   // strncat(fpga_bitstream_path, FPGA_BITSTREAM, sizeof(fpga_bitstream_path) - 1);
   ResultFPGA fpga_result = init_fpga(fpga_bitstream_path);
 
@@ -331,12 +341,12 @@ if(g_config.recovery.enabled) {
   result += init_goPros() == 0 ? 0 : -1;
 #endif
 
-  if (result < 0){
+  result += sync_global_time_init();
+
+  if (result < 0) {
     CETI_ERR("Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
     return result;
   }
-
-  sync_global_time_init();
 
   return result;
 }

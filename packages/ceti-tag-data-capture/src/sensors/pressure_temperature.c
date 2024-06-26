@@ -25,20 +25,11 @@ static const int num_pressureTemperature_data_file_headers = 2;
 double g_latest_pressureTemperature_pressure_bar = 0.0;
 double g_latest_pressureTemperature_temperature_c = 0.0;
 
-static double s_pressure_zero_bar = 0.0;
-
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
 // Keller sensor interface
 //-----------------------------------------------------------------------------
-
-int pressure_zero(void){
-  int result = getPressureTemperature(&s_pressure_zero_bar, NULL);
-  if (result == 0)
-    CETI_LOG("Pressure sensor zeroed at %5.3f bar", s_pressure_zero_bar);
-  return result;
-}
 
 int getPressureTemperature(double *pressure_bar, double *temperature_c) {
 
@@ -80,7 +71,7 @@ int pressure_get_calibrated(double *pressure_bar, double * temperature_c) {
     return -1;
   }
 
-  *pressure_bar = raw_pressure_bar - s_pressure_zero_bar;
+  *pressure_bar = raw_pressure_bar;
   return 0;
 }
 
@@ -90,9 +81,6 @@ int pressure_get_calibrated(double *pressure_bar, double * temperature_c) {
 // CetiTagApp - Main thread
 //-----------------------------------------------------------------------------
 int init_pressureTemperature() {
-  if (pressure_zero() != 0){
-    return -2;
-  }
   CETI_LOG("Successfully initialized the pressure/temperature sensor.");
 
   // Open an output file to write data.

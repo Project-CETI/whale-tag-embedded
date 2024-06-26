@@ -34,41 +34,6 @@ int init_timing() {
   return 0;
 }
 
-unsigned int getTimeDeploy(void) {
-  // Open the state machine data file and get the first RTC timestamp.
-  // This will be used by the state machine to determine timeouts.
-
-  FILE *stateMachineCsvFile = NULL;
-  char *pTemp;
-
-  char line[512];
-
-  stateMachineCsvFile = fopen(STATEMACHINE_DATA_FILEPATH, "r");
-  if (stateMachineCsvFile == NULL) {
-    CETI_LOG("cannot open state machine csv output file: %s",
-             STATEMACHINE_DATA_FILEPATH);
-    return (-1);
-  }
-
-  // first line is always the header
-  fgets(line, 512, stateMachineCsvFile);
-
-  // first line of the actual data
-  fgets(line, 512, stateMachineCsvFile);
-
-  fclose(stateMachineCsvFile);
-  // parse out the RTC count, which is in the 2nd column of the CSV
-  for (pTemp = line; *pTemp != ','; pTemp++) {
-  }
-
-  // find first comma
-  pTemp++;
-  // append terminator
-  pTemp[10] = '\0';
-
-  // convert to uint
-  return strtoul(pTemp, NULL, 0);
-}
 
 //-----------------------------------------------------------------------------
 // RTC second counter
@@ -219,7 +184,7 @@ int64_t get_global_time_ms() {
   return current_time_ms;
 }
 
-void sync_global_time_init(void) {
+int sync_global_time_init(void) {
   CETI_LOG("Executing");
   struct timex timex_info = {.modes = 0};
   int ntp_result = ntp_adjtime(&timex_info);
@@ -235,4 +200,5 @@ void sync_global_time_init(void) {
     struct timeval current_timeval = {.tv_sec = getRtcCount()};
     settimeofday(&current_timeval, NULL);
   }
+  return 0;
 }

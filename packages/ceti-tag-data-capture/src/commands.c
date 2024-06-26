@@ -559,7 +559,7 @@ void *command_thread(void *paramPtr) {
   strncat(command_pipe_path, CMD_PIPE_PATH, sizeof(command_pipe_path) - 1);
 
   strncpy(rsp_pipe_path, g_process_path, sizeof(rsp_pipe_path) - 1);
-  strncat(rsp_pipe_path, CMD_PIPE_PATH, sizeof(rsp_pipe_path) - 1);
+  strncat(rsp_pipe_path, RSP_PIPE_PATH, sizeof(rsp_pipe_path) - 1);
   CETI_LOG("Starting loop to process commands from %s", command_pipe_path);
   
   // Main loop while application is running.
@@ -568,10 +568,10 @@ void *command_thread(void *paramPtr) {
     // Read commands from the pipe.
     // Note that this will block until a command is sent.
     g_cmd_pipe = fopen(command_pipe_path, "r");
-    fgets(g_command, 256, g_cmd_pipe); // get the command
+    char* fgets_result = fgets(g_command, 256, g_cmd_pipe); // get the command
     fclose(g_cmd_pipe);                // close the pipe
     // Process the command if one was present.
-    if (strlen(g_command) > 0 && g_command[0] != '\n')
+    if(fgets_result != NULL && strlen(g_command) > 0 && g_command[0] != '\n')
       handle_command();
 
     // Delay to implement a desired polling rate.
