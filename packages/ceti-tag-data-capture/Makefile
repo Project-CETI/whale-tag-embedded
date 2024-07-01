@@ -13,52 +13,66 @@
 # Description
 # This is the CETI makefile for the top level
 #-----------------------------------------------------------------------------
+SRC_DIR = src
 
-SRC        = $(shell find src -type f -iname '*.c' 2> /dev/null)
-OBJ        = $(SRC:.c=.o)
-CC         = gcc
-CFLAGS     = -Wall -O2 -Wdate-time -D_FORTIFY_SOURCE=2
-LDFLAGS    = -lpthread -lpigpio -lFLAC -lm
-APP        = cetiTagApp
-HW_TEST    = cetiHWTestApp
+HAL_SRC	   = $(shell find $(SRC_DIR)/hal -type f -iname '*.c' 2> /dev/null)
+HAL_OBJ	   = $(HAL_SRC:.c=.o)
+
+CAPTURE_APP = cetiTagApp
+CAPTURE_SRC = $(shell find $(SRC_DIR)/$(CAPTURE_APP) -type f -iname '*.c' 2> /dev/null)
+CAPTURE_OBJ = $(CAPTURE_SRC:.c=.o)
+
+HW_TEST_APP = cetiHWTestApp
+HW_TEST_SRC = $(shell find $(SRC_DIR)/$(HW_TEST_APP) -type f -iname '*.c' 2> /dev/null)
+HW_TEST_OBJ = $(HW_TEST_SRC:.c=.o)
+
 FPGA_INIT_APP = cetiFpgaInit
-BUILD_TARGETS = $(APP) $(HW_TEST) $(FPGA_INIT_APP)
-APP_OBJ    = $(filter-out src/$(HW_TEST).o src/$(FPGA_INIT_APP).o, $(OBJ))
-HW_TEST_OBJ = $(filter-out src/launcher.o src/commands.o src/$(FPGA_INIT_APP).o, $(OBJ))
-FPGA_INIT_OBJ = src/fpga.o src/utils/logging.o src/$(FPGA_INIT_APP).o
+FPGA_INIT_SRC = $(shell find $(SRC_DIR)/$(FPGA_INIT_APP) -type f -iname '*.c' 2> /dev/null)
+FPGA_INIT_OBJ = $(FPGA_INIT_SRC:.c=.o)
+
+APPS = $(CAPTURE_APP) $(HW_TEST_APP) $(FPGA_INIT_APP)
+
+CC         = gcc
+CFLAGS     = -Wall -O2 -Wdate-time -D_FORTIFY_SOURCE=2 -Isrc
+LDFLAGS    = -lpthread -lpigpio -lFLAC -lm
+
 BINDIR    ?= bin
 IPCDIR    ?= ipc
 CONFIGDIR ?= config
 DATADIR   ?= data
 DESTDIR   ?= opt/ceti-tag-data-capture
 
-$(APP): $(APP_OBJ)
+
 .PHONY: \
 	build \
 	binary \
 	install \
 	clean \
 	test \
-	debug
+	debug \
+	$(APPS)
 	
-build: $(BUILD_TARGETS)
+build: $(CAPTURE_APP)
 
 debug: CFLAGS := -Wall -g -Wdate-time -D_FORTIFY_SOURCE=2 -DDEBUG 
-debug: $(APP) $(HW_TEST)
+debug: $(CAPTURE_APP)
 
-binary: $(APP)
+binary: $(CAPTURE_APP)
 
-$(APP): $(APP_OBJ)
-	mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) -o $(BINDIR)/$(APP) $^ $(LDFLAGS)
+$(BINDIR) :
+	mkdir -p $@
 
-$(HW_TEST): $(HW_TEST_OBJ)
-	mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) -o $(BINDIR)/$(HW_TEST) $^ $(LDFLAGS)
+$(APPS): % : $(BINDIR)/%
 
-$(FPGA_INIT_APP): $(FPGA_INIT_OBJ)
-	mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) -o $(BINDIR)/$(FPGA_INIT_APP) $^ $(LDFLAGS)
+$(BINDIR)/$(CAPTURE_APP): $(CAPTURE_OBJ) $(HAL_OBJ) | $(BINDIR)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+$(BINDIR)/$(HW_TEST_APP): $(HW_TEST_OBJ) $(HAL_OBJ) | $(BINDIR)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+$(BINDIR)/$(FPGA_INIT_APP): $(FPGA_INIT_OBJ) $(HAL_OBJ) | $(BINDIR)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
 
 install: $(BUILD_TARGETS)
 	mkdir -p $(DESTDIR)
@@ -68,7 +82,7 @@ install: $(BUILD_TARGETS)
 	cp -Rp $(DATADIR) $(DESTDIR)
 
 clean:
-	rm -f $(OBJ)
+	rm -f $(HAL_OBJ) $(CAPTURE_OBJ) $(HW_TEST_OBJ) $(FPGA_INIT_OBJ)
 	rm -rf $(BINDIR)
 	rm -rf $(DESTDIR)
 	$(MAKE) clean -C test
