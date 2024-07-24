@@ -70,6 +70,30 @@ static inline double __current_mA_from_raw(uint16_t raw, double r_sense_mOhm){
     return current_uv/r_sense_mOhm;
 }
 
+static inline double __raw_to_capacity_mAh(uint16_t raw, double r_sense_mOhm){
+    return ((double)raw) * 0.005 / r_sense_mOhm;
+}
+
+static inline double __raw_to_percentage(uint16_t raw){
+    return ((double)raw) / 256.0;
+}
+
+static inline double __raw_to_voltage_v(uint16_t raw){
+    return ((double)raw) * 0.000078125;
+}
+
+static inline double __raw_to_current_mA(uint16_t raw, double r_sense_mOhm){
+    return ((double)((int16_t)raw)) * 0.15625 / r_sense_mOhm;
+}
+
+static inline double __raw_to_temperature_c(uint16_t raw) {
+    return ((double)((int16_t)raw)) / 256.0; 
+}
+
+static inline double __raw_to_time_s(uint16_t raw) {
+    return ((double)raw) * 5.625;
+}
+
 static inline int max17320_write(MAX17320_HandleTypeDef *dev, uint16_t memory, uint16_t data) {
     int ret = 0;
     uint16_t addr = MAX17320_ADDR;
@@ -108,8 +132,6 @@ static inline int max17320_read(MAX17320_HandleTypeDef *dev, uint16_t memory, ui
     i2cClose(fd);
     return ret;
 }
-
-
 
 int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev) {
     uint16_t read = 0;
@@ -316,7 +338,7 @@ static inline int max17320_verify_nv_write(MAX17320_HandleTypeDef *dev) {
 static inline int max17320_setup_nv_write(MAX17320_HandleTypeDef *dev) {
     int ret = 0;
     // Write memory locations to new values
-    ret = max17320_write(dev, MAX17320_REG_NPACKCFG, MAX17320_VAL_NPACKCFG);
+    ret = max17320_write(dev,  MAX17320_REG_NPACKCFG, MAX17320_VAL_NPACKCFG);
     ret |= max17320_write(dev, MAX17320_REG_NNVCFG0, MAX17320_VAL_NNVCFG0);
     ret |= max17320_write(dev, MAX17320_REG_NNVCFG1, MAX17320_VAL_NNVCFG1);
     ret |= max17320_write(dev, MAX17320_REG_NNVCFG2, MAX17320_VAL_NNVCFG2);
@@ -474,7 +496,13 @@ int max17320_get_remaining_writes(MAX17320_HandleTypeDef *dev) {
 }
 
 int max17320_enable_charging(MAX17320_HandleTypeDef *dev) {
-    int ret = max17320_write(dev, MAX17320_REG_COMM_STAT, CHARGE_ON);
+    uint16_t value = 0;
+    int ret = max17320_read(dev, MAX17320_REG_COMM_STAT, &value);
+    if (ret < 0) {
+        return -1;
+    }
+    value &= ~CHARGE_OFF;
+    ret = max17320_write(dev, MAX17320_REG_COMM_STAT, value);
     if (ret >= 0) {
         CETI_DEBUG("MAX17320 Charge FET Enabled");
     }
@@ -485,7 +513,13 @@ int max17320_enable_charging(MAX17320_HandleTypeDef *dev) {
 }
 
 int max17320_enable_discharging(MAX17320_HandleTypeDef *dev) {
-    int ret = max17320_write(dev, MAX17320_REG_COMM_STAT, DISCHARGE_ON);
+    uint16_t value = 0;
+    int ret = max17320_read(dev, MAX17320_REG_COMM_STAT, &value);
+    if (ret < 0) {
+        return -1;
+    }
+    value &= ~DISCHARGE_OFF;
+    ret = max17320_write(dev, MAX17320_REG_COMM_STAT, value);
     if (ret >= 0) {
         CETI_DEBUG("MAX17320 Discharge FET Enabled");
     }
@@ -496,7 +530,13 @@ int max17320_enable_discharging(MAX17320_HandleTypeDef *dev) {
 }
 
 int max17320_disable_charging(MAX17320_HandleTypeDef *dev) {
-    int ret = max17320_write(dev, MAX17320_REG_COMM_STAT, CHARGE_OFF);
+    uint16_t value = 0;
+    int ret = max17320_read(dev, MAX17320_REG_COMM_STAT, &value);
+    if (ret < 0) {
+        return -1;
+    }
+    value |= CHARGE_OFF;
+    ret = max17320_write(dev, MAX17320_REG_COMM_STAT, value);
     if (ret >= 0) {
         CETI_DEBUG("MAX17320 Charge FET Disabled");
     }
@@ -507,7 +547,13 @@ int max17320_disable_charging(MAX17320_HandleTypeDef *dev) {
 }
 
 int max17320_disable_discharging(MAX17320_HandleTypeDef *dev) {
-    int ret = max17320_write(dev, MAX17320_REG_COMM_STAT, DISCHARGE_OFF);
+    uint16_t value = 0;
+    int ret = max17320_read(dev, MAX17320_REG_COMM_STAT, &value);
+    if (ret < 0) {
+        return -1;
+    }
+    value |= DISCHARGE_OFF;
+    ret = max17320_write(dev, MAX17320_REG_COMM_STAT, DISCHARGE_OFF);
     if (ret >= 0) {
         CETI_DEBUG("MAX17320 Discharge FET Disabled");
     }
