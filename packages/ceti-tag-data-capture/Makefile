@@ -52,7 +52,7 @@ DESTDIR   ?= opt/ceti-tag-data-capture
 	debug \
 	$(APPS)
 	
-build: $(CAPTURE_APP)
+build: $(CAPTURE_APP) $(FPGA_INIT_APP)
 
 debug: CFLAGS := -Wall -g -Wdate-time -D_FORTIFY_SOURCE=2 -DDEBUG 
 debug: $(CAPTURE_APP)
