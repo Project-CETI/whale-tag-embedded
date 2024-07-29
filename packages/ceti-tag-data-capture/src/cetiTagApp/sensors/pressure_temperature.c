@@ -101,7 +101,7 @@ void pressure_sample_to_csv(FILE *fp, CetiPressureSample *pSample){
         fprintf(fp, "ERROR | ");
         
       // it seems to return -228.63 for pressure and -117.10 for temperature when no sensor is connected
-      if (!(g_pressure->pressure_bar < -100 || g_pressure->temperature_c < -100)) {
+      if (g_pressure->pressure_bar < -100 || g_pressure->temperature_c < -100) {
         CETI_WARN("Readings are likely invalid");
         fprintf(fp, "INVALID? | ");
       }
