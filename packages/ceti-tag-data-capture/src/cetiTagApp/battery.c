@@ -2,17 +2,20 @@
 // Project:      CETI Tag Electronics
 // Version:      Refer to _versioning.h
 // Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
-// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto [TODO: Add other contributors here]
+// Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto,
+//              Michael Salino-Hugg, [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
-
+// === Private Local Headers ===
 #include "battery.h"
 #include "cetiTag.h"
+#include "utils/memory.h"
  
+// === Private System Libraries ===
+#include <fcntl.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 //-----------------------------------------------------------------------------
@@ -69,33 +72,10 @@ int init_battery() {
                     battery_data_file_notes, "init_battery()") < 0)
     return -1;
 
-  //=== setup battery shared memory ===
-  // open/create ipc file
-  int shm_fd = shm_open(BATTERY_SHM_NAME, O_CREAT | O_RDWR, 0644);
-  if (shm_fd < 0) {
-    perror("shm_open");
-    CETI_ERR("Failed to open/create shared memory");
-    return -1;
-  }
+  //setup shared memory
+  g_battery = create_shared_memory_region(BATTERY_SHM_NAME, sizeof(CetiBatterySample));
 
-  // size to sample size
-  if (ftruncate(shm_fd, sizeof(CetiBatterySample)) != 0){
-    perror("shm_fd");
-    CETI_ERR("Failed to resize shared memory");
-    return -1;
-  }
-
-  // memory map address
-  g_battery = mmap(NULL, sizeof(CetiBatterySample), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-  if(g_battery == MAP_FAILED){
-    perror("mmap");
-    CETI_ERR("Failed to map shared memory");
-    return -1;
-  }
-
-  close(shm_fd);
-
-  //=== setup semaphore ===
+  //setup semaphore
   s_battery_data_ready = sem_open(BATTERY_SEM_NAME, O_CREAT, 0644, 0);
   if(s_battery_data_ready == SEM_FAILED){
     perror("sem_open");

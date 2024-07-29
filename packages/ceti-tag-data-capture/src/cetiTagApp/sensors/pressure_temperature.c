@@ -9,6 +9,16 @@
 
 #include "pressure_temperature.h"
 
+#include "../cetiTag.h"
+#include "../utils/memory.h"
+
+
+// === Private System Libraries ===
+#include <fcntl.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+
 //-----------------------------------------------------------------------------
 // Global/static variables
 //-----------------------------------------------------------------------------
@@ -24,6 +34,8 @@ static const int num_pressureTemperature_data_file_headers = 2;
 // them.
 double g_latest_pressureTemperature_pressure_bar = 0.0;
 double g_latest_pressureTemperature_temperature_c = 0.0;
+CetiPressureSample *g_pressure = NULL;
+static sem_t *s_pressure_data_ready;
 
 //-----------------------------------------------------------------------------
 
@@ -65,108 +77,114 @@ int getPressureTemperature(double *pressure_bar, double *temperature_c) {
   return (0);
 }
 
-int pressure_get_calibrated(double *pressure_bar, double * temperature_c) {
-  double raw_pressure_bar;
-  if(getPressureTemperature(&raw_pressure_bar, temperature_c) != 0){
-    return -1;
-  }
+void pressure_update_sample(void){
+  // Acquire timing and sensor information as close together as possible.
+  g_pressure->sys_time_us = get_global_time_us();
+  g_pressure->rtc_time_s = getRtcCount();
+  g_pressure->error = getPressureTemperature(&g_pressure->pressure_bar, &g_pressure->temperature_c);
+  
+  // push semaphore to indicate to user applications that new data is available
+  sem_post(s_pressure_data_ready);
 
-  *pressure_bar = raw_pressure_bar;
-  return 0;
 }
 
+/**
+ * @brief convert pressure semsor sample to human readable csv
+ */
+void pressure_sample_to_csv(FILE *fp, CetiPressureSample *pSample){
+      // Write timing information.
+      fprintf(fp, "%ld", g_pressure->sys_time_us);
+      fprintf(fp, ",%d", g_pressure->rtc_time_s);
+      // Write any notes, then clear them so they are only written once.
+      fprintf(fp, ",%s", pressureTemperature_data_file_notes);
+      if (g_pressure->error != 0)
+        fprintf(fp, "ERROR | ");
+        
+      // it seems to return -228.63 for pressure and -117.10 for temperature when no sensor is connected
+      if (!(g_pressure->pressure_bar < -100 || g_pressure->temperature_c < -100)) {
+        CETI_WARN("Readings are likely invalid");
+        fprintf(fp, "INVALID? | ");
+      }
+
+      pressureTemperature_data_file_notes[0] = '\0';
+      // Write the sensor data.
+      fprintf(fp, ",%.3f", g_pressure->pressure_bar);
+      fprintf(fp, ",%.3f", g_pressure->temperature_c);
+      // Finish the row of data and close the file.
+      fprintf(fp, "\n");
+}
 
 
 //-----------------------------------------------------------------------------
 // CetiTagApp - Main thread
 //-----------------------------------------------------------------------------
 int init_pressureTemperature() {
-  CETI_LOG("Successfully initialized the pressure/temperature sensor.");
+    CETI_LOG("Successfully initialized the pressure/temperature sensor.");
 
-  // Open an output file to write data.
-  if (init_data_file(pressureTemperature_data_file,
-                     PRESSURETEMPERATURE_DATA_FILEPATH,
-                     pressureTemperature_data_file_headers,
-                     num_pressureTemperature_data_file_headers,
-                     pressureTemperature_data_file_notes,
-                     "init_pressureTemperature()") < 0)
-    return -1;
+    // Open an output file to write data.
+    if (init_data_file(pressureTemperature_data_file,
+                        PRESSURETEMPERATURE_DATA_FILEPATH,
+                        pressureTemperature_data_file_headers,
+                        num_pressureTemperature_data_file_headers,
+                        pressureTemperature_data_file_notes,
+                        "init_pressureTemperature()") < 0)
+        return -1;
+    //setup shared memory
+    g_pressure = create_shared_memory_region(PRESSURE_SHM_NAME, sizeof(CetiPressureSample));
 
-  return 0;
+    //setup semaphore
+    s_pressure_data_ready = sem_open(PRESSURE_SEM_NAME, O_CREAT, 0644, 0);
+    if(s_pressure_data_ready == SEM_FAILED){
+        perror("sem_open");
+        CETI_ERR("Failed to create semaphore");
+        return -1;
+    }
+    return 0;
 }
 
 void *pressureTemperature_thread(void *paramPtr) {
-  // Get the thread ID, so the system monitor can check its CPU assignment.
-  g_pressureTemperature_thread_tid = gettid();
+    // Get the thread ID, so the system monitor can check its CPU assignment.
+    g_pressureTemperature_thread_tid = gettid();
 
-  // Set the thread CPU affinity.
-  if (PRESSURETEMPERATURE_CPU >= 0) {
-    pthread_t thread;
-    thread = pthread_self();
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(PRESSURETEMPERATURE_CPU, &cpuset);
-    if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-      CETI_LOG("Successfully set affinity to CPU %d", PRESSURETEMPERATURE_CPU);
-    else
-      CETI_WARN("Failed to set affinity to CPU %d", PRESSURETEMPERATURE_CPU);
-  }
-
-  // Main loop while application is running.
-  CETI_LOG("Starting loop to periodically acquire data");
-  long long global_time_us;
-  int rtc_count;
-  int64_t polling_sleep_duration_us;
-  g_pressureTemperature_thread_is_running = 1;
-  while (!g_stopAcquisition) {
-    pressureTemperature_data_file = fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
-    if (pressureTemperature_data_file == NULL) {
-      CETI_LOG("failed to open data output file: %s", PRESSURETEMPERATURE_DATA_FILEPATH);
-      // Sleep a bit before retrying.
-      for (int i = 0; i < 10 && !g_stopAcquisition; i++)
-        usleep(100000);
-    } else {
-      bool pressureTemperature_data_error = false;
-      bool pressureTemperature_data_valid = true;
-      // Acquire timing and sensor information as close together as possible.
-      global_time_us = get_global_time_us();
-      rtc_count = getRtcCount();
-      pressureTemperature_data_error = (pressure_get_calibrated(&g_latest_pressureTemperature_pressure_bar, &g_latest_pressureTemperature_temperature_c) < 0);
-
-      // it seems to return -228.63 for pressure and -117.10 for temperature when no sensor is connected
-      pressureTemperature_data_valid = !(g_latest_pressureTemperature_pressure_bar < -100 || g_latest_pressureTemperature_temperature_c < -100);
-      if (!pressureTemperature_data_valid) {
-        CETI_WARN("Readings are likely invalid");
-      }
-
-      // Write timing information.
-      fprintf(pressureTemperature_data_file, "%lld", global_time_us);
-      fprintf(pressureTemperature_data_file, ",%d", rtc_count);
-      // Write any notes, then clear them so they are only written once.
-      fprintf(pressureTemperature_data_file, ",%s", pressureTemperature_data_file_notes);
-      if (pressureTemperature_data_error)
-        fprintf(pressureTemperature_data_file, "ERROR | ");
-      if (!pressureTemperature_data_valid)
-        fprintf(pressureTemperature_data_file, "INVALID? | ");
-
-      pressureTemperature_data_file_notes[0] = '\0';
-      // Write the sensor data.
-      fprintf(pressureTemperature_data_file, ",%.3f", g_latest_pressureTemperature_pressure_bar);
-      fprintf(pressureTemperature_data_file, ",%.3f", g_latest_pressureTemperature_temperature_c);
-      // Finish the row of data and close the file.
-      fprintf(pressureTemperature_data_file, "\n");
-      fclose(pressureTemperature_data_file);
-
-      // Delay to implement a desired sampling rate.
-      // Take into account the time it took to acquire/save data.
-      polling_sleep_duration_us = PRESSURETEMPERATURE_SAMPLING_PERIOD_US;
-      polling_sleep_duration_us -= get_global_time_us() - global_time_us;
-      if (polling_sleep_duration_us > 0)
-        usleep(polling_sleep_duration_us);
+    // Set the thread CPU affinity.
+    if (PRESSURETEMPERATURE_CPU >= 0) {
+      pthread_t thread;
+      thread = pthread_self();
+      cpu_set_t cpuset;
+      CPU_ZERO(&cpuset);
+      CPU_SET(PRESSURETEMPERATURE_CPU, &cpuset);
+      if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
+        CETI_LOG("Successfully set affinity to CPU %d", PRESSURETEMPERATURE_CPU);
+      else
+        CETI_WARN("Failed to set affinity to CPU %d", PRESSURETEMPERATURE_CPU);
     }
-  }
-  g_pressureTemperature_thread_is_running = 0;
-  CETI_LOG("Done!");
-  return NULL;
+
+    // Main loop while application is running.
+    CETI_LOG("Starting loop to periodically acquire data");
+    int64_t polling_sleep_duration_us;
+    g_pressureTemperature_thread_is_running = 1;
+    while (!g_stopAcquisition) {
+        //update sample for system
+        pressure_update_sample();
+
+        // log sample
+        pressureTemperature_data_file = fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
+        if (pressureTemperature_data_file == NULL) {
+          CETI_LOG("failed to open data output file: %s", PRESSURETEMPERATURE_DATA_FILEPATH);
+        } else {
+          pressure_sample_to_csv(pressureTemperature_data_file, g_pressure);
+          fclose(pressureTemperature_data_file);
+        }
+
+        // Delay to implement a desired sampling rate.
+        // Take into account the time it took to acquire/save data.
+        polling_sleep_duration_us = PRESSURE_SAMPLING_PERIOD_US;
+        polling_sleep_duration_us -= get_global_time_us() - g_pressure->sys_time_us;
+        if (polling_sleep_duration_us > 0)
+          usleep(polling_sleep_duration_us);
+    }
+    g_pressureTemperature_thread_is_running = 0;
+    CETI_LOG("Done!");
+    return NULL;
 }
 

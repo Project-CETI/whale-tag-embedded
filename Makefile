@@ -74,7 +74,7 @@ $(RPI_TOOL_TS): %.timestamp : %
 build: $(DOCKER_IMAGE)
 	@echo "Building $(TARGET) inside docker image"
 	docker run --privileged -i --tty --workdir /whale-tag-embedded \
-		--volume .:/whale-tag-embedded \
+		--volume $(shell pwd):/whale-tag-embedded \
 		$(DOCKER_IMAGE) /bin/bash -c ' \
 			groupadd --gid $(shell id -g) $(shell id -g -n); \
 			useradd -m -e "" -s /bin/bash --gid $(shell id -g) --uid $(shell id -u) $(shell id -u -n); \
