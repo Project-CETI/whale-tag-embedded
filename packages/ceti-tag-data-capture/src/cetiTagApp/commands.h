@@ -13,7 +13,7 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
-#define _GNU_SOURCE // change how sched.h will be included
+
 
 #include "battery.h"
 #include "burnwire.h"
@@ -24,7 +24,6 @@
 #include "utils/logging.h"
 
 #include "sensors/audio.h"
-#include "sensors/boardTemperature.h"
 
 #include <pthread.h> // to set CPU affinity
 #include <signal.h>

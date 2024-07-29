@@ -9,7 +9,6 @@
 
 #include "launcher.h"
 #include "utils/config.h"
-#include "hal.h"
 
 //-----------------------------------------------------------------------------
 // Initialize global variables
@@ -89,12 +88,6 @@ int main(void) {
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
   pthread_create(&thread_ids[num_threads], NULL, &pressureTemperature_thread, NULL);
   threads_running[num_threads] = &g_pressureTemperature_thread_is_running;
-  num_threads++;
-#endif
-// Board temperature
-#if ENABLE_BOARDTEMPERATURE_SENSOR
-  pthread_create(&thread_ids[num_threads], NULL, &boardTemperature_thread, NULL);
-  threads_running[num_threads] = &g_boardTemperature_thread_is_running;
   num_threads++;
 #endif
 // Battery status monitor
@@ -293,10 +286,6 @@ if(g_config.recovery.enabled) {
 } else {
   recovery_kill();
 }
-#endif
-
-#if ENABLE_BOARDTEMPERATURE_SENSOR
-  result += init_boardTemperature() == 0 ? 0 : -1;
 #endif
 
 #if ENABLE_PRESSURETEMPERATURE_SENSOR

@@ -15,26 +15,18 @@
 #-----------------------------------------------------------------------------
 SRC_DIR = src
 
-HAL_SRC	   = $(shell find $(SRC_DIR)/hal -type f -iname '*.c' 2> /dev/null)
-HAL_OBJ	   = $(HAL_SRC:.c=.o)
 
-CAPTURE_APP = cetiTagApp
-CAPTURE_SRC = $(shell find $(SRC_DIR)/$(CAPTURE_APP) -type f -iname '*.c' 2> /dev/null)
-CAPTURE_OBJ = $(CAPTURE_SRC:.c=.o)
-
-HW_TEST_APP = cetiHWTestApp
-HW_TEST_SRC = $(shell find $(SRC_DIR)/$(HW_TEST_APP) -type f -iname '*.c' 2> /dev/null)
-HW_TEST_OBJ = $(HW_TEST_SRC:.c=.o)
-
-FPGA_INIT_APP = cetiFpgaInit
-FPGA_INIT_SRC = $(shell find $(SRC_DIR)/$(FPGA_INIT_APP) -type f -iname '*.c' 2> /dev/null)
-FPGA_INIT_OBJ = $(FPGA_INIT_SRC:.c=.o)
-
-APPS = $(CAPTURE_APP) $(HW_TEST_APP) $(FPGA_INIT_APP)
+# CAPTURE_APP = cetiTagDaemon
+# CAPTURE_SRC = $(shell find $(SRC_DIR)/$(CAPTURE_APP) -type f -iname '*.c' 2> /dev/null)
+# CAPTURE_OBJ = $(CAPTURE_SRC:.c=.o)
+APPS = $(shell ls src/*/ -d | xargs basename -a)
+APP_BIN = $(addprefix $(BINDIR)/, $(APPS))
+APP_SRC = $(shell find $(SRC_DIR) -type f -iname '*.c' 2> /dev/null)
+APP_OBJ = $(APP_SRC:.c=.o)
 
 CC         = gcc
-CFLAGS     = -Wall -O2 -Wdate-time -D_FORTIFY_SOURCE=2 -Isrc
-LDFLAGS    = -lpthread -lpigpio -lFLAC -lm
+CFLAGS     = -Wall -O2 -Wdate-time -D_FORTIFY_SOURCE=2 -D_GNU_SOURCE
+LDFLAGS    = -lpthread -lpigpio -lFLAC -lm -lrt
 
 BINDIR    ?= bin
 IPCDIR    ?= ipc
@@ -50,29 +42,26 @@ DESTDIR   ?= opt/ceti-tag-data-capture
 	clean \
 	test \
 	debug \
-	$(APPS)
+	$(APPS) \
+	list
 	
-build: $(CAPTURE_APP) $(FPGA_INIT_APP)
+build: $(APPS)
 
-debug: CFLAGS := -Wall -g -Wdate-time -D_FORTIFY_SOURCE=2 -DDEBUG 
-debug: $(CAPTURE_APP)
+debug: CFLAGS := -Wall -g -Wdate-time -D_FORTIFY_SOURCE=2 -D_GNU_SOURCE -DDEBUG 
+debug: $(APPS)
 
-binary: $(CAPTURE_APP)
+binary: $(APPS)
 
 $(BINDIR) :
 	mkdir -p $@
 
 $(APPS): % : $(BINDIR)/%
 
-$(BINDIR)/$(CAPTURE_APP): $(CAPTURE_OBJ) $(HAL_OBJ) | $(BINDIR)
+#second expension required to filter with static pattern match
+PERCENT = %
+.SECONDEXPANSION:
+$(APP_BIN): $(BINDIR)/% : $$(filter src/$$*/$$(PERCENT).o, $(APP_OBJ)) | $(BINDIR)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
-
-$(BINDIR)/$(HW_TEST_APP): $(HW_TEST_OBJ) $(HAL_OBJ) | $(BINDIR)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
-
-$(BINDIR)/$(FPGA_INIT_APP): $(FPGA_INIT_OBJ) $(HAL_OBJ) | $(BINDIR)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
-
 
 install: $(BUILD_TARGETS)
 	mkdir -p $(DESTDIR)
@@ -82,13 +71,9 @@ install: $(BUILD_TARGETS)
 	cp -Rp $(DATADIR) $(DESTDIR)
 
 clean:
-	rm -f $(HAL_OBJ) $(CAPTURE_OBJ) $(HW_TEST_OBJ) $(FPGA_INIT_OBJ)
+	rm -f $(APP_OBJ)
 	rm -rf $(BINDIR)
 	rm -rf $(DESTDIR)
-	$(MAKE) clean -C test
-
-test:
-	$(MAKE) test -C test
 
 ## -Ofast optimization used in trying to acheive higher audio data rates
 # src/sensors/audio.o: CFLAGS := -Wall -Ofast -Wdate-time -D_FORTIFY_SOURCE=2

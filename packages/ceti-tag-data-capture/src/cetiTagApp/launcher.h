@@ -21,7 +21,6 @@
 #define ENABLE_ECG 1
 #define ENABLE_IMU 1
 #define ENABLE_LIGHT_SENSOR 1
-#define ENABLE_BOARDTEMPERATURE_SENSOR 1
 #define ENABLE_PRESSURETEMPERATURE_SENSOR 1
 #define ENABLE_RECOVERY 1
 #define ENABLE_SYSTEMMONITOR 1
@@ -37,12 +36,10 @@
 //-----------------------------------------------------------------------------
 // Sampling and logging configuration.
 //-----------------------------------------------------------------------------
-#define BATTERY_SAMPLING_PERIOD_US 1000000
 #define IMU_SAMPLING_PERIOD_QUAT_US 50000 // rate for the computed orientation
 #define IMU_SAMPLING_PERIOD_9DOF_US 20000 // rate for the accelerometer/gyroscope/magnetometer
 #define LIGHT_SAMPLING_PERIOD_US 1000000
 #define PRESSURETEMPERATURE_SAMPLING_PERIOD_US 1000000
-#define BOARDTEMPERATURE_SAMPLING_PERIOD_US 1000000
 #define RECOVERY_SAMPLING_PERIOD_US 5000000
 #define RTC_UPDATE_PERIOD_LONG_US 950000 // A coarse delay, to get close to when the RTC is expected to change
 #define RTC_UPDATE_PERIOD_SHORT_US 10000 // A finer delay, to find the new RTC value close to its update time
@@ -59,7 +56,6 @@
 #define IMU_CPU 1
 #define LIGHT_CPU 1
 #define PRESSURETEMPERATURE_CPU 1
-#define BOARDTEMPERATURE_CPU 1
 #define RECOVERY_CPU 1
 #define RTC_CPU 1
 #define COMMAND_CPU 0
@@ -71,7 +67,6 @@
 #define IMU_DATA_FILEPATH_BASE "/data/data_imu" // will append a counter and create new files according to a maximum size
 #define LIGHT_DATA_FILEPATH "/data/data_light.csv"
 #define PRESSURETEMPERATURE_DATA_FILEPATH "/data/data_pressure_temperature.csv"
-#define BOARDTEMPERATURE_DATA_FILEPATH "/data/data_boardTemperature.csv"
 #define AUDIO_STATUS_FILEPATH "/data/data_audio_status.csv"
 #define RECOVERY_DATA_FILEPATH "/data/data_gps.csv"
 #define STATEMACHINE_DATA_FILEPATH "/data/data_state.csv"
@@ -118,10 +113,6 @@
 
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
 #include "sensors/pressure_temperature.h"
-#endif
-
-#if ENABLE_BOARDTEMPERATURE_SENSOR
-#include "sensors/boardTemperature.h"
 #endif
 
 #if ENABLE_ECG

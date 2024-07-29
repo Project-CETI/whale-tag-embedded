@@ -13,13 +13,13 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
-#define _GNU_SOURCE // change how sched.h will be included
+
 
 #include "launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 #include "utils/logging.h"
 #include "max17320.h"
-
+#include "cetiTag.h" //for CetiBatterySample
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
@@ -61,14 +61,13 @@ int enableDischarging(void);
 int disableCharging(void);
 int disableDischarging(void);
 void* battery_thread(void* paramPtr);
+int resetBattTempFlags(void);
+
 
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
 extern int g_battery_thread_is_running;
 // Store global versions of the latest readings since the state machine will use them.
-extern double g_latest_battery_v1_v;
-extern double g_latest_battery_v2_v;
-extern double g_latest_battery_i_mA;
-
+extern CetiBatterySample *g_battery;
 #endif // BATTERY_H

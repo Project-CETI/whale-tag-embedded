@@ -5,14 +5,14 @@
 # Run using sudo bash flashRecovery.sh <optionalarg>
 
 # Configures the FPGA
-sudo /opt/ceti-tag-data-capture/bin/cetiFpgaInit
-code=$?
-if [ $code -ne 0 ]
-then
+# sudo /opt/ceti-tag-data-capture/bin/cetiFpgaInit
+# code=$?
+# if [ $code -ne 0 ]
+# then
         echo 'Halting data capture...'
         sudo systemctl stop ceti-tag-data-capture
-        sudo /opt/ceti-tag-data-capture/bin/cetiFpgaInit
-fi
+        # sudo /opt/ceti-tag-data-capture/bin/cetiFpgaInit
+# fi
 
 # Initializes settings to power high, boot low
 x=$(i2cget -y 1 0x38)

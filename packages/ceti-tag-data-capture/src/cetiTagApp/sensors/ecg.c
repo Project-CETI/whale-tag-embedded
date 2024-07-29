@@ -7,7 +7,7 @@
 //-----------------------------------------------------------------------------
 
 #include "ecg.h"
-#include "hal.h"
+#include "ecg_helpers/ecg_lod.h"
 
 #if ECG_OLD
   //-----------------------------------------------------------------------------
@@ -550,7 +550,7 @@ void* ecg_thread_getData(void* paramPtr)
       .index = sample_index++,                   // Update indexes.
       .flags = ecg_restart_flag,
     };
-    wt_iox_read_register(WT_IOX_REG_INPUT, &current_sample->gpio_expander); //Read the GPIO expander for latest leads-off detection.
+    iox_read_register(IOX_REG_INPUT, &current_sample->gpio_expander); //Read the GPIO expander for latest leads-off detection.
     ecg_restart_flag ^= ecg_restart_flag; //clear restart flag
 
     // Update the previous timestamp, for checking whether new data is available.

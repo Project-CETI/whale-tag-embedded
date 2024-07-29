@@ -13,13 +13,11 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
-#define _GNU_SOURCE // change how sched.h will be included
+
 #include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
-#include "../utils/logging.h"
 
-#include <FLAC/stream_encoder.h>
-#include <pigpio.h>
+
 #include <pthread.h> // to set CPU affinity
 #include <sched.h>   // to set process priority
 #include <stdbool.h>

@@ -13,7 +13,7 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
-#define _GNU_SOURCE // change how sched.h will be included
+
 
 #include "battery.h"
 #include "burnwire.h"

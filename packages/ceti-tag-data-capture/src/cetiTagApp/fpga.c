@@ -6,9 +6,11 @@
 // Contributors: Matt Cummings, Peter Malkin [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
-#include "hal/fpga.h"
-#include "hal/gpio.h"
+// Private local libraries
+#include "fpga.h"
+#include "gpio.h"
 
+// Private system libraries
 #include <pigpio.h>
 #include <stdio.h>  // for FILE
 #include <stdlib.h> // for malloc()

@@ -11,7 +11,7 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
-#define _GNU_SOURCE   // change how sched.h will be included
+
 
 #include "utils/logging.h"
 #include "launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
@@ -65,7 +65,6 @@ extern int g_ecg_thread_writeData_tid;
 extern int g_imu_thread_tid;
 extern int g_light_thread_tid;
 extern int g_pressureTemperature_thread_tid;
-extern int g_boardTemperature_thread_tid;
 extern int g_battery_thread_tid;
 extern int g_recovery_thread_tid;
 extern int g_stateMachine_thread_tid;

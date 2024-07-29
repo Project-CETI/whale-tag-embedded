@@ -12,8 +12,8 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
-#include "error.h"
-#include "stdint.h"
+#include "../../utils/error.h"  // for WTResult
+#include <stdint.h>             // for uint8_t
 
 // ------------------------------------------
 // Definitions/Configuration

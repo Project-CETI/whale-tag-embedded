@@ -28,7 +28,18 @@
 //-----------------------------------------------------------------------------
 
 #include "audio.h"
-#include "hal.h"
+
+// Private local headers
+#include "../fpga.h"
+#include "../gpio.h"
+#include "../iox.h"
+
+#include "../utils/logging.h"
+#include "../utils/error.h"
+
+// Private system headers
+#include <FLAC/stream_encoder.h>
+#include <pigpio.h>
 
 #if !ENABLE_FPGA
 int audio_thread_init(void) {
@@ -79,6 +90,30 @@ int g_audio_thread_writeData_is_running = 0;
 
 // Static variables
 static bool s_audio_initialized = 0;
+
+
+WTResult wt_audio_init(void) {
+    //initialize 5v enable as ouput and drive high
+    WT_TRY(iox_init());
+    WT_TRY(iox_set_mode(IOX_GPIO_5V_EN, IOX_MODE_OUTPUT));
+    WT_TRY(iox_write(IOX_GPIO_5V_EN, 1));
+
+    //initialize audio overflow pin
+    gpioSetMode(AUDIO_OVERFLOW_GPIO, PI_INPUT);
+
+    //initialize audio data ready pin
+    gpioSetMode(AUDIO_DATA_AVAILABLE, PI_INPUT);
+
+    return WT_OK;
+}
+
+int wt_audio_read_data_ready(void) {
+    return gpioRead(AUDIO_DATA_AVAILABLE);
+}
+
+int wt_audio_read_overflow(void) {
+    return gpioRead(AUDIO_OVERFLOW_GPIO);
+}
 
 //  Acquisition Hardware Setup and Control Utility Functions
 void init_audio_buffers() {

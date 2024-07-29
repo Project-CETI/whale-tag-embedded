@@ -8,7 +8,6 @@
 //-----------------------------------------------------------------------------
 
 #include "commands.h"
-#include "hal.h"
 
 //-----------------------------------------------------------------------------
 // Initialize global variables
@@ -397,11 +396,12 @@ int handle_command(void) {
     if (!strncmp(g_command, "checkBatt", 9)) {
         CETI_LOG("Reading battery voltage and current");
         #if ENABLE_BATTERY_GAUGE
-        getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v, &g_latest_battery_i_mA);
+        // MSH - the sample should be up to date (and acquisition should never stop)
+        // getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v, &g_latest_battery_i_mA);
         g_rsp_pipe = fopen(rsp_pipe_path, "w");
-        fprintf(g_rsp_pipe, "Battery voltage 1: %.2f V \n", g_latest_battery_v1_v);
-        fprintf(g_rsp_pipe, "Battery voltage 2: %.2f V \n", g_latest_battery_v2_v);
-        fprintf(g_rsp_pipe, "Battery current: %.2f mA \n", g_latest_battery_i_mA);
+        fprintf(g_rsp_pipe, "Battery voltage 1: %.2f V \n", g_battery->cell_voltage_v[0]);
+        fprintf(g_rsp_pipe, "Battery voltage 2: %.2f V \n", g_battery->cell_voltage_v[1]);
+        fprintf(g_rsp_pipe, "Battery current: %.2f mA \n", g_battery->current_mA);
         fclose(g_rsp_pipe);
         #else
         CETI_LOG("XXXX The battery gauge is not selected for operation - skipping command XXXX");
@@ -412,9 +412,10 @@ int handle_command(void) {
     if (!strncmp(g_command, "checkCell_1", 11)) {
         CETI_LOG("Reading battery cell 1 voltage");
         #if ENABLE_BATTERY_GAUGE
-        getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v, &g_latest_battery_i_mA);
+        // MSH - the sample should be up to date (and acquisition should never stop, just logging)
+        // getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v, &g_latest_battery_i_mA);
         g_rsp_pipe = fopen(rsp_pipe_path, "w");
-        fprintf(g_rsp_pipe, "%.2f\n", g_latest_battery_v1_v);
+        fprintf(g_rsp_pipe, "%.2f\n", g_battery->cell_voltage_v[0]);
         fclose(g_rsp_pipe);
         #else
         CETI_LOG("XXXX The battery gauge is not selected for operation - skipping command XXXX");
@@ -425,9 +426,10 @@ int handle_command(void) {
     if (!strncmp(g_command, "checkCell_2", 11)) {
         CETI_LOG("Reading battery cell 2 voltage");
         #if ENABLE_BATTERY_GAUGE
-        getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v, &g_latest_battery_i_mA);
+        // MSH - the sample should be up to date (and acquisition should never stop, just logging)
+        // getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v, &g_latest_battery_i_mA);
         g_rsp_pipe = fopen(rsp_pipe_path, "w");
-        fprintf(g_rsp_pipe, "%.2f\n", g_latest_battery_v2_v);
+        fprintf(g_rsp_pipe, "%.2f\n", g_battery->cell_voltage_v[1]);
         fclose(g_rsp_pipe);
         #else
         CETI_LOG("XXXX The battery gauge is not selected for operation - skipping command XXXX");

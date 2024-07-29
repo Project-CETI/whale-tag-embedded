@@ -9,12 +9,13 @@
 #define MAX17320_H
 
 // Include files
-#define _GNU_SOURCE // change how sched.h will be included
+
 
 #include <stdbool.h>
 #include "launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 #include "utils/logging.h"
+#include "utils/error.h"
 
 // BMS I2C Device Address
 #define MAX17320_ADDR                   0x36  // For internal memory range 000h-0FFh
@@ -215,6 +216,7 @@ int max17320_get_prot_alrt(MAX17320_HandleTypeDef *dev);
 int max17320_get_remaining_capacity(MAX17320_HandleTypeDef *dev);
 int max17320_get_state_of_charge(MAX17320_HandleTypeDef *dev);
 int max17320_get_voltages(MAX17320_HandleTypeDef *dev);
+WTResult max17320_get_cell_temperature_c(int cell_index, double *tCells_c);
 int max17320_get_temperature(MAX17320_HandleTypeDef *dev);
 int max17320_get_battery_current(MAX17320_HandleTypeDef *dev);
 int max17320_get_average_battery_current(MAX17320_HandleTypeDef *dev);

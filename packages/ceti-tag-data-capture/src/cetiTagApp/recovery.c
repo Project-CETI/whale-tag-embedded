@@ -6,7 +6,11 @@
 //-----------------------------------------------------------------------------
 
 #include "recovery.h"
-#include "hal.h"
+
+#include "iox.h"
+#include "utils/error.h"
+
+#include <unistd.h> //for usleep()
 
 //-----------------------------------------------------------------------------
 // Initialization
@@ -155,6 +159,77 @@ static struct {
 };
 
 /* FUCNTION DEFINITIONS ******************************************************/
+
+
+
+/**
+ * @brief Cuts power to recovery board
+ * 
+ * @return WTResult 
+ */
+WTResult wt_recovery_off(void){ 
+    return iox_write(IOX_GPIO_3V3_RF_EN, 0);
+}
+
+/**
+ * @brief Applies power to recovery board
+ * 
+ * @return WTResult 
+ */
+WTResult wt_recovery_on(void){ 
+    return iox_write(IOX_GPIO_3V3_RF_EN, 1);
+}
+
+/**
+ * @brief Initializes pi hardware to be able to control the recovery board
+ * 
+ * @return WTResult 
+ */
+WTResult wt_recovery_init(void){
+    //initialize iox pins
+    WT_TRY(iox_init());
+
+    //set 3v3_RF enable, keep recovery off
+    WT_TRY(iox_set_mode(IOX_GPIO_3V3_RF_EN, IOX_MODE_OUTPUT));
+    WT_TRY(wt_recovery_off());
+
+    //set boot0 pin output and pull high
+    WT_TRY(iox_set_mode(IOX_GPIO_BOOT0, IOX_MODE_OUTPUT));
+    WT_TRY(iox_write(IOX_GPIO_BOOT0, 1));
+
+    return WT_OK;
+}
+
+/**
+ * @brief Restarts recovery board by toggling power
+ * 
+ * @return WTResult 
+ */
+WTResult wt_recovery_restart(void){
+   WT_TRY(wt_recovery_off());
+   usleep(1000);
+   return wt_recovery_on();
+}
+
+/**
+ * @brief Puts recovery board into bootloader state by pulling boot0 low while
+ * restarting the board.
+ * 
+ * @return WTResult 
+ */
+WTResult wt_recovery_enter_bootloader(void){
+    //pull boot0 low
+    WT_TRY(iox_write(IOX_GPIO_BOOT0, 0));
+
+    //toggle power
+    WT_TRY(wt_recovery_restart());
+
+    //let system boot in boot loader mode
+    usleep(1000);
+    return iox_write(IOX_GPIO_BOOT0, 1);
+}
+
+
 
 /* STATIC
  * serial write method with guard case for uninitialized recovery board.

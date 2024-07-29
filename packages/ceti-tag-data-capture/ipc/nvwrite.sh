@@ -9,7 +9,7 @@ i2cset -y 1 0x36 0x61 0x0000 w
 # See BMS NV Write Spreadsheet for explanations
 i2cset -y 1 0x0b 0xcf 0x03e8 w  # MAX17320_REG_NRSENSE
 i2cset -y 1 0x0b 0xb3 0x2710 w  # MAX17320_REG_NDESIGNCAP
-i2cset -y 1 0x0b 0xb5 0xc204 w  # MAX17320_REG_NPACKCFG 
+i2cset -y 1 0x0b 0xb5 0xc208 w  # MAX17320_REG_NPACKCFG 
 i2cset -y 1 0x0b 0xb8 0x0830 w  # MAX17320_REG_NNVCFG0 
 i2cset -y 1 0x0b 0xb9 0x2100 w  # MAX17320_REG_NNVCFG1 
 i2cset -y 1 0x0b 0xba 0x822d w  # MAX17320_REG_NNVCFG2 
@@ -36,8 +36,8 @@ i2cset -y 1 0x36 0x60 0xE904 w
 sleep 10
 # 6
 x=$(i2cget -y 1 0x36 0x61 w)
-y=$((x&0x0004))
-if [ $y -eq 0x0004 ]
+y=$(($x & 0x0004))
+if [ $y -eq 4 ]
 then
     echo 'NV Error Bit not cleared, try again'
     exit 1
@@ -54,8 +54,8 @@ i2cset -y 1 0x36 0xAB 0x8000 w
 # 11
 sleep 1
 x=$(i2cget -y 1 0x36 0xAB w)
-y=$((x&0x8000))
-if [ $y -eq 0x0008 ]
+y=$(($x & 0x8000))
+if [ $y -eq 0x8000 ]
 then
     echo 'POR Process not complete. Wait, then clear write protection'
     exit 0

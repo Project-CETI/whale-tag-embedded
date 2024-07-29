@@ -7,7 +7,7 @@
 //               [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
-#include "hal/error.h"
+#include "error.h"
 
 #include <errno.h>
 #include <pigpio.h>
@@ -202,7 +202,13 @@ static const char *err_str[] = {
     [-WT_ERR_BMS_WRITE_PROT_DISABLE_FAIL] = "failed to disable write protection",
 };
 
-//ToDo: make thread safe 
+/**
+ * @brief returns a string pointer corresponding to the error associated with
+ * the associated whale tag error code. 
+ * 
+ * @param errnum 
+ * @return const char* 
+ */
 const char *wt_strerror(WTResult errnum){
     static char __wt_errstr[512] = {};
     int device = (errnum >> 16) & 0xFFFF;

@@ -7,19 +7,39 @@
 //-----------------------------------------------------------------------------
 
 #include "burnwire.h"
-#include "hal.h"
+#include "iox.h"
 
+
+#include "utils/logging.h"
+#include <pigpio.h>
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
+static WTResult __burnwire_on(void) {
+    return iox_write(IOX_GPIO_BURNWIRE_ON, 1);
+}
+
+static WTResult __burnwire_off(void) {
+    return iox_write(IOX_GPIO_BURNWIRE_ON, 0);
+}
+
+static WTResult __burnwire_init(void) {
+    // Initialize I2C/GPIO functionality.
+    WT_TRY(iox_init());
+
+    WT_TRY(iox_set_mode(IOX_GPIO_BURNWIRE_ON, IOX_MODE_OUTPUT));
+    WT_TRY(__burnwire_off());
+    return WT_OK;
+}
+
 int init_burnwire() {
-  WTResult hal_result = wt_burnwire_init();
+  WTResult hal_result = __burnwire_init();
   if (hal_result != WT_OK){
     CETI_ERR("Failed to initialize the burnwire : %s", wt_strerror(hal_result));
     return -1;
   }
 
-  hal_result = wt_burnwire_off();
+  hal_result = __burnwire_off();
   if (hal_result < 0) {
     CETI_ERR("Failed to turn off the burnwire: %s", wt_strerror(hal_result));
     return (-1);
@@ -33,7 +53,7 @@ int init_burnwire() {
 //-----------------------------------------------------------------------------
 
 int burnwireOn(void) {
-  WTResult hal_result = wt_burnwire_on();
+  WTResult hal_result = __burnwire_on();
   if (hal_result < 0) {
     CETI_ERR("Failed to turn on the burnwire: %s", wt_strerror(hal_result));
     return (-1);
@@ -42,7 +62,7 @@ int burnwireOn(void) {
 }
 
 int burnwireOff(void) {
-  WTResult hal_result = wt_burnwire_off();
+  WTResult hal_result = __burnwire_off();
   if (hal_result < 0) {
     CETI_ERR("Failed to turn off the burnwire: %s", wt_strerror(hal_result));
     return (-1);

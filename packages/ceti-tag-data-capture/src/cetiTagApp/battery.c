@@ -6,6 +6,14 @@
 //-----------------------------------------------------------------------------
 
 #include "battery.h"
+#include "cetiTag.h"
+ 
+#include <pthread.h>
+#include <semaphore.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 //-----------------------------------------------------------------------------
 // Global/static variables
@@ -17,22 +25,26 @@ static const char* battery_data_file_headers[] = {
   "Battery V1 [V]",
   "Battery V2 [V]",
   "Battery I [mA]",
+  "Battery T1 [C]",
+  "Battery T2 [C]"
   };
-static const int num_battery_data_file_headers = 3;
+static const int num_battery_data_file_headers = sizeof(battery_data_file_headers)/sizeof(*battery_data_file_headers);
+CetiBatterySample *g_battery = NULL;
+static sem_t* s_battery_data_ready;
+static int charging_disabled, discharging_disabled;
 // Store global versions of the latest readings since the state machine will use them.
-double g_latest_battery_v1_v;
-double g_latest_battery_v2_v;
-double g_latest_battery_i_mA;
 #if MAX17320 == 1
   MAX17320_HandleTypeDef dev;
 #endif
+
+
 
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
 int init_battery() {
+  
   #if MAX17320 == 1
-
     int ret = max17320_init(&dev);  
     if (ret < 0){
       CETI_ERR("Failed to connect to MAX17320 Fuel Gauge");
@@ -49,7 +61,7 @@ int init_battery() {
       i2cWriteByteData(fd,BATT_CTL,BATT_CTL_VAL); //establish undervoltage cutoff
       i2cWriteByteData(fd,BATT_OVER_VOLTAGE,BATT_OV_VAL); //establish undervoltage cutoff
     }
-  #endif
+  #endif  
   // Open an output file to write data.
   CETI_LOG("Successfully initialized the battery gauge");
   if(init_data_file(battery_data_file, BATTERY_DATA_FILEPATH,
@@ -57,12 +69,90 @@ int init_battery() {
                     battery_data_file_notes, "init_battery()") < 0)
     return -1;
 
+  //=== setup battery shared memory ===
+  // open/create ipc file
+  int shm_fd = shm_open(BATTERY_SHM_NAME, O_CREAT | O_RDWR, 0644);
+  if (shm_fd < 0) {
+    perror("shm_open");
+    CETI_ERR("Failed to open/create shared memory");
+    return -1;
+  }
+
+  // size to sample size
+  if (ftruncate(shm_fd, sizeof(CetiBatterySample)) != 0){
+    perror("shm_fd");
+    CETI_ERR("Failed to resize shared memory");
+    return -1;
+  }
+
+  // memory map address
+  g_battery = mmap(NULL, sizeof(CetiBatterySample), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+  if(g_battery == MAP_FAILED){
+    perror("mmap");
+    CETI_ERR("Failed to map shared memory");
+    return -1;
+  }
+
+  close(shm_fd);
+
+  //=== setup semaphore ===
+  s_battery_data_ready = sem_open(BATTERY_SEM_NAME, O_CREAT, 0644, 0);
+  if(s_battery_data_ready == SEM_FAILED){
+    perror("sem_open");
+    CETI_ERR("Failed to create semaphore");
+    return -1;
+  }
   return 0;
 }
 
 //-----------------------------------------------------------------------------
 // Main thread
 //-----------------------------------------------------------------------------
+void battery_update_sample(void) {
+    // create sample 
+    g_battery->sys_time_us = get_global_time_us();
+    g_battery->rtc_time_s = getRtcCount();
+    g_battery->error = getBatteryData(&g_battery->cell_voltage_v[0], &g_battery->cell_voltage_v[1], &g_battery->current_mA);
+    if(!g_battery->error) {
+      g_battery->error = max17320_get_cell_temperature_c(0, &g_battery->cell_temperature_c[0]);
+    }
+    if(!g_battery->error) {
+      g_battery->error = max17320_get_cell_temperature_c(1, &g_battery->cell_temperature_c[1]);
+    }
+
+    // push semaphore to indicate to user applications that new data is available
+    sem_post(s_battery_data_ready);
+}
+
+void battery_sample_to_csv(FILE *fp, CetiBatterySample *pSample){
+      if (pSample->error != WT_OK) {
+        strcat(battery_data_file_notes, "ERROR | ");
+      }
+      if (pSample->cell_voltage_v[0] < 0 
+          || pSample->cell_voltage_v[1] < 0
+          || pSample->cell_temperature_c[0] < -80
+          || pSample->cell_temperature_c[1] < -80
+      ) { // it seems to return -0.01 for voltages and -5.19 for current when no sensor is connected
+        CETI_WARN("readings are likely invalid");
+        strcat(battery_data_file_notes, "INVALID? | ");
+      }
+
+        // Write timing information.
+      fprintf(fp, "%ld", pSample->sys_time_us);
+      fprintf(fp, ",%d", pSample->rtc_time_s);
+      // Write any notes, then clear them so they are only written once.
+      fprintf(fp, ",%s", battery_data_file_notes);
+      strcpy(battery_data_file_notes, "");
+      // Write the sensor data.
+      fprintf(fp, ",%.3f", pSample->cell_voltage_v[0]);
+      fprintf(fp, ",%.3f", pSample->cell_voltage_v[1]);
+      fprintf(fp, ",%.3f", pSample->current_mA);
+      fprintf(fp, ",%.3f", pSample->cell_temperature_c[0]);
+      fprintf(fp, ",%.3f", pSample->cell_temperature_c[1]);
+      // Finish the row of data and close the file.
+      fprintf(fp, "\n");
+}
+
 void* battery_thread(void* paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_battery_thread_tid = gettid();
@@ -83,49 +173,49 @@ void* battery_thread(void* paramPtr) {
 
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically acquire data");
-    long long global_time_us;
-    int rtc_count;
     long long polling_sleep_duration_us;
     g_battery_thread_is_running = 1;
-    while (!g_stopAcquisition) {
+    while (!g_stopAcquisition) {     
+      battery_update_sample();
+
+    // ******************   Battery Temperature Checks *************************
+    for(int i_cell = 0; i_cell < 2; i_cell++){
+        if( (g_battery->cell_temperature_c[i_cell] > MAX_CHARGE_TEMP) ||  (g_battery->cell_temperature_c[i_cell] < MIN_CHARGE_TEMP) ) {          
+            if (!charging_disabled){  
+              disableCharging();
+              charging_disabled = 1;
+              CETI_WARN("Battery charging disabled, cell %d outside thermal limits: %.3f C", i_cell + 1, g_battery->cell_temperature_c[i_cell]);
+            }
+        }
+
+        if( (g_battery->cell_temperature_c[i_cell] > MAX_DISCHARGE_TEMP) ) {
+            if (!discharging_disabled){  
+              disableDischarging();
+              discharging_disabled = 1;
+              CETI_WARN("Battery discharging disabled, cell %d outside thermal limit: %.3f C", i_cell + 1, g_battery->cell_temperature_c[i_cell]);
+            }     
+        }
+    }
+
+    
+      // ******************   End Battery Temperature Checks *********************
+
+
+      /* ToDo: move to seperate logging app. 
+       * Daemon should only handle sample acq not storage
+       */
       battery_data_file = fopen(BATTERY_DATA_FILEPATH, "at");
       if(battery_data_file == NULL) {
-        CETI_ERR("failed to open data output file: %s", BATTERY_DATA_FILEPATH);
-        // Sleep a bit before retrying.
-        for(int i = 0; i < 10 && !g_stopAcquisition; i++)
-          usleep(100000);
-        continue;
+        CETI_WARN("failed to open data output file: %s", BATTERY_DATA_FILEPATH);
+      } else {
+        battery_sample_to_csv(battery_data_file, g_battery);
+        fclose(battery_data_file);
       }
-     
-      // Acquire timing and sensor information as close together as possible.
-      global_time_us = get_global_time_us();
-      rtc_count = getRtcCount();
-      if(getBatteryData(&g_latest_battery_v1_v, &g_latest_battery_v2_v, &g_latest_battery_i_mA) < 0) {
-        strcat(battery_data_file_notes, "ERROR | ");
-      }
-      if(g_latest_battery_v1_v < 0 || g_latest_battery_v2_v < 0) { // it seems to return -0.01 for voltages and -5.19 for current when no sensor is connected
-        CETI_WARN("readings are likely invalid");
-        strcat(battery_data_file_notes, "INVALID? | ");
-      }
-
-      // Write timing information.
-      fprintf(battery_data_file, "%lld", global_time_us);
-      fprintf(battery_data_file, ",%d", rtc_count);
-      // Write any notes, then clear them so they are only written once.
-      fprintf(battery_data_file, ",%s", battery_data_file_notes);
-      strcpy(battery_data_file_notes, "");
-      // Write the sensor data.
-      fprintf(battery_data_file, ",%.3f", g_latest_battery_v1_v);
-      fprintf(battery_data_file, ",%.3f", g_latest_battery_v2_v);
-      fprintf(battery_data_file, ",%.3f", g_latest_battery_i_mA);
-      // Finish the row of data and close the file.
-      fprintf(battery_data_file, "\n");
-      fclose(battery_data_file);
 
       // Delay to implement a desired sampling rate.
       // Take into account the time it took to acquire/save data.
       polling_sleep_duration_us = BATTERY_SAMPLING_PERIOD_US;
-      polling_sleep_duration_us -= get_global_time_us() - global_time_us;
+      polling_sleep_duration_us -= get_global_time_us() - g_battery->sys_time_us;
       if(polling_sleep_duration_us > 0)
         usleep(polling_sleep_duration_us);
 
@@ -317,4 +407,12 @@ int disableDischarging(void) {
       }
     }
   #endif
+}
+
+int resetBattTempFlags(void) {
+    discharging_disabled = 0;
+    charging_disabled = 0;
+    enableDischarging();
+    enableCharging();
+    return(0);
 }

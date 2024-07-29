@@ -35,7 +35,6 @@ int g_ecg_thread_writeData_tid = -1;
 int g_imu_thread_tid = -1;
 int g_light_thread_tid = -1;
 int g_pressureTemperature_thread_tid = -1;
-int g_boardTemperature_thread_tid = -1;
 int g_battery_thread_tid = -1;
 int g_recovery_thread_tid = -1;
 int g_command_thread_tid = -1;
@@ -48,7 +47,7 @@ static const char* systemMonitor_data_file_headers[] = {
   "CPU all [%]", "CPU 0 [%]", "CPU 1 [%]", "CPU 2 [%]", "CPU 3 [%]",
   "Audio SPI CPU", "Audio Write CPU", "ECG GetData CPU", "ECG WriteData CPU",
   "IMU CPU", "Light CPU", "PressureTemp CPU",
-  "BoardTemp CPU", "Bat CPU", "Recovery CPU", "FSM CPU", "Commands CPU", "RTC CPU",
+  "Bat CPU", "Recovery CPU", "FSM CPU", "Commands CPU", "RTC CPU",
   "SysMonitor CPU",
   "RAM Free [B]", "RAM Free [%]",
   "Swap Free [B]", "Swap Free [%]",
@@ -131,7 +130,6 @@ void* systemMonitor_thread(void* paramPtr) {
         CETI_LOG(" %6d: imu_thread", g_imu_thread_tid);
         CETI_LOG(" %6d: light_thread", g_light_thread_tid);
         CETI_LOG(" %6d: pressureTemperature_thread", g_pressureTemperature_thread_tid);
-        CETI_LOG(" %6d: boardTemperature_thread", g_boardTemperature_thread_tid);
         CETI_LOG(" %6d: battery_thread", g_battery_thread_tid);
         CETI_LOG(" %6d: recovery_thread", g_recovery_thread_tid);
         CETI_LOG(" %6d: stateMachine_thread", g_stateMachine_thread_tid);
@@ -176,7 +174,6 @@ void* systemMonitor_thread(void* paramPtr) {
           fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_imu_thread_tid));
           fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_light_thread_tid));
           fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_pressureTemperature_thread_tid));
-          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_boardTemperature_thread_tid));
           fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_battery_thread_tid));
           fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_recovery_thread_tid));
           fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_stateMachine_thread_tid));

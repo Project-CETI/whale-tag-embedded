@@ -13,7 +13,7 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
-#define _GNU_SOURCE // change how sched.h will be included
+
 
 #include "../launcher.h" // for g_exit, the state machine data filepath, to get an initial RTC timestamp if needed
 #include "logging.h"

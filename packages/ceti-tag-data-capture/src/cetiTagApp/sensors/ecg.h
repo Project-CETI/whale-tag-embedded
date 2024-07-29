@@ -11,7 +11,7 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
-#define _GNU_SOURCE   // change how sched.h will be included
+
 
 #include "ecg_helpers/ecg_adc.h"
 #include "../utils/logging.h"
