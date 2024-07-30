@@ -32,8 +32,6 @@ static const char *pressureTemperature_data_file_headers[] = {
 static const int num_pressureTemperature_data_file_headers = 2;
 // Store global versions of the latest readings since the state machine will use
 // them.
-double g_latest_pressureTemperature_pressure_bar = 0.0;
-double g_latest_pressureTemperature_temperature_c = 0.0;
 CetiPressureSample *g_pressure = NULL;
 static sem_t *s_pressure_data_ready;
 
@@ -85,7 +83,6 @@ void pressure_update_sample(void){
   
   // push semaphore to indicate to user applications that new data is available
   sem_post(s_pressure_data_ready);
-
 }
 
 /**

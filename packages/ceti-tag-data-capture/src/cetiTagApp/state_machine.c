@@ -311,7 +311,7 @@ int updateStateMachine() {
 
         // Transition to the appropriate recording state.
         #if ENABLE_PRESSURETEMPERATURE_SENSOR
-        if(g_latest_pressureTemperature_pressure_bar > g_config.dive_pressure) {
+        if(g_pressure->pressure_bar > g_config.dive_pressure) {
             stateMachine_set_state(ST_RECORD_DIVING);
         }
         else {
@@ -340,7 +340,7 @@ int updateStateMachine() {
         #endif
 
         #if ENABLE_PRESSURETEMPERATURE_SENSOR
-        if(g_latest_pressureTemperature_pressure_bar > g_config.dive_pressure) {
+        if(g_pressure->pressure_bar > g_config.dive_pressure) {
             stateMachine_set_state(ST_RECORD_DIVING); // 1st dive after deploy
             break;
         }
@@ -379,7 +379,7 @@ int updateStateMachine() {
 
         // Transition state if at the surface.
         #if ENABLE_PRESSURETEMPERATURE_SENSOR
-        if (g_latest_pressureTemperature_pressure_bar < g_config.surface_pressure) {
+        if (g_pressure->pressure_bar < g_config.surface_pressure) {
             stateMachine_set_state(ST_RECORD_SURFACE); // came to surface
             break;
         }
@@ -405,7 +405,7 @@ int updateStateMachine() {
 
         // Transition state if diving.
         #if ENABLE_PRESSURETEMPERATURE_SENSOR
-        if (g_latest_pressureTemperature_pressure_bar > g_config.dive_pressure) {
+        if (g_pressure->pressure_bar > g_config.dive_pressure) {
             stateMachine_set_state(ST_RECORD_DIVING); // back down...
             break;
         }

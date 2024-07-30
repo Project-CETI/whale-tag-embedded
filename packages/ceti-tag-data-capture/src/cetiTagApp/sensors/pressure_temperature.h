@@ -19,6 +19,8 @@
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
 #include "../utils/logging.h"
 
+#include "../cetiTag.h"
+
 #include <pigpio.h>
 #include <pthread.h> // to set CPU affinity
 #include <stdint.h>
@@ -45,7 +47,5 @@ void *pressureTemperature_thread(void *paramPtr);
 //-----------------------------------------------------------------------------
 extern int g_pressureTemperature_thread_is_running;
 // Store global versions of the latest readings since the state machine will use them.
-extern double g_latest_pressureTemperature_pressure_bar;
-extern double g_latest_pressureTemperature_temperature_c;
-
+extern CetiPressureSample *g_pressure;
 #endif // PRESSURETEMPERATURE_H
