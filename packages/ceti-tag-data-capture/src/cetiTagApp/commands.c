@@ -415,7 +415,7 @@ int handle_command(void) {
         double v = 0.0;
         CETI_LOG("Reading battery cell 1 voltage");
         #if ENABLE_BATTERY_GAUGE
-        getBatteryData(v, NULL, NULL);
+        getBatteryData(&v, NULL, NULL);
         g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "%.2f\n",v);
         fclose(g_rsp_pipe);
@@ -429,7 +429,7 @@ int handle_command(void) {
         double v = 0.0;
         CETI_LOG("Reading battery cell 2 voltage");
         #if ENABLE_BATTERY_GAUGE
-        getBatteryData(v, NULL, NULL);
+        getBatteryData(&v, NULL, NULL);
         g_rsp_pipe = fopen(rsp_pipe_path, "w");
         fprintf(g_rsp_pipe, "%.2f\n", v);
         fclose(g_rsp_pipe);
