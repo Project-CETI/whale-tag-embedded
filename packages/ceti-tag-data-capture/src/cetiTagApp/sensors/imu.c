@@ -8,6 +8,12 @@
 //-----------------------------------------------------------------------------
 
 #include "imu.h"
+#include "../cetiTag.h"
+#include "../utils/memory.h"
+
+#include <fcntl.h>
+#include <semaphore.h>
+#include <sys/mman.h>
 
 //-----------------------------------------------------------------------------
 // Initialization
@@ -67,17 +73,21 @@ static const char* imu_data_names[IMU_DATA_TYPE_COUNT] = {
 };
 static int imu_is_connected = 0;
 static uint8_t imu_sequence_numbers[6] = {0}; // Each of the 6 channels has a sequence number (a message counter)
-static Quaternion_i16 imu_quaternion; // i, j, k, real
-static int16_t imu_accel_m_ss[3]; // x, y, z
-static int16_t imu_gyro_rad_s[3]; // x, y, z
-static int16_t imu_mag_ut[3];     // x, y, z
-static int16_t imu_quaternion_accuracy; // rad
-static int16_t imu_accel_accuracy; // a rating of 0-3
-static int16_t imu_gyro_accuracy;  // a rating of 0-3
-static int16_t imu_mag_accuracy;   // a rating of 0-3
-static long imu_reading_delay_us = 0; // delay from sensor reading to data transmission
 static bool imu_restarted_log[IMU_DATA_TYPE_COUNT] = {true, true, true, true};
 static bool imu_new_log[IMU_DATA_TYPE_COUNT] = {true, true, true, true};
+
+// ToDo: consider buffering samples for slower read. 
+// latest sample pointers (shared memory)
+static CetiImuQuatSample *imu_quaternion;
+static CetiImuAccelSample *imu_accel_m_ss;
+static CetiImuGyroSample *imu_gyro_rad_s;
+static CetiImuMagSample *imu_mag_ut;
+
+// semaphore to indicate that shared memory has bee updated
+static sem_t *s_quat_ready;
+static sem_t *s_accel_ready;
+static sem_t *s_gyro_ready;
+static sem_t *s_mag_ready;
 
 int init_imu() {
   if (setupIMU(IMU_ALL_ENABLED) < 0) {
@@ -88,6 +98,39 @@ int init_imu() {
   for(int i = 0; i < IMU_DATA_TYPE_COUNT; i++) {
     imu_new_log[i] = true;
   }
+
+  //setup shared memory regions
+  imu_quaternion = create_shared_memory_region(IMU_QUAT_SHM_NAME, sizeof(CetiImuQuatSample));
+  imu_accel_m_ss = create_shared_memory_region(IMU_ACCEL_SHM_NAME, sizeof(CetiImuAccelSample));
+  imu_gyro_rad_s = create_shared_memory_region(IMU_GYRO_SHM_NAME, sizeof(CetiImuGyroSample));
+  imu_mag_ut     = create_shared_memory_region(IMU_MAG_SHM_NAME, sizeof(CetiImuMagSample));
+
+  //setup semaphores
+  s_quat_ready = sem_open(IMU_QUAT_SEM_NAME, O_CREAT, 0644, 0);
+  if(s_quat_ready == SEM_FAILED){
+    perror("sem_open");
+    CETI_ERR("Failed to create quaternion semaphore");
+    return -1;
+  }
+  s_accel_ready = sem_open(IMU_ACCEL_SEM_NAME, O_CREAT, 0644, 0);
+  if(s_accel_ready == SEM_FAILED){
+    perror("sem_open");
+    CETI_ERR("Failed to create acceleration semaphore");
+    return -1;
+  }
+  s_gyro_ready = sem_open(IMU_GYRO_SEM_NAME, O_CREAT, 0644, 0);
+  if(s_gyro_ready == SEM_FAILED){
+    perror("sem_open");
+    CETI_ERR("Failed to create gyroscope semaphore");
+    return -1;
+  }
+  s_mag_ready = sem_open(IMU_MAG_SEM_NAME, O_CREAT, 0644, 0);
+  if(s_mag_ready == SEM_FAILED){
+    perror("sem_open");
+    CETI_ERR("Failed to create magnetometer semaphore");
+    return -1;
+  }
+
   // Open an output file to write data.
   if(imu_init_data_files() < 0)
     return -1;
@@ -138,6 +181,96 @@ void imu_close_all_files(void) {
 //-----------------------------------------------------------------------------
 // Main thread
 //-----------------------------------------------------------------------------
+void imu_quat_sample_to_csv(FILE *fp, CetiImuQuatSample *pSample) {
+    fprintf(fp, "%ld", pSample->sys_time_us);
+    fprintf(fp, ",%d", pSample->rtc_time_s);
+    fprintf(fp, ","); //notes seperator
+    if (imu_restarted_log[IMU_DATA_TYPE_QUAT]) {
+      fprintf(fp, "Restarted |");
+      imu_restarted_log[IMU_DATA_TYPE_QUAT] = false;
+    }
+    if (imu_new_log[IMU_DATA_TYPE_QUAT]) {
+      fprintf(fp, "New log file! | ");
+      imu_new_log[IMU_DATA_TYPE_QUAT] = false;
+    }
+    fprintf(fp, ",%ld", pSample->reading_delay_us);
+    fprintf(fp, ",%d", pSample->i);
+    fprintf(fp, ",%d", pSample->j);
+    fprintf(fp, ",%d", pSample->k);
+    fprintf(fp, ",%d", pSample->real);
+    fprintf(fp, ",%d", pSample->accuracy);
+    fprintf(fp, "\n");
+}
+
+void imu_accel_sample_to_csv(FILE *fp, CetiImuAccelSample *pSample) {
+    fprintf(fp, "%ld", pSample->sys_time_us);
+    fprintf(fp, ",%d", pSample->rtc_time_s);
+    // Write any notes, then clear them so they are only written once.
+    fprintf(fp, ","); //notes seperator
+    if (imu_restarted_log[IMU_DATA_TYPE_ACCEL]) {
+      fprintf(fp, "Restarted |");
+      imu_restarted_log[IMU_DATA_TYPE_ACCEL] = false;
+    }
+    if (imu_new_log[IMU_DATA_TYPE_ACCEL]) {
+      fprintf(fp, "New log file! | ");
+      imu_new_log[IMU_DATA_TYPE_ACCEL] = false;
+    }
+    // Write the sensor reading delay.
+    fprintf(fp, ",%ld", pSample->reading_delay_us);
+    // Write accelerometer data
+    fprintf(fp, ",%d", pSample->x);
+    fprintf(fp, ",%d", pSample->y);
+    fprintf(fp, ",%d", pSample->z);
+    fprintf(fp, ",%d", pSample->accuracy);
+    fprintf(fp, "\n");
+}
+
+void imu_gyro_sample_to_csv(FILE *fp, CetiImuGyroSample *pSample) {
+    fprintf(fp, "%ld", pSample->sys_time_us);
+    fprintf(fp, ",%d", pSample->rtc_time_s);
+    // Write any notes, then clear them so they are only written once.
+    fprintf(fp, ","); //notes seperator
+    if (imu_restarted_log[IMU_DATA_TYPE_GYRO]) {
+      fprintf(fp, "Restarted |");
+      imu_restarted_log[IMU_DATA_TYPE_GYRO] = false;
+    }
+    if (imu_new_log[IMU_DATA_TYPE_GYRO]) {
+      fprintf(fp, "New log file! | ");
+      imu_new_log[IMU_DATA_TYPE_GYRO] = false;
+    }
+    // Write the sensor reading delay.
+    fprintf(fp, ",%ld", pSample->reading_delay_us);
+    // Write accelerometer data
+    fprintf(fp, ",%d", pSample->x);
+    fprintf(fp, ",%d", pSample->y);
+    fprintf(fp, ",%d", pSample->z);
+    fprintf(fp, ",%d", pSample->accuracy);
+    fprintf(fp, "\n");
+}
+
+void imu_mag_sample_to_csv(FILE *fp, CetiImuMagSample *pSample) {
+    fprintf(fp, "%ld", pSample->sys_time_us);
+    fprintf(fp, ",%d", pSample->rtc_time_s);
+    // Write any notes, then clear them so they are only written once.
+    fprintf(fp, ","); //notes seperator
+    if (imu_restarted_log[IMU_DATA_TYPE_MAG]) {
+      fprintf(fp, "Restarted |");
+      imu_restarted_log[IMU_DATA_TYPE_MAG] = false;
+    }
+    if (imu_new_log[IMU_DATA_TYPE_MAG]) {
+      fprintf(fp, "New log file! | ");
+      imu_new_log[IMU_DATA_TYPE_MAG] = false;
+    }
+    // Write the sensor reading delay.
+    fprintf(fp, ",%ld", pSample->reading_delay_us);
+    // Write accelerometer data
+    fprintf(fp, ",%d", pSample->x);
+    fprintf(fp, ",%d", pSample->y);
+    fprintf(fp, ",%d", pSample->z);
+    fprintf(fp, ",%d", pSample->accuracy);
+    fprintf(fp, "\n");
+}
+
 void *imu_thread(void *paramPtr) {
   // Get the thread ID, so the system monitor can check its CPU assignment.
   g_imu_thread_tid = gettid();
@@ -161,7 +294,6 @@ void *imu_thread(void *paramPtr) {
     int report_id_updated = -1;
     long long global_time_us = get_global_time_us();
     long long start_global_time_us = get_global_time_us();
-    int rtc_count;
     long long imu_last_data_file_flush_time_us = get_global_time_us();
     g_imu_thread_is_running = 1;
     //open all files
@@ -214,7 +346,7 @@ void *imu_thread(void *paramPtr) {
 
       // Acquire timing information for this sample.
       global_time_us = get_global_time_us();
-      rtc_count = getRtcCount();
+      
 
       // Check whether data was actually received,
       //  or whether the loop exited due to other conditions.
@@ -230,68 +362,41 @@ void *imu_thread(void *paramPtr) {
         default: report_type = -1; break;
       }
 
+      
       if(report_type == -1){
         //unknown report type
         CETI_WARN("Unknown IMU report type: 0x%02x", report_id_updated);
         continue;
       }
 
-      FILE *cur_file = imu_data_file[report_type];
-      // Write timing information.
-      fprintf(cur_file, "%lld", global_time_us);
-      fprintf(cur_file, ",%d", rtc_count);
-      // Write any notes, then clear them so they are only written once.
-      fprintf(cur_file, ","); //notes seperator
-      if (imu_restarted_log[report_type]) {
-        fprintf(cur_file, "Restarted |");
-        imu_restarted_log[report_type] = false;
-      }
-      if (imu_new_log[report_type]) {
-        fprintf(cur_file, "New log file! | ");
-        imu_new_log[report_type] = false;
-      }
+      //buffer data for other applications
+      switch(report_type) {
+        case IMU_DATA_TYPE_QUAT: {
+            //copy data to shared buffer
+            imu_quat_sample_to_csv(imu_data_file[IMU_DATA_TYPE_QUAT], imu_quaternion);
+            break;
+          }
 
-      // Write the sensor reading delay.
-      fprintf(cur_file, ",%ld", imu_reading_delay_us);
-
-      switch (report_id_updated) {
-        case IMU_SENSOR_REPORTID_ROTATION_VECTOR: 
-          // Write quaternion data
-          fprintf(cur_file, ",%d", imu_quaternion.i);
-          fprintf(cur_file, ",%d", imu_quaternion.j);
-          fprintf(cur_file, ",%d", imu_quaternion.k);
-          fprintf(cur_file, ",%d", imu_quaternion.real);
-          fprintf(cur_file, ",%d", imu_quaternion_accuracy);
+          case IMU_DATA_TYPE_ACCEL: {
+            //ToDo: buffer samples?
+            imu_accel_sample_to_csv(imu_data_file[IMU_DATA_TYPE_ACCEL], imu_accel_m_ss);
+          }
+          break;
+        case IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED: {
+            //ToDo: buffer samples?
+            imu_gyro_sample_to_csv(imu_data_file[IMU_DATA_TYPE_GYRO], imu_gyro_rad_s);
+          }
           break;
 
-        case IMU_SENSOR_REPORTID_ACCELEROMETER: 
-          // Write accelerometer data
-          fprintf(cur_file, ",%d", imu_accel_m_ss[0]);
-          fprintf(cur_file, ",%d", imu_accel_m_ss[1]);
-          fprintf(cur_file, ",%d", imu_accel_m_ss[2]);
-          fprintf(cur_file, ",%d", imu_accel_accuracy);
+        case IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED: {
+            //ToDo: buffer samples?
+            imu_mag_sample_to_csv(imu_data_file[IMU_DATA_TYPE_MAG], imu_mag_ut);
+          }
           break;
 
-        case IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED: 
-          // Write gyroscope data
-          fprintf(cur_file, ",%d", imu_gyro_rad_s[0]);
-          fprintf(cur_file, ",%d", imu_gyro_rad_s[1]);
-          fprintf(cur_file, ",%d", imu_gyro_rad_s[2]);
-          fprintf(cur_file, ",%d", imu_gyro_accuracy);
-          break;
-
-        case IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED:
-          // Write magnetometer data
-          fprintf(cur_file, ",%d", imu_mag_ut[0]);
-          fprintf(cur_file, ",%d", imu_mag_ut[1]);
-          fprintf(cur_file, ",%d", imu_mag_ut[2]);
-          fprintf(cur_file, ",%d", imu_mag_accuracy);
-          break;
-        
         default:
           break;
       }
-      fprintf(cur_file, "\n");
 
       // Flush the files periodically.
       if ((get_global_time_us() - imu_last_data_file_flush_time_us >= IMU_DATA_FILE_FLUSH_PERIOD_US)) {
@@ -327,6 +432,16 @@ void *imu_thread(void *paramPtr) {
     bbI2CClose(IMU_BB_I2C_SDA);
     imu_is_connected = 0;
     imu_close_all_files();
+    
+    sem_close(s_quat_ready);
+    sem_close(s_accel_ready);
+    sem_close(s_gyro_ready);
+    sem_close(s_mag_ready);
+
+    munmap(imu_quaternion, sizeof(CetiImuQuatSample));
+    munmap(imu_accel_m_ss, sizeof(CetiImuAccelSample));
+    munmap(imu_gyro_rad_s, sizeof(CetiImuGyroSample));
+    munmap(imu_mag_ut, sizeof(CetiImuMagSample));
     g_imu_thread_is_running = 0;
     CETI_LOG("Done!");
     return NULL;
@@ -374,20 +489,20 @@ int setupIMU(uint8_t enabled_features) {
 
   // Enable desired feature reports.
   if(enabled_features & IMU_QUAT_ENABLED) {
-    imu_enable_feature_report(IMU_SENSOR_REPORTID_ROTATION_VECTOR, IMU_SAMPLING_PERIOD_QUAT_US);
+    imu_enable_feature_report(IMU_SENSOR_REPORTID_ROTATION_VECTOR, IMU_QUATERNION_SAMPLE_PERIOD_US);
     usleep(100000);
   }
   
   if(enabled_features & IMU_ACCEL_ENABLED) {
-    imu_enable_feature_report(IMU_SENSOR_REPORTID_ACCELEROMETER, IMU_SAMPLING_PERIOD_9DOF_US);
+    imu_enable_feature_report(IMU_SENSOR_REPORTID_ACCELEROMETER, IMU_9DOF_SAMPLE_PERIOD_US);
     usleep(100000);
   }
   if(enabled_features & IMU_GYRO_ENABLED) {
-    imu_enable_feature_report(IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED, IMU_SAMPLING_PERIOD_9DOF_US);
+    imu_enable_feature_report(IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED, IMU_9DOF_SAMPLE_PERIOD_US);
     usleep(100000);
   }
   if(enabled_features & IMU_MAG_ENABLED) {
-    imu_enable_feature_report(IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED, IMU_SAMPLING_PERIOD_9DOF_US);
+    imu_enable_feature_report(IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED, IMU_9DOF_SAMPLE_PERIOD_US);
     usleep(100000);
   }
 
@@ -483,63 +598,82 @@ int imu_read_data() {
   retval = bbI2CZip(IMU_BB_I2C_SDA, commandBuffer, 9, shtpHeader, 4);
   numBytesAvail = fmin(256, ((shtpHeader[1] << 8) | shtpHeader[0]) & 0x7FFF); // msb is "continuation bit", not part of count
 
-  if (retval > 0 && numBytesAvail > 0) {
-    // Adjust the read command for the amount of data available.
-    commandBuffer[5] = numBytesAvail & 0xff;        // LSB
-    commandBuffer[6] = (numBytesAvail >> 8) & 0xff; // MSB
-    // Read the data.
-    retval = bbI2CZip(IMU_BB_I2C_SDA, commandBuffer, 9, pktBuff, numBytesAvail);
-    // Parse the data.
-    if (retval > 0 && pktBuff[2] == IMU_CHANNEL_REPORTS) { // make sure we have the right channel
-      uint8_t report_id = pktBuff[9];
-      uint32_t timestamp_delay_us = ((uint32_t)pktBuff[8] << (8 * 3)) | ((uint32_t)pktBuff[7] << (8 * 2)) | ((uint32_t)pktBuff[6] << (8 * 1)) | ((uint32_t)pktBuff[5] << (8 * 0));
-      imu_reading_delay_us = (int32_t)timestamp_delay_us;
-      // uint8_t sequence_number = pktBuff[10];
-      // CETI_LOG("IMU REPORT %d  seq %3d  timestamp_delay_us %ld\n",
-      //   report_id, sequence_number, (int32_t)timestamp_delay_us);
-      // for (int i = 0; i < 4; i++)
-      //   CETI_LOG("    H%2d: %d\n", i, shtpHeader[i]);
-      // for (int i = 0; i < numBytesAvail; i++)
-      //   CETI_LOG("    D%2d: %d\n", i, pktBuff[i]);
+  if ((retval <= 0) || (numBytesAvail <= 0))
+    return -1;
+  
+  // Adjust the read command for the amount of data available.
+  commandBuffer[5] = numBytesAvail & 0xff;        // LSB
+  commandBuffer[6] = (numBytesAvail >> 8) & 0xff; // MSB
+  // Read the data.
+  retval = bbI2CZip(IMU_BB_I2C_SDA, commandBuffer, 9, pktBuff, numBytesAvail);
+  // Parse the data.
+  if ((retval <= 0) || pktBuff[2] != IMU_CHANNEL_REPORTS) { // make sure we have the right channel
+    return -1;
+  }
 
-      // Parse the data in the report.
-      uint8_t status = pktBuff[11] & 0x03; // Get status bits
-      uint16_t data[3] = {
-        ((uint16_t)pktBuff[14] << 8 | pktBuff[13]),
-        ((uint16_t)pktBuff[16] << 8 | pktBuff[15]),
-        ((uint16_t)pktBuff[18] << 8 | pktBuff[17])
-      };
+  long long global_time_us = get_global_time_us();
+  int rtc_count = getRtcCount();
+  uint8_t report_id = pktBuff[9];
+  int32_t timestamp_delay_us = (int32_t)(((uint32_t)pktBuff[8] << (8 * 3)) | ((uint32_t)pktBuff[7] << (8 * 2)) | ((uint32_t)pktBuff[6] << (8 * 1)) | ((uint32_t)pktBuff[5] << (8 * 0)));
+  // uint8_t sequence_number = pktBuff[10];
+  // CETI_LOG("IMU REPORT %d  seq %3d  timestamp_delay_us %ld\n",
+  //   report_id, sequence_number, (int32_t)timestamp_delay_us);
+  // for (int i = 0; i < 4; i++)
+  //   CETI_LOG("    H%2d: %d\n", i, shtpHeader[i]);
+  // for (int i = 0; i < numBytesAvail; i++)
+  //   CETI_LOG("    D%2d: %d\n", i, pktBuff[i]);
 
-      switch(report_id){
-        case IMU_SENSOR_REPORTID_ROTATION_VECTOR: {
-          memcpy(&imu_quaternion, data, 3*sizeof(int16_t));
-          imu_quaternion.real = (uint16_t)pktBuff[20] << 8 | pktBuff[19];
-          imu_quaternion_accuracy = (uint16_t)pktBuff[22] << 8 | pktBuff[21];
-          break;
-        }
-        case IMU_SENSOR_REPORTID_ACCELEROMETER: {
-          memcpy(imu_accel_m_ss, data, 3*sizeof(int16_t));
-          imu_accel_accuracy = status;
-          break;
-        }
-        case IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED: {
-          memcpy(imu_gyro_rad_s, data, 3*sizeof(int16_t));
-          imu_gyro_accuracy = status;
-          break;
-        }
-        case IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED: {
-          memcpy(imu_mag_ut, data, 3*sizeof(int16_t));
-          imu_mag_accuracy = status;
-          break;
-        }
-      }
-      return (int)report_id;
+  // Parse the data in the report.
+  uint8_t status = pktBuff[11] & 0x03; // Get status bits
+  uint16_t data[3] = {
+    ((uint16_t)pktBuff[14] << 8 | pktBuff[13]),
+    ((uint16_t)pktBuff[16] << 8 | pktBuff[15]),
+    ((uint16_t)pktBuff[18] << 8 | pktBuff[17])
+  };
+
+  switch(report_id){
+    case IMU_SENSOR_REPORTID_ROTATION_VECTOR: {
+      imu_quaternion->sys_time_us = global_time_us;
+      imu_quaternion->rtc_time_s = rtc_count;
+      imu_quaternion->reading_delay_us = timestamp_delay_us;
+      memcpy(&imu_quaternion->i, data, 3*sizeof(int16_t));
+      imu_quaternion->real = (uint16_t)pktBuff[20] << 8 | pktBuff[19];
+      imu_quaternion->accuracy = (uint16_t)pktBuff[22] << 8 | pktBuff[21];
+      sem_post(s_quat_ready);
+      break;
+    }
+    case IMU_SENSOR_REPORTID_ACCELEROMETER: {
+      imu_accel_m_ss->sys_time_us = global_time_us;
+      imu_accel_m_ss->rtc_time_s = rtc_count;
+      imu_accel_m_ss->reading_delay_us = timestamp_delay_us;
+      memcpy(&imu_accel_m_ss->x, data, 3*sizeof(int16_t));
+      imu_accel_m_ss->accuracy = status;
+      sem_post(s_accel_ready);
+      break;
+    }
+    case IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED: {
+      imu_gyro_rad_s->sys_time_us = global_time_us;
+      imu_gyro_rad_s->rtc_time_s = rtc_count;
+      imu_gyro_rad_s->reading_delay_us = timestamp_delay_us;
+      memcpy(&imu_gyro_rad_s->x, data, 3*sizeof(int16_t));
+      imu_gyro_rad_s->accuracy = status;
+      sem_post(s_gyro_ready);
+      break;
+    }
+    case IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED: {
+      imu_mag_ut->sys_time_us = global_time_us;
+      imu_mag_ut->rtc_time_s = rtc_count;
+      imu_mag_ut->reading_delay_us = timestamp_delay_us;
+      memcpy(&imu_mag_ut->x, data, 3*sizeof(int16_t));
+      imu_mag_ut->accuracy = status;
+      sem_post(s_mag_ready);
+      break;
     }
   }
-  return -1;
+  return (int)report_id;
 }
 
-void quat2eul(EulerAngles_f64 *e, Quaternion_i16 *q){
+void quat2eul(EulerAngles_f64 *e, CetiImuQuatSample *q){
   double re = ((double) q->real) / (1 << 14);
   double i = ((double) q->i) / (1 << 14);
   double j = ((double) q->j) / (1 << 14);
@@ -556,14 +690,4 @@ void quat2eul(EulerAngles_f64 *e, Quaternion_i16 *q){
   double siny_cosp = 2 * ((re * k) + (i * j));
   double cosy_cosp = 1 - 2 * ((j * j) + (k * k));
   e->yaw = atan2(siny_cosp, cosy_cosp);
-}
-
-int imu_get_euler_angles(EulerAngles_f64 *e){
-  int report_id_updated = imu_read_data();
-  if (report_id_updated != IMU_SENSOR_REPORTID_ROTATION_VECTOR){
-    return -1;
-  } 
-
-  quat2eul(e, &imu_quaternion); 
-  return 0;
 }

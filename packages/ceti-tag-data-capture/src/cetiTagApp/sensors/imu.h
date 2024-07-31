@@ -19,6 +19,7 @@
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
 #include "../utils/logging.h"
 #include "../utils/timing.h" // for timestamps
+#include "../cetiTag.h" //for CetiImuQuatSample
 
 #include <inttypes.h>
 #include <math.h> // for fmin()
@@ -41,26 +42,6 @@
 // How often to close/reopen the data file (avoid doing it at every sample to
 // reduce delays in the loop)
 #define IMU_DATA_FILE_FLUSH_PERIOD_US 1000000
-
-typedef struct { // To hold rotation vector input report information
-  char reportID;
-  char sequenceNum;
-  char status;
-  char delay;
-  int16_t quat_i;
-  int16_t quat_j;
-  int16_t quat_k;
-  int16_t quat_real;
-  int16_t accEstimate;
-} rotation_t;
-
-typedef struct { // quaternion data type 
-    int16_t i;
-    int16_t j;
-    int16_t k;
-    int16_t real;
-} Quaternion_i16;
-
 
 typedef struct { // euler angles
     double roll;
@@ -169,5 +150,5 @@ int imu_enable_feature_report(int report_id, uint32_t report_interval_us);
 int imu_read_data();
 int imu_get_euler_angles(EulerAngles_f64 *e);
 void* imu_thread(void* paramPtr);
-void quat2eul(EulerAngles_f64 *e, Quaternion_i16 *q);
+void quat2eul(EulerAngles_f64 *e, CetiImuQuatSample *q);
 #endif // IMU_H
