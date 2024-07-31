@@ -38,8 +38,7 @@
 
 #define ECG_I2C_BUS 0x00
 
-#define ECG_OLD 1
-#define ECG_LOD_ENABLED 0
+#define ECG_LOD_ENABLED 1
 
 //-----------------------------------------------------------------------------
 // Global variables

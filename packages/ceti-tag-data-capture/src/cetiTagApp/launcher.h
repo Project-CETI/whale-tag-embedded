@@ -36,8 +36,6 @@
 //-----------------------------------------------------------------------------
 // Sampling and logging configuration.
 //-----------------------------------------------------------------------------
-#define IMU_SAMPLING_PERIOD_QUAT_US 50000 // rate for the computed orientation
-#define IMU_SAMPLING_PERIOD_9DOF_US 20000 // rate for the accelerometer/gyroscope/magnetometer
 #define RECOVERY_SAMPLING_PERIOD_US 5000000
 #define RTC_UPDATE_PERIOD_LONG_US 950000 // A coarse delay, to get close to when the RTC is expected to change
 #define RTC_UPDATE_PERIOD_SHORT_US 10000 // A finer delay, to find the new RTC value close to its update time
