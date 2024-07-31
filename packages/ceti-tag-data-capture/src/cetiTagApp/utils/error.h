@@ -27,6 +27,9 @@ typedef enum wt_device_id_e {
     WT_DEV_BURNWIRE,
 } WTDeviceID;
 
+/**
+ * @brief Packs WtResult error code based on device enum and error value.
+ */
 #define WT_RESULT(dev, status) ((((dev) & ((1 << 16) - 1)) << 16) | (((status) & ((1 << 16) - 1)) << 0))
 #define WT_OK 0
 
@@ -87,7 +90,19 @@ typedef uint32_t WTResult;
  */
 const char *wt_strerror(WTResult errno);
 
+/**
+ * @brief Macro that tries to perform action that may return on error in the
+ * form of a WtResult. On failure, `__VA_OPT__` instuctions are performed prior
+ * to return being called in the calling function.
+ */
 #define WT_TRY(body, ...) {WTResult result = (body); if( result != WT_OK) {__VA_OPT__((__VA_ARGS__);) return result;}}
+
+/**
+ * @brief Macro that tries to perform the pigpio instruction `body`.  
+ * On success the macro has a value of the `body` output.  
+ * On failure, `__VA_OPT__` instuctions are performed prior
+ * to a `WtResult` associated with `dev` and error being returned by the calling function.
+ */
 #define PI_TRY(dev, body, ...) ({        \
     int result = (body);                 \
     if( result < 0 ){                    \

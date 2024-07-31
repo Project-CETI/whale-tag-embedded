@@ -11,12 +11,12 @@
 
 //==== Private Libraries ======================================================
 // local objects
-#include "error.h"
 #include "i2c.h"
 
 
 // system libraries
 #include <pigpio.h>
+#include <pthread.h>
 #include <stdlib.h>
 
 //==== Private Typedefs =======================================================
@@ -24,10 +24,11 @@
 
 //==== Private Variables ======================================================
 static int s_iox_i2c_fd = PI_NO_HANDLE;
+static pthread_mutex_t s_write_lock = PTHREAD_MUTEX_INITIALIZER;
 
 //==== Function Definitions ===================================================
 /**
- * @brief initializes io expander
+ * @brief initializes io expander.
  * 
  * @return WTResult 
  */
@@ -41,7 +42,7 @@ WTResult iox_init(void) {
 }
 
 /**
- * @brief end io expander usage. Called automatically at exit.
+ * @brief end io expander usage.
  */
 void iox_terminate(void){
     if(!(s_iox_i2c_fd < 0)){
@@ -64,16 +65,20 @@ WTResult iox_set_mode(int pin, WtIoxMode mode) {
 
     switch (mode) {
     case IOX_MODE_INPUT: {
-        int reg_value = PI_TRY(WT_DEV_IOX, i2cReadByteData(s_iox_i2c_fd, IOX_REG_CONFIGURATION));
+        pthread_mutex_lock(&s_write_lock); //prevent writes during
+        int reg_value = PI_TRY(WT_DEV_IOX, i2cReadByteData(s_iox_i2c_fd, IOX_REG_CONFIGURATION), pthread_mutex_unlock(&s_write_lock));
         reg_value |= (1 << pin);
-        PI_TRY(WT_DEV_IOX, i2cWriteByteData(s_iox_i2c_fd, IOX_REG_CONFIGURATION, reg_value));
+        PI_TRY(WT_DEV_IOX, i2cWriteByteData(s_iox_i2c_fd, IOX_REG_CONFIGURATION, reg_value), pthread_mutex_unlock(&s_write_lock));
+        pthread_mutex_unlock(&s_write_lock);
         }
         return WT_OK;
 
     case IOX_MODE_OUTPUT: {
-        int reg_value = PI_TRY(WT_DEV_IOX, i2cReadByteData(s_iox_i2c_fd, IOX_REG_CONFIGURATION));
+        pthread_mutex_lock(&s_write_lock);
+        int reg_value = PI_TRY(WT_DEV_IOX, i2cReadByteData(s_iox_i2c_fd, IOX_REG_CONFIGURATION), pthread_mutex_unlock(&s_write_lock));
         reg_value &= ~(1 << pin);
-        PI_TRY(WT_DEV_IOX, i2cWriteByteData(s_iox_i2c_fd, IOX_REG_CONFIGURATION, reg_value));
+        PI_TRY(WT_DEV_IOX, i2cWriteByteData(s_iox_i2c_fd, IOX_REG_CONFIGURATION, reg_value), pthread_mutex_unlock(&s_write_lock));
+        pthread_mutex_unlock(&s_write_lock);
         }
         return WT_OK;
     
@@ -86,17 +91,17 @@ WTResult iox_set_mode(int pin, WtIoxMode mode) {
  * @brief returns gpio expander pin mode
  * 
  * @param pin 
- * @param mode - output pointer
+ * @param pMode - output pointer
  * @return WTResult 
  */
-WTResult iox_get_mode(int pin, WtIoxMode *mode) {
+WTResult iox_get_mode(int pin, WtIoxMode *pMode) {
     if ((pin < 0) || (pin > 7)){
         return WT_RESULT(WT_DEV_IOX, WT_ERR_BAD_IOX_GPIO);
     }
 
     int reg_value = PI_TRY(WT_DEV_IOX, i2cReadByteData(s_iox_i2c_fd, IOX_REG_CONFIGURATION));
-    if (mode != NULL) {
-        *mode = ((reg_value >> pin) & 1) ? IOX_MODE_INPUT : IOX_MODE_OUTPUT;
+    if (pMode != NULL) {
+        *pMode = ((reg_value >> pin) & 1) ? IOX_MODE_INPUT : IOX_MODE_OUTPUT;
     }
     return WT_OK;
 }
@@ -105,25 +110,32 @@ WTResult iox_get_mode(int pin, WtIoxMode *mode) {
  * @brief returns gpio expander pin input value
  * 
  * @param pin 
- * @param value - output pointer
+ * @param pValue - output pointer
  * @return WTResult 
  */
-WTResult iox_read(int pin, int *value) {
+WTResult iox_read(int pin, int *pValue) {
     if ((pin < 0) || (pin > 7)){
         return WT_RESULT(WT_DEV_IOX, WT_ERR_BAD_IOX_GPIO);
     }
 
     int reg_value = PI_TRY(WT_DEV_IOX, i2cReadByteData(s_iox_i2c_fd, IOX_REG_INPUT));
-    if (value != NULL) {
-        *value = ((reg_value >> pin) & 1);
+    if (pValue != NULL) {
+        *pValue = ((reg_value >> pin) & 1);
     }
     return WT_OK;
 }
 
-WTResult iox_read_register(PCAL6408ARegister reg, uint8_t *value){
+/**
+ * @brief Reads a value from a specified I/O Expander register
+ * 
+ * @param reg - register address 
+ * @param pValue  - output pointer
+ * @return WTResult
+ */
+WTResult iox_read_register(IoxRegister reg, uint8_t *pValue){
     int reg_value = PI_TRY(WT_DEV_IOX, i2cReadByteData(s_iox_i2c_fd, reg));
-    if (value != NULL) {
-        *value = (uint8_t)reg_value;
+    if (pValue != NULL) {
+        *pValue = (uint8_t)reg_value;
     }
     return WT_OK;
 }
@@ -140,18 +152,48 @@ WTResult iox_write(int pin, int value) {
         return WT_RESULT(WT_DEV_IOX, WT_ERR_BAD_IOX_GPIO);
     }
 
-    int reg_value = PI_TRY(WT_DEV_IOX, i2cReadByteData(s_iox_i2c_fd, IOX_REG_OUTPUT));
+    pthread_mutex_lock(&s_write_lock);
+    int reg_value = PI_TRY(WT_DEV_IOX, i2cReadByteData(s_iox_i2c_fd, IOX_REG_OUTPUT), pthread_mutex_unlock(&s_write_lock));
     if (value) {
         reg_value |= (1 << pin);
     } else {
         reg_value &= ~(1 << pin);
     }
-    PI_TRY(WT_DEV_IOX, i2cWriteByteData(s_iox_i2c_fd, IOX_REG_OUTPUT, reg_value));
+    PI_TRY(WT_DEV_IOX, i2cWriteByteData(s_iox_i2c_fd, IOX_REG_OUTPUT, reg_value), pthread_mutex_unlock(&s_write_lock));
+    pthread_mutex_unlock(&s_write_lock);
 
     return WT_OK;
 }
 
-WTResult iox_write_register(PCAL6408ARegister reg, uint8_t value){
+/**
+ * @brief Writes a value to a specified I/O Expander register
+ * 
+ * @param reg - register address 
+ * @param value
+ * @return WTResult
+ * 
+ * @note Additional thread syncronization mechanisms (mutex), may be required 
+ * if modifying a register. see `iox_write_lock()` and `iox_write_unlock()`
+ */
+WTResult iox_write_register(IoxRegister reg, uint8_t value){
     PI_TRY(WT_DEV_IOX, i2cWriteByteData(s_iox_i2c_fd, reg, value));
     return WT_OK;
+}
+
+/**
+ * @brief Locks I/O expander write mutex
+ * 
+ * @return int returns 0 on success, and an error number otherwise
+ */
+int iox_write_lock(void) {
+    return pthread_mutex_lock(&s_write_lock);
+}
+
+/**
+ * @brief unlocks I/O expander write mutex
+ * 
+ * @return int returns 0 on success, and an error number otherwise
+ */
+int iox_write_unlock(void){
+    return pthread_mutex_unlock(&s_write_lock);
 }

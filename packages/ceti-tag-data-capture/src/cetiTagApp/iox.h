@@ -10,9 +10,9 @@
 #define __CETI_WHALE_TAG_HAL_IOX__
 
 // === Public Libraries =======================================================
-#include "utils/error.h"
+#include "utils/error.h" // for WTResult type
 
-#include <stdint.h>
+#include <stdint.h> // for uint8_t
 
 // === Pin Definitions ========================================================
 #define IOX_GPIO_5V_EN (0)
@@ -25,13 +25,12 @@
 #define IOX_GPIO_ECG_LOD_P  (7)
 
 // === Type Definitions =======================================================
-
 typedef enum {
     IOX_MODE_OUTPUT = 0,
     IOX_MODE_INPUT = 1,
 } WtIoxMode;
 
-typedef enum pcal6408a_register_e {
+typedef enum iox_register_e {
     IOX_REG_INPUT = 0x00,
     IOX_REG_OUTPUT = 0x01,
     IOX_REG_POLARITY = 0x02,
@@ -44,16 +43,17 @@ typedef enum pcal6408a_register_e {
     IOX_REG_INTERRUPT_MASK = 0x45,
     IOX_REG_INTERRUPT_STATUS = 0x46,
     IOX_REG_OUTPUT_PORT_CONFIG = 0x4F,
-} PCAL6408ARegister;
+} IoxRegister;
 
 // === Functions ==============================================================
 WTResult iox_init(void);
 void iox_terminate(void);
-WTResult iox_set_mode(int pin, WtIoxMode mode);
 WTResult iox_get_mode(int pin, WtIoxMode *mode);
 WTResult iox_read(int pin, int *value);
-WTResult iox_read_register(PCAL6408ARegister register, uint8_t *value);
+WTResult iox_read_register(IoxRegister register, uint8_t *value);
+WTResult iox_set_mode(int pin, WtIoxMode mode);
 WTResult iox_write(int pin, int value);
-WTResult iox_write_register(PCAL6408ARegister register, uint8_t value);
-
+WTResult iox_write_register(IoxRegister reg, uint8_t value);
+int iox_write_lock(void);
+int iox_write_unlock(void);
 #endif // __CETI_WHALE_TAG_HAL_IOX_
