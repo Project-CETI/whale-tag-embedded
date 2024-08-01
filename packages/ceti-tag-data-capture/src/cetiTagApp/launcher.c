@@ -53,6 +53,9 @@ int main(void) {
   // Create threads.
   pthread_t thread_ids[50] = {0};
   int *threads_running[50];
+  #ifdef DEBUG
+  char thread_name[50][32];
+  #endif
   int num_threads = 0;
   int audio_acquisition_thread_index = -1;
   int audio_write_thread_index = -1;
@@ -62,38 +65,59 @@ int main(void) {
 #if ENABLE_RTC
   pthread_create(&thread_ids[num_threads], NULL, &rtc_thread, NULL);
   threads_running[num_threads] = &g_rtc_thread_is_running;
+  #ifdef DEBUG
+  strcpy(thread_name[num_threads], "rtc");
+#endif
   num_threads++;
 #endif
   // Handle user commands.
   pthread_create(&thread_ids[num_threads], NULL, &command_thread, NULL);
   threads_running[num_threads] = &g_command_thread_is_running;
+  #ifdef DEBUG
+  strcpy(thread_name[num_threads], "command");
+#endif
   num_threads++;
   // Run the state machine.
   pthread_create(&thread_ids[num_threads], NULL, &stateMachine_thread, NULL);
   threads_running[num_threads] = &g_stateMachine_thread_is_running;
+  #ifdef DEBUG
+  strcpy(thread_name[num_threads], "statemachine");
+#endif
   num_threads++;
 // IMU
 #if ENABLE_IMU
   pthread_create(&thread_ids[num_threads], NULL, &imu_thread, NULL);
   threads_running[num_threads] = &g_imu_thread_is_running;
+  #ifdef DEBUG
+  strcpy(thread_name[num_threads], "imu");
+#endif
   num_threads++;
 #endif
 // Ambient light
 #if ENABLE_LIGHT_SENSOR
   pthread_create(&thread_ids[num_threads], NULL, &light_thread, NULL);
   threads_running[num_threads] = &g_light_thread_is_running;
+  #ifdef DEBUG
+  strcpy(thread_name[num_threads], "light");
+#endif
   num_threads++;
 #endif
 // Water pressure and temperature
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
   pthread_create(&thread_ids[num_threads], NULL, &pressureTemperature_thread, NULL);
   threads_running[num_threads] = &g_pressureTemperature_thread_is_running;
+  #ifdef DEBUG
+  strcpy(thread_name[num_threads], "pressure");
+#endif
   num_threads++;
 #endif
 // Battery status monitor
 #if ENABLE_BATTERY_GAUGE
   pthread_create(&thread_ids[num_threads], NULL, &battery_thread, NULL);
   threads_running[num_threads] = &g_battery_thread_is_running;
+#ifdef DEBUG
+  strcpy(thread_name[num_threads], "battery");
+#endif
   num_threads++;
 #endif
 // Recovery board (GPS).
@@ -101,6 +125,9 @@ int main(void) {
   if(g_config.recovery.enabled) {
     pthread_create(&thread_ids[num_threads], NULL, &recovery_thread, NULL);
     threads_running[num_threads] = &g_recovery_thread_is_running;
+#ifdef DEBUG
+    strcpy(thread_name[num_threads], "recovery");
+#endif
     num_threads++;
   }
 #endif
@@ -108,15 +135,24 @@ int main(void) {
 #if ENABLE_ECG
   pthread_create(&thread_ids[num_threads], NULL, &ecg_thread_getData, NULL);
   threads_running[num_threads] = &g_ecg_thread_getData_is_running;
+#ifdef DEBUG
+  strcpy(thread_name[num_threads], "ecg_acq");
+#endif
   num_threads++;
   pthread_create(&thread_ids[num_threads], NULL, &ecg_thread_writeData, NULL);
   threads_running[num_threads] = &g_ecg_thread_writeData_is_running;
+#ifdef DEBUG
+  strcpy(thread_name[num_threads], "ecg_log");
+#endif
   num_threads++;
 #endif
 // System resource monitor
 #if ENABLE_SYSTEMMONITOR
   pthread_create(&thread_ids[num_threads], NULL, &systemMonitor_thread, NULL);
   threads_running[num_threads] = &g_systemMonitor_thread_is_running;
+#ifdef DEBUG
+  strcpy(thread_name[num_threads], "sys_monitor");
+#endif
   num_threads++;
 #endif
 // Audio
@@ -124,11 +160,17 @@ int main(void) {
   usleep(1000000); // wait to make sure all other threads are on their assigned CPUs (maybe not needed?)
   pthread_create(&thread_ids[num_threads], NULL, &audio_thread_spi, NULL);
   threads_running[num_threads] = &g_audio_thread_spi_is_running;
+#ifdef DEBUG
+  strcpy(thread_name[num_threads], "audio_acq");
+#endif
   audio_acquisition_thread_index = num_threads;
   num_threads++;
 #if ENABLE_AUDIO_FLAC
   pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeFlac, NULL);
   threads_running[num_threads] = &g_audio_thread_writeData_is_running;
+#ifdef DEBUG
+  strcpy(thread_name[num_threads], "audio_write");
+#endif
   audio_write_thread_index = num_threads;
   num_threads++;
 #else
@@ -148,6 +190,9 @@ int main(void) {
   CETI_LOG("-------------------------------------------------");
   CETI_LOG("Data acquisition is running!");
   CETI_LOG("-------------------------------------------------");
+  #ifdef DEBUG
+    int logcount = 20;
+  #endif
   while (!g_exit) {
     // Let threads do their work.
     usleep(100000);
@@ -173,6 +218,21 @@ int main(void) {
       usleep(100000);
     }
 #endif
+#ifdef DEBUG
+    if(logcount == 0){
+      int num_threads_running = 0;
+      CETI_LOG("Active Threads");
+      for (int thread_index = 0; thread_index < num_threads; thread_index++){
+        num_threads_running += *threads_running[thread_index];
+        if(*threads_running[thread_index]){
+          CETI_LOG("    %s", thread_name[thread_index]);
+        }
+      }
+      logcount = 20;
+    } else {
+      logcount--;
+    }
+#endif
 
     // Check if the data partition is full.
     if (!g_stopAcquisition && get_dataPartition_free_kb() < MIN_DATA_PARTITION_FREE_KB) {
@@ -193,8 +253,12 @@ int main(void) {
   while (num_threads_running > 0 && !threads_timeout_reached) {
     usleep(100000);
     num_threads_running = 0;
-    for (int thread_index = 0; thread_index < num_threads; thread_index++)
+    for (int thread_index = 0; thread_index < num_threads; thread_index++){
       num_threads_running += *threads_running[thread_index];
+      if(*threads_running[thread_index]){
+        CETI_LOG("Waiting on %s thread!!!", thread_name[thread_index]);
+      }
+    }
     threads_timeout_reached = get_global_time_us() - wait_for_threads_startTime_us > wait_for_threads_timeout_us;
   }
 

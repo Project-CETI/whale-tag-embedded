@@ -551,7 +551,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
       FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], AUDIO_BUFFER_SIZE_SAMPLE16);
     }
     audio_acqDataFileLength += AUDIO_BUFFER_SIZE_BYTES;
-    CETI_DEBUG("%lu of %lu bytes converted to flac", audio_acqDataFileLength, filesize_bytes);
+    CETI_DEBUG("%d of %lu bytes converted to flac", audio_acqDataFileLength, filesize_bytes);
     
     // Create a new output file if this is the first flush
     //  or if the file size limit has been reached.
@@ -584,9 +584,6 @@ void *audio_thread_writeFlac(void *paramPtr) {
     fclose(audio_status_file);
     audio_writing_to_status_file = 0;
 }
-
-  // Finish the current file.
-  FLAC__stream_encoder_finish(flac_encoder);
   
   //Flush remaining partial buffer.
   if(block_counter != 0) {
@@ -618,11 +615,18 @@ void *audio_thread_writeFlac(void *paramPtr) {
         }
       }
       CETI_DEBUG("All samples moved to flac buffer");
-      FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], samples_to_flush);
+      if(flac_encoder == 0){
+        CETI_WARN("flac encoder is missing,skipping flushing samples");
+      } else if(FLAC__stream_encoder_get_state(flac_encoder) != FLAC__STREAM_ENCODER_OK){
+        CETI_WARN("flac encoder in state %s, skipping flushing samples", FLAC__stream_encoder_get_resolved_state_string(flac_encoder));
+      }else {
+        FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], samples_to_flush);
+      }
       CETI_DEBUG("Flac stream sent");
     }
   }
-    CETI_DEBUG("Waiting on flac encoding to end...");
+  CETI_DEBUG("Waiting on flac encoding to end...");
+  //Finish current file
   FLAC__stream_encoder_finish(flac_encoder);
 
   //All data flushed
@@ -650,6 +654,7 @@ void audio_createNewFlacFile() {
 
   if (flac_encoder) {
     ok &= FLAC__stream_encoder_finish(flac_encoder);
+    CETI_DEBUG("Deleting flac encoder...");
     FLAC__stream_encoder_delete(flac_encoder);
     flac_encoder = 0;
     if (!ok) {
@@ -686,6 +691,7 @@ void audio_createNewFlacFile() {
   init_status = FLAC__stream_encoder_init_file(flac_encoder, audio_acqDataFileName, NULL, NULL);
   if (init_status != FLAC__STREAM_ENCODER_INIT_STATUS_OK) {
     CETI_ERR("ERROR: initializing encoder: %s", FLAC__StreamEncoderInitStatusString[init_status]);
+    CETI_DEBUG("Deleting flac encoder...");
     FLAC__stream_encoder_delete(flac_encoder);
     flac_encoder = 0;
     return;
