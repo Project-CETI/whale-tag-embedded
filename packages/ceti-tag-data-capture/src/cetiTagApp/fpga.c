@@ -102,6 +102,9 @@ WTResult wt_fpga_load_bitstream(const char *fpga_bitstream_path) {
         }
     }
 
+    //free configuration bitstream memory
+    free(pConfig);
+
     return gpioRead(FPGA_DONE) ? WT_OK : WT_RESULT(WT_DEV_FPGA, WT_ERR_FPGA_N_DONE);
 }
 

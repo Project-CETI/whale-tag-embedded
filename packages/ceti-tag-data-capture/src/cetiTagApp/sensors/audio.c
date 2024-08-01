@@ -280,12 +280,6 @@ int stop_audio_acq(void) {
   CETI_LOG("Stopping audio acquisition");
   wt_fpga_fifo_stop(); // stops the input stream
 
-  if (flac_encoder) {
-    FLAC__stream_encoder_finish(flac_encoder);
-    FLAC__stream_encoder_delete(flac_encoder);
-    flac_encoder = 0;
-  }
-
   // wt_fpga_fifo_reset(); // flushes the FIFO
   return 0;
 }
@@ -443,7 +437,7 @@ void *audio_thread_spi(void *paramPtr) {
     usleep(100000);
 
   // Stop FPGA audio capture and reset its buffer.
-  stop_audio_acq();
+  // stop_audio_acq();
   usleep(100000);
   reset_audio_fifo();
   usleep(100000);
@@ -623,12 +617,16 @@ void *audio_thread_writeFlac(void *paramPtr) {
           buff[i_sample][i_channel] = value / (1 << 16);
         }
       }
+      CETI_DEBUG("All samples moved to flac buffer");
       FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], samples_to_flush);
+      CETI_DEBUG("Flac stream sent");
     }
   }
+    CETI_DEBUG("Waiting on flac encoding to end...");
   FLAC__stream_encoder_finish(flac_encoder);
 
   //All data flushed
+  CETI_DEBUG("Deleting flac encoder...");
   FLAC__stream_encoder_delete(flac_encoder);
   flac_encoder = 0;
   // Exit the thread.
