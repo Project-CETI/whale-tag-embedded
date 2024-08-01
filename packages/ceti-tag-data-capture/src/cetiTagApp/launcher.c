@@ -61,7 +61,16 @@ int main(void) {
   int audio_write_thread_index = -1;
   CETI_LOG("-------------------------------------------------");
   CETI_LOG("Starting acquisition threads");
-// RTC
+  // IO expander
+#if ENABLE_IOX
+  pthread_create(&thread_ids[num_threads], NULL, &iox_thread, NULL);
+  threads_running[num_threads] = &g_iox_thread_is_running;
+  #ifdef DEBUG
+  strcpy(thread_name[num_threads], "iox");
+#endif
+  num_threads++;
+#endif
+  // RTC
 #if ENABLE_RTC
   pthread_create(&thread_ids[num_threads], NULL, &rtc_thread, NULL);
   threads_running[num_threads] = &g_rtc_thread_is_running;
@@ -84,7 +93,7 @@ int main(void) {
   strcpy(thread_name[num_threads], "statemachine");
 #endif
   num_threads++;
-// IMU
+  // IMU
 #if ENABLE_IMU
   pthread_create(&thread_ids[num_threads], NULL, &imu_thread, NULL);
   threads_running[num_threads] = &g_imu_thread_is_running;
@@ -93,7 +102,7 @@ int main(void) {
 #endif
   num_threads++;
 #endif
-// Ambient light
+  // Ambient light
 #if ENABLE_LIGHT_SENSOR
   pthread_create(&thread_ids[num_threads], NULL, &light_thread, NULL);
   threads_running[num_threads] = &g_light_thread_is_running;
@@ -102,7 +111,7 @@ int main(void) {
 #endif
   num_threads++;
 #endif
-// Water pressure and temperature
+  // Water pressure and temperature
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
   pthread_create(&thread_ids[num_threads], NULL, &pressureTemperature_thread, NULL);
   threads_running[num_threads] = &g_pressureTemperature_thread_is_running;
@@ -111,7 +120,7 @@ int main(void) {
 #endif
   num_threads++;
 #endif
-// Battery status monitor
+  // Battery status monitor
 #if ENABLE_BATTERY_GAUGE
   pthread_create(&thread_ids[num_threads], NULL, &battery_thread, NULL);
   threads_running[num_threads] = &g_battery_thread_is_running;
@@ -120,7 +129,7 @@ int main(void) {
 #endif
   num_threads++;
 #endif
-// Recovery board (GPS).
+  // Recovery board (GPS).
 #if ENABLE_RECOVERY
   if(g_config.recovery.enabled) {
     pthread_create(&thread_ids[num_threads], NULL, &recovery_thread, NULL);
@@ -131,7 +140,7 @@ int main(void) {
     num_threads++;
   }
 #endif
-// ECG
+  // ECG
 #if ENABLE_ECG
   pthread_create(&thread_ids[num_threads], NULL, &ecg_thread_getData, NULL);
   threads_running[num_threads] = &g_ecg_thread_getData_is_running;
@@ -146,7 +155,7 @@ int main(void) {
 #endif
   num_threads++;
 #endif
-// System resource monitor
+  // System resource monitor
 #if ENABLE_SYSTEMMONITOR
   pthread_create(&thread_ids[num_threads], NULL, &systemMonitor_thread, NULL);
   threads_running[num_threads] = &g_systemMonitor_thread_is_running;
@@ -155,7 +164,7 @@ int main(void) {
 #endif
   num_threads++;
 #endif
-// Audio
+  // Audio
 #if ENABLE_AUDIO
   usleep(1000000); // wait to make sure all other threads are on their assigned CPUs (maybe not needed?)
   pthread_create(&thread_ids[num_threads], NULL, &audio_thread_spi, NULL);
@@ -304,7 +313,11 @@ int init_tag() {
   result += init_commands() == 0 ? 0 : -1;
   result += init_stateMachine() == 0 ? 0 : -1;
 
-// Initialize selectively enabled components.
+  // Initialize selectively enabled components.
+#if ENABLE_IOX
+  result += init_iox() == WT_OK ? 0 : -1;
+#endif
+
 #if ENABLE_FPGA
   char fpga_bitstream_path[512];
   strncpy(fpga_bitstream_path, g_process_path, sizeof(fpga_bitstream_path) - 1);
@@ -342,11 +355,11 @@ int init_tag() {
 #endif
 
 #if ENABLE_RECOVERY
-if(g_config.recovery.enabled) {
-  result += recovery_thread_init() == 0 ? 0 : -1;
-} else {
-  recovery_kill();
-}
+  if(g_config.recovery.enabled) {
+    result += recovery_thread_init() == 0 ? 0 : -1;
+  } else {
+    recovery_kill();
+  }
 #endif
 
 #if ENABLE_PRESSURETEMPERATURE_SENSOR

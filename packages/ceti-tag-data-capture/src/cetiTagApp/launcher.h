@@ -25,6 +25,7 @@
 #define ENABLE_RECOVERY 1
 #define ENABLE_SYSTEMMONITOR 1
 #define ENABLE_BURNWIRE 1
+#define ENABLE_IOX 1
 #define ENABLE_RUNTIME_AUDIO 0
 
 //-----------------------------------------------------------------------------
@@ -54,6 +55,7 @@
 #define PRESSURETEMPERATURE_CPU 1
 #define RECOVERY_CPU 1
 #define RTC_CPU 1
+#define IOX_CPU 1
 #define COMMAND_CPU 0
 #define STATEMACHINE_CPU 0
 #define SYSTEMMONITOR_CPU 0
@@ -105,6 +107,10 @@
 
 #if ENABLE_LIGHT_SENSOR
 #include "sensors/light.h"
+#endif
+
+#if ENABLE_IOX
+#include "iox.h"
 #endif
 
 #if ENABLE_PRESSURETEMPERATURE_SENSOR

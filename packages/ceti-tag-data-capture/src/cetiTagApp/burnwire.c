@@ -25,8 +25,6 @@ static WTResult __burnwire_off(void) {
 
 static WTResult __burnwire_init(void) {
     // Initialize I2C/GPIO functionality.
-    WT_TRY(iox_init());
-
     WT_TRY(iox_set_mode(IOX_GPIO_BURNWIRE_ON, IOX_MODE_OUTPUT));
     WT_TRY(__burnwire_off());
     return WT_OK;

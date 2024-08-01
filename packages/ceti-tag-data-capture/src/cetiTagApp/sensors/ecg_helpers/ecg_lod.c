@@ -13,11 +13,9 @@
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
-// Initialize and connect the GPIO expander via I2C.
-WTResult wt_ecg_iox_init(void){
-    // Initialize I2C/GPIO functionality.
-    WT_TRY(iox_init());
 
+WTResult init_ecg_leadsOff() {
+    // Initialize I2C/GPIO functionality for the IO expander.
     WT_TRY(iox_set_mode(IOX_GPIO_ECG_LOD_N, IOX_MODE_INPUT));
     WT_TRY(iox_set_mode(IOX_GPIO_ECG_LOD_P, IOX_MODE_INPUT));
     
@@ -28,24 +26,32 @@ WTResult wt_ecg_iox_init(void){
 // Read/parse data
 //-----------------------------------------------------------------------------
 
+// Read both ECG leads-off detections (positive and negative electrodes).
+// Will first read all inputs of the GPIO expander, then extract the desired bit.
+// Will use a single IO expander reading, so
+//   both detections are effectively sampled simultaneously
+//   and the IO expander only needs to be queried once.
+WTResult ecg_read_leadsOff(int* leadsOff_p, int* leadsOff_n) {
+  // Read the latest result, and request an asynchronous reading for the next iteration.
+  uint8_t register_value = 0;
+  iox_read_register(&register_value, 0);
+  // Extract the desired pins.
+  *leadsOff_p = ((register_value >> IOX_GPIO_ECG_LOD_P) & 1);
+  *leadsOff_n = ((register_value >> IOX_GPIO_ECG_LOD_N) & 1);
+  return WT_OK;
+}
+
 // Read the ECG leads-off detection (positive electrode) output bit.
 // Will first read all inputs of the GPIO expander, then extract the desired bit.
-WTResult wt_ecg_iox_read_leadsOff_p(int *value) {
-  return iox_read(IOX_GPIO_ECG_LOD_P, value);
+WTResult ecg_read_leadsOff_p(int* leadsOff_p) {
+  // Read the latest result, and request an asynchronous reading for the next iteration.
+  return iox_read_pin(IOX_GPIO_ECG_LOD_P, leadsOff_p, 0);
 }
 
 // Read the ECG leads-off detection (negative electrode) output bit.
 // Will first read all inputs of the GPIO expander, then extract the desired bit.
-WTResult wt_ecg_iox_read_leadsOff_n(int *value) {
-  return iox_read(IOX_GPIO_ECG_LOD_N, value);
+WTResult ecg_read_leadsOff_n(int* leadsOff_n) {
+  // Read the latest result, and request an asynchronous reading for the next iteration.
+  return iox_read_pin(IOX_GPIO_ECG_LOD_N, leadsOff_n, 0);
 }
 
-// Given a byte of all GPIO expander inputs, extract the ECG leads-off detection bit (positive electrode).
-int wt_ecg_iox_parse_leadsOff_p(uint8_t data) {
-  return (data >> IOX_GPIO_ECG_LOD_P) & 0b00000001;
-}
-
-// Given a byte of all GPIO expander inputs, extract the ECG leads-off detection bit (negative electrode).
-int wt_ecg_iox_parse_leadsOff_n(uint8_t data) {
-  return (data >> IOX_GPIO_ECG_LOD_N) & 0b00000001;
-}

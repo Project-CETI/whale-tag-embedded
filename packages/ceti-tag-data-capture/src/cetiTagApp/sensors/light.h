@@ -35,6 +35,7 @@ int getAmbientLight(int* pAmbientLightVisible, int* pAmbientLightIR);
 void* light_thread(void* paramPtr);
 int light_verify(void);
 int light_wake(void);
+
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------

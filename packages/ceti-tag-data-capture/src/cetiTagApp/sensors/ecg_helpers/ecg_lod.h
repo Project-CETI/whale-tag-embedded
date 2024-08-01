@@ -23,12 +23,10 @@
 // Methods
 //-----------------------------------------------------------------------------
 
-WTResult wt_ecg_iox_init(void);
-
-WTResult wt_ecg_iox_read_leadsOff_p(int *value);
-WTResult wt_ecg_iox_read_leadsOff_n(int *value);
-int wt_ecg_iox_parse_leadsOff_p(uint8_t data);
-int wt_ecg_iox_parse_leadsOff_n(uint8_t data);
+WTResult init_ecg_leadsOff();
+WTResult ecg_read_leadsOff(int* leadsOff_p, int* leadsOff_n);
+WTResult ecg_read_leadsOff_p(int* leadsOff_p);
+WTResult ecg_read_leadsOff_n(int* leadsOff_n);
 
 #endif // __CETI_WHALE_TAG_HAL_ECG_H__
 

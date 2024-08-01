@@ -186,14 +186,13 @@ WTResult wt_recovery_on(void){
  * @return WTResult 
  */
 WTResult wt_recovery_init(void){
-    //initialize iox pins
-    WT_TRY(iox_init());
+    // Initialize iox pins.
 
-    //set 3v3_RF enable, keep recovery off
+    // Set 3v3_RF enable, keep recovery off.
     WT_TRY(iox_set_mode(IOX_GPIO_3V3_RF_EN, IOX_MODE_OUTPUT));
     WT_TRY(wt_recovery_off());
 
-    //set boot0 pin output and pull high
+    // Set boot0 pin output and pull high.
     WT_TRY(iox_set_mode(IOX_GPIO_BOOT0, IOX_MODE_OUTPUT));
     WT_TRY(iox_write(IOX_GPIO_BOOT0, 1));
 

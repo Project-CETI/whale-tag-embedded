@@ -21,7 +21,6 @@ static const char *device_name[] = {
     [WT_DEV_AUDIO] = "Audio",
     [WT_DEV_BMS] = "Battery management system",
     [WT_DEV_ECG_ADC] = "ECG ADC",
-    [WT_DEV_ECG_IOX] = "ECG IO Expander",
     [WT_DEV_IMU] = "IMU",
     [WT_DEV_IOX] = "IO expander",
     [WT_DEV_LIGHT] = "Ambient Light sensor",

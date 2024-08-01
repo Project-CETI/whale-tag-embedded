@@ -16,7 +16,6 @@ typedef enum wt_device_id_e {
     WT_DEV_AUDIO,
     WT_DEV_BMS,
     WT_DEV_ECG_ADC,
-    WT_DEV_ECG_IOX,
     WT_DEV_IMU,
     WT_DEV_IOX,
     WT_DEV_LIGHT,

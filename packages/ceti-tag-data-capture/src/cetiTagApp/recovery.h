@@ -26,7 +26,6 @@
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
-#define ADDR_MAINTAG_IOX 0x38 // NOTE also defined in burnwire.h
 #define GPS_LOCATION_LENGTH (1024)
 #define RCVRY_RP_nEN 0x01       //Recovery board controls
 #define nRCVRY_SWARM_nEN 0x02

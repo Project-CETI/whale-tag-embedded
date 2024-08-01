@@ -54,7 +54,7 @@ int init_ecg_electronics() {
   //   The ADC code will use it to poll the data-ready output,
   //   and this main loop will use it to read the ECG leads-off detection output.
   #if ECG_LOD_ENABLED
-  WTResult lod_result = wt_ecg_iox_init();
+  WTResult lod_result = init_ecg_leadsOff();
   if(lod_result != WT_OK){
     CETI_ERR("%s", wt_strerror(lod_result));
     return -1;
@@ -165,8 +165,10 @@ void* ecg_thread_getData(void* paramPtr)
       #if ECG_LOD_ENABLED
       // Read the GPIO expander for the latest leads-off detection.
       // Assume it's fast enough that the ECG sample timestamp is close enough to this leads-off timestamp.
-      wt_ecg_iox_read_leadsOff_p(&leadsOff_readings_p[ecg_buffer_select_toLog][ecg_buffer_index_toLog]);
-      wt_ecg_iox_read_leadsOff_n(&leadsOff_readings_n[ecg_buffer_select_toLog][ecg_buffer_index_toLog]);
+      ecg_read_leadsOff(
+        &leadsOff_readings_p[ecg_buffer_select_toLog][ecg_buffer_index_toLog],
+        &leadsOff_readings_n[ecg_buffer_select_toLog][ecg_buffer_index_toLog]
+      );
       #endif
       
       // Read the RTC.
