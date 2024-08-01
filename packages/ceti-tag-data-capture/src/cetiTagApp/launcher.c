@@ -255,9 +255,6 @@ int main(void) {
     num_threads_running = 0;
     for (int thread_index = 0; thread_index < num_threads; thread_index++){
       num_threads_running += *threads_running[thread_index];
-      if(*threads_running[thread_index]){
-        CETI_LOG("Waiting on %s thread!!!", thread_name[thread_index]);
-      }
     }
     threads_timeout_reached = get_global_time_us() - wait_for_threads_startTime_us > wait_for_threads_timeout_us;
   }
