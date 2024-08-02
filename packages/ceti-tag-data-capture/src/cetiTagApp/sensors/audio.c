@@ -93,9 +93,10 @@ static bool s_audio_initialized = 0;
 
 
 WTResult wt_audio_init(void) {
+    WT_TRY(iox_init());
     // Initialize 5v enable as ouput and drive high.
     WT_TRY(iox_set_mode(IOX_GPIO_5V_EN, IOX_MODE_OUTPUT));
-    WT_TRY(iox_write(IOX_GPIO_5V_EN, 1));
+    WT_TRY(iox_write_pin(IOX_GPIO_5V_EN, 1));
 
     // Initialize audio overflow pin.
     gpioSetMode(AUDIO_OVERFLOW_GPIO, PI_INPUT);

@@ -19,13 +19,13 @@
 #define ENABLE_AUDIO 1
 #define ENABLE_AUDIO_FLAC 1
 #define ENABLE_ECG 1
+#define ENABLE_ECG_LOD 1
 #define ENABLE_IMU 1
 #define ENABLE_LIGHT_SENSOR 1
 #define ENABLE_PRESSURETEMPERATURE_SENSOR 1
 #define ENABLE_RECOVERY 1
 #define ENABLE_SYSTEMMONITOR 1
 #define ENABLE_BURNWIRE 1
-#define ENABLE_IOX 1
 #define ENABLE_RUNTIME_AUDIO 0
 
 //-----------------------------------------------------------------------------
@@ -109,15 +109,12 @@
 #include "sensors/light.h"
 #endif
 
-#if ENABLE_IOX
-#include "iox.h"
-#endif
-
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
 #include "sensors/pressure_temperature.h"
 #endif
 
 #if ENABLE_ECG
+#include "sensors/ecg_helpers/ecg_lod.h"
 #include "sensors/ecg.h"
 #endif
 
