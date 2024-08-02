@@ -11,8 +11,8 @@
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
-static int latest_register_value = 0;
-static int new_read_requested = 0;
+static uint8_t latest_register_value = 0;
+static WTResult latest_error;
 
 int g_ecg_lod_thread_is_running = 0;
 //-----------------------------------------------------------------------------
@@ -26,15 +26,13 @@ int g_ecg_lod_thread_is_running = 0;
 //   and the IO expander only needs to be queried once.
 void ecg_read_leadsOff(int* leadsOff_p, int* leadsOff_n) {
   // Read the latest result, and request an asynchronous reading for the next iteration.
-  if (latest_register_value < 0) {
+  if (latest_error != WT_OK) {
     *leadsOff_p = -1;
     *leadsOff_n = -1;
   } else {
-    // Extract the desired pins.
     *leadsOff_p = ((latest_register_value >> IOX_GPIO_ECG_LOD_P) & 1);
     *leadsOff_n = ((latest_register_value >> IOX_GPIO_ECG_LOD_N) & 1);
   }
-  new_read_requested = 1;
 }
 
 //-----------------------------------------------------------------------------
@@ -78,21 +76,13 @@ void *ecg_lod_thread(void *paramPtr) {
   while (!g_stopAcquisition) {
     sample_time_us = get_global_time_us();
     // Perform a read operation if one has been requested.
-    if(new_read_requested) {
-      uint8_t value;
-      //the way the ecg code handles hwerrors, it makes sense to just directly call 
-      if(iox_read_register(IOX_REG_INPUT, &value) != WT_OK){
-        latest_register_value = -1;
-      } else {
-        latest_register_value = (int)value;
-      }
-      new_read_requested = 0;
-    }
+    //the way the ecg code handles hwerrors, it makes sense to just directly call 
+    latest_error = iox_read_register(IOX_REG_INPUT, &latest_register_value);
     
     // Wait for the desired polling period.
     long long elapsed_time_us = get_global_time_us() - sample_time_us;
     long long sleep_duration_us = ECG_LOD_READ_POLLING_PERIOD_US - elapsed_time_us;
-    if (sleep_duration_us)
+    if (sleep_duration_us > 0)
       usleep(sleep_duration_us);
   }
   g_ecg_lod_thread_is_running = 0;
