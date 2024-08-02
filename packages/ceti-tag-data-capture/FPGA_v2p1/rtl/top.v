@@ -2,13 +2,16 @@
 //-----------------------------------------------------------------------------
 // Cummings Electronics Labs Inc
 //
-// This is a preliminary sandbox for CETI v2.1 bring up work
+// This is the CETI Tag FPGA design. It has been evolving over time as the tag 
+// design matures. The RTL and any other key files needed to generate a bitstream
+// is pushed to the GitHub repo periodically when changes are made.
 // 
 //	220523 Starting point is v2 Alpha (which is frozen).  Debugging hardware, rapid proto
 // 220524 Adjusted the UCF for new SCLK and MISO pinning for better clock location of the chip per new HW 
 // 220816 Swap TXD and RXD in the UCF to match Recovery Board HW
 // 221102 Start work on i2c power off transmission method. Companion Debian is version 2.1-4
 // 230905 Expose FIFO Overflow (latched version)to Pi HAT GPIO_12
+// 240730 New features for v2.3 tag. i2c word write to support BMS; swap recovery RX/TX
 //
 //-----------------------------------------------------------------------------
 // Additional Information
@@ -20,12 +23,11 @@
 //    label is added to cue the developer to add the code as part of ongoing
 //    refactoring. Try to maintain a format like this so we can easily make reports from the code
 //	        //TODO [file.v: describe what needs to be done]  ...
-//		Periodically scan the entire project for TODO!
+//		Periodically scan the entire project for TODO and continuously improve the design
 //
 // Related Documentation
-//    v2 baseline Verilog code
-//		Schematic diagram for the v2.1 CETI Tag DACQ Board 3071-2304 current revision
-//    High level design document for the Tag 3071-5200
+//		Tag schematic diagrams
+//		Tag high-level design, particularly the CAM opcode definitions
 //    Xilinx Spartan 3 Configuration Guide and other FPGA data books
 //-----------------------------------------------------------------------------
 

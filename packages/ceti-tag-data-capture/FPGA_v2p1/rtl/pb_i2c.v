@@ -10,9 +10,11 @@ module ceti_i2c(
 	input wire clk,
 	
 	// Add types as needed
-	// 0 - Data Write: 3 bytes write, addr, reg, write
+	// 0 - Data Write: 3 bytes write, addr, reg, data
 	// 1 - Data Read:  3 bytes read,  addr, data, data
 	// 2 - Data Read with Repeated Start
+	// 3 - Data Write (word): 4 bytes write, addr, reg, data, data (new for MAX17320)
+	
 	input wire [3:0] type, 
 	
 	input wire start,
@@ -319,7 +321,107 @@ module ceti_i2c(
 				end						
 			endcase 
 		end // 
-	end 
+
+	
+///////////////////////////////////////////////////////////////////////////////////		
+//  Type 3: Write Word Protocol
+//
+//       Address         Register       Data 0	  Data 1 
+// STRT AAA AAAA R/W  ACK DDDDDDDD ACK  DDDDDDDD DDDDDDDD ACK STOP
+//         0xAA   0    0            0                      0   
+//  M   MMM MMMM  M    S  MMMMMMMMM S   MMMMMMMM MMMMMMMM  S   M
+//
+///////////////////////////////////////////////////////////////////////////////	
+		else if ( (start | status) && (type==3) ) begin  
+			case (state) 					
+				0: begin 					
+					status <= 1; 					//message in process!				
+					state <= 1;
+				end
+				
+				1: begin	 // 1st BYTE			//ADDR
+					ack_out <= 0;					//The modifiers
+					add_stop <= 0;					
+					add_rpt_start <= 0;			
+					byte_wr <= i2c_addr;
+					byte_trig <= 1;				//fire off the byte
+					state <= 2;
+				end				
+				2: begin
+					if(byte_status) begin    	//wait until byte engine starts up
+						byte_trig <= 0; 			//rearm trigger
+						state <= 3; 				//and keep going
+					end
+				end				
+				3: begin
+					if(!byte_status) begin		//waiting here
+						state <= 4;   				//until byte engine completes
+					end
+				end
+///////////////////////////////////////////////////////////////////////////////////			
+				4: begin  // 2nd Byte		  				
+					ack_out <= 0;	
+					add_stop <= 0;					
+					add_rpt_start <=0;		
+					byte_wr <= i2c_reg;  
+					byte_trig <= 1;				
+					state <= 5;
+				end				
+				5: begin
+					if (byte_status) begin		
+						byte_trig<=0;
+						state<=6;
+					end
+				end
+				6: begin
+					if(!byte_status) begin	
+						state <= 7;   				
+					end
+				end					
+///////////////////////////////////////////////////////////////////////////////////
+				7: begin  // 3rd byte		   //				
+					ack_out <= 0;					//
+					add_stop <= 0;					//
+					add_rpt_start <=0;
+					byte_wr <= i2c_wr_data0;								
+					byte_trig <= 1;				
+					state <= 8;
+				end				
+				8: begin
+					if (byte_status) begin		
+						byte_trig<=0;
+						state<=9;
+					end	
+				end
+				9: begin
+					if(!byte_status) begin	
+						state <= 10;				  		
+					end
+				end
+///////////////////////////////////////////////////////////////////////////////////
+				10: begin  // 4th byte		   //				
+					ack_out <= 0;					//
+					add_stop <= 1;					//STOP
+					add_rpt_start <=0;
+					byte_wr <= i2c_wr_data1;								
+					byte_trig <= 1;				
+					state <= 11;
+				end				
+				11: begin
+					if (byte_status) begin		
+						byte_trig<=0;
+						state<=12;
+					end	
+				end
+				12: begin
+					if(!byte_status) begin	
+						state <= 0;				  			 //reset this state machine
+						status <= 0;			  			 //and...exit 
+					end
+				end			
+			endcase 
+		end // 
+	end
 
 //-----------------------------------------------------------------------------	
 // Polymorphic I2C Byte Engine Instance 
