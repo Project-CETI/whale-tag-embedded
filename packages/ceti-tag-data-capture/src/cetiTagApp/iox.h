@@ -22,8 +22,6 @@
 #define IOX_GPIO_ECG_LOD_N  (6)
 #define IOX_GPIO_ECG_LOD_P  (7)
 
-#define IOX_READ_POLLING_PERIOD_US 1000
-
 // === Type Definitions =======================================================
 typedef enum {
     IOX_MODE_OUTPUT = 0,

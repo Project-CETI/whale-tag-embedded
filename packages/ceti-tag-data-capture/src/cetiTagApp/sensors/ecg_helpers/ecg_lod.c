@@ -74,7 +74,9 @@ void *ecg_lod_thread(void *paramPtr) {
   // Main loop while application is running.
   CETI_LOG("Starting loop to read data in background");
   g_ecg_lod_thread_is_running = 1;
+  long long sample_time_us;
   while (!g_stopAcquisition) {
+    sample_time_us = get_global_time_us();
     // Perform a read operation if one has been requested.
     if(new_read_requested) {
       uint8_t value;
@@ -86,8 +88,12 @@ void *ecg_lod_thread(void *paramPtr) {
       }
       new_read_requested = 0;
     }
+    
     // Wait for the desired polling period.
-    usleep(IOX_READ_POLLING_PERIOD_US);
+    long long elapsed_time_us = get_global_time_us() - sample_time_us;
+    long long sleep_duration_us = ECG_LOD_READ_POLLING_PERIOD_US - elapsed_time_us;
+    if (sleep_duration_us)
+      usleep(sleep_duration_us);
   }
   g_ecg_lod_thread_is_running = 0;
   CETI_LOG("Done!");
