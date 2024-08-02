@@ -3,6 +3,10 @@
 # New for 2.1-4 release  11/5/22
 # Supervisor script for the Tag application
 
+# MRC changes for v2.3
+#  - changed power down method for new BMS device 
+#  - modified battery cutoff thresholds to be consistent with new BMS 
+
 #handle SIGTERM from systemctl
 _term() {
   echo "stopping cetiTagApp"
@@ -76,11 +80,11 @@ do
 
   echo "cell voltages are $v1 $v2"
 
-# If either cell is less than 3.10 V:
+# If either cell is less than 3.20 V:
 #    - stop data acquisition to gracefully exit the thread loops and close files
 
-  check1=$( echo "$v1 < 3.10" | bc )
-  check2=$( echo "$v2 < 3.10" | bc )
+  check1=$( echo "$v1 < 3.20" | bc )
+  check2=$( echo "$v2 < 3.20" | bc )
 
   if [ "$check1" -gt 0 ] || [ "$check2" -gt 0 ] 
   then
@@ -94,18 +98,24 @@ do
       echo "battery is OK"
   fi
 
-# If either cell is less than 3.00 V:
+# If either cell is less than 3.10 V:
 #    -signal the FPGA to disable charging and discharging
 #    -schedule Pi shutdown
 
-  check1=$( echo "$v1 < 3.00" | bc )
-  check2=$( echo "$v2 < 3.00" | bc )
+  check1=$( echo "$v1 < 3.10" | bc )
+  check2=$( echo "$v2 < 3.10" | bc )
 
   if [ "$check1" -gt 0 ] || [ "$check2" -gt 0 ] 
   then
     echo "low battery cell detected; powering down the Pi now!"
     echo s > /proc/sysrq-trigger
-    echo "powerdown" > cetiCommand
+
+#  Original BMS DS2778    
+#    echo "powerdown" > cetiCommand
+
+#  New BMS MAX17320
+    echo "pwrdwn_17320"  > cetiCommand
+    
     cat cetiResponse
     echo u > /proc/sysrq-trigger
     shutdown -P +1

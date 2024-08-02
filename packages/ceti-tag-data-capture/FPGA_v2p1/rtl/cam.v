@@ -19,8 +19,8 @@
 // 2.2-5 6/26/23 EXPERIMENTAL connect DRDY from ECG to GPIO_6 only will work on
 // 		v2.2 hardware
 
-`define VER_MAJ 8'h22    //Serial revision, for hardware v2.2
-`define VER_MIN 8'h01    //Serial revision, minor.  01 is the ECG DRDY experiment
+`define VER_MAJ 8'h23    //Serial revision, for hardware v2.3
+`define VER_MIN 8'h00    //Serial revision, minor. 00 is baseline 240730 
 
 
 
@@ -101,7 +101,7 @@ module cam(
 	reg [3:0] adc_ctl_state=0; //ADC control FSM
 	reg [3:0] i2c_state = 0;  // i2c FSM 
 	
-	reg [4:0] shutdown_timer = 0;  //counts from 1 sec tick, 30 second hold off
+	reg [4:0] shutdown_timer = 0;  //counts from 1 sec tick, hold off for removing power from Pi
 
 	always @ (posedge clk) begin	
 			
@@ -414,10 +414,61 @@ module cam(
 										
 									end
 									
-								13:	state <=5;  //Reserved									
-								14:	state <=5;  //Reserved
+								13:	begin //Word write for MAX17320	
+											type_i2c <= 3;  
+											case (i2c_state)
+												0: begin
+															start_pb_i2c <= 1; //starts the transaction
+															i2c_state <= 1;
+													end
+																										
+												1: begin								 // wait for start
+														if (status_pb_i2c) begin
+															start_pb_i2c <= 0; //rearm
+															i2c_state <= 2;
+														end
+													end
+															
+												2: begin								// wait for finish
+														if (!status_pb_i2c) begin
+															i2c_state <=0;
+															state <=5;														
+														end
+													end
+											endcase 																				
+										end
+
 								
-								15:	begin 		//System Power Down
+								14:	begin  //System Power Down MAX17320 (new BMS)
+
+											type_i2c <= 3;  
+											case (i2c_state)
+												0: begin
+														if(shutdown_timer > 30 ) begin
+															start_pb_i2c <= 1; //starts the transaction
+															i2c_state <= 1;
+														end
+														else if (!power_down_flag && sec_tick)  //short delay after power down flag 
+																shutdown_timer <= shutdown_timer + 1;
+													end
+													
+												1: begin								 // wait for start
+														if (status_pb_i2c) begin
+															start_pb_i2c <= 0; //rearm
+															i2c_state <= 2;
+														end
+													end
+															
+												2: begin								// wait for finish
+														if (!status_pb_i2c) begin
+															i2c_state <=0;
+															state <=5;														
+														end
+													end
+											endcase 																				
+										end
+								
+								15:	begin 		//System Power Down DS277x (original BMS) 
 
 											type_i2c <= 0;  
 											case (i2c_state)
