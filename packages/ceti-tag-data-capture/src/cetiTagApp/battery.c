@@ -29,7 +29,9 @@ static const char* battery_data_file_headers[] = {
   "Battery V2 [V]",
   "Battery I [mA]",
   "Battery T1 [C]",
-  "Battery T2 [C]"
+  "Battery T2 [C]",
+  "Status",
+  "Protection Alerts",
   };
 static const int num_battery_data_file_headers = sizeof(battery_data_file_headers)/sizeof(*battery_data_file_headers);
 CetiBatterySample *g_battery = NULL;
@@ -88,17 +90,110 @@ int init_battery() {
 //-----------------------------------------------------------------------------
 // Main thread
 //-----------------------------------------------------------------------------
+
+// PA | POR | dSOCi | Imn | Imx | Vmn | Vmx | Tmn | Tmx | Smn | Smx
+static char status_string[72] = "";
+static const char *__status_to_str(uint16_t raw) {
+    static uint16_t previous_status = 0;
+    char* flags [11] = {};
+    int flag_count = 0;
+
+    // mask do not care bits
+    raw &= 0xF7C6;
+
+    //don't do work we don't have to do
+    if (raw == previous_status) {
+      return status_string;
+    }
+
+    // check if no flags
+    if (raw == 0) {
+      status_string[0] = '\0';
+      previous_status = 0;
+      return status_string;
+    }
+
+    if(_RSHIFT(raw, 15, 1)) flags[flag_count++] = "PA";
+    if(_RSHIFT(raw, 1, 1)) flags[flag_count++] = "POR";
+    if(_RSHIFT(raw, 7, 1)) flags[flag_count++] = "dSOCi";
+    if(_RSHIFT(raw, 2, 1)) flags[flag_count++] = "Imn";
+    if(_RSHIFT(raw, 6, 1)) flags[flag_count++] = "Imx";
+    if(_RSHIFT(raw, 8, 1)) flags[flag_count++] = "Vmn";
+    if(_RSHIFT(raw, 12, 1)) flags[flag_count++] = "Vmx";
+    if(_RSHIFT(raw, 9, 1)) flags[flag_count++] = "Tmn";
+    if(_RSHIFT(raw, 13, 1)) flags[flag_count++] = "Tmx";
+    if(_RSHIFT(raw, 10, 1)) flags[flag_count++] = "Smn";
+    if(_RSHIFT(raw, 14, 1)) flags[flag_count++] = "Smx";
+
+    // generate string
+    for(int j = 0; j < flag_count; j++){
+        if (j != 0) {
+            strncat(status_string, " | ", sizeof(status_string)-1);
+        }
+        strncat(status_string, flags[j], sizeof(status_string)-1);
+    }
+    previous_status = raw;
+
+    return status_string;
+}
+
+// ChgWDT | TooHotC | Full | TooColdC | OVP | OCCP | Qovflw | PrepF | Imbalance | PermFail | DieHot | TooHotD | UVP | ODCP | ResDFault | LDet
+static char protAlrt_string[160] = "";
+static const char *__protAlrt_to_str(uint16_t raw) {
+    static uint16_t previous_protAlrt = 0;
+    char* flags [16] = {};
+    int flag_count = 0;
+
+    //don't do work we don't have to do
+    if (raw == previous_protAlrt) {
+      return protAlrt_string;
+    }
+
+    // check if no flags
+    if (raw == 0) {
+      protAlrt_string[0] = '\0';
+      previous_protAlrt = 0;
+      return protAlrt_string;
+    }
+
+    if(_RSHIFT(raw, 15, 1)) flags[flag_count++] = "ChgWDT";
+    if(_RSHIFT(raw, 14, 1)) flags[flag_count++] = "TooHotC";
+    if(_RSHIFT(raw, 13, 1)) flags[flag_count++] = "Full";
+    if(_RSHIFT(raw, 12, 1)) flags[flag_count++] = "TooColdC";
+    if(_RSHIFT(raw, 11, 1)) flags[flag_count++] = "OVP";
+    if(_RSHIFT(raw, 10, 1)) flags[flag_count++] = "OCCP";
+    if(_RSHIFT(raw, 9, 1)) flags[flag_count++] = "Qovflw";
+    if(_RSHIFT(raw, 8, 1)) flags[flag_count++] = "PrepF";
+    if(_RSHIFT(raw, 7, 1)) flags[flag_count++] = "Imbalance";
+    if(_RSHIFT(raw, 6, 1)) flags[flag_count++] = "PermFail";
+    if(_RSHIFT(raw, 5, 1)) flags[flag_count++] = "DieHot";
+    if(_RSHIFT(raw, 4, 1)) flags[flag_count++] = "TooHotD";
+    if(_RSHIFT(raw, 3, 1)) flags[flag_count++] = "UVP";
+    if(_RSHIFT(raw, 2, 1)) flags[flag_count++] = "ODCP";
+    if(_RSHIFT(raw, 1, 1)) flags[flag_count++] = "ResDFault";
+    if(_RSHIFT(raw, 0, 1)) flags[flag_count++] = "LDet";
+
+    // generate string
+    for(int j = 0; j < flag_count; j++){
+        if (j != 0) {
+            strncat(protAlrt_string, " | ", sizeof(protAlrt_string)-1);
+        }
+        strncat(protAlrt_string, flags[j], sizeof(protAlrt_string)-1);
+    }
+    previous_protAlrt = raw;
+
+    return protAlrt_string;
+}
+
 void battery_update_sample(void) {
     // create sample 
     g_battery->sys_time_us = get_global_time_us();
     g_battery->rtc_time_s = getRtcCount();
     g_battery->error = getBatteryData(&g_battery->cell_voltage_v[0], &g_battery->cell_voltage_v[1], &g_battery->current_mA);
-    if(!g_battery->error) {
-      g_battery->error = max17320_get_cell_temperature_c(0, &g_battery->cell_temperature_c[0]);
-    }
-    if(!g_battery->error) {
-      g_battery->error = max17320_get_cell_temperature_c(1, &g_battery->cell_temperature_c[1]);
-    }
+    if(!g_battery->error) g_battery->error = max17320_get_cell_temperature_c(0, &g_battery->cell_temperature_c[0]);
+    if(!g_battery->error) g_battery->error = max17320_get_cell_temperature_c(1, &g_battery->cell_temperature_c[1]);
+    if(!g_battery->error) g_battery->error = max17320_read(MAX17320_REG_STATUS, &g_battery->status);
+    if(!g_battery->error) g_battery->error = max17320_read(MAX17320_REG_PROTALRT, &g_battery->protection_alert);
 
     // push semaphore to indicate to user applications that new data is available
     sem_post(s_battery_data_ready);
@@ -129,6 +224,9 @@ void battery_sample_to_csv(FILE *fp, CetiBatterySample *pSample){
       fprintf(fp, ",%.3f", pSample->current_mA);
       fprintf(fp, ",%.3f", pSample->cell_temperature_c[0]);
       fprintf(fp, ",%.3f", pSample->cell_temperature_c[1]);
+      fprintf(fp, ",%s", __status_to_str(pSample->status));
+      fprintf(fp, ",%s", __protAlrt_to_str(pSample->protection_alert));
+
       // Finish the row of data and close the file.
       fprintf(fp, "\n");
 }
