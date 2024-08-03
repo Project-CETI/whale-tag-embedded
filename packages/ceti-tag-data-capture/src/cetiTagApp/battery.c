@@ -106,13 +106,16 @@ static const char *__status_to_str(uint16_t raw) {
       return status_string;
     }
 
+    //clear old string
+    status_string[0] = '\0';
+
     // check if no flags
     if (raw == 0) {
-      status_string[0] = '\0';
       previous_status = 0;
       return status_string;
     }
 
+    //detect flags
     if(_RSHIFT(raw, 15, 1)) flags[flag_count++] = "PA";
     if(_RSHIFT(raw, 1, 1)) flags[flag_count++] = "POR";
     if(_RSHIFT(raw, 7, 1)) flags[flag_count++] = "dSOCi";
@@ -149,9 +152,11 @@ static const char *__protAlrt_to_str(uint16_t raw) {
       return protAlrt_string;
     }
 
+    //clear old string
+    protAlrt_string[0] = '\0';
+
     // check if no flags
     if (raw == 0) {
-      protAlrt_string[0] = '\0';
       previous_protAlrt = 0;
       return protAlrt_string;
     }
