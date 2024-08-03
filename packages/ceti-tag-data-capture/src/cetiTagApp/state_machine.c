@@ -331,7 +331,7 @@ int updateStateMachine() {
         }
 
         #if ENABLE_BATTERY_GAUGE
-        if ((g_battery->cell_voltage_v[0] + g_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
+        if ((shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
             CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
             stateMachine_set_state(ST_BRN_ON);
             break;
@@ -369,7 +369,7 @@ int updateStateMachine() {
 
         // Turn on the burnwire if the battery voltage is low.
         #if ENABLE_BATTERY_GAUGE
-        if ((g_battery->cell_voltage_v[0] + g_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
+        if ((shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
             CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
             stateMachine_set_state(ST_BRN_ON);
             break;
@@ -395,7 +395,7 @@ int updateStateMachine() {
 
         // Turn on the burnwire if the battery voltage is low.
         #if ENABLE_BATTERY_GAUGE
-        if ((g_battery->cell_voltage_v[0] + g_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
+        if ((shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
             CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
             stateMachine_set_state(ST_BRN_ON);
             break;
@@ -416,7 +416,7 @@ int updateStateMachine() {
     case (ST_BRN_ON):
         // Shutdown if the battery is too low.
         #if ENABLE_BATTERY_GAUGE
-        if(g_battery->cell_voltage_v[0] + g_battery->cell_voltage_v[1] < g_config.critical_voltage_v) {
+        if(shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v) {
             stateMachine_set_state(ST_SHUTDOWN);// critical battery
             break;
         }
@@ -437,7 +437,7 @@ int updateStateMachine() {
     case (ST_RETRIEVE):
         #if ENABLE_BATTERY_GAUGE
         // critical battery
-        if (g_battery->cell_voltage_v[0] + g_battery->cell_voltage_v[1] < g_config.critical_voltage_v) {
+        if (shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v) {
             stateMachine_set_state(ST_SHUTDOWN);
             break;
         }

@@ -5,9 +5,13 @@
 // Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto,
 //              Michael Salino-Hugg, [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
-// === Private Local Headers ===
 #include "battery.h"
-#include "cetiTag.h"
+
+// === Private Local Headers ===
+#include "launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
+#include "max17320.h"
+#include "systemMonitor.h" // for the global CPU assignment variable to update
+#include "utils/logging.h"
 #include "utils/memory.h"
  
 // === Private System Libraries ===
@@ -34,13 +38,11 @@ static const char* battery_data_file_headers[] = {
   "Protection Alerts",
   };
 static const int num_battery_data_file_headers = sizeof(battery_data_file_headers)/sizeof(*battery_data_file_headers);
-CetiBatterySample *g_battery = NULL;
-static sem_t* s_battery_data_ready;
+CetiBatterySample *shm_battery = NULL;
+static sem_t* sem_battery_data_ready;
 static int charging_disabled, discharging_disabled;
 // Store global versions of the latest readings since the state machine will use them.
-#if MAX17320 == 1
-  MAX17320_HandleTypeDef dev;
-#endif
+MAX17320_HandleTypeDef dev;
 
 
 
@@ -48,52 +50,45 @@ static int charging_disabled, discharging_disabled;
 // Initialization
 //-----------------------------------------------------------------------------
 int init_battery() {
-  
-  #if MAX17320 == 1
     int ret = max17320_init(&dev);  
     if (ret < 0){
       CETI_ERR("Failed to connect to MAX17320 Fuel Gauge");
       return ret;
     }
-    #else
+ 
+    // Open an output file to write data.
+    CETI_LOG("Successfully initialized the battery gauge");
+    if(init_data_file(battery_data_file, BATTERY_DATA_FILEPATH,
+                      battery_data_file_headers,  num_battery_data_file_headers,
+                      battery_data_file_notes, "init_battery()") < 0)
+        return -1;
 
-    int fd;
-    if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
-      CETI_ERR("Failed to connect to the battery gauge");
-      return (-1);
+    //setup shared memory
+    shm_battery = create_shared_memory_region(BATTERY_SHM_NAME, sizeof(CetiBatterySample));
+
+    //setup semaphore
+    sem_battery_data_ready = sem_open(BATTERY_SEM_NAME, O_CREAT, 0644, 0);
+    if(sem_battery_data_ready == SEM_FAILED){
+        perror("sem_open");
+        CETI_ERR("Failed to create semaphore");
+        return -1;
     }
-    else {
-      i2cWriteByteData(fd,BATT_CTL,BATT_CTL_VAL); //establish undervoltage cutoff
-      i2cWriteByteData(fd,BATT_OVER_VOLTAGE,BATT_OV_VAL); //establish undervoltage cutoff
-    }
-  #endif  
-  // Open an output file to write data.
-  CETI_LOG("Successfully initialized the battery gauge");
-  if(init_data_file(battery_data_file, BATTERY_DATA_FILEPATH,
-                    battery_data_file_headers,  num_battery_data_file_headers,
-                    battery_data_file_notes, "init_battery()") < 0)
-    return -1;
-
-  //setup shared memory
-  g_battery = create_shared_memory_region(BATTERY_SHM_NAME, sizeof(CetiBatterySample));
-
-  //setup semaphore
-  s_battery_data_ready = sem_open(BATTERY_SEM_NAME, O_CREAT, 0644, 0);
-  if(s_battery_data_ready == SEM_FAILED){
-    perror("sem_open");
-    CETI_ERR("Failed to create semaphore");
-    return -1;
-  }
-  return 0;
+    return 0;
 }
 
 //-----------------------------------------------------------------------------
 // Main thread
 //-----------------------------------------------------------------------------
 
-// PA | POR | dSOCi | Imn | Imx | Vmn | Vmx | Tmn | Tmx | Smn | Smx
-static char status_string[72] = "";
+/**
+ * @brief converts the raw value of the BMS status register to a human
+ * readable string.
+ * 
+ * @param raw raw status register value.
+ * @return const char*
+ */
 static const char *__status_to_str(uint16_t raw) {
+    static char status_string[72] = ""; //max string length is 65
     static uint16_t previous_status = 0;
     char* flags [11] = {};
     int flag_count = 0;
@@ -140,9 +135,15 @@ static const char *__status_to_str(uint16_t raw) {
     return status_string;
 }
 
-// ChgWDT | TooHotC | Full | TooColdC | OVP | OCCP | Qovflw | PrepF | Imbalance | PermFail | DieHot | TooHotD | UVP | ODCP | ResDFault | LDet
-static char protAlrt_string[160] = "";
+/**
+ * @brief converts the raw value of the BMS protAlert register to a human
+ * readable string.
+ * 
+ * @param raw raw protAlert register value.
+ * @return const char*
+ */
 static const char *__protAlrt_to_str(uint16_t raw) {
+    static char protAlrt_string[160] = "";
     static uint16_t previous_protAlrt = 0;
     char* flags [16] = {};
     int flag_count = 0;
@@ -190,20 +191,30 @@ static const char *__protAlrt_to_str(uint16_t raw) {
     return protAlrt_string;
 }
 
+/**
+ * @brief update the latest battery sample in shared memory.
+ */
 void battery_update_sample(void) {
     // create sample 
-    g_battery->sys_time_us = get_global_time_us();
-    g_battery->rtc_time_s = getRtcCount();
-    g_battery->error = getBatteryData(&g_battery->cell_voltage_v[0], &g_battery->cell_voltage_v[1], &g_battery->current_mA);
-    if(!g_battery->error) g_battery->error = max17320_get_cell_temperature_c(0, &g_battery->cell_temperature_c[0]);
-    if(!g_battery->error) g_battery->error = max17320_get_cell_temperature_c(1, &g_battery->cell_temperature_c[1]);
-    if(!g_battery->error) g_battery->error = max17320_read(MAX17320_REG_STATUS, &g_battery->status);
-    if(!g_battery->error) g_battery->error = max17320_read(MAX17320_REG_PROTALRT, &g_battery->protection_alert);
+    shm_battery->sys_time_us = get_global_time_us();
+    shm_battery->rtc_time_s = getRtcCount();
+    shm_battery->error = getBatteryData(&shm_battery->cell_voltage_v[0], &shm_battery->cell_voltage_v[1], &shm_battery->current_mA);
+    if(!shm_battery->error) shm_battery->error = max17320_get_cell_temperature_c(0, &shm_battery->cell_temperature_c[0]);
+    if(!shm_battery->error) shm_battery->error = max17320_get_cell_temperature_c(1, &shm_battery->cell_temperature_c[1]);
+    if(!shm_battery->error) shm_battery->error = max17320_read(MAX17320_REG_STATUS, &shm_battery->status);
+    if(!shm_battery->error) shm_battery->error = max17320_read(MAX17320_REG_PROTALRT, &shm_battery->protection_alert);
 
     // push semaphore to indicate to user applications that new data is available
-    sem_post(s_battery_data_ready);
+    sem_post(sem_battery_data_ready);
 }
 
+/**
+ * @brief Converts a battery sample to human readable csv format and saves it
+ *     to a file.
+ * 
+ * @param fp pointer to the destination csv file
+ * @param pSample pointer to battery sample
+ */
 void battery_sample_to_csv(FILE *fp, CetiBatterySample *pSample){
       if (pSample->error != WT_OK) {
         strcat(battery_data_file_notes, "ERROR | ");
@@ -236,6 +247,17 @@ void battery_sample_to_csv(FILE *fp, CetiBatterySample *pSample){
       fprintf(fp, "\n");
 }
 
+/**
+ * @brief This thread handles many things related to the battery:
+ * (1) It acquires a battery sample from the BMS every second.
+ * (2) It checks if all cell temperatures are within an acceptable temperature
+ * range and disables charge/discharge FETs accordingly.
+ * (3) It converts all battery samples to human readable format and saves them
+ * to disk.
+ * 
+ * @param paramPtr unused
+ * @return void* always NULL
+ */
 void* battery_thread(void* paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_battery_thread_tid = gettid();
@@ -263,19 +285,19 @@ void* battery_thread(void* paramPtr) {
 
     // ******************   Battery Temperature Checks *************************
     for(int i_cell = 0; i_cell < 2; i_cell++){
-        if( (g_battery->cell_temperature_c[i_cell] > MAX_CHARGE_TEMP) ||  (g_battery->cell_temperature_c[i_cell] < MIN_CHARGE_TEMP) ) {          
+        if( (shm_battery->cell_temperature_c[i_cell] > MAX_CHARGE_TEMP) ||  (shm_battery->cell_temperature_c[i_cell] < MIN_CHARGE_TEMP) ) {          
             if (!charging_disabled){  
               disableCharging();
               charging_disabled = 1;
-              CETI_WARN("Battery charging disabled, cell %d outside thermal limits: %.3f C", i_cell + 1, g_battery->cell_temperature_c[i_cell]);
+              CETI_WARN("Battery charging disabled, cell %d outside thermal limits: %.3f C", i_cell + 1, shm_battery->cell_temperature_c[i_cell]);
             }
         }
 
-        if( (g_battery->cell_temperature_c[i_cell] > MAX_DISCHARGE_TEMP) ) {
+        if( (shm_battery->cell_temperature_c[i_cell] > MAX_DISCHARGE_TEMP) ) {
             if (!discharging_disabled){  
               disableDischarging();
               discharging_disabled = 1;
-              CETI_WARN("Battery discharging disabled, cell %d outside thermal limit: %.3f C", i_cell + 1, g_battery->cell_temperature_c[i_cell]);
+              CETI_WARN("Battery discharging disabled, cell %d outside thermal limit: %.3f C", i_cell + 1, shm_battery->cell_temperature_c[i_cell]);
             }     
         }
     }
@@ -291,18 +313,20 @@ void* battery_thread(void* paramPtr) {
       if(battery_data_file == NULL) {
         CETI_WARN("failed to open data output file: %s", BATTERY_DATA_FILEPATH);
       } else {
-        battery_sample_to_csv(battery_data_file, g_battery);
+        battery_sample_to_csv(battery_data_file, shm_battery);
         fclose(battery_data_file);
       }
 
       // Delay to implement a desired sampling rate.
       // Take into account the time it took to acquire/save data.
       polling_sleep_duration_us = BATTERY_SAMPLING_PERIOD_US;
-      polling_sleep_duration_us -= get_global_time_us() - g_battery->sys_time_us;
+      polling_sleep_duration_us -= get_global_time_us() - shm_battery->sys_time_us;
       if(polling_sleep_duration_us > 0)
         usleep(polling_sleep_duration_us);
 
     }
+    sem_close(sem_battery_data_ready);
+    munmap(shm_battery, sizeof(CetiBatterySample));
     g_battery_thread_is_running = 0;
     CETI_LOG("Done!");
     return NULL;
@@ -311,185 +335,40 @@ void* battery_thread(void* paramPtr) {
 //-----------------------------------------------------------------------------
 // Battery gauge interface
 //-----------------------------------------------------------------------------
-int getBatteryData(double* battery_v1_v, double* battery_v2_v,
-                   double* battery_i_mA) {
-    #if MAX17320 == 1
-      int ret = max17320_get_voltages(&dev);
-      if (battery_v1_v != NULL)
-        *battery_v1_v = dev.cell_1_voltage;
-      if (battery_v2_v != NULL)
-        *battery_v2_v = dev.cell_2_voltage;
-      ret |= max17320_get_battery_current(&dev);
-      if (battery_i_mA != NULL)
-        *battery_i_mA = dev.battery_current;
-      return ret;
-    #else
-      int fd, result;
-      signed short voltage, current;
-
-      if ((fd = i2cOpen(1, ADDR_BATT_GAUGE, 0)) < 0) {
-          CETI_ERR("Failed to connect to the fuel gauge");
-          return (-1);
-      }
-
-      result = i2cReadByteData(fd, BATT_CELL_1_V_MS);
-      voltage = result << 3;
-      result = i2cReadByteData(fd, BATT_CELL_1_V_LS);
-      voltage = (voltage | (result >> 5));
-      voltage = (voltage | (result >> 5));
-      if (battery_v1_v != NULL)
-        *battery_v1_v = 4.883e-3 * voltage;
-
-      result = i2cReadByteData(fd, BATT_CELL_2_V_MS);
-      voltage = result << 3;
-      result = i2cReadByteData(fd, BATT_CELL_2_V_LS);
-      voltage = (voltage | (result >> 5));
-      voltage = (voltage | (result >> 5));
-      if (battery_v2_v != NULL)
-        *battery_v2_v = 4.883e-3 * voltage;
-
-      result = i2cReadByteData(fd, BATT_I_MS);
-      current = result << 8;
-      result = i2cReadByteData(fd, BATT_I_LS);
-      current = current | result;
-      if (battery_i_mA != NULL)
-        *battery_i_mA = 1000 * current * (1.5625e-6 / BATT_R_SENSE);
-
-      i2cClose(fd);
-      return (0);
-    #endif
+int getBatteryData(double* battery_v1_v, double* battery_v2_v, double* battery_i_mA) {
+    int ret = max17320_get_voltages(&dev);
+    if (battery_v1_v != NULL)
+      *battery_v1_v = dev.cell_1_voltage;
+    if (battery_v2_v != NULL)
+      *battery_v2_v = dev.cell_2_voltage;
+    ret |= max17320_get_battery_current(&dev);
+    if (battery_i_mA != NULL)
+      *battery_i_mA = dev.battery_current;
+    return ret;
 }
 
 //-----------------------------------------------------------------------------
 // Charge and Discharge Enabling
 //-----------------------------------------------------------------------------
 int enableCharging(void) {
-  #if MAX17320 == 1
     int ret = max17320_enable_charging(&dev);
     return ret;
-  #else
-    int fd, temp;
-    if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
-      CETI_LOG("Failed to connect to the BMS IC on I2C");
-      return (-1);
-    }
-    else {
-      if ( (temp = i2cReadByteData(fd,BATT_PROTECT))  >= 0 ) {
-        if ( (i2cWriteByteData(fd,BATT_PROTECT, (temp | CE))) == 0  ) { 
-          CETI_LOG("I2C write succeeded, enabled charging");
-          i2cClose(fd);
-          return(0);
-        }
-        else {
-          CETI_LOG("I2C write to BMS register failed");
-          i2cClose(fd);
-          return(-1);        
-        }
-      }
-      else {
-        CETI_LOG("Failed to read BMS register");
-        i2cClose(fd);
-        return(-1);
-      }
-    }
-  #endif
 }
 
 int disableCharging(void) {
-  #if MAX17320 == 1
     int ret = max17320_disable_charging(&dev);
     return ret;
-  #else
-    int fd, temp;
-    if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
-      CETI_LOG("Failed to connect to the BMS IC on I2C");
-      return (-1);
-    }
-    else {
-      if ( (temp = i2cReadByteData(fd,BATT_PROTECT))  >= 0 ) {
-        if ( (i2cWriteByteData(fd,BATT_PROTECT, (temp & ~CE))) == 0  ) { 
-          CETI_LOG("I2C write succeeded, disabled charging");
-          i2cClose(fd);
-          return(0);
-        }
-        else {
-          CETI_LOG("I2C write to BMS register failed");
-          i2cClose(fd);
-          return(-1);        
-        }
-      }
-      else {
-        CETI_LOG("Failed to read BMS register");
-        i2cClose(fd);
-        return(-1);
-      }
-    }
-  #endif
 }
 
 
 int enableDischarging(void) {
-  #if MAX17320 == 1
     int ret = max17320_enable_discharging(&dev);
     return ret;
-  #else
-    int fd, temp;
-    if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
-      CETI_LOG("Failed to connect to the BMS IC on I2C");
-      return (-1);
-    }
-    else {
-      if ( (temp = i2cReadByteData(fd,BATT_PROTECT))  >= 0 ) {
-        if ( (i2cWriteByteData(fd,BATT_PROTECT, (temp | DE))) == 0  ) { 
-          CETI_LOG("I2C write succeeded, enabled discharging");
-          i2cClose(fd);
-          return(0);
-        }
-        else {
-          CETI_LOG("I2C write to BMS register failed");
-          i2cClose(fd);
-          return(-1);        
-        }
-      }
-      else {
-        CETI_LOG("Failed to read BMS register");
-        i2cClose(fd);
-        return(-1);
-      }
-    }
-  #endif
 }
 
 int disableDischarging(void) {
-  #if MAX17320 == 1
     int ret = max17320_disable_discharging(&dev);
     return ret;
-  #else
-    int fd, temp;
-    if((fd=i2cOpen(1,ADDR_BATT_GAUGE,0)) < 0) {
-      CETI_LOG("Failed to connect to the BMS IC on I2C");
-      return (-1);
-    }
-    else {
-      if ( (temp = i2cReadByteData(fd,BATT_PROTECT))  >= 0 ) {
-        if ( (i2cWriteByteData(fd,BATT_PROTECT, (temp & ~DE))) == 0  ) { 
-          CETI_LOG("I2C write succeeded, disabled discharging");
-          i2cClose(fd);
-          return(0);
-        }
-        else {
-          CETI_LOG("I2C write to BMS register failed");
-          i2cClose(fd);
-          return(-1);        
-        }
-      }
-      else {
-        CETI_LOG("Failed to read BMS register");
-        i2cClose(fd);
-        return(-1);
-      }
-    }
-  #endif
 }
 
 int resetBattTempFlags(void) {
