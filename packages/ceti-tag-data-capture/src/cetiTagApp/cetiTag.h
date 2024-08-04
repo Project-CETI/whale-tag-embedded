@@ -14,7 +14,7 @@
 
 #define AUDIO_SHM_NAME "/audio_shm"
 #define AUDIO_BLOCK_SEM_NAME "/audio_block_sem"
-#define AUDIO_HALF_FULL_SEM_NAME "/audio_half_full_sem"
+#define AUDIO_PAGE_SEM_NAME "/audio_page_sem"
 
 #define BATTERY_SHM_NAME "/battery_shm"
 #define BATTERY_SEM_NAME "/battery_sem"
@@ -34,6 +34,35 @@
 #define PRESSURE_SHM_NAME "/pressure_shm"
 #define PRESSURE_SEM_NAME "/pressure_sem"
 
+//-----------------------------------------------------------------------------
+// Definitions/Configurations
+//-----------------------------------------------------------------------------
+//  - SPI block HWM * 32 bytes = 8192 bytes (25% of the hardware FIFO in this example)
+//  - Sampling rate 96000 Hz
+//  - 6 bytes per sample set (3 channels, 16 bits per channel)
+// N.B. Make NUM_SPI_BLOCKS an integer multiple of 3 for alignment
+// reasons
+// SPI Block Size
+#define HWM (512)                 // High Water Mark from Verilog code - these are 32 byte chunks (2 sample sets)
+#define SPI_BLOCK_SIZE (HWM * 32) // make SPI block size <= HWM * 32 otherwise may underflow
+
+// divisable by SPI_BLOCK_SIZE (512*32) = 8192,
+// and divisble by 16-bit sample size (3*2) = 6 bytes per 3 channel sample;
+// and divisible by 24-bit sample size (3*3) = 9 byte per 3 channel sample;
+// and divisible by 16-bit 4 channel = 8
+// and divisible by 24-bit 4 channel = 12
+#define AUDIO_LCM_BYTES (147456)
+
+#define AUDIO_CHANNELS (3)
+//multiple of AUDIO_LCM_BYTES closest to 75 seconds @ 16-bit, 96kSPS, (14401536)
+#define AUDIO_BUFFER_SIZE_BYTES_PER_CHANNEL (14401536)
+#define AUDIO_BUFFER_SIZE_BYTES (AUDIO_CHANNELS*AUDIO_BUFFER_SIZE_BYTES_PER_CHANNEL)
+#define AUDIO_BUFFER_SIZE_BLOCKS (AUDIO_BUFFER_SIZE_BYTES/SPI_BLOCK_SIZE)
+#define AUDIO_BUFFER_SIZE_SAMPLE16 (AUDIO_BUFFER_SIZE_BYTES/ (sizeof(int16_t)*AUDIO_CHANNELS))
+#define AUDIO_BUFFER_SIZE_SAMPLE24 (AUDIO_BUFFER_SIZE_BYTES/ (3*AUDIO_CHANNELS))
+#define AUDIO_BLOCK_FILL_SPEED_US(sample_rate, bit_depth) (SPI_BLOCK_SIZE * 1000000.0/(AUDIO_CHANNELS * (sample_rate) * ((bit_depth)/ 8)))
+#define AUDIO_PAGE_FILL_SPEED_US(sample_rate, bit_depth)  (AUDIO_BUFFER_SIZE_BYTES * 1000000.0/(AUDIO_CHANNELS * (sample_rate) * ((bit_depth)/ 8)))
+
 #define BATTERY_SAMPLING_PERIOD_US    1000000
 #define LIGHT_SAMPLING_PERIOD_US      1000000
 #define PRESSURE_SAMPLING_PERIOD_US   1000000
@@ -42,8 +71,20 @@
 
 //buffered data (high speed)
 // ToDo: ECG
-// ToDo: AUIDO
 
+//-----------------------------------------------------------------------------
+// Type Definitions
+//-----------------------------------------------------------------------------
+typedef struct {
+    int page; // which buffer will be populated with new incoming data
+    int block; // which block will be populated with new incoming data
+    union {
+        uint8_t raw[AUDIO_BUFFER_SIZE_BYTES];
+        char    blocks[AUDIO_BUFFER_SIZE_BLOCKS][SPI_BLOCK_SIZE];
+        uint8_t sample16[AUDIO_BUFFER_SIZE_SAMPLE16][AUDIO_CHANNELS][2];
+        uint8_t sample24[AUDIO_BUFFER_SIZE_SAMPLE24][AUDIO_CHANNELS][3];
+    }data[2];
+} CetiAudioBuffer;
 
 typedef struct {
     int32_t error;
@@ -92,7 +133,6 @@ typedef struct {
     int16_t z;
     int16_t accuracy;
 } CetiImuAccelSample;
-
 
 typedef struct {
     int64_t sys_time_us;
