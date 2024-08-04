@@ -28,7 +28,7 @@ void *create_shared_memory_region(const char *name, size_t size) {
   }
 
   // size to sample size
-  if (ftruncate(shm_fd, size != 0)){
+  if (ftruncate(shm_fd, size)){
     perror("shm_fd");
     CETI_ERR("Failed to resize shared memory");
     return NULL;
