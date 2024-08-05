@@ -137,7 +137,7 @@ int main(void) {
   pthread_create(&thread_ids[num_threads], NULL, &ecg_lod_thread, NULL);
   threads_running[num_threads] = &g_ecg_lod_thread_is_running;
 #ifdef DEBUG
-  strcpy(thread_name[num_threads], "iox");
+  strcpy(thread_name[num_threads], "ecg_lod");
 #endif //DEBUG
   num_threads++;
 #endif //ENABLE_ECG_LOD
@@ -364,7 +364,7 @@ int init_tag() {
 
 #if ENABLE_ECG
 #if ENABLE_ECG_LOD
-  result += ecg_lod_init() == 0 ? 0 : -1; //only used by ecg
+  result += ecg_lod_init() == 0 ? 0 : -1;
 #endif
   result += init_ecg() == 0 ? 0 : -1;
 #endif

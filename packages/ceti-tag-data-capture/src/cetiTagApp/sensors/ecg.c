@@ -7,7 +7,7 @@
 //-----------------------------------------------------------------------------
 
 #include "ecg.h"
-#include "ecg_helpers/ecg_lod.h"
+
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
@@ -134,7 +134,7 @@ void* ecg_thread_getData(void* paramPtr)
   long consecutive_zero_ecg_count = 0;
   long instantaneous_sampling_period_us = 0;
   int first_sample = 1;
-  int is_invalid = 0;
+  int should_reinitialize = 0;
   long long start_time_ms = get_global_time_ms();
   while(!g_stopAcquisition)
   {
@@ -154,7 +154,7 @@ void* ecg_thread_getData(void* paramPtr)
       #if ENABLE_ECG_LOD
       // Read the GPIO expander for the latest leads-off detection.
       // Assume it's fast enough that the ECG sample timestamp is close enough to this leads-off timestamp.
-      ecg_read_leadsOff(
+      ecg_get_latest_leadsOff_detections(
         &leadsOff_readings_p[ecg_buffer_select_toLog][ecg_buffer_index_toLog],
         &leadsOff_readings_n[ecg_buffer_select_toLog][ecg_buffer_index_toLog]
       );
@@ -175,7 +175,7 @@ void* ecg_thread_getData(void* paramPtr)
       // So also check if the ADC returned exactly 0 many times in a row.
       if(ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_INVALID_PLACEHOLDER)
       {
-        is_invalid = 1;
+        should_reinitialize = 1;
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "ADC ERROR | ");
         CETI_DEBUG("XXX ADC encountered an error");
       }
@@ -185,7 +185,7 @@ void* ecg_thread_getData(void* paramPtr)
         consecutive_zero_ecg_count = 0;
       if(consecutive_zero_ecg_count > ECG_ZEROCOUNT_THRESHOLD)
       {
-        is_invalid = 1;
+        should_reinitialize = 1;
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "ADC ZEROS | ");
         CETI_DEBUG("ADC returned %ld zero readings in a row", consecutive_zero_ecg_count);
       }
@@ -195,23 +195,23 @@ void* ecg_thread_getData(void* paramPtr)
       if(leadsOff_readings_p[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_LEADSOFF_INVALID_PLACEHOLDER
          || leadsOff_readings_n[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_LEADSOFF_INVALID_PLACEHOLDER)
       {
-        is_invalid = 1;
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "LO ERROR | ");
-        CETI_LOG("XXX The GPIO expander encountered an error");
+        // Note that should_reinitialize is not set to 1 here since the leads-off detection uses separate hardware.
+        //   Errors for the relevant hardware will be handled in the LOD thread.
       }
       #endif
 
       // Check if it took longer than expected to receive the sample (from the ADC and the GPIO expander combined).
       if(instantaneous_sampling_period_us > ECG_SAMPLE_TIMEOUT_US && !first_sample)
       {
-        is_invalid = 1;
+        should_reinitialize = 1;
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "TIMEOUT | ");
         CETI_DEBUG("XXX Reading a sample took %ld us", instantaneous_sampling_period_us);
       }
       first_sample = 0;
       // If the ADC or the GPIO expander had an error,
       //  wait a bit and then try to reconnect to them.
-      if(is_invalid && !g_stopAcquisition)
+      if(should_reinitialize && !g_stopAcquisition)
       {
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "INVALID? | ");
         usleep(1000000);
@@ -219,7 +219,7 @@ void* ecg_thread_getData(void* paramPtr)
         usleep(10000);
         consecutive_zero_ecg_count = 0;
         first_sample = 1;
-        is_invalid = 0;
+        should_reinitialize = 0;
       }
 
       // Advance the buffer index.
@@ -333,7 +333,7 @@ void* ecg_thread_writeData(void* paramPtr)
         fprintf(ecg_data_file, ",%d", leadsOff_readings_p[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
         fprintf(ecg_data_file, ",%d", leadsOff_readings_n[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
         #else
-        fprintf(ecg_data_file, ", , ");
+        fprintf(ecg_data_file, ",,");
         #endif
         // Finish the row of data.
         fprintf(ecg_data_file, "\n");

@@ -19,7 +19,7 @@
 #define ENABLE_AUDIO 1
 #define ENABLE_AUDIO_FLAC 1
 #define ENABLE_ECG 1
-#define ENABLE_ECG_LOD 1
+#define ENABLE_ECG_LOD 1 // will be implicitly disabled if ENABLE_ECG is 0
 #define ENABLE_IMU 1
 #define ENABLE_LIGHT_SENSOR 1
 #define ENABLE_PRESSURETEMPERATURE_SENSOR 1
@@ -49,13 +49,13 @@
 #define AUDIO_WRITEDATA_CPU 0
 #define ECG_GETDATA_CPU 2
 #define ECG_WRITEDATA_CPU 1
+#define ECG_LOD_CPU 1
 #define BATTERY_CPU 1
 #define IMU_CPU 1
 #define LIGHT_CPU 1
 #define PRESSURETEMPERATURE_CPU 1
 #define RECOVERY_CPU 1
 #define RTC_CPU 1
-#define IOX_CPU 1
 #define COMMAND_CPU 0
 #define STATEMACHINE_CPU 0
 #define SYSTEMMONITOR_CPU 0
@@ -114,9 +114,12 @@
 #endif
 
 #if ENABLE_ECG
-#include "sensors/ecg_helpers/ecg_lod.h"
 #include "sensors/ecg.h"
+#if ENABLE_ECG_LOD
+#include "sensors/ecg_helpers/ecg_lod.h"
 #endif
+#endif
+
 
 // Include this regardless of ENABLE_SYSTEMMONITOR
 //  since the launcher will use its helpers to check disk usage.
