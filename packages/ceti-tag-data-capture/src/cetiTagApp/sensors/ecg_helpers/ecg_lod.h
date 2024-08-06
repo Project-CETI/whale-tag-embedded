@@ -2,7 +2,8 @@
 // Project:      CETI Tag Electronics
 // Version:      Refer to _versioning.h
 // Copyright:    Cummings Electronics Labs, Harvard University Wood Lab, MIT CSAIL
-// Contributors: Joseph DelPreto [TODO: Add other contributors here]
+// Contributors: Joseph DelPreto, Michael Salino-Hugg,
+//     [TODO: Add other contributors here]
 // Description:  Interfacing with the PCA9674 GPIO expander
 //-----------------------------------------------------------------------------
 
@@ -13,20 +14,35 @@
 // Includes
 //-----------------------------------------------------------------------------
 #include "../../utils/error.h"  // for WTResult
+#include "../../iox.h"
+
+#include "../../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
+#include "../../systemMonitor.h" // for the global CPU assignment variable to update
+#include "../../utils/timing.h"  // for get_global_time_us
+
 #include <stdint.h>             // for uint8_t
+#include <pthread.h>
+#include <unistd.h> // for usleep()
 
 // ------------------------------------------
 // Definitions/Configuration
 // ------------------------------------------
+#define ECG_LOD_READ_POLLING_PERIOD_US 1000
+#define ECG_LEADSOFF_INVALID_PLACEHOLDER ((int)(-1)) // Only expect 0 or 1
+
+//-----------------------------------------------------------------------------
+// Global variables
+//-----------------------------------------------------------------------------
+extern int g_ecg_lod_thread_is_running;
 
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
+void ecg_get_latest_leadsOff_detections(int* leadsOff_p, int* leadsOff_n);
 
-WTResult init_ecg_leadsOff();
-WTResult ecg_read_leadsOff(int* leadsOff_p, int* leadsOff_n);
-WTResult ecg_read_leadsOff_p(int* leadsOff_p);
-WTResult ecg_read_leadsOff_n(int* leadsOff_n);
+// Threading methods
+int ecg_lod_init(void);
+void* ecg_lod_thread(void* paramPtr);
 
 #endif // __CETI_WHALE_TAG_HAL_ECG_H__
 

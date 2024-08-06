@@ -39,7 +39,7 @@ int g_battery_thread_tid = -1;
 int g_recovery_thread_tid = -1;
 int g_command_thread_tid = -1;
 int g_rtc_thread_tid = -1;
-int g_iox_thread_tid = -1;
+int g_ecg_lod_thread_tid = -1;
 int g_stateMachine_thread_tid = -1;
 // Writing data to a log file.
 static FILE* systemMonitor_data_file = NULL;
@@ -48,7 +48,7 @@ static const char* systemMonitor_data_file_headers[] = {
   "CPU all [%]", "CPU 0 [%]", "CPU 1 [%]", "CPU 2 [%]", "CPU 3 [%]",
   "Audio SPI CPU", "Audio Write CPU", "ECG GetData CPU", "ECG WriteData CPU",
   "IMU CPU", "Light CPU", "PressureTemp CPU",
-  "Bat CPU", "Recovery CPU", "FSM CPU", "Commands CPU", "RTC CPU", "IOX CPU",
+  "Bat CPU", "Recovery CPU", "FSM CPU", "Commands CPU", "RTC CPU", "ECG LOD CPU",
   "SysMonitor CPU",
   "RAM Free [B]", "RAM Free [%]",
   "Swap Free [B]", "Swap Free [%]",
@@ -136,7 +136,7 @@ void* systemMonitor_thread(void* paramPtr) {
         CETI_LOG(" %6d: stateMachine_thread", g_stateMachine_thread_tid);
         CETI_LOG(" %6d: command_thread", g_command_thread_tid);
         CETI_LOG(" %6d: rtc_thread", g_rtc_thread_tid);
-        CETI_LOG(" %6d: iox_thread", g_iox_thread_tid);
+        CETI_LOG(" %6d: ecg_lod_thread", g_ecg_lod_thread_tid);
         CETI_LOG(" %6d: systemMonitor_thread", g_systemMonitor_thread_tid);
         CETI_LOG("......");
         last_tid_print_time_us = get_global_time_us();
@@ -181,7 +181,7 @@ void* systemMonitor_thread(void* paramPtr) {
           fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_stateMachine_thread_tid));
           fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_command_thread_tid));
           fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_rtc_thread_tid));
-          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_iox_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_ecg_lod_thread_tid));
           fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_systemMonitor_thread_tid));
           fprintf(systemMonitor_data_file, ",%lld", ram_free);
           fprintf(systemMonitor_data_file, ",%0.2f", 100.0*((double)ram_free)/((double)ram_total));

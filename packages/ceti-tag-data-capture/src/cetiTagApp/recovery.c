@@ -8,9 +8,15 @@
 #include "recovery.h"
 
 #include "iox.h"
+#include "launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
+#include "systemMonitor.h" // for the global CPU assignment variable to update
 #include "utils/error.h"
+#include "utils/logging.h"
 
-#include <unistd.h> //for usleep()
+#include <pigpio.h>
+#include <pthread.h> // to set CPU affinity
+#include <string.h> // for memset() and other string functions
+#include <unistd.h> // for usleep()
 
 //-----------------------------------------------------------------------------
 // Initialization
@@ -168,7 +174,7 @@ static struct {
  * @return WTResult 
  */
 WTResult wt_recovery_off(void){ 
-    return iox_write(IOX_GPIO_3V3_RF_EN, 0);
+    return iox_write_pin(IOX_GPIO_3V3_RF_EN, 0);
 }
 
 /**
@@ -177,7 +183,7 @@ WTResult wt_recovery_off(void){
  * @return WTResult 
  */
 WTResult wt_recovery_on(void){ 
-    return iox_write(IOX_GPIO_3V3_RF_EN, 1);
+    return iox_write_pin(IOX_GPIO_3V3_RF_EN, 1);
 }
 
 /**
@@ -187,14 +193,15 @@ WTResult wt_recovery_on(void){
  */
 WTResult wt_recovery_init(void){
     // Initialize iox pins.
-
+    WT_TRY(iox_init());
+    
     // Set 3v3_RF enable, keep recovery off.
     WT_TRY(iox_set_mode(IOX_GPIO_3V3_RF_EN, IOX_MODE_OUTPUT));
     WT_TRY(wt_recovery_off());
 
     // Set boot0 pin output and pull high.
     WT_TRY(iox_set_mode(IOX_GPIO_BOOT0, IOX_MODE_OUTPUT));
-    WT_TRY(iox_write(IOX_GPIO_BOOT0, 1));
+    WT_TRY(iox_write_pin(IOX_GPIO_BOOT0, 1));
 
     return WT_OK;
 }
@@ -218,14 +225,14 @@ WTResult wt_recovery_restart(void){
  */
 WTResult wt_recovery_enter_bootloader(void){
     //pull boot0 low
-    WT_TRY(iox_write(IOX_GPIO_BOOT0, 0));
+    WT_TRY(iox_write_pin(IOX_GPIO_BOOT0, 0));
 
     //toggle power
     WT_TRY(wt_recovery_restart());
 
     //let system boot in boot loader mode
     usleep(1000);
-    return iox_write(IOX_GPIO_BOOT0, 1);
+    return iox_write_pin(IOX_GPIO_BOOT0, 1);
 }
 
 

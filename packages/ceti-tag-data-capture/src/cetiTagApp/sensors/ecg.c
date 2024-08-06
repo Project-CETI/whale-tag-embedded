@@ -7,7 +7,7 @@
 //-----------------------------------------------------------------------------
 
 #include "ecg.h"
-#include "ecg_helpers/ecg_lod.h"
+
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
@@ -31,7 +31,7 @@ static int ecg_buffer_index_toLog = 0;
 static long long global_times_us[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static int rtc_counts[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static long ecg_readings[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
-#if ECG_LOD_ENABLED
+#if ENABLE_ECG_LOD
 static int leadsOff_readings_p[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static int leadsOff_readings_n[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 #endif
@@ -50,17 +50,6 @@ int init_ecg() {
 }
 
 int init_ecg_electronics() {
-  // Set up the GPIO expander.
-  //   The ADC code will use it to poll the data-ready output,
-  //   and this main loop will use it to read the ECG leads-off detection output.
-  #if ECG_LOD_ENABLED
-  WTResult lod_result = init_ecg_leadsOff();
-  if(lod_result != WT_OK){
-    CETI_ERR("%s", wt_strerror(lod_result));
-    return -1;
-  }
-  #endif
-
   // Set up and configure the ADC.
   if(ecg_adc_setup(ECG_I2C_BUS) < 0)
     return -1;
@@ -145,7 +134,7 @@ void* ecg_thread_getData(void* paramPtr)
   long consecutive_zero_ecg_count = 0;
   long instantaneous_sampling_period_us = 0;
   int first_sample = 1;
-  int is_invalid = 0;
+  int should_reinitialize = 0;
   long long start_time_ms = get_global_time_ms();
   while(!g_stopAcquisition)
   {
@@ -162,10 +151,10 @@ void* ecg_thread_getData(void* paramPtr)
       instantaneous_sampling_period_us = global_times_us[ecg_buffer_select_toLog][ecg_buffer_index_toLog] - prev_ecg_adc_latest_reading_global_time_us;
       prev_ecg_adc_latest_reading_global_time_us = global_times_us[ecg_buffer_select_toLog][ecg_buffer_index_toLog];
 
-      #if ECG_LOD_ENABLED
+      #if ENABLE_ECG_LOD
       // Read the GPIO expander for the latest leads-off detection.
       // Assume it's fast enough that the ECG sample timestamp is close enough to this leads-off timestamp.
-      ecg_read_leadsOff(
+      ecg_get_latest_leadsOff_detections(
         &leadsOff_readings_p[ecg_buffer_select_toLog][ecg_buffer_index_toLog],
         &leadsOff_readings_n[ecg_buffer_select_toLog][ecg_buffer_index_toLog]
       );
@@ -186,7 +175,7 @@ void* ecg_thread_getData(void* paramPtr)
       // So also check if the ADC returned exactly 0 many times in a row.
       if(ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_INVALID_PLACEHOLDER)
       {
-        is_invalid = 1;
+        should_reinitialize = 1;
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "ADC ERROR | ");
         CETI_DEBUG("XXX ADC encountered an error");
       }
@@ -196,33 +185,33 @@ void* ecg_thread_getData(void* paramPtr)
         consecutive_zero_ecg_count = 0;
       if(consecutive_zero_ecg_count > ECG_ZEROCOUNT_THRESHOLD)
       {
-        is_invalid = 1;
+        should_reinitialize = 1;
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "ADC ZEROS | ");
         CETI_DEBUG("ADC returned %ld zero readings in a row", consecutive_zero_ecg_count);
       }
 
-      #if ECG_LOD_ENABLED
+      #if ENABLE_ECG_LOD
       // Check if there was an error communicating with the GPIO expander.
       if(leadsOff_readings_p[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_LEADSOFF_INVALID_PLACEHOLDER
          || leadsOff_readings_n[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_LEADSOFF_INVALID_PLACEHOLDER)
       {
-        is_invalid = 1;
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "LO ERROR | ");
-        CETI_LOG("XXX The GPIO expander encountered an error");
+        // Note that should_reinitialize is not set to 1 here since the leads-off detection uses separate hardware.
+        //   Errors for the relevant hardware will be handled in the LOD thread.
       }
       #endif
 
       // Check if it took longer than expected to receive the sample (from the ADC and the GPIO expander combined).
       if(instantaneous_sampling_period_us > ECG_SAMPLE_TIMEOUT_US && !first_sample)
       {
-        is_invalid = 1;
+        should_reinitialize = 1;
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "TIMEOUT | ");
         CETI_DEBUG("XXX Reading a sample took %ld us", instantaneous_sampling_period_us);
       }
       first_sample = 0;
       // If the ADC or the GPIO expander had an error,
       //  wait a bit and then try to reconnect to them.
-      if(is_invalid && !g_stopAcquisition)
+      if(should_reinitialize && !g_stopAcquisition)
       {
         strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "INVALID? | ");
         usleep(1000000);
@@ -230,7 +219,7 @@ void* ecg_thread_getData(void* paramPtr)
         usleep(10000);
         consecutive_zero_ecg_count = 0;
         first_sample = 1;
-        is_invalid = 0;
+        should_reinitialize = 0;
       }
 
       // Advance the buffer index.
@@ -340,11 +329,11 @@ void* ecg_thread_writeData(void* paramPtr)
         // Write the sensor data.
         fprintf(ecg_data_file, ",%lld", sample_indexes[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
         fprintf(ecg_data_file, ",%ld", ecg_readings[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
-        #if ECG_LOD_ENABLED
+        #if ENABLE_ECG_LOD
         fprintf(ecg_data_file, ",%d", leadsOff_readings_p[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
         fprintf(ecg_data_file, ",%d", leadsOff_readings_n[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
         #else
-        fprintf(ecg_data_file, ", , ");
+        fprintf(ecg_data_file, ",,");
         #endif
         // Finish the row of data.
         fprintf(ecg_data_file, "\n");
