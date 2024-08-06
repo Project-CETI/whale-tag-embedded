@@ -155,102 +155,107 @@ void *ecg_thread_getData(void *paramPtr) {
     int should_reinitialize = 0;
     long long start_time_ms = get_global_time_ms();
     while (!g_stopAcquisition) {
-        // Request an update of the ECG data, then see if new data was received yet.
-        //  The new data may be read immediately by this call after waiting for data to be ready,
-        //  or nothing may happen if waiting for an interrupt callback to be triggered.
-        ecg_adc_update_data(&g_stopAcquisition, ECG_SAMPLE_TIMEOUT_US);
-        if (g_ecg_adc_latest_reading_global_time_us != prev_ecg_adc_latest_reading_global_time_us) {
-            // Store the new data sample and its timestamp.
-            shm_ecg->ecg_readings[shm_ecg->page][shm_ecg->sample] = g_ecg_adc_latest_reading;
-            shm_ecg->sys_time_us[shm_ecg->page][shm_ecg->sample] = g_ecg_adc_latest_reading_global_time_us;
-            // Update the previous timestamp, for checking whether new data is available.
-            instantaneous_sampling_period_us = shm_ecg->sys_time_us[shm_ecg->page][shm_ecg->sample] - prev_ecg_adc_latest_reading_global_time_us;
-            prev_ecg_adc_latest_reading_global_time_us = shm_ecg->sys_time_us[shm_ecg->page][shm_ecg->sample];
-
-#if ENABLE_ECG_LOD
-            // Read the GPIO expander for the latest leads-off detection.
-            // Assume it's fast enough that the ECG sample timestamp is close enough to this leads-off timestamp.
-            ecg_get_latest_leadsOff_detections(
-                &shm_ecg->leadsOff_readings_p[shm_ecg->page][shm_ecg->sample],
-                &shm_ecg->leadsOff_readings_n[shm_ecg->page][shm_ecg->sample]);
-#endif
-
-            // Read the RTC.
-            shm_ecg->rtc_time_s[shm_ecg->page][shm_ecg->sample] = getRtcCount();
-
-            // Update indexes.
-            shm_ecg->sample_indexes[shm_ecg->page][shm_ecg->sample] = sample_index;
-            sample_index++;
-
-            // Check if there was an error reading from the ADC.
-            // Note that the sample will already be set to ECG_INVALID_PLACEHOLDER
-            //  if there was an explicit I2C error communicating with the ADC.
-            // But if the ECG board is not connected, then the ADC will seemingly
-            //  always have data ready and always return 0.
-            // So also check if the ADC returned exactly 0 many times in a row.
-            if (shm_ecg->ecg_readings[shm_ecg->page][shm_ecg->sample] == ECG_INVALID_PLACEHOLDER) {
-                should_reinitialize = 1;
-                strcat(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "ADC ERROR | ");
-                CETI_DEBUG("XXX ADC encountered an error");
-            }
-            if (shm_ecg->ecg_readings[shm_ecg->page][shm_ecg->sample] == 0)
-                consecutive_zero_ecg_count++;
-            else
-                consecutive_zero_ecg_count = 0;
-            if (consecutive_zero_ecg_count > ECG_ZEROCOUNT_THRESHOLD) {
-                should_reinitialize = 1;
-                strcat(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "ADC ZEROS | ");
-                CETI_DEBUG("ADC returned %ld zero readings in a row", consecutive_zero_ecg_count);
-            }
-
-#if ENABLE_ECG_LOD
-            // Check if there was an error communicating with the GPIO expander.
-            if (shm_ecg->leadsOff_readings_p[shm_ecg->page][shm_ecg->sample] == ECG_LEADSOFF_INVALID_PLACEHOLDER || shm_ecg->leadsOff_readings_n[shm_ecg->page][shm_ecg->sample] == ECG_LEADSOFF_INVALID_PLACEHOLDER) {
-                strcat(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "LO ERROR | ");
-                // Note that should_reinitialize is not set to 1 here since the leads-off detection uses separate hardware.
-                //   Errors for the relevant hardware will be handled in the LOD thread.
-            }
-#endif
-
-            // Check if it took longer than expected to receive the sample (from the ADC and the GPIO expander combined).
-            if (instantaneous_sampling_period_us > ECG_SAMPLE_TIMEOUT_US && !first_sample) {
-                should_reinitialize = 1;
-                strcat(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "TIMEOUT | ");
-                CETI_DEBUG("XXX Reading a sample took %ld us", instantaneous_sampling_period_us);
-            }
-            first_sample = 0;
-            // If the ADC or the GPIO expander had an error,
-            //  wait a bit and then try to reconnect to them.
-            if (should_reinitialize && !g_stopAcquisition) {
-                strcat(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "INVALID? | ");
-                usleep(1000000);
-                init_ecg_electronics();
-                usleep(10000);
-                consecutive_zero_ecg_count = 0;
-                first_sample = 1;
-                should_reinitialize = 0;
-            }
-
-            // Advance the buffer index.
-            // If the buffer has filled, switch to the other buffer
-            //   (this will also trigger the writeData thread to write the previous buffer to a file).
-            shm_ecg->sample++;
-            if (shm_ecg->sample == ECG_BUFFER_LENGTH) {
-                shm_ecg->sample = 0;
-                shm_ecg->page++;
-                shm_ecg->page %= ECG_NUM_BUFFERS;
-                sem_post(sem_ecg_page);
-            }
-            sem_post(sem_ecg_sample);
-
-            // Clear the next notes.
-            strcpy(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "");
+        //wait for data to be ready
+        if(ecg_adc_read_data_ready() != 0){
+            //don't worry about sleeping;
+            // usleep(100);
+            //ToDo: does not implement timeout check like non-sleepy code
+            continue;// continue used to guarentee outer loop exit conditions are checked and respected
         }
 
-        // Note that there is no delay to implement a desired sampling rate,
-        //  since the rate will be set by the ADC configuration.
-    }
+        // Store the new data sample and its timestamp.
+        shm_ecg->ecg_readings[shm_ecg->page][shm_ecg->sample] = ecg_adc_raw_read_data();
+        shm_ecg->sys_time_us[shm_ecg->page][shm_ecg->sample] = get_global_time_us();
+      
+        // Update the previous timestamp, for checking whether new data is available.
+        instantaneous_sampling_period_us = shm_ecg->sys_time_us[shm_ecg->page][shm_ecg->sample] - prev_ecg_adc_latest_reading_global_time_us;
+        prev_ecg_adc_latest_reading_global_time_us = shm_ecg->sys_time_us[shm_ecg->page][shm_ecg->sample];
 
+#if ENABLE_ECG_LOD
+        // Read the GPIO expander for the latest leads-off detection.
+        // Assume it's fast enough that the ECG sample timestamp is close enough to this leads-off timestamp.
+        ecg_get_latest_leadsOff_detections(
+            &shm_ecg->leadsOff_readings_p[shm_ecg->page][shm_ecg->sample],
+            &shm_ecg->leadsOff_readings_n[shm_ecg->page][shm_ecg->sample]);
+#endif
+
+        // Read the RTC.
+        shm_ecg->rtc_time_s[shm_ecg->page][shm_ecg->sample] = getRtcCount();
+
+        // Update indexes.
+        shm_ecg->sample_indexes[shm_ecg->page][shm_ecg->sample] = sample_index;
+        sample_index++;
+
+        // Check if there was an error reading from the ADC.
+        // Note that the sample will already be set to ECG_INVALID_PLACEHOLDER
+        //  if there was an explicit I2C error communicating with the ADC.
+        // But if the ECG board is not connected, then the ADC will seemingly
+        //  always have data ready and always return 0.
+        // So also check if the ADC returned exactly 0 many times in a row.
+        if (shm_ecg->ecg_readings[shm_ecg->page][shm_ecg->sample] == ECG_INVALID_PLACEHOLDER) {
+            should_reinitialize = 1;
+            strcat(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "ADC ERROR | ");
+            CETI_DEBUG("XXX ADC encountered an error");
+        }
+        if (shm_ecg->ecg_readings[shm_ecg->page][shm_ecg->sample] == 0)
+            consecutive_zero_ecg_count++;
+        else
+            consecutive_zero_ecg_count = 0;
+        if (consecutive_zero_ecg_count > ECG_ZEROCOUNT_THRESHOLD) {
+            should_reinitialize = 1;
+            strcat(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "ADC ZEROS | ");
+            CETI_DEBUG("ADC returned %ld zero readings in a row", consecutive_zero_ecg_count);
+        }
+
+#if ENABLE_ECG_LOD
+        // Check if there was an error communicating with the GPIO expander.
+        if (shm_ecg->leadsOff_readings_p[shm_ecg->page][shm_ecg->sample] == ECG_LEADSOFF_INVALID_PLACEHOLDER || shm_ecg->leadsOff_readings_n[shm_ecg->page][shm_ecg->sample] == ECG_LEADSOFF_INVALID_PLACEHOLDER) {
+            strcat(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "LO ERROR | ");
+            // Note that should_reinitialize is not set to 1 here since the leads-off detection uses separate hardware.
+            //   Errors for the relevant hardware will be handled in the LOD thread.
+        }
+#endif
+
+        // Check if it took longer than expected to receive the sample (from the ADC and the GPIO expander combined).
+        if (instantaneous_sampling_period_us > ECG_SAMPLE_TIMEOUT_US && !first_sample) {
+            should_reinitialize = 1;
+            strcat(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "TIMEOUT | ");
+            CETI_DEBUG("XXX Reading a sample took %ld us", instantaneous_sampling_period_us);
+        }
+        first_sample = 0;
+        // If the ADC or the GPIO expander had an error,
+        //  wait a bit and then try to reconnect to them.
+        if (should_reinitialize && !g_stopAcquisition) {
+            strcat(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "INVALID? | ");
+            usleep(1000000);
+            init_ecg_electronics();
+            usleep(10000);
+            consecutive_zero_ecg_count = 0;
+            first_sample = 1;
+            should_reinitialize = 0;
+        }
+
+        // Advance the buffer index.
+        // If the buffer has filled, switch to the other buffer
+        //   (this will also trigger the writeData thread to write the previous buffer to a file).
+        shm_ecg->sample++;
+        if (shm_ecg->sample == ECG_BUFFER_LENGTH) {
+            shm_ecg->sample = 0;
+            shm_ecg->page++;
+            shm_ecg->page %= ECG_NUM_BUFFERS;
+            sem_post(sem_ecg_page);
+        }
+        sem_post(sem_ecg_sample);
+
+        // Clear the next notes.
+        strcpy(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "");
+
+        // // sleep duration shortened to 75% of sample interval to ensure ADC config still dictates sampling interval
+        int64_t elapsed_time = (get_global_time_us() - prev_ecg_adc_latest_reading_global_time_us);
+        if((ECG_SAMPLING_PERIOD_US * 75 / 100  - elapsed_time) > 0) {
+            usleep(ECG_SAMPLING_PERIOD_US * 75 / 100  - elapsed_time);
+        }
+    }
     // Print the duration and the sampling rate.
     long long duration_ms = get_global_time_ms() - start_time_ms;
     CETI_LOG("Average rate %0.2f Hz (%lld samples in %lld ms)",
