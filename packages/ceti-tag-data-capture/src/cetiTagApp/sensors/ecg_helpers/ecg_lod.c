@@ -6,20 +6,28 @@
 //               [TODO: Add other contributors here]
 // Description:  Interfacing with the PCA9674 GPIO expander
 //-----------------------------------------------------------------------------
-
-#include "../../iox.h"
-#include "../../utils/error.h"
+#include "ecg_lod.h"
 
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
+static uint8_t latest_iox_register_value = 0;
+static WTResult latest_iox_status;
 
-WTResult init_ecg_leadsOff() {
+int g_ecg_lod_thread_is_running = 0;
+
+int ecg_lod_init(void) {
+    latest_iox_status = iox_init();
     // Initialize I2C/GPIO functionality for the IO expander.
-    WT_TRY(iox_set_mode(IOX_GPIO_ECG_LOD_N, IOX_MODE_INPUT));
-    WT_TRY(iox_set_mode(IOX_GPIO_ECG_LOD_P, IOX_MODE_INPUT));
-    
-    return WT_OK;
+    if (latest_iox_status == WT_OK) latest_iox_status = iox_set_mode(IOX_GPIO_ECG_LOD_P, IOX_MODE_INPUT);
+    if (latest_iox_status == WT_OK) latest_iox_status = iox_set_mode(IOX_GPIO_ECG_LOD_N, IOX_MODE_INPUT);
+
+    if (latest_iox_status != WT_OK){
+        CETI_ERR("Failed to initialize ECG leads-off detection: %s", wt_strerror(latest_iox_status));
+        return -1;
+    }
+    CETI_LOG("Successfully initialized ECG leads-off detection");
+    return 0;
 }
 
 //-----------------------------------------------------------------------------
@@ -31,27 +39,63 @@ WTResult init_ecg_leadsOff() {
 // Will use a single IO expander reading, so
 //   both detections are effectively sampled simultaneously
 //   and the IO expander only needs to be queried once.
-WTResult ecg_read_leadsOff(int* leadsOff_p, int* leadsOff_n) {
+void ecg_get_latest_leadsOff_detections(int* leadsOff_p, int* leadsOff_n) {
   // Read the latest result, and request an asynchronous reading for the next iteration.
-  uint8_t register_value = 0;
-  iox_read_register(&register_value, 0);
-  // Extract the desired pins.
-  *leadsOff_p = ((register_value >> IOX_GPIO_ECG_LOD_P) & 1);
-  *leadsOff_n = ((register_value >> IOX_GPIO_ECG_LOD_N) & 1);
-  return WT_OK;
+  if (latest_iox_status != WT_OK) {
+    *leadsOff_p = ECG_LEADSOFF_INVALID_PLACEHOLDER;
+    *leadsOff_n = ECG_LEADSOFF_INVALID_PLACEHOLDER;
+  } else {
+    *leadsOff_p = ((latest_iox_register_value >> IOX_GPIO_ECG_LOD_P) & 1);
+    *leadsOff_n = ((latest_iox_register_value >> IOX_GPIO_ECG_LOD_N) & 1);
+  }
 }
 
-// Read the ECG leads-off detection (positive electrode) output bit.
-// Will first read all inputs of the GPIO expander, then extract the desired bit.
-WTResult ecg_read_leadsOff_p(int* leadsOff_p) {
-  // Read the latest result, and request an asynchronous reading for the next iteration.
-  return iox_read_pin(IOX_GPIO_ECG_LOD_P, leadsOff_p, 0);
-}
+//-----------------------------------------------------------------------------
+// Main thread
+//-----------------------------------------------------------------------------
+void *ecg_lod_thread(void *paramPtr) {
+  // Get the thread ID, so the system monitor can check its CPU assignment.
+  g_ecg_lod_thread_tid = gettid();
 
-// Read the ECG leads-off detection (negative electrode) output bit.
-// Will first read all inputs of the GPIO expander, then extract the desired bit.
-WTResult ecg_read_leadsOff_n(int* leadsOff_n) {
-  // Read the latest result, and request an asynchronous reading for the next iteration.
-  return iox_read_pin(IOX_GPIO_ECG_LOD_N, leadsOff_n, 0);
-}
+  // Set the thread CPU affinity.
+  if (ECG_LOD_CPU >= 0) {
+    pthread_t thread;
+    thread = pthread_self();
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(ECG_LOD_CPU, &cpuset);
+    if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
+      CETI_LOG("Successfully set affinity to CPU %d", ECG_LOD_CPU);
+    else
+      CETI_WARN("Failed to set affinity to CPU %d", ECG_LOD_CPU);
+  }
 
+  // Main loop while application is running.
+  CETI_LOG("Starting loop to read data in background");
+  g_ecg_lod_thread_is_running = 1;
+  long long sample_time_us;
+  while (!g_stopAcquisition) {
+
+    // Read the IO expander to get the latest detections.
+    // The way the ecg code handles hardware errors, it makes sense to just directly call.
+    sample_time_us = get_global_time_us();
+    latest_iox_status = iox_read_register(IOX_REG_INPUT, &latest_iox_register_value);
+
+    // If there was an error, wait a bit and then try to reinitialize.
+    if(latest_iox_status != WT_OK) {
+      CETI_LOG("XXX The GPIO expander encountered an error retrieving the ECG leads-off detections");
+      usleep(1000000);
+      ecg_lod_init();
+      usleep(10000);
+    }
+
+    // Wait for the desired polling period.
+    long long elapsed_time_us = get_global_time_us() - sample_time_us;
+    long long sleep_duration_us = ECG_LOD_READ_POLLING_PERIOD_US - elapsed_time_us;
+    if (sleep_duration_us > 0)
+      usleep(sleep_duration_us);
+  }
+  g_ecg_lod_thread_is_running = 0;
+  CETI_LOG("Done!");
+  return NULL;
+}

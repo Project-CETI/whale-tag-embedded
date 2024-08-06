@@ -61,15 +61,6 @@ int main(void) {
   int audio_write_thread_index = -1;
   CETI_LOG("-------------------------------------------------");
   CETI_LOG("Starting acquisition threads");
-  // IO expander
-#if ENABLE_IOX
-  pthread_create(&thread_ids[num_threads], NULL, &iox_thread, NULL);
-  threads_running[num_threads] = &g_iox_thread_is_running;
-  #ifdef DEBUG
-  strcpy(thread_name[num_threads], "iox");
-#endif
-  num_threads++;
-#endif
   // RTC
 #if ENABLE_RTC
   pthread_create(&thread_ids[num_threads], NULL, &rtc_thread, NULL);
@@ -142,12 +133,22 @@ int main(void) {
 #endif
   // ECG
 #if ENABLE_ECG
+#if ENABLE_ECG_LOD
+  pthread_create(&thread_ids[num_threads], NULL, &ecg_lod_thread, NULL);
+  threads_running[num_threads] = &g_ecg_lod_thread_is_running;
+#ifdef DEBUG
+  strcpy(thread_name[num_threads], "ecg_lod");
+#endif //DEBUG
+  num_threads++;
+#endif //ENABLE_ECG_LOD
+
   pthread_create(&thread_ids[num_threads], NULL, &ecg_thread_getData, NULL);
   threads_running[num_threads] = &g_ecg_thread_getData_is_running;
 #ifdef DEBUG
   strcpy(thread_name[num_threads], "ecg_acq");
 #endif
   num_threads++;
+
   pthread_create(&thread_ids[num_threads], NULL, &ecg_thread_writeData, NULL);
   threads_running[num_threads] = &g_ecg_thread_writeData_is_running;
 #ifdef DEBUG
@@ -313,11 +314,6 @@ int init_tag() {
   result += init_commands() == 0 ? 0 : -1;
   result += init_stateMachine() == 0 ? 0 : -1;
 
-  // Initialize selectively enabled components.
-#if ENABLE_IOX
-  result += init_iox() == WT_OK ? 0 : -1;
-#endif
-
 #if ENABLE_FPGA
   char fpga_bitstream_path[512];
   strncpy(fpga_bitstream_path, g_process_path, sizeof(fpga_bitstream_path) - 1);
@@ -367,6 +363,9 @@ int init_tag() {
 #endif
 
 #if ENABLE_ECG
+#if ENABLE_ECG_LOD
+  result += ecg_lod_init() == 0 ? 0 : -1;
+#endif
   result += init_ecg() == 0 ? 0 : -1;
 #endif
 

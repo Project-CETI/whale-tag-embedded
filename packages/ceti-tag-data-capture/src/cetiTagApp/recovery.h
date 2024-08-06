@@ -11,17 +11,9 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
-
-
 #include "aprs.h"
-#include "launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
-#include "utils/logging.h"
-#include "systemMonitor.h" // for the global CPU assignment variable to update
 
-#include <pigpio.h>
-#include <unistd.h> // for usleep()
-#include <string.h> // for memset() and other string functions
-#include <pthread.h> // to set CPU affinity
+#include <time.h> //for time_t
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration

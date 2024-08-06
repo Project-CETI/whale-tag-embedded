@@ -9,16 +9,8 @@
 #ifndef __CETI_WHALE_TAG_HAL_IOX__
 #define __CETI_WHALE_TAG_HAL_IOX__
 
-#include "launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
-#include "systemMonitor.h" // for the global CPU assignment variable to update
-#include "utils/timing.h"  // for get_global_time_us
 #include "utils/error.h" // for WTResult type
-
-#include <pigpio.h>
-#include <pthread.h>
-#include <stdlib.h>
-#include <stdint.h> // for uint8_t
-#include <unistd.h> // for usleep()
+#include <stdint.h>      // for uint8_t
 
 // === Definitions ========================================================
 #define IOX_GPIO_5V_EN (0)
@@ -29,8 +21,6 @@
 // free (5)
 #define IOX_GPIO_ECG_LOD_N  (6)
 #define IOX_GPIO_ECG_LOD_P  (7)
-
-#define IOX_READ_POLLING_PERIOD_US 1000
 
 // === Type Definitions =======================================================
 typedef enum {
@@ -54,19 +44,14 @@ typedef enum iox_register_e {
 } IoxRegister;
 
 // === Functions ==============================================================
-WTResult init_iox(void);
+
+//Hardware device interaction metho
+
+WTResult iox_init(void);
 void iox_terminate(void);
 WTResult iox_get_mode(int pin, WtIoxMode *mode);
-WTResult iox_read_pin(int pin, int *value, int wait_for_new_value);
-WTResult iox_read_register(uint8_t *value, int wait_for_new_value);
+WTResult iox_read_pin(int pin, int *value);
+WTResult iox_read_register(IoxRegister reg, uint8_t *value);
 WTResult iox_set_mode(int pin, WtIoxMode mode);
-WTResult iox_write(int pin, int value);
-WTResult iox_write_register(IoxRegister reg, uint8_t value);
-void* iox_thread(void* paramPtr);
-
-//-----------------------------------------------------------------------------
-// Global variables
-//-----------------------------------------------------------------------------
-extern int g_iox_thread_is_running;
-
+WTResult iox_write_pin(int pin, int value);
 #endif // __CETI_WHALE_TAG_HAL_IOX_

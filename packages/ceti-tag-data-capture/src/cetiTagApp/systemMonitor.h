@@ -70,7 +70,7 @@ extern int g_recovery_thread_tid;
 extern int g_stateMachine_thread_tid;
 extern int g_command_thread_tid;
 extern int g_rtc_thread_tid;
-extern int g_iox_thread_tid;
+extern int g_ecg_lod_thread_tid;
 extern int g_systemMonitor_thread_tid;
 
 #endif // SYSTEMMONITOR_H

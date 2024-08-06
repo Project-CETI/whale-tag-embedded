@@ -13,35 +13,27 @@
 // local objects
 #include "i2c.h"
 
+#include <pigpio.h>  
+#include <pthread.h> //for mutex
+#include <stdlib.h>
 //==== Private Typedefs =======================================================
 
 
 //==== Private Variables ======================================================
 static int s_iox_i2c_fd = PI_NO_HANDLE;
 static pthread_mutex_t s_write_lock = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t s_read_lock = PTHREAD_MUTEX_INITIALIZER;
-static uint8_t latest_register_value = 0;
-static int new_read_requested = 0;
-int g_iox_thread_is_running = 0;
 
 //==== Function Definitions ===================================================
-
-//-----------------------------------------------------------------------------
-// Initialization
-//-----------------------------------------------------------------------------
-
 /**
  * @brief initializes io expander.
  * 
  * @return WTResult 
  */
-WTResult init_iox(void) {
+WTResult iox_init(void) {
     if(s_iox_i2c_fd < 0) {
         s_iox_i2c_fd = PI_TRY(WT_DEV_IOX, i2cOpen(IOX_I2C_BUS, IOX_I2C_DEV_ADDR, 0));
         atexit(iox_terminate);
     }
-    CETI_LOG("Successfully initialized the IO expander");
-
     return WT_OK;
 }
 
@@ -118,20 +110,19 @@ WTResult iox_get_mode(int pin, WtIoxMode *pMode) {
  * @param pValue - output pointer
  * @return WTResult 
  */
-WTResult iox_read_pin(int pin, int *pValue, int wait_for_new_value) {
+WTResult iox_read_pin(int pin, int *pValue) {
+    uint8_t reg_value = 0;
     // Validate the requested pin.
     if ((pin < 0) || (pin > 7)) {
         return WT_RESULT(WT_DEV_IOX, WT_ERR_BAD_IOX_GPIO);
     }
     
-    // Acquire a new reading, or request an asynchronous reading.
-    iox_read_register(NULL, wait_for_new_value);
+    // Acquire a new reading
+    WT_TRY(iox_read_register(IOX_REG_INPUT, &reg_value));
     
     // Extract the desired pin value.
     if (pValue != NULL) {
-        pthread_mutex_lock(&s_read_lock);
-        *pValue = ((latest_register_value >> pin) & 1);
-        pthread_mutex_unlock(&s_read_lock);
+        *pValue = ((reg_value >> pin) & 1);
     }
     return WT_OK;
 }
@@ -143,21 +134,12 @@ WTResult iox_read_pin(int pin, int *pValue, int wait_for_new_value) {
  * @param pValue  - output pointer
  * @return WTResult
  */
-WTResult iox_read_register(uint8_t *pValue, int wait_for_new_value) {
-    // If blocking behavior is desired, wait for a new reading.
-    if(wait_for_new_value)
-    {
-      pthread_mutex_lock(&s_read_lock);
-      latest_register_value = PI_TRY(WT_DEV_IOX, i2cReadByteData(s_iox_i2c_fd, IOX_REG_INPUT));
-      pthread_mutex_unlock(&s_read_lock);
-    }
-    // Otherwise, request an asynchronous update.
-    else
-      new_read_requested = 1;
-    
+WTResult iox_read_register(IoxRegister reg, uint8_t *pValue) {
+    int reg_value = PI_TRY(WT_DEV_IOX, i2cReadByteData(s_iox_i2c_fd, reg));
+
     // Assign the result.
     if (pValue != NULL) {
-        *pValue = latest_register_value;
+        *pValue = (uint8_t)reg_value;
     }
     return WT_OK;
 }
@@ -169,7 +151,7 @@ WTResult iox_read_register(uint8_t *pValue, int wait_for_new_value) {
  * @param value 
  * @return WTResult 
  */
-WTResult iox_write(int pin, int value) {
+WTResult iox_write_pin(int pin, int value) {
     if ((pin < 0) || (pin > 7)){
         return WT_RESULT(WT_DEV_IOX, WT_ERR_BAD_IOX_GPIO);
     }
@@ -187,55 +169,4 @@ WTResult iox_write(int pin, int value) {
     return WT_OK;
 }
 
-/**
- * @brief Writes a value to a specified I/O Expander register
- * 
- * @param reg - register address 
- * @param value
- * @return WTResult
- * 
- */
-WTResult iox_write_register(IoxRegister reg, uint8_t value){
-    pthread_mutex_lock(&s_write_lock);
-    PI_TRY(WT_DEV_IOX, i2cWriteByteData(s_iox_i2c_fd, reg, value));
-    pthread_mutex_unlock(&s_write_lock);
-    return WT_OK;
-}
 
-//-----------------------------------------------------------------------------
-// Main thread
-//-----------------------------------------------------------------------------
-void *iox_thread(void *paramPtr) {
-  // Get the thread ID, so the system monitor can check its CPU assignment.
-  g_iox_thread_tid = gettid();
-
-  // Set the thread CPU affinity.
-  if (IOX_CPU >= 0) {
-    pthread_t thread;
-    thread = pthread_self();
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(IOX_CPU, &cpuset);
-    if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-      CETI_LOG("Successfully set affinity to CPU %d", IOX_CPU);
-    else
-      CETI_WARN("Failed to set affinity to CPU %d", IOX_CPU);
-  }
-
-  // Main loop while application is running.
-  CETI_LOG("Starting loop to read data in background");
-  g_iox_thread_is_running = 1;
-  while (!g_stopAcquisition) {
-    // Perform a read operation if one has been requested.
-    if(new_read_requested)
-    {
-      iox_read_register(NULL, 1);
-      new_read_requested = 0;
-    }
-    // Wait for the desired polling period.
-    usleep(IOX_READ_POLLING_PERIOD_US);
-  }
-  g_iox_thread_is_running = 0;
-  CETI_LOG("Done!");
-  return NULL;
-}
