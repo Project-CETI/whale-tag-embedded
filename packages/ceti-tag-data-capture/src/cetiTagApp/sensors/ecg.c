@@ -160,15 +160,20 @@ void* ecg_thread_getData(void* paramPtr)
   long long start_time_ms = get_global_time_ms();
   while(!g_stopAcquisition)
   {
-    // Request an update of the ECG data, then see if new data was received yet.
-    //  The new data may be read immediately by this call after waiting for data to be ready,
-    //  or nothing may happen if waiting for an interrupt callback to be triggered.
-    ecg_adc_update_data(&g_stopAcquisition, ECG_SAMPLE_TIMEOUT_US);
-    if(g_ecg_adc_latest_reading_global_time_us != prev_ecg_adc_latest_reading_global_time_us)
-    {
-      // Store the new data sample and its timestamp.
-      shm_ecg->ecg_readings[shm_ecg->page][shm_ecg->sample] = g_ecg_adc_latest_reading;
-      shm_ecg->sys_time_us[shm_ecg->page][shm_ecg->sample] = g_ecg_adc_latest_reading_global_time_us;
+    //wait for data to be ready
+    if(ecg_adc_read_data_ready() != 0){
+      //don't worry about sleeping;
+      // usleep(100);
+      
+      //ToDo: does not implement timeout check like non-sleepy code
+      
+      continue;// continue used to guarentee outer loop exit conditions are checked and respected
+    }
+
+    // Store the new data sample and its timestamp.
+    shm_ecg->sys_time_us[shm_ecg->page][shm_ecg->sample] = get_global_time_us();
+    shm_ecg->ecg_readings[shm_ecg->page][shm_ecg->sample] = ecg_adc_raw_read_data();
+ 
       // Update the previous timestamp, for checking whether new data is available.
       instantaneous_sampling_period_us = shm_ecg->sys_time_us[shm_ecg->page][shm_ecg->sample] - prev_ecg_adc_latest_reading_global_time_us;
       prev_ecg_adc_latest_reading_global_time_us = shm_ecg->sys_time_us[shm_ecg->page][shm_ecg->sample];
@@ -259,10 +264,13 @@ void* ecg_thread_getData(void* paramPtr)
 
       // Clear the next notes.
       strcpy(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "");
-    }
 
-    // Note that there is no delay to implement a desired sampling rate,
-    //  since the rate will be set by the ADC configuration.
+
+    // // sleep duration shortened to 75% of sample interval to ensure ADC config still dictates sampling interval
+    int64_t elapsed_time = (get_global_time_us() - prev_ecg_adc_latest_reading_global_time_us);
+    if((ECG_SAMPLING_PERIOD_US * 75 / 100  - elapsed_time) > 0) {
+      usleep(ECG_SAMPLING_PERIOD_US * 75 / 100  - elapsed_time);
+    }
   }
 
   // Print the duration and the sampling rate.
