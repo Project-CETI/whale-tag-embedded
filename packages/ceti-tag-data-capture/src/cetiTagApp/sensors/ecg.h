@@ -20,6 +20,7 @@
 #if ENABLE_ECG_LOD
 #include "ecg_helpers/ecg_lod.h"
 #endif
+#include "../cetiTag.h"
 
 #include <pigpio.h>  // for I2C functions
 #include <unistd.h>  // for access() to check file existence
@@ -31,8 +32,6 @@
 //-----------------------------------------------------------------------------
 #define ECG_MAX_FILE_SIZE_MB 1024 // Seems to log about 1GiB every 6.5 hours.
                                   // Note that 2GB is the file size maximum for 32-bit systems
-#define ECG_NUM_BUFFERS 2       // One for logging, one for writing.
-#define ECG_BUFFER_LENGTH 10000 // Once a buffer fills, it will be flushed to a file
 #define ECG_SAMPLE_TIMEOUT_US 100000 // Max time to wait for ADC or GPIO expander data to be ready before reconnecting the ECG electronics
 #define ECG_ZEROCOUNT_THRESHOLD 100 // Max number of samples to tolerate consecutive 0s before reconnecting the ECG electronics
 #define ECG_INVALID_PLACEHOLDER ((long)(-6666666)) // Do not expect large negative voltages (ADC readings are out of ~8e6)

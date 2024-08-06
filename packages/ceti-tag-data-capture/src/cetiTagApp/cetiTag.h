@@ -12,13 +12,21 @@
 
 #include <stdint.h>
 
+// === AUDIO ===
 #define AUDIO_SHM_NAME "/audio_shm"
 #define AUDIO_BLOCK_SEM_NAME "/audio_block_sem"
 #define AUDIO_PAGE_SEM_NAME "/audio_page_sem"
 
+// === BMS ===
 #define BATTERY_SHM_NAME "/battery_shm"
 #define BATTERY_SEM_NAME "/battery_sem"
 
+// === ECG ===
+#define ECG_SHM_NAME "/ecg_shm"
+#define ECG_SAMPLE_SEM_NAME "/ecg_sample_sem"
+#define ECG_PAGE_SEM_NAME "/ecg_page_sem"
+
+// === IMU ===
 #define IMU_QUAT_SHM_NAME "/imu_quat_shm"
 #define IMU_QUAT_SEM_NAME "/imu_quat_sample_sem"
 #define IMU_ACCEL_SHM_NAME "/imu_accel_shm"
@@ -28,15 +36,18 @@
 #define IMU_MAG_SHM_NAME "/imu_mag_shm"
 #define IMU_MAG_SEM_NAME "/imu_mag_sample_sem"
 
+// === LIGHT ===
 #define LIGHT_SHM_NAME "/light_shm"
 #define LIGHT_SEM_NAME "/light_sem"
 
+// === PRESSURE ===
 #define PRESSURE_SHM_NAME "/pressure_shm"
 #define PRESSURE_SEM_NAME "/pressure_sem"
 
 //-----------------------------------------------------------------------------
 // Definitions/Configurations
 //-----------------------------------------------------------------------------
+// === AUDIO ===
 //  - SPI block HWM * 32 bytes = 8192 bytes (25% of the hardware FIFO in this example)
 //  - Sampling rate 96000 Hz
 //  - 6 bytes per sample set (3 channels, 16 bits per channel)
@@ -63,18 +74,29 @@
 #define AUDIO_BLOCK_FILL_SPEED_US(sample_rate, bit_depth) (SPI_BLOCK_SIZE * 1000000.0/(AUDIO_CHANNELS * (sample_rate) * ((bit_depth)/ 8)))
 #define AUDIO_PAGE_FILL_SPEED_US(sample_rate, bit_depth)  (AUDIO_BUFFER_SIZE_BYTES * 1000000.0/(AUDIO_CHANNELS * (sample_rate) * ((bit_depth)/ 8)))
 
+// === BMS ===
 #define BATTERY_SAMPLING_PERIOD_US    1000000
-#define LIGHT_SAMPLING_PERIOD_US      1000000
-#define PRESSURE_SAMPLING_PERIOD_US   1000000
+
+// === ECG ===
+#define ECG_NUM_BUFFERS         2     // One for logging, one for writing.
+#define ECG_BUFFER_LENGTH       10000 // Once a buffer fills, it will be flushed to a file
+#define ECG_SAMPLING_PERIOD_US  1000
+#define ECG_PAGE_FILL_PERIOD_US (ECG_SAMPLING_PERIOD_US*ECG_BUFFER_LENGTH)
+
+// === IMU ===
 #define IMU_QUATERNION_SAMPLE_PERIOD_US 50000 // rate for the computed orientation
 #define IMU_9DOF_SAMPLE_PERIOD_US 20000 // rate for the accelerometer/gyroscope/magnetometer
 
-//buffered data (high speed)
-// ToDo: ECG
+// === LIGHT ===
+#define LIGHT_SAMPLING_PERIOD_US      1000000
+
+// === PRESSURE ===
+#define PRESSURE_SAMPLING_PERIOD_US   1000000
 
 //-----------------------------------------------------------------------------
 // Type Definitions
 //-----------------------------------------------------------------------------
+// === AUDIO ===
 typedef struct {
     int page; // which buffer will be populated with new incoming data
     int block; // which block will be populated with new incoming data
@@ -86,6 +108,7 @@ typedef struct {
     }data[2];
 } CetiAudioBuffer;
 
+// === BMS ===
 typedef struct {
     int32_t error;
     int     rtc_time_s;
@@ -97,22 +120,29 @@ typedef struct {
     uint16_t protection_alert;
 } CetiBatterySample;
 
+// === ECG ===
 typedef struct {
-    int32_t error;
-    int     rtc_time_s;
-    int64_t sys_time_us;
-    int     visible;
-    int     infrared;
-} CetiLightSample;
+    int page; // which buffer will be populated with new incoming data
+    int sample; // which sample will be populated with new incoming data
+    int lod_enabled;
+    /* ToDo: Leaving this as seperate buffers to maintain existing code
+     * structure, but the way memory is accessed (all field from a single
+     * sample accessed at the same time and not all values of a single field
+     * accessed at once), it may make more sense to encapsulate in a
+     * CetiEcgSample struct so the 4kB TLB page for this mapped memory doesn't
+     * result in a cache miss on every field access. Will need to be
+     * benchmarked.
+     * - MSH
+     */
+    long long sys_time_us[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
+    int rtc_time_s[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
+    long ecg_readings[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
+    int leadsOff_readings_p[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
+    int leadsOff_readings_n[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
+    long long sample_indexes[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
+} CetiEcgBuffer;
 
-typedef struct {
-    int32_t error;
-    int     rtc_time_s;
-    int64_t sys_time_us;
-    double  pressure_bar;
-    double  temperature_c;
-} CetiPressureSample;
-
+// === IMU ===
 typedef struct {
     int64_t sys_time_us;
     int64_t reading_delay_us;
@@ -153,5 +183,23 @@ typedef struct {
     int16_t z;
     int16_t accuracy;
 } CetiImuMagSample;
+
+// === LIGHT ===
+typedef struct {
+    int32_t error;
+    int     rtc_time_s;
+    int64_t sys_time_us;
+    int     visible;
+    int     infrared;
+} CetiLightSample;
+
+// === PRESSURE ===
+typedef struct {
+    int32_t error;
+    int     rtc_time_s;
+    int64_t sys_time_us;
+    double  pressure_bar;
+    double  temperature_c;
+} CetiPressureSample;
 
 #endif //CETI_TAG_H

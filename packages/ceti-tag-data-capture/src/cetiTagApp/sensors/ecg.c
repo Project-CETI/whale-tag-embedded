@@ -8,6 +8,12 @@
 
 #include "ecg.h"
 
+#include "../utils/memory.h"
+
+#include <fcntl.h>
+#include <semaphore.h>
+#include <sys/mman.h>
+
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
@@ -25,22 +31,38 @@ static const char* ecg_data_file_headers[] = {
   };
 static const int num_ecg_data_file_headers = 4;
 
-static int ecg_buffer_select_toLog = 0;   // which buffer will be populated with new incoming data
 static int ecg_buffer_select_toWrite = 0; // which buffer will be flushed to the output file
-static int ecg_buffer_index_toLog = 0;
-static long long global_times_us[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
-static int rtc_counts[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
-static long ecg_readings[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
-#if ENABLE_ECG_LOD
-static int leadsOff_readings_p[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
-static int leadsOff_readings_n[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
-#endif
-static long long sample_indexes[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static char ecg_data_file_notes[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH][75];
+
+static CetiEcgBuffer *shm_ecg; // share memory of other processes to directly access samples
+static sem_t *sem_ecg_sample;  // semaphore for other processes to sync with new sample becoming available
+static sem_t *sem_ecg_page;    // semaphore for other processes to sync with new pages becoming available
 
 int init_ecg() {
   // Initialize the GPIO expander and the ADC.
   init_ecg_electronics();
+
+  // Create shared memory
+  shm_ecg = create_shared_memory_region(ECG_SHM_NAME, sizeof(CetiEcgBuffer));
+  if (shm_ecg == NULL) {
+    CETI_ERR("Failed to create shared memory for ecg data buffer");
+    return -1;
+  }
+
+  //setup semaphore
+  sem_ecg_sample = sem_open(BATTERY_SEM_NAME, O_CREAT, 0644, 0);
+  if(sem_ecg_sample == SEM_FAILED){
+      CETI_ERR("Failed to create sample semaphore");
+      return -1;
+  }
+
+  sem_ecg_page = sem_open(BATTERY_SEM_NAME, O_CREAT, 0644, 0);
+  if(sem_ecg_page == SEM_FAILED){
+      CETI_ERR("Failed to create page semaphore");
+      return -1;
+  }
+
+  shm_ecg->lod_enabled = ENABLE_ECG_LOD;
 
   // Open an output file to write data.
   if(init_ecg_data_file(1) < 0)
@@ -87,11 +109,11 @@ int init_ecg_data_file(int restarted_program)
   // Open the new file.
   int init_data_file_success = init_data_file(ecg_data_file, ecg_data_filepath,
                                               ecg_data_file_headers,  num_ecg_data_file_headers,
-                                              ecg_data_file_notes[ecg_buffer_select_toLog][0],
+                                              ecg_data_file_notes[shm_ecg->page][0],
                                               "init_ecg_data_file()");
   // Change the note from restarted to new file if this is not the first initialization.
   if(!restarted_program)
-    strcpy(ecg_data_file_notes[ecg_buffer_select_toLog][0], "New log file! | ");
+    strcpy(ecg_data_file_notes[shm_ecg->page][0], "New log file! | ");
   return init_data_file_success;
 }
 
@@ -129,7 +151,7 @@ void* ecg_thread_getData(void* paramPtr)
 
   // Continuously poll the ADC and the leads-off detection output.
   long long prev_ecg_adc_latest_reading_global_time_us = 0;
-  ecg_buffer_index_toLog = 0;
+  shm_ecg->sample = 0;
   long long sample_index = 0;
   long consecutive_zero_ecg_count = 0;
   long instantaneous_sampling_period_us = 0;
@@ -145,26 +167,26 @@ void* ecg_thread_getData(void* paramPtr)
     if(g_ecg_adc_latest_reading_global_time_us != prev_ecg_adc_latest_reading_global_time_us)
     {
       // Store the new data sample and its timestamp.
-      ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = g_ecg_adc_latest_reading;
-      global_times_us[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = g_ecg_adc_latest_reading_global_time_us;
+      shm_ecg->ecg_readings[shm_ecg->page][shm_ecg->sample] = g_ecg_adc_latest_reading;
+      shm_ecg->sys_time_us[shm_ecg->page][shm_ecg->sample] = g_ecg_adc_latest_reading_global_time_us;
       // Update the previous timestamp, for checking whether new data is available.
-      instantaneous_sampling_period_us = global_times_us[ecg_buffer_select_toLog][ecg_buffer_index_toLog] - prev_ecg_adc_latest_reading_global_time_us;
-      prev_ecg_adc_latest_reading_global_time_us = global_times_us[ecg_buffer_select_toLog][ecg_buffer_index_toLog];
+      instantaneous_sampling_period_us = shm_ecg->sys_time_us[shm_ecg->page][shm_ecg->sample] - prev_ecg_adc_latest_reading_global_time_us;
+      prev_ecg_adc_latest_reading_global_time_us = shm_ecg->sys_time_us[shm_ecg->page][shm_ecg->sample];
 
       #if ENABLE_ECG_LOD
       // Read the GPIO expander for the latest leads-off detection.
       // Assume it's fast enough that the ECG sample timestamp is close enough to this leads-off timestamp.
       ecg_get_latest_leadsOff_detections(
-        &leadsOff_readings_p[ecg_buffer_select_toLog][ecg_buffer_index_toLog],
-        &leadsOff_readings_n[ecg_buffer_select_toLog][ecg_buffer_index_toLog]
+        &shm_ecg->leadsOff_readings_p[shm_ecg->page][shm_ecg->sample],
+        &shm_ecg->leadsOff_readings_n[shm_ecg->page][shm_ecg->sample]
       );
       #endif
       
       // Read the RTC.
-      rtc_counts[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = getRtcCount();
+      shm_ecg->rtc_time_s[shm_ecg->page][shm_ecg->sample] = getRtcCount();
 
       // Update indexes.
-      sample_indexes[ecg_buffer_select_toLog][ecg_buffer_index_toLog] = sample_index;
+      shm_ecg->sample_indexes[shm_ecg->page][shm_ecg->sample] = sample_index;
       sample_index++;
 
       // Check if there was an error reading from the ADC.
@@ -173,29 +195,29 @@ void* ecg_thread_getData(void* paramPtr)
       // But if the ECG board is not connected, then the ADC will seemingly
       //  always have data ready and always return 0.
       // So also check if the ADC returned exactly 0 many times in a row.
-      if(ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_INVALID_PLACEHOLDER)
+      if(shm_ecg->ecg_readings[shm_ecg->page][shm_ecg->sample] == ECG_INVALID_PLACEHOLDER)
       {
         should_reinitialize = 1;
-        strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "ADC ERROR | ");
+        strcat(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "ADC ERROR | ");
         CETI_DEBUG("XXX ADC encountered an error");
       }
-      if(ecg_readings[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == 0)
+      if(shm_ecg->ecg_readings[shm_ecg->page][shm_ecg->sample] == 0)
         consecutive_zero_ecg_count++;
       else
         consecutive_zero_ecg_count = 0;
       if(consecutive_zero_ecg_count > ECG_ZEROCOUNT_THRESHOLD)
       {
         should_reinitialize = 1;
-        strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "ADC ZEROS | ");
+        strcat(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "ADC ZEROS | ");
         CETI_DEBUG("ADC returned %ld zero readings in a row", consecutive_zero_ecg_count);
       }
 
       #if ENABLE_ECG_LOD
       // Check if there was an error communicating with the GPIO expander.
-      if(leadsOff_readings_p[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_LEADSOFF_INVALID_PLACEHOLDER
-         || leadsOff_readings_n[ecg_buffer_select_toLog][ecg_buffer_index_toLog] == ECG_LEADSOFF_INVALID_PLACEHOLDER)
+      if(shm_ecg->leadsOff_readings_p[shm_ecg->page][shm_ecg->sample] == ECG_LEADSOFF_INVALID_PLACEHOLDER
+         || shm_ecg->leadsOff_readings_n[shm_ecg->page][shm_ecg->sample] == ECG_LEADSOFF_INVALID_PLACEHOLDER)
       {
-        strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "LO ERROR | ");
+        strcat(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "LO ERROR | ");
         // Note that should_reinitialize is not set to 1 here since the leads-off detection uses separate hardware.
         //   Errors for the relevant hardware will be handled in the LOD thread.
       }
@@ -205,7 +227,7 @@ void* ecg_thread_getData(void* paramPtr)
       if(instantaneous_sampling_period_us > ECG_SAMPLE_TIMEOUT_US && !first_sample)
       {
         should_reinitialize = 1;
-        strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "TIMEOUT | ");
+        strcat(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "TIMEOUT | ");
         CETI_DEBUG("XXX Reading a sample took %ld us", instantaneous_sampling_period_us);
       }
       first_sample = 0;
@@ -213,7 +235,7 @@ void* ecg_thread_getData(void* paramPtr)
       //  wait a bit and then try to reconnect to them.
       if(should_reinitialize && !g_stopAcquisition)
       {
-        strcat(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "INVALID? | ");
+        strcat(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "INVALID? | ");
         usleep(1000000);
         init_ecg_electronics();
         usleep(10000);
@@ -225,16 +247,18 @@ void* ecg_thread_getData(void* paramPtr)
       // Advance the buffer index.
       // If the buffer has filled, switch to the other buffer
       //   (this will also trigger the writeData thread to write the previous buffer to a file).
-      ecg_buffer_index_toLog++;
-      if(ecg_buffer_index_toLog == ECG_BUFFER_LENGTH)
+      shm_ecg->sample++;
+      if(shm_ecg->sample == ECG_BUFFER_LENGTH)
       {
-        ecg_buffer_index_toLog = 0;
-        ecg_buffer_select_toLog++;
-        ecg_buffer_select_toLog %= ECG_NUM_BUFFERS;
+        shm_ecg->sample = 0;
+        shm_ecg->page++;
+        shm_ecg->page %= ECG_NUM_BUFFERS;
+        sem_post(sem_ecg_page);
       }
+      sem_post(sem_ecg_sample);
 
       // Clear the next notes.
-      strcpy(ecg_data_file_notes[ecg_buffer_select_toLog][ecg_buffer_index_toLog], "");
+      strcpy(ecg_data_file_notes[shm_ecg->page][shm_ecg->sample], "");
     }
 
     // Note that there is no delay to implement a desired sampling rate,
@@ -249,6 +273,9 @@ void* ecg_thread_getData(void* paramPtr)
 
   // Clean up.
   ecg_adc_cleanup();
+  munmap(shm_ecg, sizeof(CetiEcgBuffer));
+  sem_close(sem_ecg_sample);
+  sem_close(sem_ecg_page);
 
   g_ecg_thread_getData_is_running = 0;
   CETI_LOG("Done!");
@@ -293,7 +320,7 @@ void* ecg_thread_writeData(void* paramPtr)
   while(!g_stopAcquisition)
   {
     // Wait for new data to be in the buffer.
-    while(ecg_buffer_select_toLog == ecg_buffer_select_toWrite && !g_stopAcquisition)
+    while(shm_ecg->page == ecg_buffer_select_toWrite && !g_stopAcquisition)
       usleep(250000);
 
     // Write the last buffer to a file.
@@ -312,9 +339,9 @@ void* ecg_thread_writeData(void* paramPtr)
       int ecg_buffer_last_index_toWrite = ECG_BUFFER_LENGTH-1;
       // If the program exited though, will want to write only as much
       //  as the acquisition thread has filled.
-      if(ecg_buffer_select_toLog == ecg_buffer_select_toWrite)
+      if(shm_ecg->page == ecg_buffer_select_toWrite)
       {
-        ecg_buffer_last_index_toWrite = ecg_buffer_index_toLog-1;
+        ecg_buffer_last_index_toWrite = shm_ecg->sample-1;
         if(ecg_buffer_last_index_toWrite < 0)
           ecg_buffer_last_index_toWrite = 0;
       }
@@ -322,16 +349,16 @@ void* ecg_thread_writeData(void* paramPtr)
       for(int ecg_buffer_index_toWrite = 0; ecg_buffer_index_toWrite <= ecg_buffer_last_index_toWrite; ecg_buffer_index_toWrite++)
       {
         // Write timing information.
-        fprintf(ecg_data_file, "%lld", global_times_us[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
-        fprintf(ecg_data_file, ",%d", rtc_counts[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
+        fprintf(ecg_data_file, "%lld", shm_ecg->sys_time_us[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
+        fprintf(ecg_data_file, ",%d", shm_ecg->rtc_time_s[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
         // Write any notes.
         fprintf(ecg_data_file, ",%s", ecg_data_file_notes[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
         // Write the sensor data.
-        fprintf(ecg_data_file, ",%lld", sample_indexes[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
-        fprintf(ecg_data_file, ",%ld", ecg_readings[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
+        fprintf(ecg_data_file, ",%lld", shm_ecg->sample_indexes[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
+        fprintf(ecg_data_file, ",%ld", shm_ecg->ecg_readings[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
         #if ENABLE_ECG_LOD
-        fprintf(ecg_data_file, ",%d", leadsOff_readings_p[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
-        fprintf(ecg_data_file, ",%d", leadsOff_readings_n[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
+        fprintf(ecg_data_file, ",%d", shm_ecg->leadsOff_readings_p[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
+        fprintf(ecg_data_file, ",%d", shm_ecg->leadsOff_readings_n[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
         #else
         fprintf(ecg_data_file, ",,");
         #endif
