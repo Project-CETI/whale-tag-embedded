@@ -81,7 +81,7 @@ int main(void){
         //check if circular buffer wrapped
         if (end_ptr < read_ptr) {
             //process until end of buffer
-            while ( read_ptr <= shm_audio->data[1].raw + AUDIO_BUFFER_SIZE_BYTES){
+            while ( read_ptr < shm_audio->data[1].raw + AUDIO_BUFFER_SIZE_BYTES){
                 for(int i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++){
                     int16_t sample = ((int16_t)(read_ptr[0]) << 8) | ((int16_t)read_ptr[1]);
                     double sample_f = ((double)sample/0x8000);
