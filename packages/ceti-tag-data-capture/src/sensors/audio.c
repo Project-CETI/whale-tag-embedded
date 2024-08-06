@@ -244,12 +244,6 @@ int stop_audio_acq(void) {
   CETI_LOG("Stopping audio acquisition");
   FPGA_FIFO_STOP(); // stops the input stream
 
-  if (flac_encoder) {
-    FLAC__stream_encoder_finish(flac_encoder);
-    FLAC__stream_encoder_delete(flac_encoder);
-    flac_encoder = 0;
-  }
-
   // FPGA_FIFO_RESET(); // flushes the FIFO
   return 0;
 }
@@ -559,9 +553,6 @@ void *audio_thread_writeFlac(void *paramPtr) {
     fclose(audio_status_file);
     audio_writing_to_status_file = 0;
 }
-
-  // Finish the current file.
-  FLAC__stream_encoder_finish(flac_encoder);
   
   //Flush remaining partial buffer.
   if(block_counter != 0) {
@@ -580,8 +571,15 @@ void *audio_thread_writeFlac(void *paramPtr) {
           FLAC__int32 value = ((FLAC__int32)i_ptr[0] << 24) | ((FLAC__int32)i_ptr[1] << 16) | ((FLAC__int32)i_ptr[2] << 8);
           buff[i_sample][i_channel] = value / (1 << 8);
         }
+      }      
+      CETI_DEBUG("All samples moved to flac buffer");
+      if(flac_encoder == 0){
+        CETI_WARN("flac encoder is missing, skipping flushing samples");
+      } else if(FLAC__stream_encoder_get_state(flac_encoder) != FLAC__STREAM_ENCODER_OK){
+        CETI_WARN("flac encoder in state %s, skipping flushing samples", FLAC__stream_encoder_get_resolved_state_string(flac_encoder));
+      }else {
+        FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], samples_to_flush);
       }
-      FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], samples_to_flush);
     } else {
       int samples_to_flush = bytes_to_flush/(CHANNELS * sizeof(uint16_t));
       CETI_LOG("Flushing partial %d sample buffer.", samples_to_flush);
@@ -592,7 +590,14 @@ void *audio_thread_writeFlac(void *paramPtr) {
           buff[i_sample][i_channel] = value / (1 << 16);
         }
       }
-      FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], samples_to_flush);
+      CETI_DEBUG("All samples moved to flac buffer");
+      if(flac_encoder == 0){
+        CETI_WARN("flac encoder is missing, skipping flushing samples");
+      } else if(FLAC__stream_encoder_get_state(flac_encoder) != FLAC__STREAM_ENCODER_OK){
+        CETI_WARN("flac encoder in state %s, skipping flushing samples", FLAC__stream_encoder_get_resolved_state_string(flac_encoder));
+      }else {
+        FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], samples_to_flush);
+      }
     }
   }
   FLAC__stream_encoder_finish(flac_encoder);

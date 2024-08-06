@@ -105,14 +105,13 @@ void* stateMachine_thread(void* paramPtr) {
           fprintf(stateMachine_data_file, "\n");
           fclose(stateMachine_data_file);
         }
-
-        // Delay to implement a desired sampling rate.
-        // Take into account the time it took to process the state.
-        polling_sleep_duration_us = STATEMACHINE_UPDATE_PERIOD_US;
-        polling_sleep_duration_us -= get_global_time_us() - global_time_us;
-        if(polling_sleep_duration_us > 0)
-          usleep(polling_sleep_duration_us);
       }
+      // Delay to implement a desired sampling rate.
+      // Take into account the time it took to process the state.
+      polling_sleep_duration_us = STATEMACHINE_UPDATE_PERIOD_US;
+      polling_sleep_duration_us -= get_global_time_us() - global_time_us;
+      if(polling_sleep_duration_us > 0)
+        usleep(polling_sleep_duration_us);
     }
     // Clear the persistent burnwire timeout start time if one exists.
     remove(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH);
