@@ -362,6 +362,9 @@ main () {
   configure_logging
   raspi-config nonint do_overlayfs 0
 
+  # Enable RTC trickle charge
+  i2cset -y 1 0x68 0x09 0xAA 
+
   return 0
 }
 
