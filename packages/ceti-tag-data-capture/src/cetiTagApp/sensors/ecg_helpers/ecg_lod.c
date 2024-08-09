@@ -11,7 +11,7 @@
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
-static uint8_t latest_iox_register_value = 0;
+static uint8_t latest_iox_register_value = 0xFF;
 static WTResult latest_iox_status;
 
 int g_ecg_lod_thread_is_running = 0;
@@ -82,12 +82,13 @@ void *ecg_lod_thread(void *paramPtr) {
     latest_iox_status = iox_read_register(IOX_REG_INPUT, &latest_iox_register_value);
 
     // If there was an error, wait a bit and then try to reinitialize.
-    if(latest_iox_status != WT_OK) {
-      CETI_LOG("XXX The GPIO expander encountered an error retrieving the ECG leads-off detections");
-      usleep(1000000);
-      ecg_lod_init();
-      usleep(10000);
-    }
+    // if(latest_iox_status != WT_OK) {
+    //   CETI_LOG("XXX The GPIO expander encountered an error retrieving the ECG leads-off detections");
+    //   usleep(1000000);
+    //   ecg_lod_init();
+    //   usleep(10000);
+    // }
+    // this causes the log file to explode 
 
     // Wait for the desired polling period.
     long long elapsed_time_us = get_global_time_us() - sample_time_us;

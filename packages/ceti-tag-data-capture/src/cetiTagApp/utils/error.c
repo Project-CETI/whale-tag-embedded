@@ -222,7 +222,7 @@ const char *wt_strerror(WTResult errnum){
         if(error > 0) {
             //system error
             strncpy(__wt_errstr, strerror(errno), sizeof(__wt_errstr) - 1);
-        } else if((errnum >= PI_INIT_FAILED) && (errnum < sizeof(err_str)/sizeof(char *))) {
+        } else if((error <= PI_INIT_FAILED) && (-error < sizeof(err_str)/sizeof(char *))) {
             //device error
             strncpy(__wt_errstr, err_str[-error], sizeof(__wt_errstr) - 1); 
         } else {
@@ -232,7 +232,7 @@ const char *wt_strerror(WTResult errnum){
         if(error > 0) {
             //system error
             snprintf(__wt_errstr, sizeof(__wt_errstr) - 1, "%s : %s", device_name[device], strerror(errno));
-        } else if((errnum >= PI_INIT_FAILED) && (errnum < sizeof(err_str)/sizeof(char *))) {
+        } else if((error <= PI_INIT_FAILED) && (-error < sizeof(err_str)/sizeof(char *))) {
             //device error
             snprintf(__wt_errstr, sizeof(__wt_errstr) - 1, "%s : %s", device_name[device], err_str[-error]);
         } else {
@@ -242,7 +242,7 @@ const char *wt_strerror(WTResult errnum){
         if(error > 0) {
             //system error
             snprintf(__wt_errstr, sizeof(__wt_errstr) - 1, "%s : %s", device_name[device], strerror(errno));
-        } else if((errnum >= PI_INIT_FAILED) && (errnum < sizeof(err_str)/sizeof(char *))) {
+        } else if((error <= PI_INIT_FAILED) && (-error < sizeof(err_str)/sizeof(char *))) {
             //device error
             snprintf(__wt_errstr, sizeof(__wt_errstr) - 1, "unknown_device # %d : %s", device, err_str[-error]); 
         } else {
