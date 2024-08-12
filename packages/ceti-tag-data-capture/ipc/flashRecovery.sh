@@ -14,25 +14,31 @@
         # sudo /opt/ceti-tag-data-capture/bin/cetiFpgaInit
 # fi
 
+RF_PWR=2
+BOOT0=1
+
+# Set BOOT0 and RF_PWR as outputs 
+CONFIG=$(i2cget -y 1 0x21 0x03) 
+i2cset -y 1 0x21 0x3 $((CONFIG & ~(1 << RF_PWR) & ~(1 << BOOT0)))
+
 # Initializes settings to power high, boot low
-x=$(i2cget -y 1 0x38)
-y=$((x|0x04))
-i2cset -y 1 0x38 $((y&0xfd))
-x=$(i2cget -y 1 0x38)
+OUT=$(i2cget -y 1 0x21 0x01)
+OUT=$((OUT | (1 << RF_PWR) & ~(1 << BOOT0)))
+i2cset -y 1 0x21 0x1 $OUT
 
 # Sets BOOT0 pin high
-i2cset -y 1 0x38 $((x|0x02))
-x=$(i2cget -y 1 0x38)
+OUT=$((OUT | (1 << BOOT0)))
+i2cset -y 1 0x21 0x1 $OUT
 echo 'Boot pin has been set high.'
 
 echo 'Resetting recovery board...'
 # Resets board
-i2cset -y 1 0x38 $((x&0xfb))
+OUT=$((OUT & ~(1 << RF_PWR)))
+i2cset -y 1 0x21 0x1 $OUT
 sleep 1
-x=$(i2cget -y 1 0x38)
-i2cset -y 1 0x38 $((x|0x04))
+OUT=$((OUT | (1 << RF_PWR)))
+i2cset -y 1 0x21 0x1 $OUT
 sleep 1
-x=$(i2cget -y 1 0x38)
 
 # Checks connection to recovery board
 stm32flash /dev/serial0 > /dev/null 2>&1
@@ -46,20 +52,21 @@ fi
 
 echo 'stm32 device has been initialized.'
 
-if [ -z "$1" ]; then
-        # Check for elf file existence
-        if ! [ -f /opt/ceti-tag-data-capture/ipc/flash.elf ]; then
-                echo "File does not exist. Downloading..."
-                # Download file
-                curl -LJO "https://github.com/Project-CETI/whale-tag-recovery/raw/dev/v2_3/KaveetSakshamRecoveryBoard/KaveetSakshamRecoveryBoard.elf"
-                sudo mv KaveetSakshamRecoveryBoard.elf /opt/ceti-tag-data-capture/ipc/flash.elf
-        fi
+# if [ -z "$1" ]; then
+#         # Check for elf file existence
+#         if ! [ -f /opt/ceti-tag-data-capture/ipc/flash.elf ]; then
+#                 echo "File does not exist. Downloading..."
+#                 # Download file
+#                 curl -LJO "https://github.com/Project-CETI/whale-tag-recovery/raw/dev/v2_3/KaveetSakshamRecoveryBoard/KaveetSakshamRecoveryBoard.elf"
+#                 sudo mv KaveetSakshamRecoveryBoard.elf /opt/ceti-tag-data-capture/ipc/flash.elf
+#         fi
 
-        # Conversion from elf to binary
-        elf='/opt/ceti-tag-data-capture/ipc/flash.elf'
-        bin='/opt/ceti-tag-data-capture/ipc/flash.bin'
-        sudo objcopy -O binary $elf $bin
-elif [[  $1 == *.bin ]]; then
+#         # Conversion from elf to binary
+#         elf='/opt/ceti-tag-data-capture/ipc/flash.elf'
+#         bin='/opt/ceti-tag-data-capture/ipc/flash.bin'
+#         sudo objcopy -O binary $elf $bin
+# elif
+if [[  $1 == *.bin ]]; then
         bin="$1"
 elif [ $1 == *.elf ]; then
         elf="$1"
@@ -89,14 +96,15 @@ fi
 echo 'Flashing stm32 has succeeded'
 
 # Sets BOOT0 low to exit bootloader
-i2cset -y 1 0x38 $((x&0xfd))
-x=$(i2cget -y 1 0x38)
+OUT=$((OUT & ~(1 << BOOT0)))
+i2cset -y 1 0x21 0x1 $OUT
 echo 'Boot pin has been set low'
 
 echo 'Resetting recovery board...'
 # Resets board
-i2cset -y 1 0x38 $((x&0xfb))
+OUT=$((OUT & ~(1 << RF_PWR)))
+i2cset -y 1 0x21 0x1 $OUT
 sleep 1
-x=$(i2cget -y 1 0x38)
-i2cset -y 1 0x38 $((x|0x04))
+OUT=$((OUT | (1 << RF_PWR)))
+i2cset -y 1 0x21 0x1 $OUT
 sleep 1
