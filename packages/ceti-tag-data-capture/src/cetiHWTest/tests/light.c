@@ -60,7 +60,7 @@ TestState test_light(FILE *pResultsFile) {
         perror("sem_open");
         fprintf(pResultsFile, "[FAIL]: Light: Failed to open\n");
         munmap(shm_light, sizeof(CetiLightSample));
-        return -1;
+        return TEST_STATE_FAILED;
     }
 
     printf("Instructions: Shine a bright light on tag light sensor\n");

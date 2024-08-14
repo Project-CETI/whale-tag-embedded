@@ -56,7 +56,7 @@ TestState test_pressure(FILE *pResultsFile){
         perror("sem_open");
         fprintf(pResultsFile, "[FAIL]: Pressure: Failed to open\n");
         munmap(pressure_data, sizeof(CetiPressureSample));
-        return -1;
+        return TEST_STATE_FAILED;
     }
 
     printf( "Instructions: Use a syringe to apply pressure to the tag's depth sensor\n");

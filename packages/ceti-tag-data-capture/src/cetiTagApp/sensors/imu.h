@@ -43,12 +43,6 @@
 // reduce delays in the loop)
 #define IMU_DATA_FILE_FLUSH_PERIOD_US 1000000
 
-typedef struct { // euler angles
-    double roll;
-    double pitch;
-    double yaw;
-} EulerAngles_f64;
-
 #define BUS_IMU 0x00   //IMU is only device on i2c0
 #define ADDR_IMU 0x4A
 #define IMU_N_RESET 4
@@ -148,7 +142,5 @@ int resetIMU();
 int setupIMU(uint8_t enabled_features);
 int imu_enable_feature_report(int report_id, uint32_t report_interval_us);
 int imu_read_data();
-int imu_get_euler_angles(EulerAngles_f64 *e);
 void* imu_thread(void* paramPtr);
-void quat2eul(EulerAngles_f64 *e, CetiImuQuatSample *q);
 #endif // IMU_H

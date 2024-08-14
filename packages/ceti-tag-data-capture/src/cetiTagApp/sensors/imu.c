@@ -672,22 +672,3 @@ int imu_read_data() {
   }
   return (int)report_id;
 }
-
-void quat2eul(EulerAngles_f64 *e, CetiImuQuatSample *q){
-  double re = ((double) q->real) / (1 << 14);
-  double i = ((double) q->i) / (1 << 14);
-  double j = ((double) q->j) / (1 << 14);
-  double k = ((double) q->k) / (1 << 14);
-
-  double sinr_cosp = 2 * ((re * i) + (j * k));
-  double cosr_cosp = 1 - 2 * ((i * i) + (j * j));
-  e->pitch = atan2(sinr_cosp, cosr_cosp);
-
-  double sinp = sqrt(1 + 2 * ((re * j) - (i * k)));
-  double cosp = sqrt(1 - 2 * ((re * j) - (i * k)));
-  e->roll = (2.0 * atan2(sinp, cosp)) - (M_PI / 2.0);
-
-  double siny_cosp = 2 * ((re * k) + (i * j));
-  double cosy_cosp = 1 - 2 * ((j * j) + (k * k));
-  e->yaw = atan2(siny_cosp, cosy_cosp);
-}
