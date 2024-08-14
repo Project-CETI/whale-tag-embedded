@@ -127,17 +127,19 @@ TestState test_audio(FILE *pResultsFile){
             rms[i_channel] = rms[i_channel]/((double)sample_count);
             rms[i_channel] = sqrt(rms[i_channel]);
             amp[i_channel] = fmax(fabs(min[i_channel]), fabs(max[i_channel]));
-            channel_pass[i_channel] = amp[i_channel] > target;
+
+            // TODO force the operator to play a rhythm game with the hydrophones to pass... jk
+            channel_pass[i_channel] |= amp[i_channel] > target;
         }
 
         // === display results ===
         for (int i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++){
-            tui_draw_horzontal_bar(amp[i_channel], 1.0, 7, 2 + i_channel*6, tui_get_screen_width() - 7);
-            printf("\e[%d;%dH\e[96m|\e[0m\n", 2 + i_channel*6, 7 + (int)(tui_get_screen_width()*target));
-            tui_goto(14, 3 + i_channel*6); printf("%6.3f", amp[i_channel]); //Amplitude
-            tui_goto(11, 4 + i_channel*6); printf("%6.3f", avg[i_channel]); //Offset
-            tui_goto( 8, 5 + i_channel*6); printf("%8.3f dB", 20.0*log(rms[i_channel])); //rms
-            tui_goto(1, 6 + i_channel*6); printf("%-20s", channel_pass[i_channel] ? GREEN("PASS") : YELLOW("Pending..."));
+            tui_draw_horzontal_bar(amp[i_channel], 1.0, 7, 3 + i_channel*6, tui_get_screen_width() - 7);
+            printf("\e[%d;%dH\e[96m|\e[0m\n", 3 + i_channel*6, 7 + (int)(tui_get_screen_width()*target));
+            tui_goto(14, 4 + i_channel*6); printf("%6.3f", amp[i_channel]); //Amplitude
+            tui_goto(11, 5 + i_channel*6); printf("%6.3f", avg[i_channel]); //Offset
+            tui_goto( 8, 6 + i_channel*6); printf("%8.3f dB", 20.0*log(rms[i_channel])); //rms
+            tui_goto(1, 7 + i_channel*6); printf("%-20s", channel_pass[i_channel] ? GREEN("PASS") : YELLOW("Pending..."));
         }
     } while((read(STDIN_FILENO, &input, 1) != 1) && input == 0);
 
