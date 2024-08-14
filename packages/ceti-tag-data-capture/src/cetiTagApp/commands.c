@@ -4,10 +4,72 @@
 // Copyright:    Cummings Electronics Labs, Harvard University Wood Lab,
 //               MIT CSAIL
 // Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto,
-//               [TODO: Add other contributors here]
+//     Michael Salino-Hugg, [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 
 #include "commands.h"
+
+#include <ctype.h>
+#include <errno.h>
+//-----------------------------------------------------------------------------
+// Private type definitions
+//-----------------------------------------------------------------------------
+typedef struct {
+    const char *ptr;
+    size_t len;
+}str;
+#define STR_FROM(string) {.ptr = string, .len = strlen(string)}
+
+typedef struct {
+    str name;
+    const char *description;
+    int (*parse)(const char*_String);
+} CommandDescription;
+
+int handle_recovery_command(const char *args);
+static int __command_quit(const char *args);
+static int __command_dbg(const char *args);
+static int __command_audio(const char *args);
+static int __command_fpga(const char *args);
+
+static int __fpga_config(const char *args);
+static int __fpga_reset(const char *args);
+static int __fpga_version(const char *args);
+
+static const CommandDescription command_list[] = {
+    {.name = STR_FROM("quit"),      .description = "Stop the app",                      .parse=__command_quit}, //special command must be first
+    {.name = STR_FROM("dbg"),       .description = "Run debug routine",                 .parse=__command_dbg},
+    {.name = STR_FROM("audio", .description = "Send audio subcommand", .parse=__command_audio)},
+#ifdef ENABLE_FPGA
+    {.name = STR_FROM("fpga"),      .description = "Send subcommand to fpga",           .parse=__command_fpga},
+    //legacy commands
+    {.name = STR_FROM("resetFPGA"),     .description = "Reset FPGA state machines",     .parse=__fpga_reset},
+    {.name = STR_FROM("verFPGA"),       .description = "Query FPGA version",            .parse=__fpga_version},
+    {.name = STR_FROM("configFPGA"),    .description = "Load FPGA bitstream",           .parse=__fpga_version},
+#endif
+    {.name = STR_FROM("recovery"),  .description = "Send subcommand to recovery board", .parse=handle_recovery_command},
+};
+
+
+static const CommandDescription fpga_subcommand_list[] = {
+    {.name = STR_FROM("config"),    .description = "Load FPGA bitstream",       .parse=__fpga_config},
+    {.name = STR_FROM("reset"),     .description = "Reset FPGA state machines", .parse=__fpga_reset},
+    {.name = STR_FROM("version"),   .description = "Query FPGA version",        .parse=__fpga_version},
+};
+
+static int __recovery_ping(const char *args);
+static const CommandDescription recovery_subcommand_list[] = {
+    {.name = STR_FROM("ping"), .description = "Ping the recovery board to verify serial connection", .parse=__recovery_ping},
+};
+
+static int __audio_set_sample_rate(const char *args);
+static int __audio_set_start(const char *args);
+static int __audio_set_stop(const char *args);
+static const CommandDescription recovery_subcommand_list[] = {
+    {.name = STR_FROM("setRate"), .description = "Set audio rate in kHz", .parse=__audio_set_sample_rate},
+    {.name = STR_FROM("start"), .description = "Set audio rate in kHz", .parse=__audio_set_start},
+    {.name = STR_FROM("stop"), .description = "Set audio rate in kHz", .parse=__audio_set_sop},
+};
 
 //-----------------------------------------------------------------------------
 // Initialize global variables
@@ -22,9 +84,40 @@ int g_command_thread_is_running = 0;
 static char rsp_pipe_path[512];
 
 
+
 //-----------------------------------------------------------------------------
 // Command-handling logic
 //-----------------------------------------------------------------------------
+static inline 
+const char * strtoidentifier(const char *_String, const char **_EndPtr){
+    errno = 0; //reset errno;
+
+    if(_String == NULL){
+        return 0; //invalid _String
+    }
+    
+    //skip whitespace
+    while(isspace(*_String)){_String++;} 
+
+    const char *identifier_start = _String;
+    //look for start character
+    if(!isalpha(*_String) && (*_String != '_')){
+        if (_EndPtr != NULL){
+            *_EndPtr = _String;
+        }
+        return 0; //not an identifier
+    }
+    _String++;
+    
+    //find end of String
+    while(isalnum(*_String) || (*_String == '_')){
+        _String++;
+    }
+    if (_EndPtr != NULL){
+        *_EndPtr = _String;
+    }
+    return identifier_start;
+}
 
 //-----------------------------------------------------------------------------
 int init_commands() {
@@ -33,51 +126,193 @@ int init_commands() {
 }
 
 //-----------------------------------------------------------------------------
-int handle_command(void) {
+static int __command_quit(const char *args){
+    fprintf(g_rsp_pipe, "Received Quit command - stopping the app\n"); // echo it back
+    CETI_LOG("SETTING EXIT FLAG");
+    g_exit = 1;
+    return 0;
+}
 
-  // Declare state used by some of the below commands.
-  char fpgaCamResponse[256];
+static int __command_dbg(const char *args) {
+    fprintf(g_rsp_pipe, "Running Debug Routine(s)\n"); // echo it back
+    CETI_LOG("Debug routine completed, Shutdown Sequence Testing");
+    return 0;
+}
 
-    //-----------------------------------------------------------------------------
-    // Part 1 - quit or any other special commands here
-    if (!strncmp(g_command, "quit", 4)) {
-        CETI_LOG("Received Quit command");
-        g_rsp_pipe = fopen(rsp_pipe_path, "w");
-        fprintf(g_rsp_pipe, "Received Quit command - stopping the app\n"); // echo it back
-        fclose(g_rsp_pipe);
-        CETI_LOG("SETTING EXIT FLAG");
-        g_exit = 1;
-        return 0;
+static int __command_audio(const char *args) {
+
+}
+
+
+/*****************************************************************************
+ * FPGA
+ *****************************************************************************/
+
+static int __fpga_config(const char *args){
+    const char *fpga_bin;
+    //skip whitespace
+    while(isspace(*args)){args++;} 
+    if(*args == 0){ // no file path provided
+        fpga_bin = "/opt/ceti-tag-data-capture/config/top.bin";
+        fprintf(g_rsp_pipe, "file %s does not exist!\n", args);
+    } else {
+        CETI_LOG("checking that %s exists\n", args); // should be FE
+        if(access(args, F_OK) != -1) { // check if file exists
+            fpga_bin = args;
+        } else {
+            fprintf(g_rsp_pipe, "file %s does not exist!\n", args);
+            return -1;
+        }
     }
     
-    //-----------------------------------------------------------------------------
-    // Part 2 - Client commands
-    if (!strncmp(g_command, "dbug", 4)) {
-        CETI_LOG("Debug Placeholder is Executing");
-
-    //    wt_fpga_cam(0x0E, 0x6C, 0x61, 0x03, 0x00, NULL);
-
-        g_rsp_pipe = fopen(rsp_pipe_path, "w");
-        fprintf(g_rsp_pipe, "Running Debug Routine(s)\n"); // echo it back
-        fclose(g_rsp_pipe);
-        
-        CETI_LOG("Debug routine completed, Shutdown Sequence Testing");
-        
+    if (wt_fpga_load_bitstream(fpga_bin) == WT_OK) {
+        CETI_LOG("FPGA Configuration Succeeded");
+        fprintf(g_rsp_pipe, "handle_command(): Configuring FPGA Succeeded\n");
         return 0;
-    }
 
-    // if (!strncmp(g_command, "testSerial", 10)) {
-    //     CETI_LOG("Testing Recovery Serial Link");
-    //     #if ENABLE_RECOVERY
-    //     testRecoverySerial();
-    //     g_rsp_pipe = fopen(rsp_pipe_path, "w");
-    //     fprintf(g_rsp_pipe, "handle_command(): Tested Recovery Serial Link\n");
-    //     fclose(g_rsp_pipe);
-    //     #else
-    //     CETI_LOG("XXXX Recovery is not selected for operation - skipping command XXXX");
-    //     #endif
-    //     return 0;
-    // }
+    } else {
+        CETI_ERR("XXXX FPGA Configuration Failed XXXX");
+        fprintf(g_rsp_pipe, "handle_command(): Configuring FPGA Failed - Try Again\n");
+        return -2;
+    }    
+}
+
+static int __fpga_version(const char *args){
+    uint16_t version = wt_fpga_get_version();
+    CETI_LOG("FPGA Version: 0x%04X\n", version); // should be FE
+    fprintf(g_rsp_pipe, "FPGA Version: 0x%04X\n", version);
+    return 0;
+}
+
+static int __fpga_reset(const char *args){
+    wt_fpga_reset();
+    fprintf(g_rsp_pipe, "handle_command(): FPGA Reset Completed\n"); // echo it
+    return 0;
+}
+
+static int __command_fpga(const char *args){
+#if ENABLE_FPGA
+    // parse command identifier
+    const char * subcommand_end = NULL;
+    const char * subcommand = strtoidentifier(args, &subcommand_end);
+
+    // check if a subcommand identifier was found
+    if (subcommand != NULL) {
+        size_t subcommand_len = (subcommand_end - subcommand);
+        for (int i = 0; i < sizeof(fpga_subcommand_list)/sizeof(*fpga_subcommand_list); i++) {
+            if ((fpga_subcommand_list[i].name.len == subcommand_len)
+                && (memcmp(subcommand, fpga_subcommand_list[i].name.ptr, subcommand_len) == 0)
+            ) {
+                CETI_LOG("Received FPGA Subcommand: %s", fpga_subcommand_list[i].name.ptr);
+                if (fpga_subcommand_list[i].parse != NULL) {
+                    return fpga_subcommand_list[i].parse(subcommand_end);
+                } else { 
+                    CETI_WARN("!!!Command does nothing!!!");
+                    return 0;
+                }
+            }
+        }
+        //subcommand was invalid
+        CETI_LOG("Received Invalid FPGA Subcommand");
+    }
+    //subcommand was not found or not valid
+
+    //print fpga subcommand help
+    fprintf(g_rsp_pipe, "\n"); // echo it
+    fprintf(g_rsp_pipe, "CETI Tag Electronics Available FPGA Subcommands\n");
+    fprintf(g_rsp_pipe, "---------------------------------------------------------\n");
+    for (int i = 0; i < sizeof(fpga_subcommand_list)/sizeof(*fpga_subcommand_list); i++) {
+        fprintf(g_rsp_pipe, "%-11s %s\n", fpga_subcommand_list[i].name.ptr, fpga_subcommand_list[i].description);
+    }
+    fprintf(g_rsp_pipe, "\n");
+#else
+    CETI_LOG("XXXX The FPGA is not selected for operation - skipping configuration XXXX");
+#endif
+    return 0;
+}
+
+/*****************************************************************************
+ * Recovery 
+ *****************************************************************************/
+static int __recovery_ping(const char *args) {
+    //ping recovery board
+    if(recovery_ping() == 0){
+        fprintf(g_rsp_pipe, "Pong!\n"); // callback received
+    } else {
+        fprintf(g_rsp_pipe, "Recovery board did not respond\n");
+    }
+    return 0;
+}
+
+int handle_recovery_command(const char *args) {    
+    // parse command identifier
+    const char * subcommand_end = NULL;
+    const char * subcommand = strtoidentifier(args, &subcommand_end);
+
+    // check if a subcommand identifier was found
+    if (subcommand != NULL) {
+        size_t subcommand_len = (subcommand_end - subcommand);
+        for (int i = 0; i < sizeof(recovery_subcommand_list)/sizeof(*recovery_subcommand_list); i++) {
+            if ((recovery_subcommand_list[i].name.len == subcommand_len)
+                && (memcmp(subcommand, recovery_subcommand_list[i].name.ptr, subcommand_len) == 0)
+            ) {
+                CETI_LOG("Received Recovery Subcommand: %s", recovery_subcommand_list[i].name.ptr);
+                if (recovery_subcommand_list[i].parse != NULL) {
+                    return recovery_subcommand_list[i].parse(subcommand_end);
+                } else { 
+                    CETI_WARN("!!!Command does nothing!!!");
+                    return 0;
+                }
+            }
+        }
+        //subcommand was invalid
+        CETI_LOG("Received Invalid Recovery Subcommand");
+    }
+    //subcommand was not found or not valid
+
+    //print recovery subcommand help
+    fprintf(g_rsp_pipe, "\n"); // echo it
+    fprintf(g_rsp_pipe, "CETI Tag Electronics Available Recovery Subcommands\n");
+    fprintf(g_rsp_pipe, "---------------------------------------------------------\n");
+    for (int i = 0; i < sizeof(recovery_subcommand_list)/sizeof(*recovery_subcommand_list); i++) {
+        fprintf(g_rsp_pipe, "%-11s %s\n", recovery_subcommand_list[i].name.ptr, recovery_subcommand_list[i].description);
+    }
+    fprintf(g_rsp_pipe, "\n");
+    return 0;
+}
+
+
+
+int handle_command(void) {
+    // Declare state used by some of the below commands.
+    char fpgaCamResponse[256];
+
+    // parse command identifier
+    const char * command_end = NULL;
+    const char * command = strtoidentifier(g_command, &command_end);
+    
+    // check if a command identifier was found
+    if (command != NULL) {
+        size_t command_len = (command_end - command);
+        for (int i = 0; i < sizeof(command_list)/sizeof(*command_list); i++) {
+            if ((command_list[i].name.len == command_len) && (memcmp(command, command_list[i].name.ptr, command_len) == 0)) {
+                g_rsp_pipe = fopen(rsp_pipe_path, "w");
+                CETI_LOG("Received Recovery command: %s", command_list[i].name.ptr);
+                if (command_list[i].parse != NULL) {
+                    int return_val = command_list[i].parse(command_end);
+                    fclose(g_rsp_pipe);
+                    return return_val;
+
+                } else { 
+                    CETI_WARN("!!!Command does nothing!!!");
+                    fclose(g_rsp_pipe);
+                    return 0;
+                }
+            }
+        }
+        // Command was invalid
+        CETI_LOG("Received Invalid Recovery Command");
+    }
 
     if (!strncmp(g_command, "bwOn", 4)) {
         CETI_LOG("Turning on burnwire");
@@ -206,48 +441,6 @@ int handle_command(void) {
         return 0;
     }
 
-    if (!strncmp(g_command, "configFPGA", 10)) {
-        CETI_LOG("Configuring the FPGA");
-
-        #if ENABLE_FPGA
-        if (wt_fpga_load_bitstream("/opt/ceti-tag-data-capture/config/top.bin") == WT_OK) {
-            CETI_LOG("FPGA Configuration Succeeded");
-            g_rsp_pipe = fopen(rsp_pipe_path, "w");
-            fprintf(g_rsp_pipe,
-                    "handle_command(): Configuring FPGA Succeeded\n");
-        } else {
-            CETI_LOG("XXXX FPGA Configuration Failed XXXX");
-            g_rsp_pipe = fopen(rsp_pipe_path, "w");
-            fprintf(
-                g_rsp_pipe,
-                "handle_command(): Configuring FPGA Failed - Try Again\n");
-        }
-        fclose(g_rsp_pipe);
-        #else
-        CETI_LOG("XXXX The FPGA is not selected for operation - skipping configuration XXXX");
-        #endif
-        return 0;
-    }
-
-    if (!strncmp(g_command, "verFPGA", 7)) {
-        uint16_t version;
-        CETI_LOG("Querying FPGA Version");
-        #if ENABLE_FPGA
-
-        version = wt_fpga_get_version();
-
-        CETI_LOG("FPGA Version: 0x%04X\n", version); // should be FE
-
-        g_rsp_pipe = fopen(rsp_pipe_path, "w");
-        fprintf(g_rsp_pipe, "FPGA Version: 0x%04X\n", version);
-
-        fclose(g_rsp_pipe);
-        #else
-        CETI_LOG("XXXX The FPGA is not selected for operation - skipping configuration XXXX");
-        #endif
-        return 0;
-    }
-
     if (!strncmp(g_command, "checkCAM", 8)) {
         CETI_LOG("Testing CAM Link");
         #if ENABLE_FPGA
@@ -299,19 +492,6 @@ int handle_command(void) {
         fclose(g_rsp_pipe);
         #else
         CETI_LOG("XXXX Audio is not selected for operation - skipping command XXXX");
-        #endif
-        return 0;
-    }
-
-    if (!strncmp(g_command, "resetFPGA", 9)) {
-        CETI_LOG("Resetting the FPGA");
-        #if ENABLE_FPGA
-        wt_fpga_reset();
-        g_rsp_pipe = fopen(rsp_pipe_path, "w");
-        fprintf(g_rsp_pipe, "handle_command(): FPGA Reset Completed\n"); // echo it
-        fclose(g_rsp_pipe);
-        #else
-        CETI_LOG("XXXX The FPGA is not selected for operation - skipping command XXXX");
         #endif
         return 0;
     }
@@ -516,6 +696,8 @@ int handle_command(void) {
         return 0;
     }
 
+
+
   // Print available commands.
   g_rsp_pipe = fopen(rsp_pipe_path, "w");
   fprintf(g_rsp_pipe, "\n"); // echo it
@@ -523,11 +705,6 @@ int handle_command(void) {
   fprintf(g_rsp_pipe,
           "---------------------------------------------------------\n");
   fprintf(g_rsp_pipe, "initTag	    Initialize the Tag\n");
-
-  fprintf(g_rsp_pipe, "configFPGA  Load FPGA bitstream\n");
-  fprintf(g_rsp_pipe, "verFPGA     Get FPGA version\n");
-
-  fprintf(g_rsp_pipe, "resetFPGA        Reset FPGA state machines\n");
   fprintf(g_rsp_pipe, "resetAudioFIFO   Reset audio HW FIFO\n");
   fprintf(g_rsp_pipe, "checkCAM         Verify hardware control link\n");
 
@@ -560,6 +737,12 @@ int handle_command(void) {
   fprintf(g_rsp_pipe, "powerdown   Power down the Tag\n");
   fprintf(g_rsp_pipe, "powerdown_17320  Power down the Tag new BMS IC\n");
 
+  for (int i = 0; i < sizeof(command_list)/sizeof(*command_list); i++) {
+        if (command_list[i].description != NULL) {
+            fprintf(g_rsp_pipe, "%-11s %s\n", command_list[i].name.ptr, command_list[i].description);
+        } else { 
+        }
+    }
   fprintf(g_rsp_pipe, "\n");
   fclose(g_rsp_pipe);
 

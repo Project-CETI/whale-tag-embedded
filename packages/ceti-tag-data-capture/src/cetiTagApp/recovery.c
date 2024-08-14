@@ -40,7 +40,7 @@ typedef enum recovery_commands_e {
     /* recovery packet */
     REC_CMD_GPS_PACKET   = 0x10, // rec --> pi: raw gps packet
     REC_CMD_APRS_MESSAGE,        // pi --> rec: addressee and message for tx on APRS
-
+    REC_CMD_PING, //0x12
 
     /* recovery configuration */
     REC_CMD_CONFIG_CRITICAL_VOLTAGE = 0x20,
@@ -590,6 +590,31 @@ int recovery_message(const char *message){
     };
     memcpy(pkt.string_packet.msg.value, message, message_len);
     return __recovery_write(&pkt, sizeof(RecPktHeader) + message_len);
+}
+
+int recovery_ping(void){
+    RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_PING);
+    RecPkt ret_pkt = {};
+    __recovery_write(&q_pkt, sizeof(q_pkt));
+
+    //wait for response
+    int64_t start_time_us = get_global_time_us();
+    do {
+        if (recovery_get_packet(&ret_pkt, RECOVERY_UART_TIMEOUT_US) == -1) {
+            CETI_ERR("Recovery board packet reading error");
+            return -1;
+        }
+
+        if(ret_pkt.common.header.type == REC_CMD_PING) {
+            return 0;
+        }
+        
+        //received incorrect packet type, keep reading
+    } while ((get_global_time_us() - start_time_us) < RECOVERY_UART_TIMEOUT_US);
+
+    //Timeout
+    CETI_ERR("Recovery board timeout");
+    return -2;
 }
 
 //-----------------------------------------------------------------------------

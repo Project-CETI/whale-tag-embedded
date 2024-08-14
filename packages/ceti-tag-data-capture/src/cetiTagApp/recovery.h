@@ -55,6 +55,7 @@ int recovery_set_critical_voltage(float voltage);
 int recovery_message(const char *message);
 int recovery_on(void);
 int recovery_off(void);
+int recovery_ping(void);
 int recovery_shutdown(void);
 void recovery_kill(void);
 
