@@ -77,6 +77,7 @@ TestState test_batteries(FILE *pResultsFile) {
         balance_pass = (balance < cell_balance_limit_v);
 
         //display results
+        tui_goto(1, 4);
         printf("Cell 1 (%4.2f V): %s\n", shm_battery->cell_voltage_v[0], cell1_pass ? GREEN(PASS) : RED(FAIL));
         printf("Cell 2 (%4.2f V): %s\n", shm_battery->cell_voltage_v[1], cell2_pass ? GREEN(PASS) : RED(FAIL));
         printf("Cell diff (%3.0f mV): %s\n", 1000*balance, balance_pass ? GREEN(PASS) : RED(FAIL));

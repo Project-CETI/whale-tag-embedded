@@ -56,22 +56,8 @@ TestState test_audio(FILE *pResultsFile){
     if(sem_audio_block == SEM_FAILED){
         perror("sem_open");
         munmap(shm_audio, sizeof(CetiAudioBuffer));
-        return -1;
+        return TEST_STATE_FAILED;
     }
-    // pthread_t data_acq_thread;
-    // AudioConfig audio_config = {
-    //     .filter_type = AUDIO_FILTER_WIDEBAND,
-    //     .sample_rate = AUDIO_SAMPLE_RATE_96KHZ,
-    //     .bit_depth = AUDIO_BIT_DEPTH_16,
-    // };
-
-    // test_audio_terminate = 0;
-    // if (audio_setup(&audio_config) != 0) {
-    //     return TEST_STATE_FAILED;
-    // }
-    // pthread_mutex_init(&test_audio_swap_lock, NULL);
-    // pthread_create(&data_acq_thread, NULL, &test_audio_acq_thread, NULL);
-    // test_audio_read_sample = 0;
 
     for(int i = 0; i < AUDIO_CHANNELS; i++){
         printf("\033[%d;0H", 3 + i*6); printf("CH %d:", i + 1);
@@ -146,7 +132,6 @@ TestState test_audio(FILE *pResultsFile){
 
         // === display results ===
         for (int i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++){
-            
             tui_draw_horzontal_bar(amp[i_channel], 1.0, 7, 2 + i_channel*6, tui_get_screen_width() - 7);
             printf("\e[%d;%dH\e[96m|\e[0m\n", 2 + i_channel*6, 7 + (int)(tui_get_screen_width()*target));
             tui_goto(14, 3 + i_channel*6); printf("%6.3f", amp[i_channel]); //Amplitude
