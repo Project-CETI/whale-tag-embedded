@@ -15,15 +15,13 @@ char g_process_path[256] = "/opt/ceti-tag-data-capture/bin";
 
 #define TEST_RESULT_FILE_BASE "test_result"
 
-
-
 typedef struct hardware_test_t{
     char *name;
     TestUpdateMethod *update;
 } HardwareTest;
 
 HardwareTest g_test_list[] = {
-    { .name = "Batteries",        .update = test_ToDo, },
+    { .name = "Batteries",        .update = test_batteries, },
     { .name = "Audio",            .update = test_audio, },
     { .name = "Pressure",         .update = test_pressure, },
     { .name = "ECG",              .update = test_ToDo, },
@@ -36,8 +34,6 @@ HardwareTest g_test_list[] = {
 #define TEST_COUNT (sizeof(g_test_list)/sizeof(g_test_list[0]))
 
 FILE *results_file;
-
-
 
 /************************************
  * main
