@@ -47,7 +47,7 @@ int init_light() {
   g_light = create_shared_memory_region(LIGHT_SHM_NAME, sizeof(CetiLightSample));
 
   // setup semaphore
-  light_data_ready = sem_open(BATTERY_SEM_NAME, O_CREAT, 0644, 0);
+  light_data_ready = sem_open(LIGHT_SEM_NAME, O_CREAT, 0644, 0);
   if(light_data_ready == SEM_FAILED){
     perror("sem_open");
     CETI_ERR("Failed to create semaphore");
