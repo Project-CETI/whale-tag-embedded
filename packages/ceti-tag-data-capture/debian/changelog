@@ -1,3 +1,9 @@
+ceti-tag-data-capture (2.3-0) stable; urgency=medium
+
+  * Baseline version for the new v2.3 hardware platform
+
+ --  CETI Project <cetiproject.org>  Thu, 15 Aug 2024 00:00:01 -0800
+
 ceti-tag-data-capture (2.1-6) stable; urgency=medium
 
   * Add ECG sensor support
