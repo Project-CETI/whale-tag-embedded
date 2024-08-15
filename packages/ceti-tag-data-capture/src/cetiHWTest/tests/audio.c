@@ -19,6 +19,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define AUDIO_WINDOW_SIZE_US 5000000
+#define AUDIO_WINDOW_SIZE_SAMPLES ((AUDIO_WINDOW_SIZE_US/1000000)*96000)
+
 TestState test_audio(FILE *pResultsFile){
     char input = 0;
     int channel_pass[3] = {0,0,0};
@@ -72,7 +75,9 @@ TestState test_audio(FILE *pResultsFile){
     size_t offset = (uint8_t*)(shm_audio->data[shm_audio->page].blocks[shm_audio->block]) - shm_audio->data[shm_audio->page].raw; 
     size_t next_sample_index =  (offset + (AUDIO_CHANNELS*sizeof(uint16_t)) - 1) / (AUDIO_CHANNELS*sizeof(uint16_t));
     uint8_t *read_ptr = shm_audio->data[shm_audio->page].sample16[next_sample_index][0];
+    uint8_t *window_ptr = read_ptr;
 
+    int sample_count = 0;
     usleep(100000); // wait .1 seconds for data to exist
 
     do {
@@ -83,10 +88,12 @@ TestState test_audio(FILE *pResultsFile){
         uint8_t *end_ptr = (uint8_t*)shm_audio->data[shm_audio->page].blocks[shm_audio->block];
         double min[AUDIO_CHANNELS] = {1.0, 1.0, 1.0};
         double max[AUDIO_CHANNELS] = {-1.0, -1.0, -1.0};
+        double sum[AUDIO_CHANNELS] = {0.0, 0.0, 0.0};
+        double sq_sum[AUDIO_CHANNELS] = {0.0, 0.0, 0.0};
         double avg[AUDIO_CHANNELS] = {0.0, 0.0, 0.0};
         double rms[AUDIO_CHANNELS] = {0.0, 0.0, 0.0};
         double amp[AUDIO_CHANNELS] = {0.0, 0.0, 0.0};
-        int sample_count = 0;
+        // int sample_count = 0;
 
         //ToDo: apply HPF
 
@@ -97,8 +104,8 @@ TestState test_audio(FILE *pResultsFile){
                 for(int i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++){
                     int16_t sample = ((int16_t)(read_ptr[0]) << 8) | ((int16_t)read_ptr[1]);
                     double sample_f = ((double)sample/0x8000);
-                    avg[i_channel] += sample_f;
-                    rms[i_channel] += sample_f*sample_f;
+                    sum[i_channel] += sample_f;
+                    sq_sum[i_channel] += sample_f*sample_f;
                     min[i_channel] = fmin(min[i_channel], sample_f);
                     max[i_channel] = fmax(max[i_channel], sample_f);
                     read_ptr += 2;
@@ -113,8 +120,8 @@ TestState test_audio(FILE *pResultsFile){
             for(int i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++){
                 int16_t sample = ((int16_t)(read_ptr[0]) << 8) | ((int16_t)read_ptr[1]);
                 double sample_f = ((double)sample/0x8000);
-                avg[i_channel] += sample_f;
-                rms[i_channel] += sample_f*sample_f;
+                sum[i_channel] += sample_f;
+                sq_sum[i_channel] += sample_f*sample_f;
                 min[i_channel] = fmin(min[i_channel], sample_f);
                 max[i_channel] = fmax(max[i_channel], sample_f);
                 read_ptr += 2;
@@ -122,9 +129,25 @@ TestState test_audio(FILE *pResultsFile){
             sample_count++;
         }
 
+        //drop old samples
+        while (sample_count > AUDIO_WINDOW_SIZE_SAMPLES) {
+            for(int i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++){
+                int16_t sample = ((int16_t)(window_ptr[0]) << 8) | ((int16_t)window_ptr[1]);
+                double sample_f = ((double)sample/0x8000);
+                sum[i_channel] -= sample_f;
+                sq_sum[i_channel] -= sample_f*sample_f;
+                window_ptr += 2;
+                //check for wrap
+                if (!(window_ptr <  shm_audio->data[1].raw + AUDIO_BUFFER_SIZE_BYTES)){
+                    window_ptr = shm_audio->data[0].raw;
+                }
+            }
+            sample_count--;
+        }
+
         for(int i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++){
-            avg[i_channel] = avg[i_channel]/((double)sample_count);
-            rms[i_channel] = rms[i_channel]/((double)sample_count);
+            avg[i_channel] = sum[i_channel]/((double)sample_count);
+            rms[i_channel] = sq_sum[i_channel]/((double)sample_count);
             rms[i_channel] = sqrt(rms[i_channel]);
             amp[i_channel] = fmax(fabs(min[i_channel]), fabs(max[i_channel]));
 
