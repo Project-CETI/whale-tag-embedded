@@ -147,7 +147,7 @@ int stateMachine_set_state(wt_state_t new_state){
         case ST_RETRIEVE:
             #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
-                recovery_off();
+                // recovery_off();
             }
             #endif // ENABLE_RECOVERY
             break;
@@ -161,7 +161,7 @@ int stateMachine_set_state(wt_state_t new_state){
         case ST_DEPLOY:
             #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
-                recovery_on();
+                // recovery_on();
             }
             #endif // ENABLE_RECOVERY
             break;
@@ -170,7 +170,7 @@ int stateMachine_set_state(wt_state_t new_state){
             activity_led_disable();
             #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
-                recovery_off();
+                // recovery_off();
             }
             #endif // ENABLE_RECOVERY
             // Record this time as the burnwire timeout start time if one has not already been recorded,
@@ -188,7 +188,7 @@ int stateMachine_set_state(wt_state_t new_state){
         case ST_RECORD_SURFACE:
             #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
-                recovery_on();
+                // recovery_on();
             }
             #endif // ENABLE_RECOVERY
 
@@ -207,7 +207,7 @@ int stateMachine_set_state(wt_state_t new_state){
         case ST_RETRIEVE:
             #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
-                recovery_on();
+                // recovery_on();
             }
             #endif // ENABLE_RECOVERY
             
@@ -221,7 +221,7 @@ int stateMachine_set_state(wt_state_t new_state){
     CETI_LOG("State transition: %s -> %s\n", get_state_str(presentState), get_state_str(new_state));
     #if ENABLE_RECOVERY
         //set recovery board comment
-        recovery_set_comment(get_state_str(new_state));
+        // recovery_set_comment(get_state_str(new_state));
         
     #endif   
     presentState = new_state;
@@ -236,32 +236,32 @@ int updateStateMachine() {
     case (ST_CONFIG): {
         // configure recovery board
         #if ENABLE_RECOVERY
-        if (g_config.recovery.enabled) {
-            if ((recovery_set_critical_voltage(g_config.critical_voltage_v) == 0) 
-                && (recovery_set_aprs_freq_mhz(g_config.recovery.freq_MHz) == 0)
-                && (recovery_set_aprs_callsign(&g_config.recovery.callsign) == 0)
-                && (recovery_set_aprs_message_recipient(&g_config.recovery.recipient) == 0)
-            ) { 
-                // send wake message
-                char hostname[512];
-                gethostname(hostname, 511);
+        // if (g_config.recovery.enabled) {
+        //     if ((recovery_set_critical_voltage(g_config.critical_voltage_v) == 0) 
+        //         && (recovery_set_aprs_freq_mhz(g_config.recovery.freq_MHz) == 0)
+        //         && (recovery_set_aprs_callsign(&g_config.recovery.callsign) == 0)
+        //         && (recovery_set_aprs_message_recipient(&g_config.recovery.recipient) == 0)
+        //     ) { 
+        //         // send wake message
+        //         char hostname[512];
+        //         gethostname(hostname, 511);
             
-                char message[1024];
-                snprintf(message, sizeof(message), "CETI %s ready!", hostname);
-                recovery_message(message);
+        //         char message[1024];
+        //         snprintf(message, sizeof(message), "CETI %s ready!", hostname);
+        //         recovery_message(message);
                 
-                char rec_callsign_msg[10];
-                char callsign_msg[10];
-                callsign_to_str(&g_config.recovery.callsign, callsign_msg);
-                callsign_to_str(&g_config.recovery.recipient, rec_callsign_msg);
-                CETI_LOG("Recovery configured: %s -> %s @ %7.3f MHz", callsign_msg, rec_callsign_msg, g_config.recovery.freq_MHz);
-            } else {
-                CETI_ERR("Failed to configure recovery board");
-            }
-        } else {
-            CETI_LOG("Recovery disabled");
-            recovery_kill();
-        }
+        //         char rec_callsign_msg[10];
+        //         char callsign_msg[10];
+        //         callsign_to_str(&g_config.recovery.callsign, callsign_msg);
+        //         callsign_to_str(&g_config.recovery.recipient, rec_callsign_msg);
+        //         CETI_LOG("Recovery configured: %s -> %s @ %7.3f MHz", callsign_msg, rec_callsign_msg, g_config.recovery.freq_MHz);
+        //     } else {
+        //         CETI_ERR("Failed to configure recovery board");
+        //     }
+        // } else {
+        //     CETI_LOG("Recovery disabled");
+        //     recovery_kill();
+        // }
         #endif // ENABLE_RECOVERY
         
         // Transition to the start state.
@@ -454,7 +454,7 @@ int updateStateMachine() {
         #endif // ENABLE_BURNWIRE
         #if ENABLE_RECOVERY
         if (g_config.recovery.enabled) {
-            recovery_off();
+            // recovery_off();
         }
         #endif // ENABLE_RECOVERY
 

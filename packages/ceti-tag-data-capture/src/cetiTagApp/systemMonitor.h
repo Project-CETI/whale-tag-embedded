@@ -66,7 +66,7 @@ extern int g_imu_thread_tid;
 extern int g_light_thread_tid;
 extern int g_pressureTemperature_thread_tid;
 extern int g_battery_thread_tid;
-extern int g_recovery_thread_tid;
+extern int g_recovery_rx_thread_tid;
 extern int g_stateMachine_thread_tid;
 extern int g_command_thread_tid;
 extern int g_rtc_thread_tid;

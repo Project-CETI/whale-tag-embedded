@@ -123,8 +123,8 @@ int main(void) {
   // Recovery board (GPS).
 #if ENABLE_RECOVERY
   if(g_config.recovery.enabled) {
-    pthread_create(&thread_ids[num_threads], NULL, &recovery_thread, NULL);
-    threads_running[num_threads] = &g_recovery_thread_is_running;
+    pthread_create(&thread_ids[num_threads], NULL, &recovery_rx_thread, NULL);
+    threads_running[num_threads] = &g_recovery_rx_thread_is_running;
 #ifdef DEBUG
     strcpy(thread_name[num_threads], "recovery");
 #endif
@@ -351,11 +351,11 @@ int init_tag() {
 #endif
 
 #if ENABLE_RECOVERY
-  if(g_config.recovery.enabled) {
+  // if(g_config.recovery.enabled) {
     result += recovery_thread_init() == 0 ? 0 : -1;
-  } else {
-    recovery_kill();
-  }
+  // } else {
+  //   recovery_kill();
+  // }
 #endif
 
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
