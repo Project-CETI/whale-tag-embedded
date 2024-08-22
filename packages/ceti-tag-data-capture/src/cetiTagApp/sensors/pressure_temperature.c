@@ -29,7 +29,7 @@ static const char *pressureTemperature_data_file_headers[] = {
     "Pressure [bar]",
     "Water Temperature [C]",
 };
-static const int num_pressureTemperature_data_file_headers = 2;
+static const int num_pressureTemperature_data_file_headers = sizeof(pressureTemperature_data_file_headers)/sizeof(*pressureTemperature_data_file_headers);
 // Store global versions of the latest readings since the state machine will use
 // them.
 CetiPressureSample *g_pressure = NULL;

@@ -29,7 +29,7 @@ static const char* ecg_data_file_headers[] = {
   "Leads-Off-P",
   "Leads-Off-N",
   };
-static const int num_ecg_data_file_headers = 4;
+static const int num_ecg_data_file_headers = sizeof(ecg_data_file_headers)/sizeof(*ecg_data_file_headers);
 
 static int ecg_buffer_select_toWrite = 0; // which buffer will be flushed to the output file
 static char ecg_data_file_notes[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH][75];
