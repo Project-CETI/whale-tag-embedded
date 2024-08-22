@@ -44,6 +44,10 @@
 #define PRESSURE_SHM_NAME "/pressure_shm"
 #define PRESSURE_SEM_NAME "/pressure_sem"
 
+// === RECOVERY ===
+#define RECOVERY_SHM_NAME "/recovery_shm"
+#define RECOVERY_SEM_NAME "/recovery_sem"
+
 //-----------------------------------------------------------------------------
 // Definitions/Configurations
 //-----------------------------------------------------------------------------
@@ -201,5 +205,11 @@ typedef struct {
     double  pressure_bar;
     double  temperature_c;
 } CetiPressureSample;
+
+typedef struct {
+    int64_t sys_time_us;
+    int     rtc_time_s;
+    char    nmea_sentence[96];    
+} CetiRecoverySample;
 
 #endif //CETI_TAG_H

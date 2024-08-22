@@ -7,15 +7,20 @@
 
 #include "recovery.h"
 
+#include "cetiTag.h"
 #include "iox.h"
 #include "launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 #include "utils/error.h"
 #include "utils/logging.h"
+#include "utils/memory.h"
 
+#include <fcntl.h>
 #include <pigpio.h>
 #include <pthread.h> // to set CPU affinity
+#include <semaphore.h>
 #include <string.h> // for memset() and other string functions
+#include <sys/mman.h>
 #include <unistd.h> // for usleep()
 
 //-----------------------------------------------------------------------------
@@ -94,8 +99,7 @@ static char recovery_data_file_notes[256] = "";
 static const char* recovery_data_file_headers[] = {
   "GPS",
   };
-static const int num_recovery_data_file_headers = 1;
-static char gps_location[GPS_LOCATION_LENGTH];
+static const int num_recovery_data_file_headers = sizeof(recovery_data_file_headers)/sizeof(*recovery_data_file_headers);
 static int recovery_fd = PI_INIT_FAILED;
 
 typedef enum {
@@ -126,6 +130,9 @@ struct{
     } recipient;
     uint8_t pong;
 } recovery_board = {};
+
+static CetiRecoverySample *shm_nmea_sentence;
+static sem_t *sem_nmea_sentence_ready;
 
 /* FUCNTION DEFINITIONS ******************************************************/
 
@@ -633,111 +640,38 @@ int recovery_thread_init(void) {
 
     s_recovery_board_model.state = REC_STATE_APRS;
 
+   //create shared memory region for recovery board
+    shm_nmea_sentence = create_shared_memory_region(RECOVERY_SHM_NAME, sizeof(CetiRecoverySample));
+    if (shm_nmea_sentence == NULL) {
+        CETI_ERR("Failed to create shared memory region");
+        return -1;
+    }
+    //setup semaphores
+    sem_nmea_sentence_ready = sem_open(RECOVERY_SEM_NAME, O_CREAT, 0644, 0);
+    if(sem_nmea_sentence_ready == SEM_FAILED){
+        perror("sem_open");
+        CETI_ERR("Failed to create recovery semaphore");
+        return -1;
+    }
 
     // // Open an output file to write data.
-    // if(init_data_file(recovery_data_file, RECOVERY_DATA_FILEPATH,
-    //                     recovery_data_file_headers,  num_recovery_data_file_headers,
-    //                     recovery_data_file_notes, "init_data_file()") < 0) {
-    //     CETI_LOG("Failed to initialize recovery board thread");              
-    //     return -1;
-    // }
+    if(init_data_file(recovery_data_file, RECOVERY_DATA_FILEPATH,
+                        recovery_data_file_headers,  num_recovery_data_file_headers,
+                        recovery_data_file_notes, "init_data_file()") < 0) {
+        CETI_LOG("Failed to initialize recovery board thread");              
+        return -1;
+    }
 
     CETI_LOG("Successfully initialized recovery board thread");
     return 0;
 }
 
-// void* recovery_thread(void* paramPtr) {
-
-
-//     while (!g_exit) {
-//         pthread_mutex_lock(&s_recovery_board_model.state_lock); //prevents recovery board turning off mid communication
-//         switch(s_recovery_board_model.state) {
-//             case REC_STATE_WAIT: {
-//                 #if RECOVERY_WDT_ENABLED
-//                 //check if watchdog needs reset
-//                 const int wdt_resend_us = (RECOVERY_WDT_TRIGGER_TIME_MIN*60)*1000000;
-//                 if ((get_global_time_us() - s_recovery_board_model.wdt_time_us) > (wdt_resend_us - 1000000)){
-//                     __recovery_off(); //we already have mutex
-//                     s_recovery_board_model.wdt_time_us = get_global_time_us();
-//                 }
-//                 #endif
-//                 pthread_mutex_unlock(&s_recovery_board_model.state_lock);
-//                 sleep(1);
-//                 break; 
-//             }
-
-//             case REC_STATE_APRS: { 
-//                 long long global_time_us;
-//                 int rtc_count;
-//                 int result;
-//                 long long polling_sleep_duration_us;
-
-//                 recovery_data_file = fopen(RECOVERY_DATA_FILEPATH, "at");
-//                 if(recovery_data_file == NULL) {
-//                     pthread_mutex_unlock(&s_recovery_board_model.state_lock); //release recovery state
-//                     CETI_ERR("Failed to open data output file: %s", RECOVERY_DATA_FILEPATH);
-//                     // Sleep a bit before retrying.
-//                     for(int i = 0; i < 10 && !g_exit; i++) {
-//                         usleep(100000);
-//                     }
-//                     break;
-//                 }
-
-//                 // Acquire timing and sensor information as close together as possible.
-//                 global_time_us = get_global_time_us();
-//                 rtc_count = getRtcCount();
-//                 result = recovery_get_gps_data(gps_location, 1000000);
-//                 pthread_mutex_unlock(&s_recovery_board_model.state_lock); //release recovery state
-
-//                 if (result == -2) { //timeout
-//                     // no gps packet available
-//                     // nothing to do
-//                     fclose(recovery_data_file);
-//                     break;
-//                 } else if (result == -1) {
-//                     fclose(recovery_data_file);
-//                     CETI_ERR("Recovery board communication Error");
-//                     recovery_restart();
-//                     sleep(10);
-//                     break;
-//                 }   
-
-//                 // Write timing information.
-//                 fprintf(recovery_data_file, "%lld", global_time_us);
-//                 fprintf(recovery_data_file, ",%d", rtc_count);
-//                 // Write any notes, then clear them so they are only written once.
-//                 fprintf(recovery_data_file, ",%s", recovery_data_file_notes);
-//                 strcpy(recovery_data_file_notes, "");
-//                 // Write the sensor data.
-//                 fprintf(recovery_data_file, ",\"%s\"", gps_location);
-//                 // Finish the row of data and close the file.
-//                 fprintf(recovery_data_file, "\n");
-//                 fclose(recovery_data_file);
-
-//                 // Delay to implement a desired sampling rate.
-//                 // Take into account the time it took to acquire/save data.
-//                 polling_sleep_duration_us = RECOVERY_SAMPLING_PERIOD_US;
-//                 polling_sleep_duration_us -= get_global_time_us() - global_time_us;
-//                 if(polling_sleep_duration_us > 0){
-//                     usleep(polling_sleep_duration_us);
-//                 }
-//                 break;
-//             }
-
-//             default: { //Do nothing
-//                 pthread_mutex_unlock(&s_recovery_board_model.state_lock);
-//                 sleep(1);
-//                 break;
-//             }
-//         }
-//     }
-//     recovery_kill();
-//     serClose(recovery_fd);
-//     g_recovery_rx_thread_is_running = 0;
-//     CETI_LOG("Done!");
-//     return NULL;
-// }
-
+static void __recovery_sample_to_csv(CetiRecoverySample *pSample){
+    recovery_data_file =  fopen(RECOVERY_DATA_FILEPATH, "at");
+    fprintf(recovery_data_file, "%ld, %d, %s, %s", pSample->sys_time_us, pSample->rtc_time_s, recovery_data_file_notes, pSample->nmea_sentence);
+    fclose(recovery_data_file);
+    recovery_data_file_notes[0] = '\0'; //clear notes
+}
 
 static bool __recovery_rx_thread_should_exit() {
     return g_exit || g_stopAcquisition;
@@ -779,31 +713,90 @@ void *recovery_rx_thread(void *paramPtr) {
 
         //handle return packet based on type
         switch (pkt.header.type) {
-            case REC_CMD_GPS_PACKET: //
-                CETI_LOG("Received GPS packet: %s", pkt.data.string);
+            case REC_CMD_GPS_PACKET: 
+                //TODO check message length
+                shm_nmea_sentence->sys_time_us = get_global_time_us();
+                shm_nmea_sentence->rtc_time_s = getRtcCount();
+                memcpy(shm_nmea_sentence->nmea_sentence, pkt.data.raw, pkt.header.length);
+                shm_nmea_sentence->nmea_sentence[pkt.header.length] = '\0';
+                sem_post(sem_nmea_sentence_ready);
+                
+                //Log OR push to logger
+                __recovery_sample_to_csv(shm_nmea_sentence);
                 break;
 
-            // case REC_CMD_PONG:
-            //     break;
+            case REC_CMD_PONG:
+                recovery_board.pong = 1;
+                break;
+
+            case REC_CMD_CONFIG_APRS_CALLSIGN:
+                if (pkt.header.length > 6) {
+                    CETI_WARN("Received APRS callsign that is too long. Ignoring.");
+                    break;
+                } 
+
+                memcpy(recovery_board.callsign.callsign.value, pkt.data.raw, pkt.header.length);
+                recovery_board.callsign.callsign.value[pkt.header.length] = 0;
+                recovery_board.callsign.callsign.valid = 1;
+                break;
+
+            case REC_CMD_CONFIG_APRS_SSID:
+                if (pkt.header.length != 1) {
+                    CETI_WARN("Received APRS ssid packet that is an incorrect size. Ignoring.");
+                    break;
+                }
+                if (pkt.data.u8 > 15) {
+                    CETI_WARN("Received APRS ssid packet that is too large. Ignoring.");
+                    break;
+                }
+                recovery_board.callsign.ssid.value = pkt.data.u8;
+                recovery_board.callsign.ssid.valid = 1;
+                break;
+
+            case REC_CMD_CONFIG_APRS_FREQ:
+                if (pkt.header.length != sizeof(float)){
+                    CETI_WARN("Received APRS frequency packet that is an incorrect size. Ignoring.");
+                    break;
+                }
+                // TODO check frequency range
+                recovery_board.freq_Mhz.value = pkt.data.f32;
+                recovery_board.freq_Mhz.valid = 1;
+                break;
+
+            case REC_CMD_CONFIG_MSG_RCPT_CALLSIGN:
+                if (pkt.header.length > 6) {
+                    CETI_WARN("Received APRS recipient callsign that is too long. Ignoring.");
+                    break;
+                } 
+
+                memcpy(recovery_board.recipient.callsign.value, pkt.data.raw, pkt.header.length);
+                recovery_board.recipient.callsign.value[pkt.header.length] = 0;
+                recovery_board.recipient.callsign.valid = 1;
+                break;
+
+            case REC_CMD_CONFIG_MSG_RCPT_SSID:
+                if (pkt.header.length != 1) {
+                    CETI_WARN("Received APRS recipient ssid packet that is an incorrect size. Ignoring.");
+                    break;
+                }
+                if (pkt.data.u8 > 15) {
+                    CETI_WARN("Received APRS recipient ssid packet that is too large. Ignoring.");
+                    break;
+                }
+                recovery_board.recipient.ssid.value = pkt.data.u8;
+                recovery_board.recipient.ssid.valid = 1;
+                break;
 
             default:// unknown packet type
                 CETI_LOG("Received packet type 0x%02X", pkt.header.type);
                 break;
         }
-        // => buffer packet if nmea
-        // => otherwise update device values
     }
     wt_recovery_off();
+    sem_close(sem_nmea_sentence_ready);
+    munmap(shm_nmea_sentence, sizeof(CetiRecoverySample));
     g_recovery_rx_thread_is_running = 0;
     CETI_LOG("Done!");
     return NULL;
 }
 
-void *recovery_log_thread(void *paramPtr){
-    while(!g_stopAcquisition && !g_exit){
-        //wait for nmea buffer to fill
-            //flush to SD card
-    }
-    CETI_LOG("Done!");
-    return NULL;
-}
