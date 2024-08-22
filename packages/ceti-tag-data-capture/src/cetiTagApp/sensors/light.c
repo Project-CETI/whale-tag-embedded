@@ -31,7 +31,7 @@ static const char *light_data_file_headers[] = {
     "Ambient Light: Visible",
     "Ambient Light: IR",
 };
-static const int num_light_data_file_headers = 2;
+static const int num_light_data_file_headers = sizeof(light_data_file_headers)/sizeof(*light_data_file_headers);
 CetiLightSample *g_light;
 sem_t *light_data_ready;
 

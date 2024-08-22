@@ -34,7 +34,7 @@ static const char* stateMachine_data_file_headers[] = {
   "State To Process",
   "Next State",
   };
-static const int num_stateMachine_data_file_headers = 2;
+static const int num_stateMachine_data_file_headers = sizeof(stateMachine_data_file_headers)/sizeof(*stateMachine_data_file_headers);
 
 int init_stateMachine() {
 

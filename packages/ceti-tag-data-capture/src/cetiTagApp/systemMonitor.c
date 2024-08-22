@@ -56,7 +56,7 @@ static const char* systemMonitor_data_file_headers[] = {
   "Log Size [KB]", "SysLog Size [KB]",
   "CPU Temperature [C]", "GPU Temperature [C]",
   };
-static const int num_systemMonitor_data_file_headers = 32;
+static const int num_systemMonitor_data_file_headers = sizeof(systemMonitor_data_file_headers)/sizeof(*systemMonitor_data_file_headers);
 
 int init_systemMonitor()
 {
