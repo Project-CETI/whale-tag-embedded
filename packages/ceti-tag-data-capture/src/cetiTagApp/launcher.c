@@ -355,7 +355,7 @@ int init_tag() {
   if(g_config.recovery.enabled) {
     result += recovery_thread_init() == 0 ? 0 : -1;
   } else {
-    recovery_kill();
+    recovery_off();
   }
 #endif
 
