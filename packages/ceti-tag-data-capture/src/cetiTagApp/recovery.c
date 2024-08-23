@@ -111,11 +111,8 @@ typedef enum {
 
 static struct {
     RecoveryBoardState state;
-    pthread_mutex_t    state_lock; 
-    time_t             wdt_time_us;
 } s_recovery_board_model = {
     .state = REC_STATE_APRS,
-    .wdt_time_us = 0,
 };
 
 struct{
@@ -171,7 +168,7 @@ static WTResult __recovery_write(const void *pkt, size_t size) {
 }
 
 static WTResult __recovery_write_packet(const RecoveryPacket *pkt) {
-    return __recovery_write(&pkt, sizeof(RecPktHeader) + pkt->header.length);
+    return __recovery_write(pkt, sizeof(RecPktHeader) + pkt->header.length);
 }
 
 static int __recovery_query(RecoverCommand query_command, uint8_t *pValid){
@@ -303,6 +300,7 @@ WTResult wt_recovery_init(void){
     // Set 3v3_RF enable, keep recovery off.
     WT_TRY(iox_set_mode(IOX_GPIO_3V3_RF_EN, IOX_MODE_OUTPUT));
     WT_TRY(wt_recovery_off());
+    usleep(50000);
 
     // Set boot0 pin output and pull low.
     WT_TRY(iox_set_mode(IOX_GPIO_BOOT0, IOX_MODE_OUTPUT));
@@ -311,15 +309,16 @@ WTResult wt_recovery_init(void){
     WT_TRY(wt_recovery_on());
 
     //let board boot
-    usleep(50000); 
+    usleep(500000); 
 
     // Open serial communication
     recovery_fd = PI_TRY(WT_DEV_RECOVERY, serOpen("/dev/serial0", 115200,0), wt_recovery_off());
 
     // test connection
-    if (!__ping())
+    if (!__ping()){
         return WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT);
-
+    }
+    
     return WT_OK;
 }
 
@@ -559,74 +558,55 @@ int recovery_ping(void) {
 //-----------------------------------------------------------------------------
 
 // // sets recovery board into "arps" state
-// int recovery_on(void) {
-//     RecPktHeader start_pkt = {
-//         .key = RECOVERY_PACKET_KEY_VALUE,
-//         .type = REC_CMD_START,
-//         .length = 0,
-//     };
+int recovery_wake(void){
+    RecPktHeader start_pkt = REC_EMPTY_PKT(REC_CMD_START);
+    WTResult tx_result = __recovery_write(&start_pkt, sizeof(start_pkt));
+    if(tx_result != WT_OK){
+        CETI_ERR("Failed to wake board: %s", wt_strerror(tx_result));
+        return -1;
+    }
+    s_recovery_board_model.state = REC_STATE_APRS;
+    return 0;
+}
 
-//     pthread_mutex_lock(&s_recovery_board_model.state_lock);
-//     __recovery_write(&start_pkt, sizeof(start_pkt));
-//     s_recovery_board_model.state = REC_STATE_APRS;
-//     pthread_mutex_unlock(&s_recovery_board_model.state_lock);
+int recovery_sleep(void){
+    RecPktHeader start_pkt = REC_EMPTY_PKT(REC_CMD_STOP);
+    WTResult tx_result = __recovery_write(&start_pkt, sizeof(start_pkt));
+    if(tx_result != WT_OK){
+        CETI_ERR("Failed to put board to sleep: %s", wt_strerror(tx_result));
+        return -1;
+    }
+    s_recovery_board_model.state = REC_STATE_APRS;
+    return 0;
+}
 
-//     return 0;
-// }
+/**
+ * @brief Applys power to recovery board.
+ * 
+ * @return 0 on success, -1 on failure 
+ */
+int recovery_on(void) {
+    WTResult hw_result = wt_recovery_on();
+    if (hw_result != WT_OK) {
+        CETI_ERR("Failed power recovery board: %s", wt_strerror(hw_result));
+        return -1;
+    }
+    return 0;
+};
 
-// //Note: lock state mutex prior to calling
-// static int __recovery_off (void) {
-//     RecPktHeader stop_pkt = {
-//         .key = RECOVERY_PACKET_KEY_VALUE,
-//         .type = REC_CMD_STOP,
-//         .length = 0,
-//     };
-
-//     __recovery_write(&stop_pkt, sizeof(stop_pkt));
-//     s_recovery_board_model.state = REC_STATE_WAIT;
-//     return 0;
-// }
-
-// // sets recovery board into "wait" state
-// // command must be sent every 10 minutes to remain in this state
-// int recovery_off(void) {
-//     pthread_mutex_lock(&s_recovery_board_model.state_lock);
-//     __recovery_off();
-//     pthread_mutex_unlock(&s_recovery_board_model.state_lock);
-//     return 0;
-// }
-
-// // sets recovery board into "shutdown" state
-// // recovery board must be reset to exit state
-// int recovery_shutdown(void){  
-//     RecPktHeader critical_pkt = {
-//         .key = RECOVERY_PACKET_KEY_VALUE,
-//         .type = REC_CMD_CRITICAL,
-//         .length = 0,
-//     };
-
-//     pthread_mutex_lock(&s_recovery_board_model.state_lock);
-//     __recovery_write(&critical_pkt, sizeof(critical_pkt));
-//     s_recovery_board_model.state = REC_STATE_SHUTDOWN;
-//     pthread_mutex_unlock(&s_recovery_board_model.state_lock);
-
-//     return 0;
-// }
-
-// // kills recovery board but trying to shut it down then cutting
-// // power the to board
-// void recovery_kill(void){
-//     recovery_shutdown();
-//     serClose(recovery_fd); // close serial port
-//     wt_recovery_off();
-// }
-
-// // kills recovery board, then re initializes
-// int recovery_restart(void) {
-//     recovery_kill();
-//     usleep(50000);
-//     return recovery_init();
-// }
+/**
+ * @brief Cuts power to recovery board.
+ *  
+ * @return 0 on success, -1 on failure 
+ */
+int recovery_off(void) {
+    WTResult hw_result = wt_recovery_off();
+    if (hw_result != WT_OK) {
+        CETI_ERR("Failed cut power to recovery board: %s", wt_strerror(hw_result));
+        return -1;
+    }
+    return 0;
+}
 
 //-----------------------------------------------------------------------------
 // Main thread
@@ -668,7 +648,7 @@ int recovery_thread_init(void) {
 
 static void __recovery_sample_to_csv(CetiRecoverySample *pSample){
     recovery_data_file =  fopen(RECOVERY_DATA_FILEPATH, "at");
-    fprintf(recovery_data_file, "%ld, %d, %s, %s", pSample->sys_time_us, pSample->rtc_time_s, recovery_data_file_notes, pSample->nmea_sentence);
+    fprintf(recovery_data_file, "%ld, %d, %s, %s\n", pSample->sys_time_us, pSample->rtc_time_s, recovery_data_file_notes, pSample->nmea_sentence);
     fclose(recovery_data_file);
     recovery_data_file_notes[0] = '\0'; //clear notes
 }
@@ -719,9 +699,17 @@ void *recovery_rx_thread(void *paramPtr) {
                 shm_nmea_sentence->rtc_time_s = getRtcCount();
                 memcpy(shm_nmea_sentence->nmea_sentence, pkt.data.raw, pkt.header.length);
                 shm_nmea_sentence->nmea_sentence[pkt.header.length] = '\0';
+                //truncate carriage returns and new lines
+                while((shm_nmea_sentence->nmea_sentence[pkt.header.length] == '\0')
+                    ||(shm_nmea_sentence->nmea_sentence[pkt.header.length] == '\r')
+                    ||(shm_nmea_sentence->nmea_sentence[pkt.header.length] == '\n')
+                ){
+                    shm_nmea_sentence->nmea_sentence[pkt.header.length] = '\0';
+                    pkt.header.length--;
+                }
                 sem_post(sem_nmea_sentence_ready);
                 
-                //Log OR push to logger
+                //TODO: buffer write
                 __recovery_sample_to_csv(shm_nmea_sentence);
                 break;
 
@@ -792,7 +780,6 @@ void *recovery_rx_thread(void *paramPtr) {
                 break;
         }
     }
-    wt_recovery_off();
     sem_close(sem_nmea_sentence_ready);
     munmap(shm_nmea_sentence, sizeof(CetiRecoverySample));
     g_recovery_rx_thread_is_running = 0;

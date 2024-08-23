@@ -46,11 +46,10 @@ int recovery_set_aprs_message_recipient(const APRSCallsign *callsign);
 int recovery_set_comment(const char *message);
 int recovery_set_critical_voltage(float voltage);
 int recovery_message(const char *message);
-// int recovery_on(void);
-// int recovery_off(void);
-// int recovery_shutdown(void);
-// void recovery_kill(void);
-int recovery_ping(void);
+int recovery_wake(void);
+int recovery_sleep(void);
+int recovery_on(void);
+int recovery_off(void);
 
 //-----------------------------------------------------------------------------
 // Thread Methods

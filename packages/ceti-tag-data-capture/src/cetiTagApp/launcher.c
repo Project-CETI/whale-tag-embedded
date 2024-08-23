@@ -20,6 +20,7 @@ char g_process_path[256] = "/opt/ceti-tag-data-capture/bin";
 void sig_handler(int signum) {
   CETI_LOG("Received termination request.");
   g_stopAcquisition = 1;
+  usleep(100000);
   g_exit = 1;
 }
 
@@ -351,11 +352,11 @@ int init_tag() {
 #endif
 
 #if ENABLE_RECOVERY
-  // if(g_config.recovery.enabled) {
+  if(g_config.recovery.enabled) {
     result += recovery_thread_init() == 0 ? 0 : -1;
-  // } else {
-  //   recovery_kill();
-  // }
+  } else {
+    recovery_kill();
+  }
 #endif
 
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
