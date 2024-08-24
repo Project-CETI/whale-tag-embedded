@@ -14,19 +14,6 @@
 // Includes
 //-----------------------------------------------------------------------------
 
-#include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
-#include "../systemMonitor.h" // for the global CPU assignment variable to update
-#include "../cetiTag.h"
-
-#include <pthread.h> // to set CPU affinity
-#include <sched.h>   // to set process priority
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/time.h>
-#include <unistd.h>
-
 //-----------------------------------------------------------------------------
 // Definitions/Configurations
 //-----------------------------------------------------------------------------

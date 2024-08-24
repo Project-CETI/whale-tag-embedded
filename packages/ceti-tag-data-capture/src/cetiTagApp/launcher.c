@@ -353,7 +353,7 @@ int init_tag() {
 
 #if ENABLE_RECOVERY
   if(g_config.recovery.enabled) {
-    result += recovery_thread_init() == 0 ? 0 : -1;
+    result += recovery_thread_init(&g_config) == 0 ? 0 : -1;
   } else {
     recovery_off();
   }

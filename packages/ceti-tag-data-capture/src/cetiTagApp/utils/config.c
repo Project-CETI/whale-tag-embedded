@@ -7,7 +7,7 @@
 //               Michael Salino-Hugg, [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 #include "config.h"
-
+#include "../recovery.h"
 #include "logging.h"
 #include "errno.h" //for error detection for string conversion
 #include <stdio.h> // for FILE

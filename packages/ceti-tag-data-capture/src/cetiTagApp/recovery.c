@@ -11,6 +11,7 @@
 #include "iox.h"
 #include "launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "systemMonitor.h" // for the global CPU assignment variable to update
+#include "utils/config.h"
 #include "utils/error.h"
 #include "utils/logging.h"
 #include "utils/memory.h"
@@ -19,8 +20,9 @@
 #include <pigpio.h>
 #include <pthread.h> // to set CPU affinity
 #include <semaphore.h>
-#include <string.h> // for memset() and other string functions
-#include <sys/mman.h>
+#include <stdbool.h> //for bool
+#include <string.h>   // for memset() and other string functions
+#include <sys/mman.h> // for munmap()
 #include <unistd.h> // for usleep()
 
 //-----------------------------------------------------------------------------
@@ -611,11 +613,18 @@ int recovery_off(void) {
 //-----------------------------------------------------------------------------
 // Main thread
 //-----------------------------------------------------------------------------
-int recovery_thread_init(void) {
+int recovery_thread_init(TagConfig *pConfig) {
     WTResult hw_result = wt_recovery_init();
+    if(hw_result == WT_OK) hw_result = recovery_set_aprs_freq_mhz(pConfig->recovery.freq_MHz);
+    if(hw_result == WT_OK) hw_result = recovery_set_aprs_callsign(&pConfig->recovery.callsign);
+    if(hw_result == WT_OK) hw_result = recovery_set_aprs_message_recipient(&pConfig->recovery.recipient);
+    if(hw_result == WT_OK) hw_result = recovery_set_critical_voltage(pConfig->critical_voltage_v);
     if(hw_result != WT_OK){
         CETI_ERR("Failed to initalize recovery board hardware: %s", wt_strerror(hw_result));
         return -1;
+    }
+    if (!__ping()){
+        return WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT);
     }
 
     s_recovery_board_model.state = REC_STATE_APRS;

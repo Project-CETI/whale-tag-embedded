@@ -12,6 +12,8 @@
 // Includes
 //-----------------------------------------------------------------------------
 #include "aprs.h"
+#include "utils/config.h" //for TagConfig
+
 
 #include <time.h> //for time_t
 
@@ -54,7 +56,7 @@ int recovery_off(void);
 //-----------------------------------------------------------------------------
 // Thread Methods
 //-----------------------------------------------------------------------------
-int recovery_thread_init();
+int recovery_thread_init(TagConfig *pConfig);
 void* recovery_rx_thread(void* paramPtr);
 
 #endif // RECOVERY_H

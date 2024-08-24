@@ -30,10 +30,12 @@
 #include "audio.h"
 
 // Private local headers
+#include "../cetiTag.h"
 #include "../fpga.h"
 #include "../gpio.h"
 #include "../iox.h"
-
+#include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
+#include "../systemMonitor.h" // for the global CPU assignment variable to update
 #include "../utils/error.h"
 #include "../utils/logging.h"
 #include "../utils/memory.h"
@@ -43,9 +45,15 @@
 #include <fcntl.h>
 #include <FLAC/stream_encoder.h>
 #include <pigpio.h>
-#include <pthread.h>
+#include <pthread.h> // to set CPU affinity
 #include <semaphore.h>
+#include <sched.h>   // to set process priority
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #if !ENABLE_FPGA
