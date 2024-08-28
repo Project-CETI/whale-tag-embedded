@@ -84,7 +84,7 @@
  *       A charger connection is required to wake up the tag after this event
  *       and charging/discharging needs to subsequently be renabled.
  */
-#define wt_fpga_shutdown()       wt_fpga_cam(0x0F, 0xB2, 0x00, 0x00, 0x00, NULL)
+#define wt_fpga_shutdown()       wt_fpga_cam(0x0E, 0x6C, 0x61, 0x03, 0x00, NULL);
 
 /**
  * @brief Sets channel bitdepth of samples from FPGA audio FIFO buffer

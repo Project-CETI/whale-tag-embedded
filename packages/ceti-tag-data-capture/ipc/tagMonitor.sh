@@ -8,10 +8,49 @@
 #  - modified battery cutoff thresholds to be consistent with new BMS 
 
 #handle SIGTERM from systemctl
+
+# Get the location of this script, since will want to
+#  use the pipes in that directory rather than the calling directory.
+IPC_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+PIPE_RESPONSE_TIMEOUT=5s
+SLEEP_TIME=60
+STARTUP_TIME=15
+BURNWIRE_TIME=20m
+
+## Forwards command to command pipe while performing error checking
+send_command() {
+  # check that app is running
+  ps -p $child > /dev/null
+  if [ $? -ne 0 ] ;  then 
+    echo "cetiTagApp is not running"
+    return $ERR_NO_CHILD
+  fi
+
+  # send response to pipe
+  echo "$*" > $IPC_DIR/cetiCommand
+  if [ $? -ne 0 ] ; then
+    echo "Failed to send command to cetiCommand pipe"
+    return $ERR_UNRESPONSIVE_CHILD
+  fi
+
+  # read return
+  response=$(timeout $PIPE_RESPONSE_TIMEOUT cat $IPC_DIR/cetiResponse)
+  if [ $? -ne 0 ] ; then
+    echo "Failed to receive command response in timely manor"
+    return $ERR_UNRESPONSIVE_CHILD
+  fi
+  
+  echo $response
+  return 0
+}
+
 _term() {
   echo "stopping cetiTagApp"
-  #echo "quit" > cetiCommand
-  #cat cetiResponse
+  send_command quit
+  if [ $? -ne 0 ] ; then
+    handle_error();
+  fi
+
   kill --TERM  "$child" 2>/dev/null
 
   ## Wait for cetiTagApp to finish
@@ -22,13 +61,106 @@ _term() {
   echo "Good bye"
   exit 0;
 }
+
+## Perform shutdown without assistance of cetiTagApp
+emergency_shutdown() {
+  echo "Initiating FPGA shutdown"
+  SHUTDOWN_COMMAND=(0x02 0x0E 0x6C 0x61 0x03 0x00 0x00 0x03)
+  FPGA_CAM_RESET=5
+  FPGA_CAM_DOUT=18
+  FPGA_CAM_SCK=16
+  raspi-gpio set FPGA_CAM_RESET dh op
+  raspi-gpio set FPGA_CAM_SCK dl op
+  raspi-gpio set FPGA_CAM_DOUT dl op
+  for byte in ${SHUTDOWN_COMMAND[@]}
+  do
+    for bit in {0..7}
+    do
+      if [[ "$((byte & (1 <<(7 - bit))))" == "0" ]]
+      then
+        raspi-gpio set FPGA_CAM_DOUT dl
+      else
+        raspi-gpio set FPGA_CAM_DOUT dh 
+      fi
+      sleep 0.1
+      raspi-gpio set FPGA_CAM_SCK dh
+      sleep 0.1
+      raspi-gpio set FPGA_CAM_SCK dl
+      sleep 0.1
+    done
+  done
+  for byte in {0..7}
+  do
+    for bit in {0..7}
+    do
+      raspi-gpio set FPGA_CAM_SCK dh
+      sleep 0.1
+      raspi-gpio set FPGA_CAM_SCK dl
+      sleep 0.1
+    done
+  done
+
+  echo "Control Handed over to FPGA"
+  echo "Good bye!"
+  shutdown now
+  exit 1
+}
+
+## Attempt tag burnwire release and shutdown without assistance of cetiTagApp
+emergency_release() {
+  echo "Unable to restart cetiTagApp"
+  echo "Starting emergency shutdown"
+  
+  echo "Activating burnwire"
+  IOX_CONFIG=i2cget -y 1 0x21 0x03
+  if [ $? -eq 0 ] ; then
+    # turn on burnwire
+    i2cset -y 1 0x21 0x03 $((IOX_CONFIG & ~(1 << 4)))
+    IOX_OUT=i2cget -y 1 0x21 0x01
+    IOX_OUT=$((IOX_OUT | (1 << 4)))
+    i2cset -y 1 0x21 0x01 $IOX_OUT
+
+    sleep $BURNWIRE_TIME # Do we sleep here?
+    # turn off burnwire
+    IOX_OUT=$((IOX_OUT & ~(1<<4)))
+    i2cset -y 1 0x21 0x01 $IOX_OUT  
+  else
+    echo "ERR: could not communicate with burnwire"
+  fi
+
+  emergency_shutdown()
+}
+
+ERR_NO_CHILD=1
+ERR_UNRESPOSIVE_CHILD=2
+## Handle common errors
+handle_error() {
+  case $1 in
+    $ERR_UNRESPONSIVE_CHILD)
+      echo "Err: unresponsive child"
+      echo "Killing process $child"
+      kill -9  "$child" 2>/dev/null
+      ;& #fallthrough
+    
+    $ERR_NO_CHILD)
+      echo "Err: no child"
+      echo "Attempting to restart child process"
+      # start child
+      /opt/ceti-tag-data-capture/bin/cetiTagApp &
+      child=$! # note pid
+      sleep $STARTUP_TIME # wait for app to boot
+      data_acquisition_running=1
+      #check that app is still running
+      ps -p $child > /dev/null
+      if [ $? -ne 0 ] ; then
+        echo "Err: Failed to restart child process"
+        emergency_release
+      fi
+      ;;
+  esac
+}
+
 trap _term SIGTERM
-
-#unblock wifi (if deployed in volitile state)
-sudo ifconfig wlan0 up
-
-#unblock USB/ethernet
-sudo ifconfig eth0 up
 
 # # remount rootfs readonly
 mount /boot -o remount,ro
@@ -36,11 +168,11 @@ mount /boot -o remount,ro
 ./tagWake.sh
 
 # Launch the main recording application in the background.
-sudo /opt/ceti-tag-data-capture/bin/cetiTagApp &
+/opt/ceti-tag-data-capture/bin/cetiTagApp &
 child=$!
 
 # Wait for the main loops to start so it is ready to receive commands.
-sleep 15
+sleep $STARTUP_TIME
 data_acquisition_running=1
 
 # Periodically monitor the battery, SD storage, and audio overflows.
@@ -54,9 +186,11 @@ do
   if [ $data_acquisition_running -eq 1 ] && [ $2 -lt $((1*1024*1024)) ]
   then
     echo "disk almost full; stopping data acquisition"
-    echo "stopDataAcq" > cetiCommand
-    sleep 1
-    cat cetiResponse
+    send_command stopDataAcq
+    if [ $? -ne 0 ] ; then
+      handle_error $?
+      continue
+    fi
     echo "signaled to stop data acquisition"
     data_acquisition_running=0
   elif [ $data_acquisition_running -eq 0 ]
@@ -68,35 +202,51 @@ do
 
 #loop timing and initial delay so the user has time to log in before the
 #script shuts the system down
-  sleep 60
+  sleep $SLEEP_TIME
 
 # check the cell voltages and power off if needed.
 # Hardcoded for now at 3V per cell.
 
-  echo "checkCell_1" > cetiCommand
-  v1=$(cat cetiResponse)
-  echo "checkCell_2" > cetiCommand
-  v2=$(cat cetiResponse)
+#check that process is active before calling into pipe
+  v1=$(send_command checkCell_1)
+  if [ $? -ne 0 ] ; then
+    handle_error $?
+    continue
+  fi
+
+  v2=$(send_command checkCell_2)
+  if [ $? -ne 0 ] ; then
+    handle_error $?
+    continue
+  fi
+
+  # i=$(send_command check_current)
+  # if [ $? -ne 0 ] ; then
+    # handle_error $?
+    # continue
+  # fi
 
   echo "cell voltages are $v1 $v2"
 
 # If either cell is less than 3.20 V:
 #    - stop data acquisition to gracefully exit the thread loops and close files
-
   check1=$( echo "$v1 < 3.20" | bc )
   check2=$( echo "$v2 < 3.20" | bc )
 
   if [ "$check1" -gt 0 ] || [ "$check2" -gt 0 ] 
   then
     echo "low battery cell detected; stopping data acquisition"
-    echo "stopDataAcq" > cetiCommand
-    sleep 1
-    cat cetiResponse
+    v1=$(send_command stopDataAcq)
+    if [ $? -ne 0 ] ; then
+      handle_error $?
+      continue
+    fi
     echo "signaled to stop data acquisition"
     data_acquisition_running=0
   else
       echo "battery is OK"
   fi
+    
 
 # If either cell is less than 3.10 V:
 #    -signal the FPGA to disable charging and discharging
@@ -110,13 +260,13 @@ do
     echo "low battery cell detected; powering down the Pi now!"
     echo s > /proc/sysrq-trigger
 
-#  Original BMS DS2778    
-#    echo "powerdown" > cetiCommand
-
 #  New BMS MAX17320
-    echo "pwrdwn_17320"  > cetiCommand
-    
-    cat cetiResponse
+    send_command powerdown
+    if [ $? -ne 0 ] ; then
+      kill -9  "$child" 2>/dev/null
+      emergency_shutdown
+    fi
+
     echo u > /proc/sysrq-trigger
     shutdown -P +1
     break  
@@ -134,29 +284,33 @@ do
   if [ $data_acquisition_running -eq 1 ] && [ "$overflow" -eq 1 ]
   then
     # Log the event.
-    sudo touch /data/tagMonitor_log_fifo_overflows.csv
+    touch /data/tagMonitor_log_fifo_overflows.csv
     echo -n "$(date '+%s,%F %H-%M-%S')" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
     echo ", fault detected" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
     # Wait to see if the tag software handles it.
     echo "FIFO overflow detected, waiting for the main app to handle it"
     sleep 30
     overflow=$(pigs r 12)
-    if [ "$overflow" -eq 1 ]
+    if [ "$overflow" -eq 1 ]q
     then
       echo "FIFO overflow still detected, restarting the main app"
       # Tell the main app to gracefully quit.
-      echo "quit" > cetiCommand
-      cat cetiResponse
+      send_command stopDataAcq
+      if [ $? -ne 0 ] ; then
+        handle_error $?
+        continue
+      fi
       echo -n "$(date '+%s,%F %H-%M-%S')" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
       echo ", still overflow - sent quit command" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
       sleep 30
       # Make sure the app is stopped.
-      sudo pkill cetiTagApp
+      pkill cetiTagApp
       echo -n "$(date '+%s,%F %H-%M-%S')" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
       echo ", killed app process" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
       sleep 5
       # Start the main app again.
-      sudo /opt/ceti-tag-data-capture/bin/cetiTagApp &
+      /opt/ceti-tag-data-capture/bin/cetiTagApp &
+      child=$! # Reattach child process
       echo -n "$(date '+%s,%F %H-%M-%S')" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
       echo ", main app started" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv
     else
@@ -169,3 +323,4 @@ do
     echo "FIFO is OK; no overflow detected"
   fi
 done
+_term()

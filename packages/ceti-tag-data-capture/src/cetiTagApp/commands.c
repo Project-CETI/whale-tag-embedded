@@ -485,36 +485,7 @@ int handle_command(void) {
         #endif
         return 0;
     }
-    
-    if (!strncmp(g_command, "pwrdwn_17320", 12)) {
-        CETI_LOG("Powering down the tag via the FPGA - MAX17320 Version");
-        #if ENABLE_FPGA
-        g_rsp_pipe = fopen(rsp_pipe_path, "w");
 
-        // now send the FPGA shutdown opcode via CAM
-        // This arms the power down sequence in the FGPA
-
-        wt_fpga_cam(0x0E, 0x6C, 0x61, 0x03, 0x00, NULL);
-
-        // To complete the shutdown, the Pi must be powered down
-        // now by an external process.  Currently the design
-        // uses the tagMonitor script to do the Pi shutdown.
-
-        // After the Pi turns off, the FPGA will disable discharging
-        // and charging by sending a final i2c message to the BMS chip
-        // to pull the plug.
-
-        // A charger connection is required to wake up the tag after this event
-        // and charging/discharging needs to subsequently be
-        // renabled.
-
-        fprintf(g_rsp_pipe,"handle_command(): Powering the tag down via FPGA message to the MAX17320 BMS!\n");
-        fclose(g_rsp_pipe);
-        #else
-        CETI_LOG("XXXX The FPGA is not selected for operation - skipping command XXXX");
-        #endif
-        return 0;
-    }
 
   // Print available commands.
   g_rsp_pipe = fopen(rsp_pipe_path, "w");
@@ -558,7 +529,6 @@ int handle_command(void) {
   fprintf(g_rsp_pipe, "checkCell_2 Read battery cell 2 voltage\n");
 
   fprintf(g_rsp_pipe, "powerdown   Power down the Tag\n");
-  fprintf(g_rsp_pipe, "powerdown_17320  Power down the Tag new BMS IC\n");
 
   fprintf(g_rsp_pipe, "\n");
   fclose(g_rsp_pipe);

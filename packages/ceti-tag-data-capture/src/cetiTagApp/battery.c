@@ -307,19 +307,20 @@ void* battery_thread(void* paramPtr) {
     }
 
     
-      // ******************   End Battery Temperature Checks *********************
+    // ******************   End Battery Temperature Checks *********************
 
-
-      /* ToDo: move to seperate logging app. 
-       * Daemon should only handle sample acq not storage
-       */
-      battery_data_file = fopen(BATTERY_DATA_FILEPATH, "at");
-      if(battery_data_file == NULL) {
-        CETI_WARN("failed to open data output file: %s", BATTERY_DATA_FILEPATH);
-      } else {
-        battery_sample_to_csv(battery_data_file, shm_battery);
-        fclose(battery_data_file);
-      }
+    if (!g_stopAcquisition) {
+        /* ToDo: move to seperate logging app. 
+        * Daemon should only handle sample acq not storage
+        */
+        battery_data_file = fopen(BATTERY_DATA_FILEPATH, "at");
+        if(battery_data_file == NULL) {
+            CETI_WARN("failed to open data output file: %s", BATTERY_DATA_FILEPATH);
+        } else {
+            battery_sample_to_csv(battery_data_file, shm_battery);
+            fclose(battery_data_file);
+        }
+    }
       
 
       // Delay to implement a desired sampling rate.
