@@ -57,6 +57,7 @@ TestState test_ecg(FILE *pResultsFile) {
     sem_ecg_sample_ready = sem_open(ECG_SAMPLE_SEM_NAME, O_RDWR, 0444, 0);
     if(sem_ecg_sample_ready == SEM_FAILED){
         perror("sem_open");
+        fprintf(pResultsFile, "[FAIL]: ECG: Failed to open ecg sample semaphore\n");
         munmap(shm_ecg, sizeof(CetiEcgBuffer));
         return TEST_STATE_FAILED;
     }

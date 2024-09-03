@@ -50,13 +50,13 @@ int init_ecg() {
   }
 
   //setup semaphore
-  sem_ecg_sample = sem_open(BATTERY_SEM_NAME, O_CREAT, 0644, 0);
+  sem_ecg_sample = sem_open(ECG_SAMPLE_SEM_NAME, O_CREAT, 0644, 0);
   if(sem_ecg_sample == SEM_FAILED){
       CETI_ERR("Failed to create sample semaphore");
       return -1;
   }
 
-  sem_ecg_page = sem_open(BATTERY_SEM_NAME, O_CREAT, 0644, 0);
+  sem_ecg_page = sem_open(ECG_PAGE_SEM_NAME, O_CREAT, 0644, 0);
   if(sem_ecg_page == SEM_FAILED){
       CETI_ERR("Failed to create page semaphore");
       return -1;
