@@ -138,13 +138,14 @@ TestState test_imu(FILE *pResultsFile){
         printf("\e[6;1H\e[0KRoll : %4s\e[6;13H|\e[6;%dH|\e[6;%dH|\n", roll_pass ? GREEN(PASS) : "", 13 + width/2, tui_get_screen_width() - 2);
 
         // Accuracy:
-        printf("\e[8;1H%-8s%d", "Quat", shm_quat->accuracy);
+        printf("\e[8;1;Accuracy:");
+        printf("\e[9;1H%-8s%d", "Quat", shm_quat->accuracy);
         sem_wait(sem_accel_ready);
-        printf("\e[8;1H%-8s%d", "Accel", shm_accel->accuracy);
+        printf("\e[10;1H%-8s%d", "Accel", shm_accel->accuracy);
         sem_wait(sem_gyro_ready);
-        printf("\e[8;1H%-8s%d", "Gryo", shm_gyro->accuracy);
+        printf("\e[11;1H%-8s%d", "Gryo", shm_gyro->accuracy);
         sem_wait(sem_mag_ready);
-        printf("\e[8;1H%-8s%d", "Mag", shm_mag->accuracy);
+        printf("\e[12;1H%-8s%d", "Mag", shm_mag->accuracy);
 
         //draw reading position
         if(euler_angles.pitch > 0){
