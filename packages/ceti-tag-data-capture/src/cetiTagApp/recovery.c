@@ -555,31 +555,6 @@ int recovery_ping(void) {
     return __recovery_query(REC_CMD_PING, &recovery_board.pong);
 }
 
-int recovery_ping(void){
-    RecNullPkt q_pkt = REC_EMPTY_PKT(REC_CMD_PING);
-    RecPkt ret_pkt = {};
-    __recovery_write(&q_pkt, sizeof(q_pkt));
-
-    //wait for response
-    int64_t start_time_us = get_global_time_us();
-    do {
-        if (recovery_get_packet(&ret_pkt, RECOVERY_UART_TIMEOUT_US) == -1) {
-            CETI_ERR("Recovery board packet reading error");
-            return -1;
-        }
-
-        if(ret_pkt.common.header.type == REC_CMD_PING) {
-            return 0;
-        }
-        
-        //received incorrect packet type, keep reading
-    } while ((get_global_time_us() - start_time_us) < RECOVERY_UART_TIMEOUT_US);
-
-    //Timeout
-    CETI_ERR("Recovery board timeout");
-    return -2;
-}
-
 //-----------------------------------------------------------------------------
 // On/Off
 //-----------------------------------------------------------------------------
