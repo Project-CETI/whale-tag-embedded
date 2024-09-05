@@ -9,7 +9,7 @@ int batteryCmd_get_current(const char *args) {
         fprintf(g_rsp_pipe, "Error communicating with BMS!!!");
         return -1;
     }
-    fprintf(g_rsp_pipe, "%0.3f", i_mA);
+    fprintf(g_rsp_pipe, "%.3f\n", i_mA);
     return 0;
 }
 
