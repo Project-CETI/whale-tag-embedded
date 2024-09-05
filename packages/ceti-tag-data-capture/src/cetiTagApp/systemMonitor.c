@@ -36,7 +36,7 @@ int g_imu_thread_tid = -1;
 int g_light_thread_tid = -1;
 int g_pressureTemperature_thread_tid = -1;
 int g_battery_thread_tid = -1;
-int g_recovery_thread_tid = -1;
+int g_recovery_rx_thread_tid = -1;
 int g_command_thread_tid = -1;
 int g_rtc_thread_tid = -1;
 int g_ecg_lod_thread_tid = -1;
@@ -56,7 +56,7 @@ static const char* systemMonitor_data_file_headers[] = {
   "Log Size [KB]", "SysLog Size [KB]",
   "CPU Temperature [C]", "GPU Temperature [C]",
   };
-static const int num_systemMonitor_data_file_headers = 32;
+static const int num_systemMonitor_data_file_headers = sizeof(systemMonitor_data_file_headers)/sizeof(*systemMonitor_data_file_headers);
 
 int init_systemMonitor()
 {
@@ -132,7 +132,7 @@ void* systemMonitor_thread(void* paramPtr) {
         CETI_LOG(" %6d: light_thread", g_light_thread_tid);
         CETI_LOG(" %6d: pressureTemperature_thread", g_pressureTemperature_thread_tid);
         CETI_LOG(" %6d: battery_thread", g_battery_thread_tid);
-        CETI_LOG(" %6d: recovery_thread", g_recovery_thread_tid);
+        CETI_LOG(" %6d: recovery_thread", g_recovery_rx_thread_tid);
         CETI_LOG(" %6d: stateMachine_thread", g_stateMachine_thread_tid);
         CETI_LOG(" %6d: command_thread", g_command_thread_tid);
         CETI_LOG(" %6d: rtc_thread", g_rtc_thread_tid);
@@ -177,7 +177,7 @@ void* systemMonitor_thread(void* paramPtr) {
           fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_light_thread_tid));
           fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_pressureTemperature_thread_tid));
           fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_battery_thread_tid));
-          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_recovery_thread_tid));
+          fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_recovery_rx_thread_tid));
           fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_stateMachine_thread_tid));
           fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_command_thread_tid));
           fprintf(systemMonitor_data_file, ",%d", get_cpu_id_for_tid(g_rtc_thread_tid));

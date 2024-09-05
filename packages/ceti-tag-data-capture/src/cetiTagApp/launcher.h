@@ -54,7 +54,7 @@
 #define IMU_CPU 1
 #define LIGHT_CPU 1
 #define PRESSURETEMPERATURE_CPU 1
-#define RECOVERY_CPU 1
+#define RECOVERY_RX_CPU 1
 #define RTC_CPU 1
 #define COMMAND_CPU 0
 #define STATEMACHINE_CPU 0

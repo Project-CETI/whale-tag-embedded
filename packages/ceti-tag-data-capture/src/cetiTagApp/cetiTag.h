@@ -44,6 +44,10 @@
 #define PRESSURE_SHM_NAME "/pressure_shm"
 #define PRESSURE_SEM_NAME "/pressure_sem"
 
+// === RECOVERY ===
+#define RECOVERY_SHM_NAME "/recovery_shm"
+#define RECOVERY_SEM_NAME "/recovery_sem"
+
 //-----------------------------------------------------------------------------
 // Definitions/Configurations
 //-----------------------------------------------------------------------------
@@ -110,9 +114,9 @@ typedef struct {
 
 // === BMS ===
 typedef struct {
+    int64_t sys_time_us;
     int32_t error;
     int     rtc_time_s;
-    int64_t sys_time_us;
     double  cell_voltage_v[2];
     double  cell_temperature_c[2];
     double  current_mA;
@@ -186,20 +190,26 @@ typedef struct {
 
 // === LIGHT ===
 typedef struct {
-    int32_t error;
-    int     rtc_time_s;
     int64_t sys_time_us;
+    int     rtc_time_s;
+    int32_t error;
     int     visible;
     int     infrared;
 } CetiLightSample;
 
 // === PRESSURE ===
 typedef struct {
-    int32_t error;
-    int     rtc_time_s;
     int64_t sys_time_us;
+    int     rtc_time_s;
+    int32_t error;
     double  pressure_bar;
     double  temperature_c;
 } CetiPressureSample;
+
+typedef struct {
+    int64_t sys_time_us;
+    int     rtc_time_s;
+    char    nmea_sentence[96];    
+} CetiRecoverySample;
 
 #endif //CETI_TAG_H

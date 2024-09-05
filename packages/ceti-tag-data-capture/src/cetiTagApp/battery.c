@@ -113,7 +113,7 @@ static const char *__status_to_str(uint16_t raw) {
     //detect flags
     if(_RSHIFT(raw, 15, 1)) flags[flag_count++] = "PA";
     if(_RSHIFT(raw, 1, 1)) flags[flag_count++] = "POR";
-    if(_RSHIFT(raw, 7, 1)) flags[flag_count++] = "dSOCi";
+    // if(_RSHIFT(raw, 7, 1)) flags[flag_count++] = "dSOCi"; //ignored indicates interger change in SoC
     if(_RSHIFT(raw, 2, 1)) flags[flag_count++] = "Imn";
     if(_RSHIFT(raw, 6, 1)) flags[flag_count++] = "Imx";
     if(_RSHIFT(raw, 8, 1)) flags[flag_count++] = "Vmn";
@@ -203,9 +203,13 @@ void battery_update_sample(void) {
     if(!shm_battery->error) shm_battery->error = max17320_get_cell_temperature_c(1, &shm_battery->cell_temperature_c[1]);
     if(!shm_battery->error) shm_battery->error = max17320_read(MAX17320_REG_STATUS, &shm_battery->status);
     if(!shm_battery->error) shm_battery->error = max17320_read(MAX17320_REG_PROTALRT, &shm_battery->protection_alert);
-
+  
     // push semaphore to indicate to user applications that new data is available
     sem_post(sem_battery_data_ready);
+
+    //clear protection alert flags and status flags
+    if(!shm_battery->error) shm_battery->error = max17320_write(MAX17320_REG_PROTALRT, 0x0000);
+    if(!shm_battery->error) shm_battery->error = max17320_write(MAX17320_REG_STATUS, 0x0000);
 }
 
 /**
@@ -316,6 +320,7 @@ void* battery_thread(void* paramPtr) {
         battery_sample_to_csv(battery_data_file, shm_battery);
         fclose(battery_data_file);
       }
+      
 
       // Delay to implement a desired sampling rate.
       // Take into account the time it took to acquire/save data.

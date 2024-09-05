@@ -208,6 +208,7 @@ typedef struct __MAX17320_HandleTypeDef {
 } MAX17320_HandleTypeDef;
 
 WTResult max17320_read(uint16_t memory, uint16_t *storage);
+WTResult max17320_write(uint16_t memory, uint16_t data);
 int max17320_init(MAX17320_HandleTypeDef *dev);
 int max17320_clear_write_protection(MAX17320_HandleTypeDef *dev);
 int max17320_lock_write_protection(MAX17320_HandleTypeDef *dev);

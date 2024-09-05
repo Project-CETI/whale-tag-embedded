@@ -29,7 +29,7 @@ static const char* ecg_data_file_headers[] = {
   "Leads-Off-P",
   "Leads-Off-N",
   };
-static const int num_ecg_data_file_headers = 4;
+static const int num_ecg_data_file_headers = sizeof(ecg_data_file_headers)/sizeof(*ecg_data_file_headers);
 
 static int ecg_buffer_select_toWrite = 0; // which buffer will be flushed to the output file
 static char ecg_data_file_notes[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH][75];
@@ -50,13 +50,13 @@ int init_ecg() {
   }
 
   //setup semaphore
-  sem_ecg_sample = sem_open(BATTERY_SEM_NAME, O_CREAT, 0644, 0);
+  sem_ecg_sample = sem_open(ECG_SAMPLE_SEM_NAME, O_CREAT, 0644, 0);
   if(sem_ecg_sample == SEM_FAILED){
       CETI_ERR("Failed to create sample semaphore");
       return -1;
   }
 
-  sem_ecg_page = sem_open(BATTERY_SEM_NAME, O_CREAT, 0644, 0);
+  sem_ecg_page = sem_open(ECG_PAGE_SEM_NAME, O_CREAT, 0644, 0);
   if(sem_ecg_page == SEM_FAILED){
       CETI_ERR("Failed to create page semaphore");
       return -1;

@@ -13,6 +13,7 @@
 
 #include <fcntl.h>
 #include <semaphore.h>
+#include <stdbool.h>
 #include <sys/mman.h>
 
 //-----------------------------------------------------------------------------
