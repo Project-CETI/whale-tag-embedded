@@ -9,7 +9,8 @@
 #include "config.h"
 #include "../recovery.h"
 #include "logging.h"
-#include "errno.h" //for error detection for string conversion
+#include "str.h" // for str, strtoidentifier(), strtobool()
+#include <errno.h> //for error detection for string conversion
 #include <stdio.h> // for FILE
 #include <stdlib.h> // for atof, atol, etc
 #include <ctype.h> //for isspace
@@ -44,12 +45,6 @@ TagConfig g_config = {
 };
 
 typedef struct {
-    const char *ptr;
-    size_t len;
-}str;
-#define STR_FROM(string) {.ptr = string, .len = strlen(string)}
-
-typedef struct {
     str key;
     ConfigError (*parse)(const char*_String);
 }ConfigList;
@@ -67,7 +62,6 @@ static ConfigError __config_parse_recovery_enable_value(const char *_String);
 static ConfigError __config_parse_recovery_callsign_value(const char *_String);
 static ConfigError __config_parse_recovery_recipient_value(const char *_String);
 static ConfigError __config_parse_recovery_freq_value(const char *_String);
-static inline const char * strtoidentifier(const char *_String, const char **_EndPtr);
 /* key is the value compared to*/
 /* method is what to do with the value*/
 //This would have more efficient lookup as a hash table
@@ -287,7 +281,7 @@ static ConfigError __config_parse_burn_interval_value(const char *_String){
 }
 
 static ConfigError __config_parse_recovery_enable_value(const char *_String){
-    g_config.recovery.enabled = strtobool_s(_String, NULL);
+    g_config.recovery.enabled = strtobool(_String, NULL);
     #ifdef DEBUG
     if(g_config.recovery.enabled) {
         CETI_DEBUG("recovery board enabled");
@@ -326,17 +320,6 @@ static ConfigError __config_parse_recovery_freq_value(const char *_String){
     g_config.recovery.freq_MHz = f_MHz;
     CETI_DEBUG("aprs frequency set to %.3f MHz", f_MHz);
     return CONFIG_OK;
-}
-
-int strtobool_s(const char *_String, const char **_EndPtr){
-    const char *value_str = strtoidentifier(_String, _EndPtr);
-    if (value_str == NULL){
-        return 0;
-    }
-    
-    return (memcmp("true", value_str, 4) == 0) 
-           || (memcmp("TRUE", value_str, 4) == 0)
-           || (memcmp("True", value_str, 4) == 0);
 }
 
 time_t strtotime_s(const char *_String, char **_EndPtr){
@@ -399,37 +382,6 @@ time_t strtotime_s(const char *_String, char **_EndPtr){
             }
             return value*24*60*60;
     }
-}
-
-static inline 
-const char * strtoidentifier(const char *_String, const char **_EndPtr){
-    errno = 0; //reset errno;
-
-    if(_String == NULL){
-        return 0; //invalid _String
-    }
-    
-    //skip whitespace
-    while(isspace(*_String)){_String++;} 
-
-    const char *identifier_start = _String;
-    //look for start character
-    if(!isalpha(*_String) && (*_String != '_')){
-        if (_EndPtr != NULL){
-            *_EndPtr = _String;
-        }
-        return 0; //not an identifier
-    }
-    _String++;
-    
-    //find end of String
-    while(isalnum(*_String) || (*_String == '_')){
-        _String++;
-    }
-    if (_EndPtr != NULL){
-        *_EndPtr = _String;
-    }
-    return identifier_start;
 }
 
 int config_parse_line(const char *_String){

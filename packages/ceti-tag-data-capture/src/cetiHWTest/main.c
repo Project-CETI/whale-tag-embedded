@@ -24,7 +24,7 @@ HardwareTest g_test_list[] = {
     { .name = "Batteries",        .update = test_batteries, },
     { .name = "Audio",            .update = test_audio, },
     { .name = "Pressure",         .update = test_pressure, },
-    { .name = "ECG",              .update = test_ToDo, },
+    { .name = "ECG",              .update = test_ecg, },
     { .name = "IMU",              .update = test_imu, },
     { .name = "Temperature",      .update = test_temperature, },
     { .name = "Light",            .update = test_light, },

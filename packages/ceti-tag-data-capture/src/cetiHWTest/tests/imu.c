@@ -16,6 +16,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "../memory.h"
+
 typedef struct { // euler angles
     double roll;
     double pitch;
@@ -50,36 +52,68 @@ TestState test_imu(FILE *pResultsFile){
     int test_index = 0;
 
     CetiImuQuatSample *shm_quat;
+    CetiImuQuatSample *shm_accel;
+    CetiImuQuatSample *shm_gyro;
+    CetiImuQuatSample *shm_mag;
     sem_t *sem_quat_ready;
+    sem_t *sem_accel_ready;
+    sem_t *sem_gyro_ready;
+    sem_t *sem_mag_ready;
 
     // === open quaternion shared memory ===
-    int shm_fd = shm_open(IMU_QUAT_SHM_NAME, O_RDWR, 0444);
-    if (shm_fd < 0) {
-        fprintf(pResultsFile, "[FAIL]: IMU: Failed to open shared memory\n");
-        perror("shm_open");
+    shm_quat = shm_open_read(IMU_QUAT_SHM_NAME, sizeof(CetiImuQuatSample));
+    if(shm_quat == NULL) {
+        fprintf(pResultsFile, "[FAIL]: IMU: Failed to open rotation sensor shared memory\n");
+        perror("shm_open_read");
         return TEST_STATE_FAILED;
     }
-    // size to sample size
-    if (ftruncate(shm_fd, sizeof(CetiImuQuatSample))){
-        fprintf(pResultsFile, "[FAIL]: IMU: Failed to size shared memory\n");
-        perror("ftruncate");
-        close(shm_fd);
-        return TEST_STATE_FAILED;
-    }
-    // memory map address
-    shm_quat = mmap(NULL, sizeof(CetiImuQuatSample), PROT_READ , MAP_SHARED, shm_fd, 0);
-    if(shm_quat == MAP_FAILED){
-        perror("mmap");
-        fprintf(pResultsFile, "[FAIL]: IMU: Failed to map shared memory\n");
-        close(shm_fd);
-        return TEST_STATE_FAILED;
-    }
-    close(shm_fd);
-
     sem_quat_ready = sem_open(IMU_QUAT_SEM_NAME, O_RDWR, 0444, 0);
     if(sem_quat_ready == SEM_FAILED){
         perror("sem_open");
         munmap(shm_quat, sizeof(CetiImuQuatSample));
+        return TEST_STATE_FAILED;
+    }
+
+
+    shm_accel = shm_open_read(IMU_ACCEL_SHM_NAME, sizeof(CetiImuAccelSample));
+    if(shm_accel == NULL) {
+        fprintf(pResultsFile, "[FAIL]: IMU: Failed to open acceleration shared memory\n");
+        perror("shm_open_read");
+        return TEST_STATE_FAILED;
+    }
+    sem_accel_ready = sem_open(IMU_ACCEL_SEM_NAME, O_RDWR, 0444, 0);
+    if(sem_accel_ready == SEM_FAILED){
+        perror("sem_open");
+        munmap(shm_accel, sizeof(CetiImuAccelSample));
+        return TEST_STATE_FAILED;
+    }
+
+
+    shm_gyro = shm_open_read(IMU_GYRO_SHM_NAME, sizeof(CetiImuGyroSample));
+    if(shm_gyro == NULL) {
+        fprintf(pResultsFile, "[FAIL]: IMU: Failed to open gyro shared memory\n");
+        perror("shm_open_read");
+        return TEST_STATE_FAILED;
+    }
+    sem_gyro_ready = sem_open(IMU_GYRO_SEM_NAME, O_RDWR, 0444, 0);
+    if(sem_gyro_ready == SEM_FAILED){
+        perror("sem_open");
+        munmap(shm_gyro, sizeof(CetiImuGyroSample));
+        return TEST_STATE_FAILED;
+    }
+
+
+    shm_mag = shm_open_read(IMU_MAG_SHM_NAME, sizeof(CetiImuMagSample));
+    if(shm_mag == NULL) {
+        fprintf(pResultsFile, "[FAIL]: IMU: Failed to open magnetometer shared memory\n");
+        perror("shm_open_read");
+        return TEST_STATE_FAILED;
+    }
+
+    sem_mag_ready = sem_open(IMU_MAG_SEM_NAME, O_RDWR, 0444, 0);
+    if(sem_mag_ready == SEM_FAILED){
+        perror("sem_open");
+        munmap(shm_mag, sizeof(CetiImuMagSample));
         return TEST_STATE_FAILED;
     }
 
@@ -102,6 +136,16 @@ TestState test_imu(FILE *pResultsFile){
         printf("\e[4;1H\e[0KPitch: %4s\e[4;13H|\e[4;%dH|\e[4;%dH|\n", pitch_pass ? GREEN(PASS) : "",13 + width/2, tui_get_screen_width() - 2);
         printf("\e[5;1H\e[0KYaw  : %4s\e[5;13H|\e[5;%dH|\e[5;%dH|\n", yaw_pass ? GREEN(PASS) : "", 13 + width/2, tui_get_screen_width() - 2);
         printf("\e[6;1H\e[0KRoll : %4s\e[6;13H|\e[6;%dH|\e[6;%dH|\n", roll_pass ? GREEN(PASS) : "", 13 + width/2, tui_get_screen_width() - 2);
+
+        // Accuracy:
+        printf("\e[8;1;Accuracy:");
+        printf("\e[9;1H%-8s%d", "Quat", shm_quat->accuracy);
+        sem_wait(sem_accel_ready);
+        printf("\e[10;1H%-8s%d", "Accel", shm_accel->accuracy);
+        sem_wait(sem_gyro_ready);
+        printf("\e[11;1H%-8s%d", "Gryo", shm_gyro->accuracy);
+        sem_wait(sem_mag_ready);
+        printf("\e[12;1H%-8s%d", "Mag", shm_mag->accuracy);
 
         //draw reading position
         if(euler_angles.pitch > 0){

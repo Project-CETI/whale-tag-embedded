@@ -56,7 +56,7 @@ typedef enum wt_device_id_e {
 #define WT_ERR_FPGA_START  (WT_ERR_ECG_START - 3)
 #define WT_ERR_FPGA_N_DONE (WT_ERR_FPGA_START - 0)
 
-#define WT_ERR_IMU_START  (WT_ERR_ECG_START - 1)
+#define WT_ERR_IMU_START  (WT_ERR_FPGA_START - 1)
 #define WT_ERR_IMU_BAD_PKT_SIZE    (WT_ERR_IMU_START - 0)
 #define WT_ERR_IMU_UNEXPECTED_PKT_TYPE  (WT_ERR_IMU_START - 1)
 
