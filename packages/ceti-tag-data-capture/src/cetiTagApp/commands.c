@@ -131,7 +131,7 @@ static int handle_fpga_command(const char *args){
 }
 
 static int handle_recovery_command(const char *args) { 
-    return __handle_subcommand("recovery", args, recovery_subcommand_list, recovery_subcommand_list_size);
+    return __handle_subcommand("battery", args, battery_subcommand_list, battery_subcommand_list_size);
 }
 
 
