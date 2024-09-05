@@ -220,59 +220,64 @@ do
     continue
   fi
 
-  # i=$(send_command check_current)
-  # if [ $? -ne 0 ] ; then
-    # handle_error $?
-    # continue
-  # fi
+  iMa=$(send_command battery getCurrent)
+  if [ $? -ne 0 ] ; then
+    handle_error $?
+    continue
+  fi
 
-  echo "cell voltages are $v1 $v2"
+  echo "cell voltages are [ $v1, $v2 ]V @ $iMa mA"
+
+# Check if discharging
+  is_discharging=$( echo "$iMa < 0.0" | bc )
+  if [ "$is_discharging" -gt 0 ]
+  then
+    echo "Batteries are discharging"
 
 # If either cell is less than 3.20 V:
 #    - stop data acquisition to gracefully exit the thread loops and close files
-  check1=$( echo "$v1 < 3.20" | bc )
-  check2=$( echo "$v2 < 3.20" | bc )
+    check1=$( echo "$v1 < 3.20" | bc )
+    check2=$( echo "$v2 < 3.20" | bc )
 
-  if [ "$check1" -gt 0 ] || [ "$check2" -gt 0 ] 
-  then
-    echo "low battery cell detected; stopping data acquisition"
-    v1=$(send_command stopDataAcq)
-    if [ $? -ne 0 ] ; then
-      handle_error $?
-      continue
+    if [ "$check1" -gt 0 ] || [ "$check2" -gt 0 ] 
+    then
+      echo "low battery cell detected; stopping data acquisition"
+      v1=$(send_command stopDataAcq)
+      if [ $? -ne 0 ] ; then
+        handle_error $?
+        continue
+      fi
+      echo "signaled to stop data acquisition"
+      data_acquisition_running=0
+    else
+        echo "battery is OK"
     fi
-    echo "signaled to stop data acquisition"
-    data_acquisition_running=0
-  else
-      echo "battery is OK"
-  fi
     
 
 # If either cell is less than 3.10 V:
 #    -signal the FPGA to disable charging and discharging
 #    -schedule Pi shutdown
 
-  check1=$( echo "$v1 < 3.10" | bc )
-  check2=$( echo "$v2 < 3.10" | bc )
+    check1=$( echo "$v1 < 3.10" | bc )
+    check2=$( echo "$v2 < 3.10" | bc )
 
-  if [ "$check1" -gt 0 ] || [ "$check2" -gt 0 ] 
-  then
-    echo "low battery cell detected; powering down the Pi now!"
-    echo s > /proc/sysrq-trigger
+    if [ "$check1" -gt 0 ] || [ "$check2" -gt 0 ] 
+    then
+      echo "low battery cell detected; powering down the Pi now!"
+      echo s > /proc/sysrq-trigger
+      send_command powerdown
+      if [ $? -ne 0 ] ; then
+        kill -9  "$child" 2>/dev/null
+        emergency_shutdown
+      fi
 
-#  New BMS MAX17320
-    send_command powerdown
-    if [ $? -ne 0 ] ; then
-      kill -9  "$child" 2>/dev/null
-      emergency_shutdown
+      echo u > /proc/sysrq-trigger
+      shutdown -P +1
+      break  
+    else
+        echo "battery is OK"
     fi
-
-    echo u > /proc/sysrq-trigger
-    shutdown -P +1
-    break  
-  else
-      echo "battery is OK"
-  fi
+  fi 
 
 # Check for audio FIFO overflow.
 #   If overflow has occurred, first see if the main app successfully handles the error.
