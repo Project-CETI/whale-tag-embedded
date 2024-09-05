@@ -44,24 +44,6 @@ send_command() {
   return 0
 }
 
-_term() {
-  echo "stopping cetiTagApp"
-  send_command quit
-  if [ $? -ne 0 ] ; then
-    handle_error();
-  fi
-
-  kill --TERM  "$child" 2>/dev/null
-
-  ## Wait for cetiTagApp to finish
-  echo "Waiting on child process $child to finish..."
-  wait "$child"
-
-  echo "Child process $child complete"
-  echo "Good bye"
-  exit 0;
-}
-
 ## Perform shutdown without assistance of cetiTagApp
 emergency_shutdown() {
   echo "Initiating FPGA shutdown"
@@ -128,7 +110,7 @@ emergency_release() {
     echo "ERR: could not communicate with burnwire"
   fi
 
-  emergency_shutdown()
+  emergency_shutdown
 }
 
 ERR_NO_CHILD=1
@@ -158,6 +140,24 @@ handle_error() {
       fi
       ;;
   esac
+}
+
+_term() {
+  echo "stopping cetiTagApp"
+  send_command quit
+  if [ $? -ne 0 ] ; then
+    handle_error $?
+  fi
+
+  kill --TERM  "$child" 2>/dev/null
+
+  ## Wait for cetiTagApp to finish
+  echo "Waiting on child process $child to finish..."
+  wait "$child"
+
+  echo "Child process $child complete"
+  echo "Good bye"
+  exit 0;
 }
 
 trap _term SIGTERM
@@ -328,4 +328,4 @@ do
     echo "FIFO is OK; no overflow detected"
   fi
 done
-_term()
+_term
