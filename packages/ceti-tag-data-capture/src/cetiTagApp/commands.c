@@ -21,6 +21,7 @@
 static int __command_quit(const char *args);
 static int __command_dbg(const char *args);
 static int __command_ping(const char *args);
+static int handle_bms_command(const char *args);
 static int handle_fpga_command(const char *args);
 static int handle_recovery_command(const char *args);
 
@@ -38,6 +39,9 @@ static const CommandDescription command_list[] = {
 #endif
 #if ENABLE_RECOVERY
     {.name = STR_FROM("recovery"),  .description = "Send subcommand to recovery board", .parse=handle_recovery_command},
+#endif
+#if ENABLE_BATTERY_GAUGE
+    {.name = STR_FROM("battery"), .description = "Send subcommand to battery management system", .parse=handle_bms_command},
 #endif
 };
 
@@ -115,6 +119,10 @@ static int __handle_subcommand(const char *subcmd, const char *args, const Comma
     }
     fprintf(g_rsp_pipe, "\n");
     return 0;
+}
+
+static int handle_bms_command(const char *args) { 
+    return __handle_subcommand("recovery", args, recovery_subcommand_list, recovery_subcommand_list_size);
 }
 
 static int handle_fpga_command(const char *args){

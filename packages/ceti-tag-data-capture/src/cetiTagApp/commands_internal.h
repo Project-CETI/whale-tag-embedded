@@ -5,6 +5,10 @@
 //               MIT CSAIL
 // Contributors: Michael Salino-Hugg, [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
+// This header has definitions that need to acccessible by both commands.c and 
+// and subcommands/*.c files, but not publicly to the rest of the application
+//-----------------------------------------------------------------------------
+
 #ifndef COMMANDS_INTERNAL_H
 #define COMMANDS_INTERNAL_H
 
@@ -34,6 +38,9 @@ extern const size_t fpga_subcommand_list_size;
 
 extern const CommandDescription recovery_subcommand_list[];
 extern const size_t recovery_subcommand_list_size;
+
+extern const CommandDescription battery_subcommand_list[];
+extern const size_t battery_subcommand_list_size;
 
 //-----------------------------------------------------------------------------
 // Methods

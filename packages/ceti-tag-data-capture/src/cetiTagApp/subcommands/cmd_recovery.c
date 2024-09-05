@@ -1,7 +1,7 @@
 #include "../commands_internal.h"
 #include "../recovery.h"
 
-static int __recovery_ping(const char *args) {
+static int __recoveryCmd_ping(const char *args) {
     //ping recovery board
     if(recovery_ping() == 0){
         fprintf(g_rsp_pipe, "Pong!\n"); // callback received
@@ -12,7 +12,7 @@ static int __recovery_ping(const char *args) {
 }
 
 const CommandDescription recovery_subcommand_list[] = {
-    {.name = STR_FROM("ping"), .description = "Ping the recovery board to verify serial connection", .parse=__recovery_ping},
+    {.name = STR_FROM("ping"), .description = "Ping the recovery board to verify serial connection", .parse=__recoveryCmd_ping},
 };
 
 const size_t recovery_subcommand_list_size = sizeof(recovery_subcommand_list)/sizeof(*recovery_subcommand_list);

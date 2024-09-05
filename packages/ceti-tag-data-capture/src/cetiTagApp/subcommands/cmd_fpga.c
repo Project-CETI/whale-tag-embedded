@@ -47,7 +47,7 @@ int fpga_reset(const char *args){
 }
 
 const CommandDescription fpga_subcommand_list[] = {
-    {.name = STR_FROM("config"),    .description = "Load FPGA bitstream",       .parse=fpga_config},
+    {.name = STR_FROM("config"),    .description = "Load FPGA bitstream: Usage: `fpga config [<path/to/config/file>]'",       .parse=fpga_config},
     {.name = STR_FROM("reset"),     .description = "Reset FPGA state machines", .parse=fpga_reset},
     {.name = STR_FROM("version"),   .description = "Query FPGA version",        .parse=fpga_version},
 };
