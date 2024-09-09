@@ -231,8 +231,6 @@ void test__updateStateMachine_ST_RETRIEVE_criticalBattery(void){
         updateStateMachine();
         TEST_ASSERT_EQUAL(ST_SHUTDOWN, stateMachine_get_state());
     }
-    TEST_ASSERT_TRUE(0);
-
 }
 
 void setUp(void) {
