@@ -9,6 +9,13 @@
 
 #include "timing.h"
 
+#include "../launcher.h" // for g_exit, the state machine data filepath, to get an initial RTC timestamp if needed
+#include "logging.h"
+#include <pigpio.h>
+#include <pthread.h> // to set CPU affinity
+#include <sys/time.h>
+#include <sys/timex.h>
+
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------

@@ -15,18 +15,11 @@
 #-----------------------------------------------------------------------------
 SRC_DIR = src
 
-
-# CAPTURE_APP = cetiTagDaemon
-# CAPTURE_SRC = $(shell find $(SRC_DIR)/$(CAPTURE_APP) -type f -iname '*.c' 2> /dev/null)
-# CAPTURE_OBJ = $(CAPTURE_SRC:.c=.o)
 APPS = $(shell ls src/*/ -d | xargs basename -a)
 APP_BIN = $(addprefix $(BINDIR)/, $(APPS))
 APP_SRC = $(shell find $(SRC_DIR) -type f -iname '*.c' 2> /dev/null)
 APP_OBJ = $(APP_SRC:.c=.o)
 
-CC         = gcc
-CFLAGS     = -Wall -O2 -Wdate-time -D_FORTIFY_SOURCE=2 -D_GNU_SOURCE
-LDFLAGS    = -lpthread -lpigpio -lFLAC -lm -lrt
 
 BINDIR    ?= bin
 IPCDIR    ?= ipc
@@ -34,6 +27,15 @@ CONFIGDIR ?= config
 DATADIR   ?= data
 DESTDIR   ?= opt/ceti-tag-data-capture
 
+### Tools ###
+CC         = gcc
+LD		   = ld
+
+### Flags ###
+CFLAGS     = -Wall -O2 -Wdate-time -D_FORTIFY_SOURCE=2 -D_GNU_SOURCE
+LDFLAGS    = -lpthread -lpigpio -lFLAC -lm -lrt
+
+### Recipes ###
 
 .PHONY: \
 	build \
@@ -52,8 +54,8 @@ debug: $(APPS)
 
 binary: $(APPS)
 
-$(BINDIR) :
-	mkdir -p $@
+$(BINDIR):
+	@mkdir -p $@
 
 $(APPS): % : $(BINDIR)/%
 
@@ -74,6 +76,10 @@ clean:
 	rm -f $(APP_OBJ)
 	rm -rf $(BINDIR)
 	rm -rf $(DESTDIR)
+	@$(MAKE) test_clean
+
+# See Test.mk for test related code
+-include Test.mk 
 
 ## -Ofast optimization used in trying to acheive higher audio data rates
 # src/sensors/audio.o: CFLAGS := -Wall -Ofast -Wdate-time -D_FORTIFY_SOURCE=2

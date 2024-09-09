@@ -74,6 +74,7 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
+#ifndef UNIT_TEST
 #include <pigpio.h>
 
 #include "commands.h"
@@ -120,6 +121,7 @@
 #endif
 #endif
 
+#endif //UNIT_TEST
 
 // Include this regardless of ENABLE_SYSTEMMONITOR
 //  since the launcher will use its helpers to check disk usage.

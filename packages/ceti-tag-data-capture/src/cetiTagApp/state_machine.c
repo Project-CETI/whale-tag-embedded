@@ -10,8 +10,24 @@
 //-----------------------------------------------------------------------------
 
 #include "state_machine.h"
+
+#include "battery.h"
+#include "burnwire.h"
+#include "launcher.h" // for g_exit, g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "recovery.h"
+#include "sensors/pressure_temperature.h"
+#include "systemMonitor.h" // for the global CPU assignment variable to update
+
 #include "utils/config.h"
+#include "utils/logging.h"
+#include "utils/power.h"
+#include "utils/timing.h" //for get_global_time_us(), getRtcCount()
+
+#include <pthread.h> // to set CPU affinity
+#include <stdio.h>   // for FILE
+#include <stdint.h>
+#include <stdlib.h>  // for atof, atol, etc
+#include <unistd.h>  // gethostname
 
 //-----------------------------------------------------------------------------
 // Initialization
@@ -51,6 +67,10 @@ int init_stateMachine() {
 //-----------------------------------------------------------------------------
 // Main thread
 //-----------------------------------------------------------------------------
+void stateMachine_update_rtc_count(void){
+    current_rtc_count_s = getRtcCount();
+}
+
 void* stateMachine_thread(void* paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_stateMachine_thread_tid = gettid();
@@ -125,6 +145,13 @@ void* stateMachine_thread(void* paramPtr) {
 // State Machine and Controls
 // * Details of state machine are documented in the high-level design
 //-----------------------------------------------------------------------------
+
+
+
+wt_state_t stateMachine_get_state(void) {
+    return presentState;
+}
+
 int stateMachine_set_state(wt_state_t new_state){
     //nothing to do
     if(new_state == presentState){
@@ -178,10 +205,12 @@ int stateMachine_set_state(wt_state_t new_state){
             if(access(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, F_OK) == -1) {
               burnwire_timeout_start_rtc_s = getRtcCount();
               CETI_LOG("Starting dive; recording burnwire timeout start time %u", burnwire_timeout_start_rtc_s);
+#ifndef UNIT_TEST
               FILE* file_burnwire_timeout_start_rtc_s = NULL;
               file_burnwire_timeout_start_rtc_s = fopen(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, "w");
               fprintf(file_burnwire_timeout_start_rtc_s, "%u", burnwire_timeout_start_rtc_s);
               fclose(file_burnwire_timeout_start_rtc_s);
+#endif
             }
             break;
 

@@ -14,22 +14,6 @@
 // Includes
 //-----------------------------------------------------------------------------
 
-
-#include "battery.h"
-#include "burnwire.h"
-#include "launcher.h" // for g_exit, g_stopAcquisition, sampling rate, data filepath, and CPU affinity
-#include "recovery.h"
-#include "sensors/pressure_temperature.h"
-#include "systemMonitor.h" // for the global CPU assignment variable to update
-#include "utils/logging.h"
-#include "utils/power.h"
-#include "utils/timing.h"
-
-#include <pthread.h> // to set CPU affinity
-#include <stdio.h>   // for FILE
-#include <stdlib.h>  // for atof, atol, etc
-#include <unistd.h>  // gethostname
-
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
@@ -65,6 +49,9 @@ extern int g_stateMachine_thread_is_running;
 //-----------------------------------------------------------------------------
 int init_stateMachine();
 int updateStateMachine();
+void stateMachine_update_rtc_count(void);
+wt_state_t stateMachine_get_state(void);
+int stateMachine_set_state(wt_state_t new_state);
 const char *get_state_str(wt_state_t state);
 void *stateMachine_thread(void *paramPtr);
 

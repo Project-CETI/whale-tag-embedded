@@ -9,15 +9,19 @@
 
 #include "pressure_temperature.h"
 
-#include "../cetiTag.h"
+// === Private Local Libraries ===
 #include "../utils/memory.h"
-
+#include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
+#include "../systemMonitor.h" // for the global CPU assignment variable to update
+#include "../utils/logging.h"
 
 // === Private System Libraries ===
 #include <fcntl.h>
-#include <pthread.h>
+#include <pigpio.h>
+#include <pthread.h> // to set CPU affinity
 #include <semaphore.h>
-#include <unistd.h>
+#include <stdint.h>
+#include <unistd.h> // for usleep()
 
 //-----------------------------------------------------------------------------
 // Global/static variables

@@ -14,17 +14,7 @@
 // Includes
 //-----------------------------------------------------------------------------
 
-
-#include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
-#include "../systemMonitor.h" // for the global CPU assignment variable to update
-#include "../utils/logging.h"
-
-#include "../cetiTag.h"
-
-#include <pigpio.h>
-#include <pthread.h> // to set CPU affinity
-#include <stdint.h>
-#include <unistd.h> // for usleep()
+#include "../cetiTag.h" //for cetiPressureSample
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration

@@ -15,11 +15,13 @@
 
 #include "utils/logging.h"
 #include "launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
-#include "sys/types.h"
-#include "sys/sysinfo.h"
-#include "stdlib.h"
-#include "stdio.h"
-#include "string.h"
+
+
+#include <sys/types.h>
+#include <sys/sysinfo.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 #include <pthread.h> // to set CPU affinity
 
