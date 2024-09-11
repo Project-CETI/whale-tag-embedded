@@ -15,6 +15,7 @@
 //-----------------------------------------------------------------------------
 int g_exit = 0;
 int g_stopAcquisition = 0;
+int g_stopLogging = 0;
 char g_process_path[256] = "/opt/ceti-tag-data-capture/bin";
 
 void sig_handler(int signum) {

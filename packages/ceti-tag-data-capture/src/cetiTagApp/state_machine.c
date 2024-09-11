@@ -13,7 +13,7 @@
 
 #include "battery.h"
 #include "burnwire.h"
-#include "launcher.h" // for g_exit, g_stopAcquisition, sampling rate, data filepath, and CPU affinity
+#include "launcher.h" // for g_exit, g_stopAcquisition, g_stopLogging sampling rate, data filepath, and CPU affinity
 #include "recovery.h"
 #include "sensors/pressure_temperature.h"
 #include "systemMonitor.h" // for the global CPU assignment variable to update
@@ -21,12 +21,13 @@
 #include "utils/config.h"
 #include "utils/logging.h"
 #include "utils/power.h"
-#include "utils/timing.h" //for get_global_time_us(), getRtcCount()
+#include "utils/str.h"      //for strtoidentifier
+#include "utils/timing.h"   //for get_global_time_us(), getRtcCount()
 
 #include <pthread.h> // to set CPU affinity
 #include <stdio.h>   // for FILE
 #include <stdint.h>
-#include <stdlib.h>  // for atof, atol, etc
+#include <stdlib.h>  // for atof, atol, strtoul, etc
 #include <unistd.h>  // gethostname
 
 //-----------------------------------------------------------------------------
@@ -42,6 +43,7 @@ static unsigned int start_rtc_s = 0;
 static unsigned int burnwire_timeout_start_rtc_s = 0;
 static int current_rtc_count_s = 0;
 static uint32_t burnwire_started_time_s = 0;
+static int s_state_machine_paused = 0;
 // Output file
 int g_stateMachine_thread_is_running = 0;
 static FILE* stateMachine_data_file = NULL;
@@ -101,29 +103,31 @@ void* stateMachine_thread(void* paramPtr) {
       current_rtc_count_s = getRtcCount();
       state_to_process = presentState;
 
-      // Process the next state.
-      updateStateMachine();
+      if(!s_state_machine_paused){
+        // Process the next state.
+        updateStateMachine();
 
-      // Write state information to the data file.
-      if(!g_stopAcquisition)
-      {
-        stateMachine_data_file = fopen(STATEMACHINE_DATA_FILEPATH, "at");
-        if(stateMachine_data_file == NULL)
-          CETI_LOG("failed to open data output file: %s", STATEMACHINE_DATA_FILEPATH);
-        else
+        // Write state information to the data file.
+        if(!g_stopAcquisition && !g_stopLogging)
         {
-          // Write timing information.
-          fprintf(stateMachine_data_file, "%lld", global_time_us);
-          fprintf(stateMachine_data_file, ",%d", current_rtc_count_s);
-          // Write any notes, then clear them so they are only written once.
-          fprintf(stateMachine_data_file, ",%s", stateMachine_data_file_notes);
-          strcpy(stateMachine_data_file_notes, "");
-          // Write the sensor data.
-          fprintf(stateMachine_data_file, ",%s", get_state_str(state_to_process));
-          fprintf(stateMachine_data_file, ",%s", get_state_str(presentState));
-          // Finish the row of data and close the file.
-          fprintf(stateMachine_data_file, "\n");
-          fclose(stateMachine_data_file);
+            stateMachine_data_file = fopen(STATEMACHINE_DATA_FILEPATH, "at");
+            if(stateMachine_data_file == NULL)
+            CETI_LOG("failed to open data output file: %s", STATEMACHINE_DATA_FILEPATH);
+            else
+            {
+            // Write timing information.
+            fprintf(stateMachine_data_file, "%lld", global_time_us);
+            fprintf(stateMachine_data_file, ",%d", current_rtc_count_s);
+            // Write any notes, then clear them so they are only written once.
+            fprintf(stateMachine_data_file, ",%s", stateMachine_data_file_notes);
+            strcpy(stateMachine_data_file_notes, "");
+            // Write the sensor data.
+            fprintf(stateMachine_data_file, ",%s", get_state_str(state_to_process));
+            fprintf(stateMachine_data_file, ",%s", get_state_str(presentState));
+            // Finish the row of data and close the file.
+            fprintf(stateMachine_data_file, "\n");
+            fclose(stateMachine_data_file);
+            }
         }
       }
       // Delay to implement a desired sampling rate.
@@ -145,9 +149,6 @@ void* stateMachine_thread(void* paramPtr) {
 // State Machine and Controls
 // * Details of state machine are documented in the high-level design
 //-----------------------------------------------------------------------------
-
-
-
 wt_state_t stateMachine_get_state(void) {
     return presentState;
 }
@@ -264,6 +265,14 @@ int stateMachine_set_state(wt_state_t new_state){
     #endif   
     presentState = new_state;
     return 0;
+}
+
+void stateMachine_pause(void) {
+    s_state_machine_paused = 1;
+}
+
+void stateMachine_resume(void) {
+    s_state_machine_paused = 0;
 }
 
 int updateStateMachine() {
@@ -502,4 +511,37 @@ const char* get_state_str(wt_state_t state){
         state = ST_UNKNOWN;
     }
     return state_str[state];
+}
+
+wt_state_t strtomissionstate(const char *_String, const char **_EndPtr){
+    wt_state_t state = ST_UNKNOWN;
+    const char *end_ptr = NULL;
+    const char *name = strtoidentifier(_String, &end_ptr);
+    if (name != NULL) {
+        size_t len = end_ptr - name;
+
+        for(state = ST_CONFIG; state < ST_UNKNOWN; state++){
+            if(len != strlen(state_str[state])){
+                continue;
+            }
+
+            if(memcmp(name, state_str[state], len) == 0){
+                break;
+            }
+        }
+
+    } else {
+        //skip whitespace
+        char *e_ptr;
+        state = strtoul(_String, &e_ptr, 0);
+        if(state > ST_UNKNOWN || (state == 0 && e_ptr == _String)){
+            state = ST_UNKNOWN;
+        }
+        end_ptr = e_ptr;
+    }
+
+    if(_EndPtr != NULL) {
+        *_EndPtr = end_ptr;
+    }
+    return state;
 }

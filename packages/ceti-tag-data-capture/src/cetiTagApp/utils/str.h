@@ -25,4 +25,5 @@ typedef struct {
 //-----------------------------------------------------------------------------
 int strtobool(const char *_String, const char **_EndPtr);
 const char * strtoidentifier(const char *_String, const char **_EndPtr);
+const char * strtoquotedstring(const char *_String, const char ** _EndPtr);
 #endif

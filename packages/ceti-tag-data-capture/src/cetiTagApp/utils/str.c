@@ -58,3 +58,38 @@ const char * strtoidentifier(const char *_String, const char **_EndPtr) {
     return identifier_start;
 }
 
+/**
+ * @brief Returns quoted string (including the quotes). Returns NULL if not quoted string is found
+ * @return const char* 
+ */
+const char * strtoquotedstring(const char *_String, const char ** _EndPtr){
+    const char *start;
+    
+    if(_String == NULL){
+        return NULL; //invalid _String
+    }
+    
+    //skip whitespace
+    while(isspace(*_String)){_String++;} 
+
+    if(*_String != '"'){ 
+        return NULL; 
+    }
+    start = _String;
+    _String++;
+    while(*_String != '"') {
+        if (*_String == '\\') {
+            _String++;
+        }
+        
+        if(*_String == 0){
+            return NULL;
+        }
+        _String++;
+    }
+    _String++;
+    if(_EndPtr != NULL) {
+        *_EndPtr = _String;
+    }
+    return start;
+}

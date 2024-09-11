@@ -169,12 +169,14 @@ void *pressureTemperature_thread(void *paramPtr) {
         pressure_update_sample();
 
         // log sample
-        pressureTemperature_data_file = fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
-        if (pressureTemperature_data_file == NULL) {
-          CETI_LOG("failed to open data output file: %s", PRESSURETEMPERATURE_DATA_FILEPATH);
-        } else {
-          pressure_sample_to_csv(pressureTemperature_data_file, g_pressure);
-          fclose(pressureTemperature_data_file);
+        if (!g_stopLogging) {
+          pressureTemperature_data_file = fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
+          if (pressureTemperature_data_file == NULL) {
+            CETI_LOG("failed to open data output file: %s", PRESSURETEMPERATURE_DATA_FILEPATH);
+          } else {
+            pressure_sample_to_csv(pressureTemperature_data_file, g_pressure);
+            fclose(pressureTemperature_data_file);
+          }
         }
 
         // Delay to implement a desired sampling rate.

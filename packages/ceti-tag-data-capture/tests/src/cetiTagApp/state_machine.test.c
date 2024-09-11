@@ -20,6 +20,7 @@ CetiBatterySample *shm_battery = &fake_battery_sample;
 int g_stateMachine_thread_tid;
 int g_exit = 0;
 int g_stopAcquisition = 0; 
+int g_stopLogging = 0; 
 
 TagConfig g_config = {
     .audio = {
@@ -233,6 +234,40 @@ void test__updateStateMachine_ST_RETRIEVE_criticalBattery(void){
     }
 }
 
+void test_strtomissionstate(void) {
+    //normal identifiers
+    TEST_ASSERT_EQUAL(ST_CONFIG, strtomissionstate("CONFIG", NULL));
+    TEST_ASSERT_EQUAL(ST_START, strtomissionstate("START", NULL));
+    TEST_ASSERT_EQUAL(ST_DEPLOY, strtomissionstate("DEPLOY", NULL));
+    TEST_ASSERT_EQUAL(ST_RECORD_DIVING, strtomissionstate("RECORD_DIVING", NULL));
+    TEST_ASSERT_EQUAL(ST_RECORD_SURFACE, strtomissionstate("RECORD_SURFACE", NULL));
+    TEST_ASSERT_EQUAL(ST_BRN_ON, strtomissionstate("BRN_ON", NULL));
+    TEST_ASSERT_EQUAL(ST_RETRIEVE, strtomissionstate("RETRIEVE", NULL));
+    TEST_ASSERT_EQUAL(ST_SHUTDOWN, strtomissionstate("SHUTDOWN", NULL));
+    TEST_ASSERT_EQUAL(ST_UNKNOWN, strtomissionstate("asdfasdlsdfk", NULL));
+
+    //numbers
+    TEST_ASSERT_EQUAL(ST_CONFIG, strtomissionstate("0", NULL));
+    TEST_ASSERT_EQUAL(ST_START, strtomissionstate("1", NULL));
+    TEST_ASSERT_EQUAL(ST_DEPLOY, strtomissionstate("2", NULL));
+    TEST_ASSERT_EQUAL(ST_RECORD_DIVING, strtomissionstate("3", NULL));
+    TEST_ASSERT_EQUAL(ST_RECORD_SURFACE, strtomissionstate("4", NULL));
+    TEST_ASSERT_EQUAL(ST_BRN_ON, strtomissionstate("5", NULL));
+    TEST_ASSERT_EQUAL(ST_RETRIEVE, strtomissionstate("6", NULL));
+    TEST_ASSERT_EQUAL(ST_SHUTDOWN, strtomissionstate("7", NULL));
+    TEST_ASSERT_EQUAL(ST_UNKNOWN, strtomissionstate("21", NULL));
+
+    //whitespace
+    TEST_ASSERT_EQUAL(ST_CONFIG, strtomissionstate("  CONFIG", NULL));
+
+    //consecutive
+    const char *end_ptr = NULL;
+    TEST_ASSERT_EQUAL(ST_CONFIG, strtomissionstate("CONFIG 2 CONFIG", &end_ptr));
+    TEST_ASSERT_EQUAL(ST_DEPLOY, strtomissionstate(end_ptr, &end_ptr));
+    TEST_ASSERT_EQUAL(ST_CONFIG, strtomissionstate(end_ptr, &end_ptr));
+    TEST_ASSERT_EQUAL(ST_UNKNOWN, strtomissionstate(end_ptr, &end_ptr)); //empty string
+}
+
 void setUp(void) {
     // set stuff up here
     srand(time(NULL));
@@ -265,5 +300,9 @@ int main(void) {
     RUN_TEST(test__updateStateMachine_ST_BRN_ON_timeup_okBattery);
     RUN_TEST(test__updateStateMachine_ST_RETRIEVE_okBattery);
     RUN_TEST(test__updateStateMachine_ST_RETRIEVE_criticalBattery);
+
+    printf("\nState string parsing tests\n");
+    RUN_TEST(test_strtomissionstate);
+
     return UNITY_END();
 }

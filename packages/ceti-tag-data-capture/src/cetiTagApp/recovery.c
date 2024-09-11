@@ -719,7 +719,9 @@ void *recovery_rx_thread(void *paramPtr) {
                 sem_post(sem_nmea_sentence_ready);
                 
                 //TODO: buffer write
-                __recovery_sample_to_csv(shm_nmea_sentence);
+                if (!g_stopLogging) {
+                    __recovery_sample_to_csv(shm_nmea_sentence);
+                }
                 break;
 
             case REC_CMD_PONG:

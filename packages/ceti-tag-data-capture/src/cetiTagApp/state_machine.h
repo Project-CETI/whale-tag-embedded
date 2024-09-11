@@ -51,8 +51,11 @@ int init_stateMachine();
 int updateStateMachine();
 void stateMachine_update_rtc_count(void);
 wt_state_t stateMachine_get_state(void);
+void stateMachine_pause(void);
+void stateMachine_resume(void);
 int stateMachine_set_state(wt_state_t new_state);
 const char *get_state_str(wt_state_t state);
+wt_state_t strtomissionstate(const char *_String, const char **_EndPtr);
 void *stateMachine_thread(void *paramPtr);
 
 #endif // STATE_MACHINE_H

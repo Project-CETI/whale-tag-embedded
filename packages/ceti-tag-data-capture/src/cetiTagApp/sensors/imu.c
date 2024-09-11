@@ -302,22 +302,6 @@ void *imu_thread(void *paramPtr) {
       imu_data_file[i_type] = fopen(imu_data_filepath[i_type], "at");
 
     while (!g_stopAcquisition) {
-      //check that all imu data files are open
-      int unopened_file = false;
-      for (int i_type = 0; i_type < IMU_DATA_TYPE_COUNT && !unopened_file; i_type++) {
-        if (imu_data_file[i_type] == NULL) {
-          CETI_ERR("Failed to open data output file: %s", imu_data_filepath[i_type]);
-          imu_data_file[i_type] = fopen(imu_data_filepath[i_type], "at");
-          unopened_file = (imu_data_file[i_type] == NULL);
-        }
-      }
-      
-      // A file failed to open
-      if (unopened_file) {
-        usleep(100000); // Sleep a bit before retrying.
-        continue; //restart loop
-      }
-
       if (!imu_is_connected){
         // If there was an error, try to reset the IMU.
         // Ignore the initial few seconds though, since sometimes it takes a little bit to get in sync.
@@ -370,60 +354,78 @@ void *imu_thread(void *paramPtr) {
         continue;
       }
 
-      //buffer data for other applications
-      switch(report_type) {
-        case IMU_DATA_TYPE_QUAT: {
-            //copy data to shared buffer
-            imu_quat_sample_to_csv(imu_data_file[IMU_DATA_TYPE_QUAT], imu_quaternion);
-            break;
-          }
-
-          case IMU_DATA_TYPE_ACCEL: {
-            //ToDo: buffer samples?
-            imu_accel_sample_to_csv(imu_data_file[IMU_DATA_TYPE_ACCEL], imu_accel_m_ss);
-          }
-          break;
-        case IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED: {
-            //ToDo: buffer samples?
-            imu_gyro_sample_to_csv(imu_data_file[IMU_DATA_TYPE_GYRO], imu_gyro_rad_s);
-          }
-          break;
-
-        case IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED: {
-            //ToDo: buffer samples?
-            imu_mag_sample_to_csv(imu_data_file[IMU_DATA_TYPE_MAG], imu_mag_ut);
-          }
-          break;
-
-        default:
-          break;
-      }
-
-      // Flush the files periodically.
-      if ((get_global_time_us() - imu_last_data_file_flush_time_us >= IMU_DATA_FILE_FLUSH_PERIOD_US)) {
-        size_t imu_data_file_size_b = 0;
-        // Check the file sizes and close the files.
-        for (int i_type = 0; i_type < IMU_DATA_TYPE_COUNT; i_type++) {
-          fseek(imu_data_file[i_type], 0L, SEEK_END);
-          size_t i_size = ftell(imu_data_file[i_type]);
-          fflush(imu_data_file[i_type]);
-          if (i_size > imu_data_file_size_b)
-            imu_data_file_size_b = i_size;
-        }
-
-        // If any file size limit has been reached, start a new file.
-        if ((imu_data_file_size_b >= (long)(IMU_MAX_FILE_SIZE_MB)*1024L*1024L || imu_data_file_size_b < 0)  && !g_stopAcquisition){
-          imu_close_all_files();
-          imu_init_data_files();
-
-          // Open the files again.
-          for (int i_type = 0; i_type < IMU_DATA_TYPE_COUNT; i_type++) {
+      if(!g_stopLogging) {
+        //check that all imu data files are open
+        int unopened_file = false;
+        for (int i_type = 0; i_type < IMU_DATA_TYPE_COUNT && !unopened_file; i_type++) {
+          if (imu_data_file[i_type] == NULL) {
+            CETI_ERR("Failed to open data output file: %s", imu_data_filepath[i_type]);
             imu_data_file[i_type] = fopen(imu_data_filepath[i_type], "at");
+            unopened_file = (imu_data_file[i_type] == NULL);
           }
         }
+        
+        // A file failed to open
+        if (unopened_file) {
+          usleep(100000); // Sleep a bit before retrying.
+          continue; //restart loop
+        }
 
-        // Record the flush time.
-        imu_last_data_file_flush_time_us = get_global_time_us();
+        //buffer data for other applications
+        switch(report_type) {
+          case IMU_DATA_TYPE_QUAT: {
+              //copy data to shared buffer
+              imu_quat_sample_to_csv(imu_data_file[IMU_DATA_TYPE_QUAT], imu_quaternion);
+              break;
+            }
+
+            case IMU_DATA_TYPE_ACCEL: {
+              //ToDo: buffer samples?
+              imu_accel_sample_to_csv(imu_data_file[IMU_DATA_TYPE_ACCEL], imu_accel_m_ss);
+            }
+            break;
+          case IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED: {
+              //ToDo: buffer samples?
+              imu_gyro_sample_to_csv(imu_data_file[IMU_DATA_TYPE_GYRO], imu_gyro_rad_s);
+            }
+            break;
+
+          case IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED: {
+              //ToDo: buffer samples?
+              imu_mag_sample_to_csv(imu_data_file[IMU_DATA_TYPE_MAG], imu_mag_ut);
+            }
+            break;
+
+          default:
+            break;
+        }
+
+        // Flush the files periodically.
+        if ((get_global_time_us() - imu_last_data_file_flush_time_us >= IMU_DATA_FILE_FLUSH_PERIOD_US)) {
+          size_t imu_data_file_size_b = 0;
+          // Check the file sizes and close the files.
+          for (int i_type = 0; i_type < IMU_DATA_TYPE_COUNT; i_type++) {
+            fseek(imu_data_file[i_type], 0L, SEEK_END);
+            size_t i_size = ftell(imu_data_file[i_type]);
+            fflush(imu_data_file[i_type]);
+            if (i_size > imu_data_file_size_b)
+              imu_data_file_size_b = i_size;
+          }
+
+          // If any file size limit has been reached, start a new file.
+          if ((imu_data_file_size_b >= (long)(IMU_MAX_FILE_SIZE_MB)*1024L*1024L || imu_data_file_size_b < 0)  && !g_stopAcquisition){
+            imu_close_all_files();
+            imu_init_data_files();
+
+            // Open the files again.
+            for (int i_type = 0; i_type < IMU_DATA_TYPE_COUNT; i_type++) {
+              imu_data_file[i_type] = fopen(imu_data_filepath[i_type], "at");
+            }
+          }
+
+          // Record the flush time.
+          imu_last_data_file_flush_time_us = get_global_time_us();
+        }
       }
 
       // Note that no delay is added here to set the polling frequency,

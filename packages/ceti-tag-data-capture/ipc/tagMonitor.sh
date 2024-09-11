@@ -208,19 +208,19 @@ do
 # Hardcoded for now at 3V per cell.
 
 #check that process is active before calling into pipe
-  v1=$(send_command checkCell_1)
+  v1=$(send_command battery cellV 0)
   if [ $? -ne 0 ] ; then
     handle_error $?
     continue
   fi
 
-  v2=$(send_command checkCell_2)
+  v2=$(send_command battery cellV 1)
   if [ $? -ne 0 ] ; then
     handle_error $?
     continue
   fi
 
-  iMa=$(send_command battery getCurrent)
+  iMa=$(send_command battery current)
   if [ $? -ne 0 ] ; then
     handle_error $?
     continue
@@ -242,7 +242,7 @@ do
     if [ "$check1" -gt 0 ] || [ "$check2" -gt 0 ] 
     then
       echo "low battery cell detected; stopping data acquisition"
-      v1=$(send_command stopDataAcq)
+      send_command stopDataAcq
       if [ $? -ne 0 ] ; then
         handle_error $?
         continue

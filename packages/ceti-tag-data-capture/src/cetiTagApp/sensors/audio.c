@@ -543,83 +543,86 @@ void *audio_thread_writeFlac(void *paramPtr) {
       s_file_start_time = s_block_start_time;
     }
 
-    // Log that a write is starting.
     long long global_time_us = get_global_time_us();
-    while (audio_writing_to_status_file)
-      usleep(10);
-    audio_writing_to_status_file = 1;
-    audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
-    fprintf(audio_status_file, "%lld", global_time_us);
-    fprintf(audio_status_file, ",%d", getRtcCount());
-    // Write any notes, then clear them so they are only written once.
-    fprintf(audio_status_file, ",%s", audio_status_file_notes);
-    audio_status_file_notes[0] = '\0';
-    // Write overflow status information.
-    fprintf(audio_status_file, ",");
-    fprintf(audio_status_file, ",");
-    fprintf(audio_status_file, ",1");
-    fprintf(audio_status_file, ",");
-    fprintf(audio_status_file, ",");
-    // Finish the row of data.
-    fprintf(audio_status_file, "\n");
-    fclose(audio_status_file);
-    audio_writing_to_status_file = 0;
+    if(!g_stopLogging) {
+      // Log that a write is starting.
+      while (audio_writing_to_status_file)
+        usleep(10);
+      audio_writing_to_status_file = 1;
+      audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
+      fprintf(audio_status_file, "%lld", global_time_us);
+      fprintf(audio_status_file, ",%d", getRtcCount());
+      // Write any notes, then clear them so they are only written once.
+      fprintf(audio_status_file, ",%s", audio_status_file_notes);
+      audio_status_file_notes[0] = '\0';
+      // Write overflow status information.
+      fprintf(audio_status_file, ",");
+      fprintf(audio_status_file, ",");
+      fprintf(audio_status_file, ",1");
+      fprintf(audio_status_file, ",");
+      fprintf(audio_status_file, ",");
+      // Finish the row of data.
+      fprintf(audio_status_file, "\n");
+      fclose(audio_status_file);
+      audio_writing_to_status_file = 0;
 
 
-
-    // Write the buffer to a file.
-    if(g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24){
-      for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE24; i_sample++) {
-        for (size_t i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++) {
-          uint8_t *i_ptr = shm_audio->data[audio_buffer_toWrite].sample24[i_sample][i_channel];
-          FLAC__int32 value = ((FLAC__int32)i_ptr[0] << 24) | ((FLAC__int32)i_ptr[1] << 16) | ((FLAC__int32)i_ptr[2] << 8);
-          buff[i_sample][i_channel] = value / (1 << 8);
+      // Write the buffer to a file.
+      if(g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24){
+        for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE24; i_sample++) {
+          for (size_t i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++) {
+            uint8_t *i_ptr = shm_audio->data[audio_buffer_toWrite].sample24[i_sample][i_channel];
+            FLAC__int32 value = ((FLAC__int32)i_ptr[0] << 24) | ((FLAC__int32)i_ptr[1] << 16) | ((FLAC__int32)i_ptr[2] << 8);
+            buff[i_sample][i_channel] = value / (1 << 8);
+          }
         }
-      }
-      FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], AUDIO_BUFFER_SIZE_SAMPLE24);
-    } else {
-      for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE16; i_sample++) {
-        for (size_t i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++) {
-          uint8_t *i_ptr = shm_audio->data[audio_buffer_toWrite].sample16[i_sample][i_channel];
-          FLAC__int32 value = ((FLAC__int32)i_ptr[0] << 24) | ((FLAC__int32)i_ptr[1] << 16);
-          buff[i_sample][i_channel] = value / (1 << 16);
+        FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], AUDIO_BUFFER_SIZE_SAMPLE24);
+      } else {
+        for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE16; i_sample++) {
+          for (size_t i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++) {
+            uint8_t *i_ptr = shm_audio->data[audio_buffer_toWrite].sample16[i_sample][i_channel];
+            FLAC__int32 value = ((FLAC__int32)i_ptr[0] << 24) | ((FLAC__int32)i_ptr[1] << 16);
+            buff[i_sample][i_channel] = value / (1 << 16);
+          }
         }
+        FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], AUDIO_BUFFER_SIZE_SAMPLE16);
       }
-      FLAC__stream_encoder_process_interleaved(flac_encoder,&buff[0][0], AUDIO_BUFFER_SIZE_SAMPLE16);
-    }
-    audio_acqDataFileLength += AUDIO_BUFFER_SIZE_BYTES;
-    CETI_DEBUG("%d of %lu bytes converted to flac", audio_acqDataFileLength, filesize_bytes);
-    
-    // Create a new output file if this is the first flush
-    //  or if the file size limit has been reached.
-    if ((audio_acqDataFileLength > (filesize_bytes - 1)) || (flac_encoder == 0)) {
-      audio_createNewFlacFile();
+      audio_acqDataFileLength += AUDIO_BUFFER_SIZE_BYTES;
+      CETI_DEBUG("%d of %lu bytes converted to flac", audio_acqDataFileLength, filesize_bytes);
+      
+      // Create a new output file if this is the first flush
+      //  or if the file size limit has been reached.
+      if ((audio_acqDataFileLength > (filesize_bytes - 1)) || (flac_encoder == 0)) {
+        audio_createNewFlacFile();
+      }
     }
 
     // Switch to waiting on the other buffer.
     audio_buffer_toWrite = !audio_buffer_toWrite;
 
-    // Log that a write has finished.
-    global_time_us = get_global_time_us();
-    while (audio_writing_to_status_file)
-      usleep(10);
-    audio_writing_to_status_file = 1;
-    audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
-    fprintf(audio_status_file, "%lld", global_time_us);
-    fprintf(audio_status_file, ",%d", getRtcCount());
-    // Write any notes, then clear them so they are only written once.
-    fprintf(audio_status_file, ",%s", audio_status_file_notes);
-    audio_status_file_notes[0] = '\0';
-    // Write overflow status information.
-    fprintf(audio_status_file, ",");
-    fprintf(audio_status_file, ",");
-    fprintf(audio_status_file, ",");
-    fprintf(audio_status_file, ",1");
-    fprintf(audio_status_file, ",");
-    // Finish the row of data.
-    fprintf(audio_status_file, "\n");
-    fclose(audio_status_file);
-    audio_writing_to_status_file = 0;
+    if (!g_stopLogging) {
+      global_time_us = get_global_time_us();
+      // Log that a write has finished.
+      while (audio_writing_to_status_file)
+        usleep(10);
+      audio_writing_to_status_file = 1;
+      audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
+      fprintf(audio_status_file, "%lld", global_time_us);
+      fprintf(audio_status_file, ",%d", getRtcCount());
+      // Write any notes, then clear them so they are only written once.
+      fprintf(audio_status_file, ",%s", audio_status_file_notes);
+      audio_status_file_notes[0] = '\0';
+      // Write overflow status information.
+      fprintf(audio_status_file, ",");
+      fprintf(audio_status_file, ",");
+      fprintf(audio_status_file, ",");
+      fprintf(audio_status_file, ",1");
+      fprintf(audio_status_file, ",");
+      // Finish the row of data.
+      fprintf(audio_status_file, "\n");
+      fclose(audio_status_file);
+      audio_writing_to_status_file = 0;
+    }
 }
   
   //Flush remaining partial buffer.
@@ -879,25 +882,27 @@ void audio_check_for_overflow(int location_index) {
     CETI_LOG("*** OVERFLOW detected at location %d, block %d***", location_index, shm_audio->block);
     audio_overflow_detected_location = location_index;
     long long global_time_us = get_global_time_us();
-    while (audio_writing_to_status_file)
-      usleep(10);
-    audio_writing_to_status_file = 1;
-    audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
-    fprintf(audio_status_file, "%lld", global_time_us);
-    fprintf(audio_status_file, ",%d", getRtcCount());
-    // Write any notes, then clear them so they are only written once.
-    fprintf(audio_status_file, ",%s", audio_status_file_notes);
-    audio_status_file_notes[0] = '\0';
-    // Write overflow status information.
-    fprintf(audio_status_file, ",%d", g_audio_overflow_detected);
-    fprintf(audio_status_file, ",%d", location_index);
-    fprintf(audio_status_file, ",");
-    fprintf(audio_status_file, ",");
-    fprintf(audio_status_file, ",");
-    // Finish the row of data.
-    fprintf(audio_status_file, "\n");
-    fclose(audio_status_file);
-    audio_writing_to_status_file = 0;
+    if(!g_stopLogging){
+      while (audio_writing_to_status_file)
+        usleep(10);
+      audio_writing_to_status_file = 1;
+      audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
+      fprintf(audio_status_file, "%lld", global_time_us);
+      fprintf(audio_status_file, ",%d", getRtcCount());
+      // Write any notes, then clear them so they are only written once.
+      fprintf(audio_status_file, ",%s", audio_status_file_notes);
+      audio_status_file_notes[0] = '\0';
+      // Write overflow status information.
+      fprintf(audio_status_file, ",%d", g_audio_overflow_detected);
+      fprintf(audio_status_file, ",%d", location_index);
+      fprintf(audio_status_file, ",");
+      fprintf(audio_status_file, ",");
+      fprintf(audio_status_file, ",");
+      // Finish the row of data.
+      fprintf(audio_status_file, "\n");
+      fclose(audio_status_file);
+      audio_writing_to_status_file = 0;
+    }
   }
 #endif
 }

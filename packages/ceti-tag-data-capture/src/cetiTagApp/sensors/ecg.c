@@ -323,59 +323,62 @@ void* ecg_thread_writeData(void* paramPtr)
     while(shm_ecg->page == ecg_buffer_select_toWrite && !g_stopAcquisition)
       usleep(250000);
 
-    // Write the last buffer to a file.
-    long ecg_data_file_size_b = 0;
-    ecg_data_file = fopen(ecg_data_filepath, "at");
-    if(ecg_data_file == NULL)
-    {
-      CETI_LOG("failed to open data output file: %s", ecg_data_filepath);
-      init_ecg_data_file(0);
-    }
-    else
-    {
-      // Determine the last index to write.
-      // During normal operation, will want to write the entire buffer
-      //  since the acquisition thread has just finished filling it.
-      int ecg_buffer_last_index_toWrite = ECG_BUFFER_LENGTH-1;
-      // If the program exited though, will want to write only as much
-      //  as the acquisition thread has filled.
-      if(shm_ecg->page == ecg_buffer_select_toWrite)
+    if (!g_stopLogging) {
+      // Write the last buffer to a file.
+      long ecg_data_file_size_b = 0;
+      ecg_data_file = fopen(ecg_data_filepath, "at");
+      if(ecg_data_file == NULL)
       {
-        ecg_buffer_last_index_toWrite = shm_ecg->sample-1;
-        if(ecg_buffer_last_index_toWrite < 0)
-          ecg_buffer_last_index_toWrite = 0;
-      }
-      // Write the buffer data to the file.
-      for(int ecg_buffer_index_toWrite = 0; ecg_buffer_index_toWrite <= ecg_buffer_last_index_toWrite; ecg_buffer_index_toWrite++)
-      {
-        // Write timing information.
-        fprintf(ecg_data_file, "%lld", shm_ecg->sys_time_us[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
-        fprintf(ecg_data_file, ",%d", shm_ecg->rtc_time_s[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
-        // Write any notes.
-        fprintf(ecg_data_file, ",%s", ecg_data_file_notes[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
-        // Write the sensor data.
-        fprintf(ecg_data_file, ",%lld", shm_ecg->sample_indexes[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
-        fprintf(ecg_data_file, ",%ld", shm_ecg->ecg_readings[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
-        #if ENABLE_ECG_LOD
-        fprintf(ecg_data_file, ",%d", shm_ecg->leadsOff_readings_p[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
-        fprintf(ecg_data_file, ",%d", shm_ecg->leadsOff_readings_n[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
-        #else
-        fprintf(ecg_data_file, ",,");
-        #endif
-        // Finish the row of data.
-        fprintf(ecg_data_file, "\n");
-      }
-      // Check the file size and close the file.
-      fseek(ecg_data_file, 0L, SEEK_END);
-      ecg_data_file_size_b = ftell(ecg_data_file);
-      fclose(ecg_data_file);
-
-      // If the file size limit has been reached, start a new file.
-      if((ecg_data_file_size_b >= (long)(ECG_MAX_FILE_SIZE_MB)*1024L*1024L || ecg_data_file_size_b < 0) && !g_stopAcquisition)
+        CETI_LOG("failed to open data output file: %s", ecg_data_filepath);
         init_ecg_data_file(0);
+      }
+      else
+      {
+        // Determine the last index to write.
+        // During normal operation, will want to write the entire buffer
+        //  since the acquisition thread has just finished filling it.
+        int ecg_buffer_last_index_toWrite = ECG_BUFFER_LENGTH-1;
+        // If the program exited though, will want to write only as much
+        //  as the acquisition thread has filled.
+        if(shm_ecg->page == ecg_buffer_select_toWrite)
+        {
+          ecg_buffer_last_index_toWrite = shm_ecg->sample-1;
+          if(ecg_buffer_last_index_toWrite < 0)
+            ecg_buffer_last_index_toWrite = 0;
+        }
+        // Write the buffer data to the file.
+        for(int ecg_buffer_index_toWrite = 0; ecg_buffer_index_toWrite <= ecg_buffer_last_index_toWrite; ecg_buffer_index_toWrite++)
+        {
+          // Write timing information.
+          fprintf(ecg_data_file, "%lld", shm_ecg->sys_time_us[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
+          fprintf(ecg_data_file, ",%d", shm_ecg->rtc_time_s[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
+          // Write any notes.
+          fprintf(ecg_data_file, ",%s", ecg_data_file_notes[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
+          // Write the sensor data.
+          fprintf(ecg_data_file, ",%lld", shm_ecg->sample_indexes[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
+          fprintf(ecg_data_file, ",%ld", shm_ecg->ecg_readings[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
+          #if ENABLE_ECG_LOD
+          fprintf(ecg_data_file, ",%d", shm_ecg->leadsOff_readings_p[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
+          fprintf(ecg_data_file, ",%d", shm_ecg->leadsOff_readings_n[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]);
+          #else
+          fprintf(ecg_data_file, ",,");
+          #endif
+          // Finish the row of data.
+          fprintf(ecg_data_file, "\n");
+        }
+        // Check the file size and close the file.
+        fseek(ecg_data_file, 0L, SEEK_END);
+        ecg_data_file_size_b = ftell(ecg_data_file);
+        fclose(ecg_data_file);
 
-      //CETI_LOG("Wrote %d entries in %lld us", ECG_BUFFER_LENGTH, get_global_time_us() - start_time_us);
+        // If the file size limit has been reached, start a new file.
+        if((ecg_data_file_size_b >= (long)(ECG_MAX_FILE_SIZE_MB)*1024L*1024L || ecg_data_file_size_b < 0) && !g_stopAcquisition)
+          init_ecg_data_file(0);
+
+        //CETI_LOG("Wrote %d entries in %lld us", ECG_BUFFER_LENGTH, get_global_time_us() - start_time_us);
+      }
     }
+    
     // Advance to the next buffer.
     ecg_buffer_select_toWrite++;
     ecg_buffer_select_toWrite %= ECG_NUM_BUFFERS;

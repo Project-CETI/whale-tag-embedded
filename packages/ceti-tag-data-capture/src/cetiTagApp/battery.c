@@ -287,40 +287,40 @@ void* battery_thread(void* paramPtr) {
     while (!g_stopAcquisition) {     
       battery_update_sample();
 
-    // ******************   Battery Temperature Checks *************************
-    for(int i_cell = 0; i_cell < 2; i_cell++){
-        if( (shm_battery->cell_temperature_c[i_cell] > MAX_CHARGE_TEMP) ||  (shm_battery->cell_temperature_c[i_cell] < MIN_CHARGE_TEMP) ) {          
-            if (!charging_disabled){  
-              disableCharging();
-              charging_disabled = 1;
-              CETI_WARN("Battery charging disabled, cell %d outside thermal limits: %.3f C", i_cell + 1, shm_battery->cell_temperature_c[i_cell]);
-            }
-        }
+      // ******************   Battery Temperature Checks *************************
+      for(int i_cell = 0; i_cell < 2; i_cell++){
+          if( (shm_battery->cell_temperature_c[i_cell] > MAX_CHARGE_TEMP) ||  (shm_battery->cell_temperature_c[i_cell] < MIN_CHARGE_TEMP) ) {          
+              if (!charging_disabled){  
+                disableCharging();
+                charging_disabled = 1;
+                CETI_WARN("Battery charging disabled, cell %d outside thermal limits: %.3f C", i_cell + 1, shm_battery->cell_temperature_c[i_cell]);
+              }
+          }
 
-        if( (shm_battery->cell_temperature_c[i_cell] > MAX_DISCHARGE_TEMP) ) {
-            if (!discharging_disabled){  
-              disableDischarging();
-              discharging_disabled = 1;
-              CETI_WARN("Battery discharging disabled, cell %d outside thermal limit: %.3f C", i_cell + 1, shm_battery->cell_temperature_c[i_cell]);
-            }     
-        }
-    }
+          if( (shm_battery->cell_temperature_c[i_cell] > MAX_DISCHARGE_TEMP) ) {
+              if (!discharging_disabled){  
+                disableDischarging();
+                discharging_disabled = 1;
+                CETI_WARN("Battery discharging disabled, cell %d outside thermal limit: %.3f C", i_cell + 1, shm_battery->cell_temperature_c[i_cell]);
+              }     
+          }
+      }
 
-    
-    // ******************   End Battery Temperature Checks *********************
+      
+      // ******************   End Battery Temperature Checks *********************
 
-    if (!g_stopAcquisition) {
-        /* ToDo: move to seperate logging app. 
-        * Daemon should only handle sample acq not storage
-        */
-        battery_data_file = fopen(BATTERY_DATA_FILEPATH, "at");
-        if(battery_data_file == NULL) {
-            CETI_WARN("failed to open data output file: %s", BATTERY_DATA_FILEPATH);
-        } else {
-            battery_sample_to_csv(battery_data_file, shm_battery);
-            fclose(battery_data_file);
-        }
-    }
+      if (!g_stopLogging) {
+          /* ToDo: move to seperate logging app. 
+          * Daemon should only handle sample acq not storage
+          */
+          battery_data_file = fopen(BATTERY_DATA_FILEPATH, "at");
+          if(battery_data_file == NULL) {
+              CETI_WARN("failed to open data output file: %s", BATTERY_DATA_FILEPATH);
+          } else {
+              battery_sample_to_csv(battery_data_file, shm_battery);
+              fclose(battery_data_file);
+          }
+      }
       
 
       // Delay to implement a desired sampling rate.

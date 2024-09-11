@@ -118,9 +118,10 @@ void *light_thread(void *paramPtr) {
   int64_t polling_sleep_duration_us;
   g_light_thread_is_running = 1;
   while (!g_stopAcquisition) {
-      // Acquire timing and sensor information as close together as possible.
-      light_update_sample();
+    // Acquire timing and sensor information as close together as possible.
+    light_update_sample();
 
+    if (!g_stopLogging) {
       light_data_file = fopen(LIGHT_DATA_FILEPATH, "at");
       if (light_data_file == NULL) {
         CETI_LOG("failed to open data output file: %s", LIGHT_DATA_FILEPATH);
@@ -128,13 +129,14 @@ void *light_thread(void *paramPtr) {
         light_sample_to_csv(light_data_file, g_light);
         fclose(light_data_file);
       }
+    }
 
-      // Delay to implement a desired sampling rate.
-      // Take into account the time it took to acquire/save data.
-      polling_sleep_duration_us = LIGHT_SAMPLING_PERIOD_US;
-      polling_sleep_duration_us -= get_global_time_us() - g_light->sys_time_us;
-      if (polling_sleep_duration_us > 0)
-        usleep(polling_sleep_duration_us);
+    // Delay to implement a desired sampling rate.
+    // Take into account the time it took to acquire/save data.
+    polling_sleep_duration_us = LIGHT_SAMPLING_PERIOD_US;
+    polling_sleep_duration_us -= get_global_time_us() - g_light->sys_time_us;
+    if (polling_sleep_duration_us > 0)
+      usleep(polling_sleep_duration_us);
   }
   g_light_thread_is_running = 0;
   CETI_LOG("Done!");

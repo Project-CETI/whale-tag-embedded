@@ -132,6 +132,7 @@
 //-----------------------------------------------------------------------------
 extern int g_exit;
 extern int g_stopAcquisition;
+extern int g_stopLogging;
 extern char g_process_path[256];
 
 //-----------------------------------------------------------------------------

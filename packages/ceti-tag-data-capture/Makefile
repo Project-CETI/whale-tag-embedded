@@ -42,7 +42,6 @@ LDFLAGS    = -lpthread -lpigpio -lFLAC -lm -lrt
 	binary \
 	install \
 	clean \
-	test \
 	debug \
 	$(APPS) \
 	list

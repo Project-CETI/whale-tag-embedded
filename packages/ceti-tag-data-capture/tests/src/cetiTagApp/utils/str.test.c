@@ -37,6 +37,47 @@ void test_strtobool(void){
 }
 
 
+void test_strtoquotedstring(void) {
+    char result_string[256];
+    const char *start_ptr;
+    const char *end_ptr;
+    size_t len;
+
+    start_ptr = strtoquotedstring("\"test1\"", &end_ptr);
+    TEST_ASSERT_NOT_NULL(start_ptr);
+    len = end_ptr - start_ptr;
+    memcpy(result_string, start_ptr, len);
+    result_string[len] = 0;
+    TEST_ASSERT_EQUAL_STRING("\"test1\"", result_string);
+
+    start_ptr = strtoquotedstring("   \"  test 2  \"", &end_ptr);
+    TEST_ASSERT_NOT_NULL(start_ptr);
+    len = end_ptr - start_ptr;
+    memcpy(result_string, start_ptr, len);
+    result_string[len] = 0;
+    TEST_ASSERT_EQUAL_STRING("\"  test 2  \"", result_string);
+
+    start_ptr = strtoquotedstring("asdf\"test 3\"", &end_ptr);
+    TEST_ASSERT_NULL(start_ptr);
+
+    start_ptr = strtoquotedstring("\"test 4", &end_ptr);
+    TEST_ASSERT_NULL(start_ptr);
+
+    start_ptr = strtoquotedstring("\"test\\\"5\"   \"test6\"", &end_ptr);
+    TEST_ASSERT_NOT_NULL(start_ptr);
+    len = end_ptr - start_ptr;
+    memcpy(result_string, start_ptr, len);
+    result_string[len] = 0;
+    TEST_ASSERT_EQUAL_STRING("\"test\\\"5\"", result_string);
+
+    start_ptr = strtoquotedstring(end_ptr, &end_ptr);
+    TEST_ASSERT_NOT_NULL(start_ptr);
+    len = end_ptr - start_ptr;
+    memcpy(result_string, start_ptr, len);
+    result_string[len] = 0;
+    TEST_ASSERT_EQUAL_STRING("\"test6\"", result_string);
+}
+
 void setUp(void) {
     // set stuff up here
     srand(time(NULL));
@@ -49,5 +90,6 @@ void tearDown(void) {
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_strtobool);
+    RUN_TEST(test_strtoquotedstring);
     return UNITY_END();
 }

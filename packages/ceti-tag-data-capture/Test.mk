@@ -72,25 +72,28 @@ $(TEST_BIN_DIR)/%.test: $(SRC_DIR)/%.o $(TESTABLE_OBJ) $(TEST_OBJ) $(MOCK_OBJ) $
 test: CFLAGS = $(TEST_CFLAGS)
 test: $(TEST_BIN)
 	@echo 0 > .test.result
+	@echo "" > test.results
 	-@for test in $(TEST_BIN); do \
 		./$$test && echo 0 >> .test.result || echo 1 >> .test.result; \
 	done
 	@if grep -q "1" .test.result; then \
 		printf "\n$(RED)FAIL$(NO_COL): One or more tests failed!\n\n"; \
 	else \
-		printf "\n$(GREEN)OK$(NO_COL): All tests passed.\n\n"; \
-	fi
+		printf "\n$$(cat tests/microrobotics.ansi.txt)\n"; \
+		printf "All tests passed\n"; \
+		printf "$(GREEN)OK$(NO_COL)\n"; \
+	fi 
 	@rm -f .test.result
 
 test_clean:
-	rm -f $(TEST_OBJ) $(TEST_DEPS)
+	rm -f $(TEST_OBJ) $(TESTABLE_OBJ)
 	rm -rf $(TEST_BIN_DIR)
 
 .PHONY: \
+	test \
 	test_clean
 
 # test dependencies
-
 TEST_REAL_DEP = 
 TEST_TEST_DEP = 
 TEST_STUB_DEP = 
@@ -109,5 +112,5 @@ $(TEST_BIN_DIR)/cetiTagApp/utils/str.test: TEST_TEST_DEP = cetiTagApp/utils/str.
 $(TEST_BIN_DIR)/cetiTagApp/utils/str.test: TEST_REAL_DEP = cetiTagApp/utils/str.o
 
 $(TEST_BIN_DIR)/cetiTagApp/state_machine.test: TEST_TEST_DEP = cetiTagApp/state_machine.o 
-$(TEST_BIN_DIR)/cetiTagApp/state_machine.test: TEST_REAL_DEP = cetiTagApp/state_machine.o cetiTagApp/aprs.o cetiTagApp/utils/logging.o
+$(TEST_BIN_DIR)/cetiTagApp/state_machine.test: TEST_REAL_DEP = cetiTagApp/state_machine.o cetiTagApp/aprs.o cetiTagApp/utils/logging.o cetiTagApp/utils/str.o
 $(TEST_BIN_DIR)/cetiTagApp/state_machine.test: TEST_STUB_DEP = cetiTagApp/utils/power.o cetiTagApp/burnwire.o cetiTagApp/recovery.o
