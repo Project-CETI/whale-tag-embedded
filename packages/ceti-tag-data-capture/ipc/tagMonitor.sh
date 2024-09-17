@@ -144,7 +144,7 @@ handle_error() {
 
 _term() {
   echo "stopping cetiTagApp"
-  send_command quit
+  send_command "quit"
   if [ $? -ne 0 ] ; then
     handle_error $?
   fi
@@ -186,7 +186,7 @@ do
   if [ $data_acquisition_running -eq 1 ] && [ $2 -lt $((1*1024*1024)) ]
   then
     echo "disk almost full; stopping data acquisition"
-    send_command stopDataAcq
+    send_command "stopDataAcq"
     if [ $? -ne 0 ] ; then
       handle_error $?
       continue
@@ -208,19 +208,19 @@ do
 # Hardcoded for now at 3V per cell.
 
 #check that process is active before calling into pipe
-  v1=$(send_command battery cellV 0)
+  v1=$(send_command "battery cellV 0")
   if [ $? -ne 0 ] ; then
     handle_error $?
     continue
   fi
 
-  v2=$(send_command battery cellV 1)
+  v2=$(send_command "battery cellV 1")
   if [ $? -ne 0 ] ; then
     handle_error $?
     continue
   fi
 
-  iMa=$(send_command battery current)
+  iMa=$(send_command "battery current")
   if [ $? -ne 0 ] ; then
     handle_error $?
     continue
@@ -242,7 +242,7 @@ do
     if [ "$check1" -gt 0 ] || [ "$check2" -gt 0 ] 
     then
       echo "low battery cell detected; stopping data acquisition"
-      send_command stopDataAcq
+      send_command "stopDataAcq"
       if [ $? -ne 0 ] ; then
         handle_error $?
         continue
@@ -265,7 +265,7 @@ do
     then
       echo "low battery cell detected; powering down the Pi now!"
       echo s > /proc/sysrq-trigger
-      send_command powerdown
+      send_command "powerdown"
       if [ $? -ne 0 ] ; then
         kill -9  "$child" 2>/dev/null
         emergency_shutdown
@@ -300,7 +300,7 @@ do
     then
       echo "FIFO overflow still detected, restarting the main app"
       # Tell the main app to gracefully quit.
-      send_command stopDataAcq
+      send_command "stopDataAcq"
       if [ $? -ne 0 ] ; then
         handle_error $?
         continue

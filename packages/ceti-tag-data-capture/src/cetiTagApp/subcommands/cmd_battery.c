@@ -19,7 +19,7 @@ int batteryCmd_get_cell_voltage(const char *args) {
     char * end_ptr;
     uint32_t cell_index = strtoul(args, &end_ptr, 0);
     
-    if(cell_index > 1 || (end_ptr != args)) {
+    if(cell_index > 1 || (end_ptr == args)) {
         fprintf(g_rsp_pipe, "Error invalid cell number.\n");
         fprintf(g_rsp_pipe, "Usage: `battery cellV ( 0 | 1 )`\n");
         return -1;
