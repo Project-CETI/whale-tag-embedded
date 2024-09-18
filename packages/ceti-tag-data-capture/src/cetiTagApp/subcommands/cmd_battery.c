@@ -122,10 +122,10 @@ int batteryCmd_verify(const char * args){
 
         //assertions
         if (actual != nv_expected[i].value) {
-            fprintf(g_rsp_pipe, "%12s: 0x%04x != 0x%04x !!!!\n", nv_expected[i].name, actual, nv_expected[i].value);
+            fprintf(g_rsp_pipe, "%-12s: 0x%04x != 0x%04x !!!!\n", nv_expected[i].name, actual, nv_expected[i].value);
             incorrect++;
         } else {
-            fprintf(g_rsp_pipe, "%12s: 0x%04x  OK!\n", nv_expected[i].name, actual);
+            fprintf(g_rsp_pipe, "%-12s: 0x%04x  OK!\n", nv_expected[i].name, actual);
         }
     }
 
