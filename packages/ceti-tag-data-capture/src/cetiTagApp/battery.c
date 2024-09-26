@@ -349,17 +349,6 @@ void* battery_thread(void* paramPtr) {
 }
 
 //-----------------------------------------------------------------------------
-// Battery gauge interface
-//-----------------------------------------------------------------------------
-int getBatteryData(double* battery_v1_v, double* battery_v2_v, double* battery_i_mA) {
-  WTResult hw_result = WT_OK;
-  if (hw_result == WT_OK) { hw_result = max17320_get_cell_voltage_v(0, battery_v1_v); }
-  if (hw_result == WT_OK) { hw_result = max17320_get_cell_voltage_v(1, battery_v2_v); }
-  if (hw_result == WT_OK) { hw_result = max17320_get_current_mA(battery_i_mA); }
-  return hw_result;
-}
-
-//-----------------------------------------------------------------------------
 // Charge and Discharge Enabling
 //-----------------------------------------------------------------------------
 int resetBattTempFlags(void) {

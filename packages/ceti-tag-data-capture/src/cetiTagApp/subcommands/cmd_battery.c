@@ -68,8 +68,13 @@ int batteryCmd_check_battery(const char *args) {
     double v0_v = NAN;
     double v1_v = NAN;
     double i_mA = NAN;
-    if (getBatteryData(&v0_v, &v1_v, &i_mA) != 0) {
-        fprintf(g_rsp_pipe, "Error communicating with BMS!!!\n");
+
+    WTResult hw_result = WT_OK;
+    if(hw_result == WT_OK) { hw_result = max17320_get_cell_voltage_v(0, &v0_v); }
+    if(hw_result == WT_OK) { hw_result = max17320_get_cell_voltage_v(1, &v1_v); }
+    if(hw_result == WT_OK) { hw_result = max17320_get_current_mA(&i_mA); }
+    if (hw_result != WT_OK) {
+        fprintf(g_rsp_pipe, "Error communicating with BMS: %s\n", wt_strerror(hw_result));
         return -1;
     }
     fprintf(g_rsp_pipe, "Battery voltage 1: %.2f V \n", v0_v);
