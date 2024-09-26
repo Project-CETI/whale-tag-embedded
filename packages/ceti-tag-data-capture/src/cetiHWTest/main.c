@@ -29,11 +29,21 @@ HardwareTest g_test_list[] = {
     { .name = "Temperature",      .update = test_temperature, },
     { .name = "Light",            .update = test_light, },
     { .name = "Communication",    .update = test_internet, },
-    { .name = "Recovery",         .update = test_ToDo, },
+    { .name = "Recovery",         .update = test_recovery, },
 };
 #define TEST_COUNT (sizeof(g_test_list)/sizeof(g_test_list[0]))
 
-FILE *results_file;
+FILE *results_file = NULL;
+
+void resume_mission_state_machine(void){
+    FILE *cmd_pipe_fd = fopen("/opt/ceti-tag-data-capture/ipc/cetiCommand", "w");
+    if (cmd_pipe_fd == NULL) {
+        printf("Failed to open ipc command pipe!!!");
+        return;
+    }
+    fprintf(cmd_pipe_fd, "mission resume\n");
+    fclose(cmd_pipe_fd);
+}
 
 /************************************
  * main
@@ -49,7 +59,17 @@ int main(void) {
         bytes--;
     }
 
-    //TODO: use DBUS to ensure ceti-tag-capture-app is running
+    //ToDo: use DBUS to ensure ceti-tag-capture-app is running ?
+    
+    //Pause cetiTagApp mission state machine so we can make changes without errors occuring
+    FILE *cmd_pipe_fd = fopen("/opt/ceti-tag-data-capture/ipc/cetiCommand", "w");
+    if (cmd_pipe_fd == NULL) {
+        printf("Failed to open ipc command pipe!!!");
+        return -1;
+    }
+    fprintf(cmd_pipe_fd, "mission pause\n");
+    fclose(cmd_pipe_fd);
+    atexit(resume_mission_state_machine);
 
     tui_initialize();
     tui_update_screen_size();

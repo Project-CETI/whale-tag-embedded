@@ -77,7 +77,7 @@ TestState test_audio(FILE *pResultsFile){
     uint8_t *read_ptr = shm_audio->data[shm_audio->page].sample16[next_sample_index][0];
     uint8_t *window_ptr = read_ptr;
 
-    int sample_count = 0;
+    uint64_t sample_count = 0;
     usleep(100000); // wait .1 seconds for data to exist
 
     do {
@@ -128,7 +128,6 @@ TestState test_audio(FILE *pResultsFile){
             }
             sample_count++;
         }
-
         //drop old samples
         while (sample_count > AUDIO_WINDOW_SIZE_SAMPLES) {
             for(int i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++){
@@ -144,6 +143,11 @@ TestState test_audio(FILE *pResultsFile){
             }
             sample_count--;
         }
+
+
+        // avoid divide by zero
+        if (sample_count == 0) 
+            continue;
 
         for(int i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++){
             avg[i_channel] = sum[i_channel]/((double)sample_count);
