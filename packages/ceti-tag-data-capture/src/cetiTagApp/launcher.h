@@ -91,7 +91,7 @@
 #endif
 
 #if ENABLE_FPGA
-#include "fpga.h"
+#include "device/fpga.h"
 #endif
 
 #if ENABLE_RECOVERY

@@ -7,6 +7,8 @@
 
 #include "max17320.h"
 
+#include "i2c.h"
+
 #include <pigpio.h>
 #include <unistd.h> // for usleep
 
@@ -40,12 +42,12 @@ static inline double __raw_to_time_s(uint16_t raw) {
 }
 
 WTResult max17320_read(uint16_t memory, uint16_t *storage) {
-    uint16_t addr = MAX17320_ADDR;
+    uint16_t addr = BMS_I2C_DEV_ADDR_LOWER;
     if (memory > 0xFF) {
         memory = memory & 0xFF;
-        addr = MAX17320_ADDR_SEC;
+        addr = BMS_I2C_DEV_ADDR_UPPER;
     }
-    int fd = PI_TRY(WT_DEV_BMS, i2cOpen(1, addr, 0));
+    int fd = PI_TRY(WT_DEV_BMS, i2cOpen(BMS_I2C_BUS, addr, 0));
     if (storage != NULL){
         *storage = PI_TRY(WT_DEV_BMS, i2cReadWordData(fd, memory));
     }
@@ -54,12 +56,12 @@ WTResult max17320_read(uint16_t memory, uint16_t *storage) {
 }
 
 WTResult max17320_write(uint16_t memory, uint16_t data) {
-    uint16_t addr = MAX17320_ADDR;
+    uint16_t addr = BMS_I2C_DEV_ADDR_LOWER;
     if (memory > 0xFF) {
         memory = memory & 0xFF;
-        addr = MAX17320_ADDR_SEC;
+        addr = BMS_I2C_DEV_ADDR_UPPER;
     }
-    int fd = PI_TRY(WT_DEV_BMS, i2cOpen(1, addr, 0));
+    int fd = PI_TRY(WT_DEV_BMS, i2cOpen(BMS_I2C_BUS, addr, 0));
     PI_TRY(WT_DEV_BMS, i2cWriteWordData(fd, memory, data), i2cClose(fd));
     i2cClose(fd);
     return WT_OK;

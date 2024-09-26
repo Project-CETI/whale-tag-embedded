@@ -1,5 +1,5 @@
 #include "../commands_internal.h"
-#include "../fpga.h"
+#include "../device/fpga.h"
 
 #include "../utils/logging.h"
 #include <ctype.h>

@@ -7,7 +7,7 @@
 //-----------------------------------------------------------------------------
 
 #include "burnwire.h"
-#include "iox.h"
+#include "device/iox.h"
 
 
 #include "utils/logging.h"

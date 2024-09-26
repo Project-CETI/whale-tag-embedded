@@ -9,7 +9,7 @@
 #ifndef __CETI_WHALE_TAG_HAL_IOX__
 #define __CETI_WHALE_TAG_HAL_IOX__
 
-#include "utils/error.h" // for WTResult type
+#include "../utils/error.h" // for WTResult type
 #include <stdint.h>      // for uint8_t
 
 // === Definitions ========================================================

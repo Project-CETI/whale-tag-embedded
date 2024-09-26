@@ -14,10 +14,6 @@
 
 #define MAX17320_CELL_COUNT 2
 
-// BMS I2C Device Address
-#define MAX17320_ADDR                   0x36  // For internal memory range 000h-0FFh
-#define MAX17320_ADDR_SEC               0x0b  // For internal memory range 180h-1FFh
-
 // TODO: Remove Unused Registers
 #define MAX17320_REG_STATUS             0x000
 #define MAX17320_REG_PROTSTATUS			0x0D9

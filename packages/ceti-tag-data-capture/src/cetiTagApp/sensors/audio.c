@@ -31,9 +31,9 @@
 
 // Private local headers
 #include "../cetiTag.h"
-#include "../fpga.h"
-#include "../gpio.h"
-#include "../iox.h"
+#include "../device/fpga.h"
+#include "../device/gpio.h"
+#include "../device/iox.h"
 #include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
 #include "../utils/error.h"

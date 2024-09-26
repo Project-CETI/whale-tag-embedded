@@ -14,7 +14,7 @@
 // Includes
 //-----------------------------------------------------------------------------
 #include "../../utils/error.h"  // for WTResult
-#include "../../iox.h"
+#include "../../device/iox.h"
 
 #include "../../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "../../systemMonitor.h" // for the global CPU assignment variable to update
