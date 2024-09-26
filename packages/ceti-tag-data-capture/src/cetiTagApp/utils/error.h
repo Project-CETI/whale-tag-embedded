@@ -46,9 +46,10 @@ typedef enum wt_device_id_e {
 
 #define WT_ERR_BMS_START  (WT_ERR_AUDIO_START - 3)
 #define WT_ERR_BMS_WRITE_PROT_DISABLE_FAIL (WT_ERR_BMS_START - 0)
-#define WT_ERR_BMS_BAD_CELL_INDEX (WT_ERR_BMS_START - 1)
+#define WT_ERR_BMS_WRITE_PROT_ENABLE_FAIL (WT_ERR_BMS_START - 1)
+#define WT_ERR_BMS_BAD_CELL_INDEX (WT_ERR_BMS_START - 2)
 
-#define WT_ERR_ECG_START  (WT_ERR_BMS_START - 2)
+#define WT_ERR_ECG_START  (WT_ERR_BMS_START - 3)
 #define WT_ERR_BAD_ECG_DATA_RATE (WT_ERR_ECG_START - 0)
 #define WT_ERR_BAD_ECG_CHANNEL  (WT_ERR_ECG_START - 1)
 #define WT_ERR_ECG_TIMEOUT  (WT_ERR_ECG_START - 2)
@@ -88,6 +89,15 @@ typedef uint32_t WTResult;
  * @return const char* 
  */
 const char *wt_strerror(WTResult errno);
+
+
+/**
+ * @brief Returns a pointer to an error device name string based on the errno.
+ * 
+ * @param errno 
+ * @return const char* 
+ */
+const char *wt_strerror_device_name(WTResult errnum);
 
 /**
  * @brief Macro that tries to perform action that may return on error in the

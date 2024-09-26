@@ -23,7 +23,7 @@ static const char *device_name[] = {
     [WT_DEV_ECG_ADC] = "ECG ADC",
     [WT_DEV_IMU] = "IMU",
     [WT_DEV_IOX] = "IO expander",
-    [WT_DEV_LIGHT] = "Ambient Light sensor",
+    [WT_DEV_LIGHT] = "Ambient light sensor",
     [WT_DEV_PRESSURE] = "Pressure sensor",
     [WT_DEV_RECOVERY] = "Recovery board",
     [WT_DEV_RTC] = "Real-time clock",
@@ -187,6 +187,7 @@ static const char *err_str[] = {
     [-WT_ERR_BAD_AUDIO_FILTER] = "bade audio filter",
     [-WT_ERR_BAD_AUDIO_SAMPLE_RATE] = "bade audio sample rate",
     [-WT_ERR_BMS_WRITE_PROT_DISABLE_FAIL] = "failed to disable write protection",
+    [-WT_ERR_BMS_WRITE_PROT_ENABLE_FAIL] = "failed to enable write protection",
     [-WT_ERR_BMS_BAD_CELL_INDEX] = "bad cell index",
     [-WT_ERR_BAD_ECG_DATA_RATE] = "bad ECG ADC data rate",
     [-WT_ERR_BAD_ECG_CHANNEL] = "bad ECG channel",
@@ -250,4 +251,10 @@ const char *wt_strerror(WTResult errnum){
         } 
     }
     return __wt_errstr;
+}
+
+
+const char *wt_strerror_device_name(WTResult errnum) {
+    int device = (errnum >> 16) & 0xFFFF;
+    return device_name[device];
 }

@@ -1,6 +1,6 @@
 #include "../commands_internal.h"
 #include "../battery.h"
-#include "../max17320.h"
+#include "../device/max17320.h"
 #include "../utils/logging.h"
 
 #include <math.h>   // for NAN
@@ -8,8 +8,11 @@
 
 int batteryCmd_get_current(const char *args) {
     double i_mA = NAN;
-    if (getBatteryData(NULL, NULL, &i_mA) != 0) {
-        fprintf(g_rsp_pipe, "Error communicating with BMS!!!\n");
+
+    WTResult hw_result = max17320_get_current_mA(&i_mA);
+    if (hw_result != WT_OK) {
+        CETI_ERR("Failed to get current: %s", wt_strerror(hw_result));
+        fprintf(g_rsp_pipe, "Failed to get current: %s\n", wt_strerror(hw_result));
         return -1;
     }
     fprintf(g_rsp_pipe, "%.3f\n", i_mA);
@@ -17,29 +20,32 @@ int batteryCmd_get_current(const char *args) {
 }
 
 int batteryCmd_get_cell_voltage(const char *args) {
-    double v[2] = {NAN, NAN};
+    double v_v = NAN;
     char * end_ptr;
     uint32_t cell_index = strtoul(args, &end_ptr, 0);
     
-    if(cell_index > 1 || (end_ptr == args)) {
+    if ((cell_index >= MAX17320_CELL_COUNT) || (end_ptr == args)) {
         fprintf(g_rsp_pipe, "Error invalid cell number.\n");
         fprintf(g_rsp_pipe, "Usage: `battery cellV ( 0 | 1 )`\n");
         return -1;
     }
 
-    if (getBatteryData(&v[0], &v[1], NULL) != 0) {
-        fprintf(g_rsp_pipe, "Error communicating with BMS!!!\n");
+    WTResult hw_result = max17320_get_cell_voltage_v(cell_index, &v_v);
+    if (hw_result != WT_OK) {
+        CETI_ERR("Failed to get cell %d voltage: %s", cell_index, wt_strerror(hw_result));
+        fprintf(g_rsp_pipe, "Failed to get cell %d voltage: %s\n", cell_index, wt_strerror(hw_result));
         return -1;
     }
-
-    fprintf(g_rsp_pipe, "%.2f\n", v[cell_index]);
+    fprintf(g_rsp_pipe, "%.2f\n", v_v);
     return 0;
 }
 
 int batteryCmd_get_cell_voltage_1(const char *args) {
     double v_v = NAN;
-    if (getBatteryData(&v_v, NULL, NULL) != 0) {
-        fprintf(g_rsp_pipe, "Error communicating with BMS!!!\n");
+    WTResult hw_result = max17320_get_cell_voltage_v(0, &v_v);
+    if (hw_result != WT_OK) {
+        CETI_ERR("Failed to get cell 0 voltage: %s", wt_strerror(hw_result));
+        fprintf(g_rsp_pipe, "Failed to get cell 0 voltage: %s\n", wt_strerror(hw_result));
         return -1;
     }
     fprintf(g_rsp_pipe, "%.2f\n", v_v);
@@ -48,8 +54,10 @@ int batteryCmd_get_cell_voltage_1(const char *args) {
 
 int batteryCmd_get_cell_voltage_2(const char *args) {
     double v_v = NAN;
-    if (getBatteryData(NULL, &v_v, NULL) != 0) {
-        fprintf(g_rsp_pipe, "Error communicating with BMS!!!\n");
+    WTResult hw_result = max17320_get_cell_voltage_v(1, &v_v);
+    if (hw_result != WT_OK) {
+        CETI_ERR("Failed to get cell 1 voltage: %s", wt_strerror(hw_result));
+        fprintf(g_rsp_pipe, "Failed to get cell 1 voltage: %s\n", wt_strerror(hw_result));
         return -1;
     }
     fprintf(g_rsp_pipe, "%.2f\n", v_v);
@@ -133,7 +141,7 @@ int batteryCmd_verify(const char * args){
     if(incorrect != 0){
         fprintf(g_rsp_pipe, "[WARN]: %d values did not match expected value\n", incorrect);
     } else {
-        fprintf(g_rsp_pipe, "OK\n", incorrect);
+        fprintf(g_rsp_pipe, "OK\n");
     }
     return 0;
 }

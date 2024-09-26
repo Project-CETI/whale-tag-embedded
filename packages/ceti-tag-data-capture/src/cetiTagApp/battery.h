@@ -28,10 +28,6 @@
 //-----------------------------------------------------------------------------
 int init_battery();
 int getBatteryData(double* battery_v1_v, double* battery_v2_v, double* battery_i_mA);
-int enableCharging(void);
-int enableDischarging(void);
-int disableCharging(void);
-int disableDischarging(void);
 void* battery_thread(void* paramPtr);
 int resetBattTempFlags(void);
 

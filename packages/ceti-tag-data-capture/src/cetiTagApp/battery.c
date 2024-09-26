@@ -9,7 +9,7 @@
 
 // === Private Local Headers ===
 #include "launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
-#include "max17320.h"
+#include "device/max17320.h"
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 #include "utils/logging.h"
 #include "utils/memory.h"
@@ -34,6 +34,7 @@ static const char* battery_data_file_headers[] = {
   "Battery I [mA]",
   "Battery T1 [C]",
   "Battery T2 [C]",
+  "State of Charge [\%]",
   "Status",
   "Protection Alerts",
   };
@@ -41,19 +42,15 @@ static const int num_battery_data_file_headers = sizeof(battery_data_file_header
 CetiBatterySample *shm_battery = NULL;
 static sem_t* sem_battery_data_ready;
 static int charging_disabled, discharging_disabled;
-// Store global versions of the latest readings since the state machine will use them.
-MAX17320_HandleTypeDef dev;
-
-
 
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
 int init_battery() {
-    int ret = max17320_init(&dev);  
-    if (ret < 0){
-      CETI_ERR("Failed to connect to MAX17320 Fuel Gauge");
-      return ret;
+    WTResult hw_result = max17320_init();
+    if (hw_result != WT_OK) {
+      CETI_ERR("Failed to connect to MAX17320 Fuel Gauge: %s", wt_strerror(hw_result));
+      return -1;
     }
  
     // Open an output file to write data.
@@ -198,18 +195,22 @@ void battery_update_sample(void) {
     // create sample 
     shm_battery->sys_time_us = get_global_time_us();
     shm_battery->rtc_time_s = getRtcCount();
-    shm_battery->error = getBatteryData(&shm_battery->cell_voltage_v[0], &shm_battery->cell_voltage_v[1], &shm_battery->current_mA);
-    if(!shm_battery->error) shm_battery->error = max17320_get_cell_temperature_c(0, &shm_battery->cell_temperature_c[0]);
-    if(!shm_battery->error) shm_battery->error = max17320_get_cell_temperature_c(1, &shm_battery->cell_temperature_c[1]);
-    if(!shm_battery->error) shm_battery->error = max17320_read(MAX17320_REG_STATUS, &shm_battery->status);
-    if(!shm_battery->error) shm_battery->error = max17320_read(MAX17320_REG_PROTALRT, &shm_battery->protection_alert);
+    shm_battery->error = WT_OK;
+    if(shm_battery->error == WT_OK) { shm_battery->error = max17320_get_cell_voltage_v(0, &shm_battery->cell_voltage_v[0]); }
+    if(shm_battery->error == WT_OK) { shm_battery->error = max17320_get_cell_voltage_v(1, &shm_battery->cell_voltage_v[1]); }
+    if(shm_battery->error == WT_OK) { shm_battery->error = max17320_get_current_mA(&shm_battery->current_mA); }
+    if(shm_battery->error == WT_OK) { shm_battery->error = max17320_get_cell_temperature_c(0, &shm_battery->cell_temperature_c[0]); }
+    if(shm_battery->error == WT_OK) { shm_battery->error = max17320_get_cell_temperature_c(1, &shm_battery->cell_temperature_c[1]); }
+    if(shm_battery->error == WT_OK) { shm_battery->error = max17320_get_state_of_charge(&shm_battery->state_of_charge); }
+    if(shm_battery->error == WT_OK) { shm_battery->error = max17320_read(MAX17320_REG_STATUS, &shm_battery->status); }
+    if(shm_battery->error == WT_OK) { shm_battery->error = max17320_read(MAX17320_REG_PROTALRT, &shm_battery->protection_alert); }
   
     // push semaphore to indicate to user applications that new data is available
     sem_post(sem_battery_data_ready);
 
     //clear protection alert flags and status flags
-    if(!shm_battery->error) shm_battery->error = max17320_write(MAX17320_REG_PROTALRT, 0x0000);
-    if(!shm_battery->error) shm_battery->error = max17320_write(MAX17320_REG_STATUS, 0x0000);
+    if(shm_battery->error == WT_OK) { shm_battery->error = max17320_write(MAX17320_REG_PROTALRT, 0x0000); }
+    if(shm_battery->error == WT_OK) { shm_battery->error = max17320_write(MAX17320_REG_STATUS, 0x0000); }
 }
 
 /**
@@ -220,30 +221,31 @@ void battery_update_sample(void) {
  * @param pSample pointer to battery sample
  */
 void battery_sample_to_csv(FILE *fp, CetiBatterySample *pSample){
-      if (pSample->error != WT_OK) {
-        strcat(battery_data_file_notes, "ERROR | ");
-      }
-      if (pSample->cell_voltage_v[0] < 0 
-          || pSample->cell_voltage_v[1] < 0
-          || pSample->cell_temperature_c[0] < -80
-          || pSample->cell_temperature_c[1] < -80
-      ) { // it seems to return -0.01 for voltages and -5.19 for current when no sensor is connected
-        CETI_WARN("readings are likely invalid");
-        strcat(battery_data_file_notes, "INVALID? | ");
-      }
-
         // Write timing information.
       fprintf(fp, "%ld", pSample->sys_time_us);
       fprintf(fp, ",%d", pSample->rtc_time_s);
       // Write any notes, then clear them so they are only written once.
       fprintf(fp, ",%s", battery_data_file_notes);
       strcpy(battery_data_file_notes, "");
+      if (pSample->error != WT_OK) {
+        fprintf(fp, "ERROR(%s, %04Xh) | ", wt_strerror_device_name(pSample->error), (pSample->error & 0xFFFF));
+      }
+      if (pSample->cell_voltage_v[0] < 0.0 
+          || pSample->cell_voltage_v[1] < 0.0
+          || pSample->cell_temperature_c[0] < -80.0
+          || pSample->cell_temperature_c[1] < -80.0
+      ) { // it seems to return -0.01 for voltages and -5.19 for current when no sensor is connected
+        CETI_WARN("readings are likely invalid");
+        fprintf(fp, "INVALID? | ");
+      }
+
       // Write the sensor data.
       fprintf(fp, ",%.3f", pSample->cell_voltage_v[0]);
       fprintf(fp, ",%.3f", pSample->cell_voltage_v[1]);
       fprintf(fp, ",%.3f", pSample->current_mA);
       fprintf(fp, ",%.3f", pSample->cell_temperature_c[0]);
       fprintf(fp, ",%.3f", pSample->cell_temperature_c[1]);
+      fprintf(fp, ",%.3f",pSample->state_of_charge);
       fprintf(fp, ",%s", __status_to_str(pSample->status));
       fprintf(fp, ",%s", __protAlrt_to_str(pSample->protection_alert));
 
@@ -291,17 +293,25 @@ void* battery_thread(void* paramPtr) {
       for(int i_cell = 0; i_cell < 2; i_cell++){
           if( (shm_battery->cell_temperature_c[i_cell] > MAX_CHARGE_TEMP) ||  (shm_battery->cell_temperature_c[i_cell] < MIN_CHARGE_TEMP) ) {          
               if (!charging_disabled){  
-                disableCharging();
-                charging_disabled = 1;
-                CETI_WARN("Battery charging disabled, cell %d outside thermal limits: %.3f C", i_cell + 1, shm_battery->cell_temperature_c[i_cell]);
+                WTResult hw_result = max17320_disable_charging();
+                if(hw_result != WT_OK){
+                  CETI_ERR("Could not disable charging FET: %s", wt_strerror(hw_result));
+                } else {
+                  charging_disabled = 1;
+                  CETI_WARN("Battery charging disabled, cell %d outside thermal limits: %.3f C", i_cell + 1, shm_battery->cell_temperature_c[i_cell]);
+                }
               }
           }
 
           if( (shm_battery->cell_temperature_c[i_cell] > MAX_DISCHARGE_TEMP) ) {
               if (!discharging_disabled){  
-                disableDischarging();
-                discharging_disabled = 1;
-                CETI_WARN("Battery discharging disabled, cell %d outside thermal limit: %.3f C", i_cell + 1, shm_battery->cell_temperature_c[i_cell]);
+                WTResult hw_result = max17320_disable_discharging();
+                if(hw_result != WT_OK){
+                  CETI_ERR("Could not disable discharging FET: %s", wt_strerror(hw_result));
+                } else {
+                  discharging_disabled = 1;
+                  CETI_WARN("Battery discharging disabled, cell %d outside thermal limit: %.3f C", i_cell + 1, shm_battery->cell_temperature_c[i_cell]);
+                }
               }     
           }
       }
@@ -342,45 +352,29 @@ void* battery_thread(void* paramPtr) {
 // Battery gauge interface
 //-----------------------------------------------------------------------------
 int getBatteryData(double* battery_v1_v, double* battery_v2_v, double* battery_i_mA) {
-    int ret = max17320_get_voltages(&dev);
-    if (battery_v1_v != NULL)
-      *battery_v1_v = dev.cell_1_voltage;
-    if (battery_v2_v != NULL)
-      *battery_v2_v = dev.cell_2_voltage;
-    ret |= max17320_get_battery_current(&dev);
-    if (battery_i_mA != NULL)
-      *battery_i_mA = dev.battery_current;
-    return ret;
+  WTResult hw_result = WT_OK;
+  if (hw_result == WT_OK) { hw_result = max17320_get_cell_voltage_v(0, battery_v1_v); }
+  if (hw_result == WT_OK) { hw_result = max17320_get_cell_voltage_v(1, battery_v2_v); }
+  if (hw_result == WT_OK) { hw_result = max17320_get_current_mA(battery_i_mA); }
+  return hw_result;
 }
 
 //-----------------------------------------------------------------------------
 // Charge and Discharge Enabling
 //-----------------------------------------------------------------------------
-int enableCharging(void) {
-    int ret = max17320_enable_charging(&dev);
-    return ret;
-}
-
-int disableCharging(void) {
-    int ret = max17320_disable_charging(&dev);
-    return ret;
-}
-
-
-int enableDischarging(void) {
-    int ret = max17320_enable_discharging(&dev);
-    return ret;
-}
-
-int disableDischarging(void) {
-    int ret = max17320_disable_discharging(&dev);
-    return ret;
-}
-
 int resetBattTempFlags(void) {
+    WTResult hw_result = WT_OK;
+    hw_result = max17320_enable_discharging();
+    if (hw_result != WT_OK) {
+      CETI_ERR("Could not enable discharging FET: %s", wt_strerror(hw_result));
+      return hw_result;
+    }
     discharging_disabled = 0;
+    hw_result = max17320_enable_charging();
+    if (hw_result != WT_OK) {
+      CETI_ERR("Could not enable charging FET: %s", wt_strerror(hw_result));
+      return hw_result;
+    }
     charging_disabled = 0;
-    enableDischarging();
-    enableCharging();
-    return(0);
+    return WT_OK;
 }
