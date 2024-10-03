@@ -27,10 +27,9 @@
 int init_timing();
 void updateRtcCount();
 int getRtcCount();
-int resetRtcCount();
-unsigned int getTimeDeploy(void);
 int64_t get_global_time_us();
 int64_t get_global_time_ms();
+int64_t get_global_time_s(void);
 int sync_global_time_init(void);
 void *rtc_thread(void *paramPtr);
 

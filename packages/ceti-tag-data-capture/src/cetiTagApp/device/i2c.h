@@ -16,11 +16,12 @@
 //I2C bus 1
 #define IOX_I2C_BUS          (1)
 #define BMS_I2C_BUS          (1)
+#define RTC_I2C_BUS          (1)
 
 // BMS I2C Device Address
 #define BMS_I2C_DEV_ADDR_UPPER  (0x0b)  // For internal memory range 180h-1FFh
 #define IOX_I2C_DEV_ADDR        (0x21)
 #define BMS_I2C_DEV_ADDR_LOWER  (0x36)  // For internal memory range 000h-0FFh
-
+#define RTC_I2C_DEV_ADDR        (0x68)
 
 #endif // __CETI_WHALE_TAG_HAL_I2C_H__

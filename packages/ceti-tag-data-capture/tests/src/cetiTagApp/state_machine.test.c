@@ -193,23 +193,19 @@ void test__updateStateMachine_ST_RECORD_SURFACE_timeup(void){
 
 void test__updateStateMachine_ST_BRN_ON_noTimeup_okBattery(void){
     g_config.burn_interval_s = 3;
-    stateMachine_update_rtc_count();
     stateMachine_set_state(ST_BRN_ON);
     fake_battery_sample.cell_voltage_v[0] = 4.2;
     fake_battery_sample.cell_voltage_v[1] = 4.2;
-    stateMachine_update_rtc_count();
     updateStateMachine();
     TEST_ASSERT_EQUAL(ST_BRN_ON, stateMachine_get_state());
 }
 
 void test__updateStateMachine_ST_BRN_ON_timeup_okBattery(void){
     g_config.burn_interval_s = 2;
-    stateMachine_update_rtc_count();
     stateMachine_set_state(ST_BRN_ON);
     fake_battery_sample.cell_voltage_v[0] = 4.2;
     fake_battery_sample.cell_voltage_v[1] = 4.2;
     sleep(2);
-    stateMachine_update_rtc_count();
     updateStateMachine();
     TEST_ASSERT_EQUAL(ST_RETRIEVE, stateMachine_get_state());
 }

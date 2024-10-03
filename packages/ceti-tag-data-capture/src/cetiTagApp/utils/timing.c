@@ -9,9 +9,10 @@
 
 #include "timing.h"
 
+#include "../device/rtc.h"
 #include "../launcher.h" // for g_exit, the state machine data filepath, to get an initial RTC timestamp if needed
 #include "logging.h"
-#include <pigpio.h>
+
 #include <pthread.h> // to set CPU affinity
 #include <sys/time.h>
 #include <sys/timex.h>
@@ -23,94 +24,42 @@
 // Global/static variables
 int g_rtc_thread_is_running = 0;
 static int latest_rtc_count = -1;
+static int latest_rtc_error = WT_OK;
 static int64_t last_rtc_update_time_us = -1;
 
 int init_timing() {
 #if ENABLE_RTC
   // Test whether the RTC is available.
   updateRtcCount();
-  if (latest_rtc_count == -1) {
-    CETI_ERR("Failed to fetch a valid RTC count");
+  if (latest_rtc_error != WT_OK){
+    CETI_ERR("Failed to fetch a valid RTC count: %s", wt_strerror(latest_rtc_error));
     latest_rtc_count = -1;
     last_rtc_update_time_us = -1;
     return (-1);
   }
+
 #endif
 
   CETI_LOG("Successfully initialized timing");
   return 0;
 }
 
-
 //-----------------------------------------------------------------------------
 // RTC second counter
 //-----------------------------------------------------------------------------
 int getRtcCount() { return latest_rtc_count; }
+WTResult getRtcStatus(void) {return latest_rtc_error;}
 
 void updateRtcCount() {
-  int fd;
-  int rtcCount, rtcShift = 0;
-  char rtcCountByte[4];
-
-  if ((fd = i2cOpen(1, ADDR_RTC, 0)) < 0) {
-    CETI_LOG("Failed to connect to the RTC");
-    rtcCount = -1;
+  uint32_t count_s = 0;
+  latest_rtc_error = rtc_get_count(&count_s);
+  if(latest_rtc_error == WT_OK){
+    latest_rtc_count = (int)count_s;
+    last_rtc_update_time_us = get_global_time_us();
   } else {
-    // read the time of day counter and assemble the bytes in 32 bit int
-    rtcCountByte[0] = i2cReadByteData(fd, 0x00);
-    rtcCountByte[1] = i2cReadByteData(fd, 0x01);
-    rtcCountByte[2] = i2cReadByteData(fd, 0x02);
-    rtcCountByte[3] = i2cReadByteData(fd, 0x03);
-
-    rtcCount = (rtcCountByte[0]);
-    rtcShift = (rtcCountByte[1] << 8);
-    rtcCount = rtcCount | rtcShift;
-    rtcShift = (rtcCountByte[2] << 16);
-    rtcCount = rtcCount | rtcShift;
-    rtcShift = (rtcCountByte[3] << 24);
-    rtcCount = rtcCount | rtcShift;
+    latest_rtc_count = -1;
+    last_rtc_update_time_us = -1;
   }
-
-  i2cClose(fd);
-
-  latest_rtc_count = rtcCount;
-  last_rtc_update_time_us = get_global_time_us();
-}
-
-int resetRtcCount() {
-  int fd;
-
-  CETI_LOG("Executing");
-
-  if ((fd = i2cOpen(1, ADDR_RTC, 0)) < 0) {
-    CETI_LOG("Failed to connect to the RTC");
-    return (-1);
-  } else {
-    i2cWriteByteData(fd, 0x00, 0x00);
-    i2cWriteByteData(fd, 0x01, 0x00);
-    i2cWriteByteData(fd, 0x02, 0x00);
-    i2cWriteByteData(fd, 0x03, 0x00);
-  }
-  i2cClose(fd);
-  return (0);
-}
-
-static int rtc_set_count(time_t seconds) {
-  int fd;
-
-  CETI_LOG("Executing");
-
-  if ((fd = i2cOpen(1, ADDR_RTC, 0)) < 0) {
-    CETI_LOG("Failed to connect to the RTC");
-    return (-1);
-  } else {
-    i2cWriteByteData(fd, 0x00, (uint8_t)((seconds >> 0) & 0xFF));
-    i2cWriteByteData(fd, 0x01, (uint8_t)((seconds >> 8) & 0xFF));
-    i2cWriteByteData(fd, 0x02, (uint8_t)((seconds >> 16) & 0xFF));
-    i2cWriteByteData(fd, 0x03, (uint8_t)((seconds >> 24) & 0xFF));
-  }
-  i2cClose(fd);
-  return (0);
 }
 
 // Thread to update the latest RTC time, to use the I2C bus more sparingly
@@ -191,8 +140,13 @@ int64_t get_global_time_ms() {
   return current_time_ms;
 }
 
+int64_t get_global_time_s(void) {
+  struct timeval current_timeval;
+  gettimeofday(&current_timeval, NULL);
+  return (int64_t)(current_timeval.tv_sec);
+}
+
 int sync_global_time_init(void) {
-  CETI_LOG("Executing");
   struct timex timex_info = {.modes = 0};
   int ntp_result = ntp_adjtime(&timex_info);
   int ntp_synchronized = (ntp_result >= 0) && (ntp_result != TIME_ERROR);
@@ -200,11 +154,23 @@ int sync_global_time_init(void) {
   if (ntp_synchronized) {
     struct timeval current_timeval;
     gettimeofday(&current_timeval, NULL);
-    rtc_set_count(current_timeval.tv_sec);
+
+    WTResult hw_result = rtc_set_count((uint32_t)current_timeval.tv_sec);
+    if (hw_result != WT_OK) {
+      CETI_ERR("Could not syncronize RTC: %s", wt_strerror(hw_result));
+    }
     CETI_LOG("RTC synchronized to system clock: %ld)", current_timeval.tv_sec);
   } else {
+    /* ToDo: GPS clock syncronization 
+    * MSH - This would require GPS lock on recovery board at this point in code
+    */
+
     CETI_LOG("Synchronizing system clock to RTC)");
     struct timeval current_timeval = {.tv_sec = getRtcCount()};
+    if (latest_rtc_error != WT_OK) {
+      CETI_ERR("Could not read time from RTC: %s", wt_strerror(latest_rtc_error));
+      /* ToDo: how do we handle this error? Maybe update to last recorded time in a given file?*/
+    }
     settimeofday(&current_timeval, NULL);
   }
   return 0;

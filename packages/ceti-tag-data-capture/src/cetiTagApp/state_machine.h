@@ -49,7 +49,6 @@ extern int g_stateMachine_thread_is_running;
 //-----------------------------------------------------------------------------
 int init_stateMachine();
 int updateStateMachine();
-void stateMachine_update_rtc_count(void);
 wt_state_t stateMachine_get_state(void);
 void stateMachine_pause(void);
 void stateMachine_resume(void);

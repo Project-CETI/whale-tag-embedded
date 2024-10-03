@@ -41,9 +41,8 @@
 static int presentState = ST_CONFIG;
 static int networking_is_enabled = 1;
 // RTC counts
-static unsigned int start_rtc_s = 0;
-static unsigned int burnwire_timeout_start_rtc_s = 0;
-static int current_rtc_count_s = 0;
+static unsigned int start_time_s = 0;
+static unsigned int burnwire_timeout_start_s = 0;
 static uint32_t burnwire_started_time_s = 0;
 static int s_state_machine_paused = 0;
 // Output file
@@ -71,10 +70,6 @@ int init_stateMachine() {
 //-----------------------------------------------------------------------------
 // Main thread
 //-----------------------------------------------------------------------------
-void stateMachine_update_rtc_count(void){
-    current_rtc_count_s = getRtcCount();
-}
-
 void* stateMachine_thread(void* paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_stateMachine_thread_tid = gettid();
@@ -98,6 +93,7 @@ void* stateMachine_thread(void* paramPtr) {
     int state_to_process;
     long long global_time_us;
     long long polling_sleep_duration_us;
+    int current_rtc_count_s = 0;
     g_stateMachine_thread_is_running = 1;
     while (!g_exit) {
       // Acquire timing information for when the next state will begin processing.
@@ -206,13 +202,13 @@ int stateMachine_set_state(wt_state_t new_state){
             // Record this time as the burnwire timeout start time if one has not already been recorded,
             //  since we now know that this is a real deployment.
             if(access(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, F_OK) == -1) {
-              burnwire_timeout_start_rtc_s = getRtcCount();
-              CETI_LOG("Starting dive; recording burnwire timeout start time %u", burnwire_timeout_start_rtc_s);
+              burnwire_timeout_start_s = get_global_time_s();
+              CETI_LOG("Starting dive; recording burnwire timeout start time %u", burnwire_timeout_start_s);
 #ifndef UNIT_TEST
-              FILE* file_burnwire_timeout_start_rtc_s = NULL;
-              file_burnwire_timeout_start_rtc_s = fopen(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, "w");
-              fprintf(file_burnwire_timeout_start_rtc_s, "%u", burnwire_timeout_start_rtc_s);
-              fclose(file_burnwire_timeout_start_rtc_s);
+              FILE* file_burnwire_timeout_start_s = NULL;
+              file_burnwire_timeout_start_s = fopen(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, "w");
+              fprintf(file_burnwire_timeout_start_s, "%u", burnwire_timeout_start_s);
+              fclose(file_burnwire_timeout_start_s);
 #endif
             }
             break;
@@ -230,7 +226,7 @@ int stateMachine_set_state(wt_state_t new_state){
             // Turn on the burnwire and record the start time.
             #if ENABLE_BURNWIRE
             burnwireOn();
-            burnwire_started_time_s = current_rtc_count_s;
+            burnwire_started_time_s = get_global_time_s();
             #endif // ENABLE_BURNWIRE
             // Clear the persistent burnwire timeout start time if one exists.
             remove(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH);
@@ -314,7 +310,7 @@ int updateStateMachine() {
     // ---------------- Startup ----------------
     case (ST_START):
         // Record the time of startup (used to keep wifi-enabled)
-        start_rtc_s = getRtcCount(); 
+        start_time_s = get_global_time_s(); 
         
         // See if a start time for burnwire timeouts has been previously saved.
         //  This would happen if there was an unexpected shutdown during a deployment.
@@ -322,22 +318,22 @@ int updateStateMachine() {
         // Otherwise, set the timeout start to the current time.
         //  Note that the target time will be at first dive to ensure it's a real deployment,
         //  but will use current time for now in case there is never a dive.
-        burnwire_timeout_start_rtc_s = getRtcCount(); // default to the current time
-        FILE* file_burnwire_timeout_start_rtc_s = NULL;
+        burnwire_timeout_start_s = get_global_time_s(); // default to the current time
+        FILE* file_burnwire_timeout_start_s = NULL;
         char line[512];
-        file_burnwire_timeout_start_rtc_s = fopen(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, "r");
-        if(file_burnwire_timeout_start_rtc_s != NULL) {
+        file_burnwire_timeout_start_s = fopen(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, "r");
+        if(file_burnwire_timeout_start_s != NULL) {
           CETI_LOG("Loading a previously saved burnwire timeout start time");
-          char* fgets_result = fgets(line, 512, file_burnwire_timeout_start_rtc_s);
-          fclose(file_burnwire_timeout_start_rtc_s);
+          char* fgets_result = fgets(line, 512, file_burnwire_timeout_start_s);
+          fclose(file_burnwire_timeout_start_s);
           if(fgets_result != NULL)
           {
-            unsigned int loaded_start_rtc_s = strtoul(line, NULL, 10);
-            if(loaded_start_rtc_s != 0) // will be 0 if the conversion to integer failed
-              burnwire_timeout_start_rtc_s = loaded_start_rtc_s;
+            unsigned int loaded_start_time_s = strtoul(line, NULL, 10);
+            if(loaded_start_time_s != 0) // will be 0 if the conversion to integer failed
+              burnwire_timeout_start_s = loaded_start_time_s;
           }
         }
-        CETI_LOG("Using the following burnwire timeout start time: %u", burnwire_timeout_start_rtc_s);
+        CETI_LOG("Using the following burnwire timeout start time: %u", burnwire_timeout_start_s);
 
         // Turn off networking if desired.
         #if FORCE_NETWORKS_OFF_ON_START
@@ -366,7 +362,7 @@ int updateStateMachine() {
     // ---------------- Just deployed ----------------
     // Waiting for 1st dive
     case (ST_DEPLOY):
-        if(current_rtc_count_s - burnwire_timeout_start_rtc_s > g_config.timeout_s) {
+        if(get_global_time_s() - burnwire_timeout_start_s > g_config.timeout_s) {
             CETI_LOG("TIMEOUT!!! Initializing Burn");
             stateMachine_set_state(ST_BRN_ON);
             break;
@@ -406,7 +402,7 @@ int updateStateMachine() {
     // Recording while sumberged
     case (ST_RECORD_DIVING):
        // Turn off networking if the grace period has passed.
-       if(networking_is_enabled && (current_rtc_count_s - start_rtc_s > (WIFI_GRACE_PERIOD_MIN * 60))) {
+       if(networking_is_enabled && (get_global_time_s() - start_time_s > (WIFI_GRACE_PERIOD_MIN * 60))) {
          wifi_disable();
          wifi_kill();
          bluetooth_kill();
@@ -417,7 +413,7 @@ int updateStateMachine() {
        }
 
        // Turn on the burnwire if the timeout has passed since the deployment started.
-       if(current_rtc_count_s - burnwire_timeout_start_rtc_s > g_config.timeout_s) {
+       if(get_global_time_s() - burnwire_timeout_start_s > g_config.timeout_s) {
             CETI_LOG("TIMEOUT!!! Initializing Burn");
             stateMachine_set_state(ST_BRN_ON);
             break;
@@ -460,7 +456,7 @@ int updateStateMachine() {
     // Recording while at surface, trying to get a GPS fix
     case (ST_RECORD_SURFACE):
         // Turn on the burnwire if the timeout has passed since the deployment started.
-        if(current_rtc_count_s - burnwire_timeout_start_rtc_s > g_config.timeout_s) {
+        if(get_global_time_s() - burnwire_timeout_start_s > g_config.timeout_s) {
             CETI_LOG("TIMEOUT!!! Initializing Burn");
             stateMachine_set_state(ST_BRN_ON);
             break;
@@ -524,7 +520,7 @@ int updateStateMachine() {
 
         // switch state once the burn is complete
         #if ENABLE_BURNWIRE
-        if(current_rtc_count_s - burnwire_started_time_s > g_config.burn_interval_s) {
+        if(get_global_time_s() - burnwire_started_time_s > g_config.burn_interval_s) {
             stateMachine_set_state(ST_RETRIEVE);
         }
         #else
