@@ -36,6 +36,8 @@
 
 // Global/static variables
 //-----------------------------------------------------------------------------
+#define BMS_CONSECUTIVE_ERROR_COUNT 5
+
 static int presentState = ST_CONFIG;
 static int networking_is_enabled = 1;
 // RTC counts
@@ -276,6 +278,8 @@ void stateMachine_resume(void) {
 }
 
 int updateStateMachine() {
+    static int s_bms_error_count = 0;
+
     // Deployment sequencer FSM
     switch (presentState) {
 
@@ -369,10 +373,24 @@ int updateStateMachine() {
         }
 
         #if ENABLE_BATTERY_GAUGE
-        if ((shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
-            CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
-            stateMachine_set_state(ST_BRN_ON);
-            break;
+        if(shm_battery->error == WT_OK){
+            s_bms_error_count = 0;
+            if ((shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
+                CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
+                stateMachine_set_state(ST_BRN_ON);
+                break;
+            }
+        } else {
+            if(s_bms_error_count == 0) {
+                CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
+            }
+            s_bms_error_count++;
+            if(s_bms_error_count >= BMS_CONSECUTIVE_ERROR_COUNT) {
+                CETI_ERR("BMS remained in error for %d samples, initiaing: %s", s_bms_error_count, wt_strerror(shm_battery->error));
+                CETI_LOG("BMS ERROR!!! Initializing Burn");
+                stateMachine_set_state(ST_BRN_ON);
+                break;
+            }
         }
         #endif
 
@@ -407,10 +425,27 @@ int updateStateMachine() {
 
         // Turn on the burnwire if the battery voltage is low.
         #if ENABLE_BATTERY_GAUGE
-        if ((shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
-            CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
-            stateMachine_set_state(ST_BRN_ON);
-            break;
+        if(shm_battery->error == WT_OK){
+            s_bms_error_count = 0;
+            if ((shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
+                CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
+                stateMachine_set_state(ST_BRN_ON);
+                break;
+            }
+        } else {
+            // report new errors
+            if(s_bms_error_count == 0) {
+                CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
+            }
+            s_bms_error_count++;
+
+            // burn if consistently in error
+            if(s_bms_error_count >= BMS_CONSECUTIVE_ERROR_COUNT) {
+                CETI_ERR("BMS remained in error for %d samples, initiaing: %s", s_bms_error_count, wt_strerror(shm_battery->error));
+                CETI_LOG("BMS ERROR!!! Initializing Burn");
+                stateMachine_set_state(ST_BRN_ON);
+                break;
+            }
         }
         #endif //ENABLE_BATTERY_GAUGE
 
@@ -433,10 +468,27 @@ int updateStateMachine() {
 
         // Turn on the burnwire if the battery voltage is low.
         #if ENABLE_BATTERY_GAUGE
-        if ((shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
-            CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
-            stateMachine_set_state(ST_BRN_ON);
-            break;
+        if(shm_battery->error == WT_OK){
+            s_bms_error_count = 0;
+            if ((shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
+                CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
+                stateMachine_set_state(ST_BRN_ON);
+                break;
+            }
+        } else {
+            // report new errors
+            if(s_bms_error_count == 0) {
+                CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
+            }
+            s_bms_error_count++;
+
+            // burn if consistently in error
+            if(s_bms_error_count == BMS_CONSECUTIVE_ERROR_COUNT) {
+                CETI_ERR("BMS remained in error for %d samples, initiaing: %s", s_bms_error_count, wt_strerror(shm_battery->error));
+                CETI_LOG("BMS ERROR!!! Initializing Burn");
+                stateMachine_set_state(ST_BRN_ON);
+                break;
+            }
         }
         #endif
 
@@ -454,9 +506,19 @@ int updateStateMachine() {
     case (ST_BRN_ON):
         // Shutdown if the battery is too low.
         #if ENABLE_BATTERY_GAUGE
-        if(shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v) {
-            stateMachine_set_state(ST_SHUTDOWN);// critical battery
-            break;
+        if(shm_battery->error == WT_OK){
+            s_bms_error_count = 0;
+            if(shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v) {
+                CETI_LOG("CRITICAL VOLTAGE!!! Terminating Burn Early");
+                stateMachine_set_state(ST_SHUTDOWN);
+                break;
+            }
+        } else {
+            if(s_bms_error_count == 0) {
+                CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
+            }
+            s_bms_error_count++;
+            /* MSH: If continuous BMS communication error allow burn to timeout and allow BMS hardware to handle shutdown */
         }
         #endif
 
@@ -473,6 +535,22 @@ int updateStateMachine() {
 
     //  Waiting to be retrieved.
     case (ST_RETRIEVE):
+        #if ENABLE_BATTERY_GAUGE
+        if(shm_battery->error == WT_OK){
+            s_bms_error_count = 0;
+            if(shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v) {
+                CETI_LOG("CRITICAL VOLTAGE!!! Terminating Retreival");
+                stateMachine_set_state(ST_SHUTDOWN);
+                break;
+            }
+        } else {
+            if(s_bms_error_count == 0) {
+                CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
+            }
+            s_bms_error_count++;
+            /* MSH: If BMS communication error better to remain in retrieve mode and allow BMS hardware to handle shutdown */
+        }
+        #endif
         #if ENABLE_BATTERY_GAUGE
         // critical battery
         if (shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v) {
