@@ -10,7 +10,11 @@
 #include "error.h"
 
 #include <errno.h>
-#include <pigpio.h>
+#ifndef UNIT_TEST
+    #include <pigpio.h>
+#else
+    #define PI_INIT_FAILED -1
+#endif
 #include <stdio.h>
 #include <string.h>
 
@@ -32,6 +36,7 @@ static const char *device_name[] = {
 };
 
 static const char *err_str[] = { 
+#ifndef UNIT_TEST
     [-PI_INIT_FAILED] =      "gpioInitialise failed",
     [-PI_BAD_USER_GPIO] =    "GPIO not 0-31",
     [-PI_BAD_GPIO] =         "GPIO not 0-53",
@@ -181,6 +186,7 @@ static const char *err_str[] = {
     [-PI_CMD_INTERRUPTED] =  "Used by Python",
     [-PI_NOT_ON_BCM2711] =   "not available on BCM2711",
     [-PI_ONLY_ON_BCM2711] =  "only available on BCM2711",
+#endif
     [-WT_ERR_MALLOC] = "unable to allocate memory",
     
     [-WT_ERR_BAD_AUDIO_BITDEPTH] = "bad audio bitdepth",

@@ -36,7 +36,6 @@
 
 // Global/static variables
 //-----------------------------------------------------------------------------
-#define BMS_CONSECUTIVE_ERROR_COUNT 5
 
 static int presentState = ST_CONFIG;
 static int networking_is_enabled = 1;
@@ -184,13 +183,6 @@ int stateMachine_set_state(wt_state_t new_state){
 
     // Actions performed when entering the new state
     switch(new_state){
-        case ST_DEPLOY:
-            #if ENABLE_RECOVERY
-            if (g_config.recovery.enabled) {
-                recovery_wake();
-            }
-            #endif // ENABLE_RECOVERY
-            break;
 
         case ST_RECORD_DIVING:
             activity_led_disable();
@@ -202,9 +194,9 @@ int stateMachine_set_state(wt_state_t new_state){
             // Record this time as the burnwire timeout start time if one has not already been recorded,
             //  since we now know that this is a real deployment.
             if(access(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, F_OK) == -1) {
+#ifndef UNIT_TEST
               burnwire_timeout_start_s = get_global_time_s();
               CETI_LOG("Starting dive; recording burnwire timeout start time %u", burnwire_timeout_start_s);
-#ifndef UNIT_TEST
               FILE* file_burnwire_timeout_start_s = NULL;
               file_burnwire_timeout_start_s = fopen(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, "w");
               fprintf(file_burnwire_timeout_start_s, "%u", burnwire_timeout_start_s);
@@ -334,7 +326,6 @@ int updateStateMachine() {
           }
         }
         CETI_LOG("Using the following burnwire timeout start time: %u", burnwire_timeout_start_s);
-
         // Turn off networking if desired.
         #if FORCE_NETWORKS_OFF_ON_START
         wifi_disable();
@@ -342,9 +333,6 @@ int updateStateMachine() {
         bluetooth_kill();
         eth0_disable();
         #endif
-
-        // // Transition to the deployment state.
-        // stateMachine_set_state(ST_DEPLOY);
 
         // Transition to the appropriate recording state.
         #if ENABLE_PRESSURETEMPERATURE_SENSOR
@@ -357,46 +345,6 @@ int updateStateMachine() {
         #else
         stateMachine_set_state(ST_RECORD_DIVING);
         #endif
-        break;
-
-    // ---------------- Just deployed ----------------
-    // Waiting for 1st dive
-    case (ST_DEPLOY):
-        if(get_global_time_s() - burnwire_timeout_start_s > g_config.timeout_s) {
-            CETI_LOG("TIMEOUT!!! Initializing Burn");
-            stateMachine_set_state(ST_BRN_ON);
-            break;
-        }
-
-        #if ENABLE_BATTERY_GAUGE
-        if(shm_battery->error == WT_OK){
-            s_bms_error_count = 0;
-            if ((shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
-                CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
-                stateMachine_set_state(ST_BRN_ON);
-                break;
-            }
-        } else {
-            if(s_bms_error_count == 0) {
-                CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
-            }
-            s_bms_error_count++;
-            if(s_bms_error_count >= BMS_CONSECUTIVE_ERROR_COUNT) {
-                CETI_ERR("BMS remained in error for %d samples, initiaing: %s", s_bms_error_count, wt_strerror(shm_battery->error));
-                CETI_LOG("BMS ERROR!!! Initializing Burn");
-                stateMachine_set_state(ST_BRN_ON);
-                break;
-            }
-        }
-        #endif
-
-        #if ENABLE_PRESSURETEMPERATURE_SENSOR
-        if(g_pressure->pressure_bar > g_config.dive_pressure) {
-            stateMachine_set_state(ST_RECORD_DIVING); // 1st dive after deploy
-            break;
-        }
-        #endif
-
         break;
 
     // Recording while sumberged
@@ -413,7 +361,7 @@ int updateStateMachine() {
        }
 
        // Turn on the burnwire if the timeout has passed since the deployment started.
-       if(get_global_time_s() - burnwire_timeout_start_s > g_config.timeout_s) {
+       if((get_global_time_s() - burnwire_timeout_start_s) > g_config.timeout_s) {
             CETI_LOG("TIMEOUT!!! Initializing Burn");
             stateMachine_set_state(ST_BRN_ON);
             break;
@@ -434,9 +382,8 @@ int updateStateMachine() {
                 CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
             }
             s_bms_error_count++;
-
             // burn if consistently in error
-            if(s_bms_error_count >= BMS_CONSECUTIVE_ERROR_COUNT) {
+            if(s_bms_error_count >= MISSION_BMS_CONSECUTIVE_ERROR_THRESHOLD) {
                 CETI_ERR("BMS remained in error for %d samples, initiaing: %s", s_bms_error_count, wt_strerror(shm_battery->error));
                 CETI_LOG("BMS ERROR!!! Initializing Burn");
                 stateMachine_set_state(ST_BRN_ON);
@@ -452,6 +399,7 @@ int updateStateMachine() {
             break;
         }
         #endif // ENABLE_PRESSURE_SENSOR
+    break;
 
     // Recording while at surface, trying to get a GPS fix
     case (ST_RECORD_SURFACE):
@@ -476,10 +424,11 @@ int updateStateMachine() {
             if(s_bms_error_count == 0) {
                 CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
             }
+
             s_bms_error_count++;
 
             // burn if consistently in error
-            if(s_bms_error_count == BMS_CONSECUTIVE_ERROR_COUNT) {
+            if(s_bms_error_count == MISSION_BMS_CONSECUTIVE_ERROR_THRESHOLD) {
                 CETI_ERR("BMS remained in error for %d samples, initiaing: %s", s_bms_error_count, wt_strerror(shm_battery->error));
                 CETI_LOG("BMS ERROR!!! Initializing Burn");
                 stateMachine_set_state(ST_BRN_ON);
@@ -513,6 +462,7 @@ int updateStateMachine() {
             if(s_bms_error_count == 0) {
                 CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
             }
+
             s_bms_error_count++;
             /* MSH: If continuous BMS communication error allow burn to timeout and allow BMS hardware to handle shutdown */
         }
@@ -543,17 +493,11 @@ int updateStateMachine() {
             if(s_bms_error_count == 0) {
                 CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
             }
+
             s_bms_error_count++;
             /* MSH: If BMS communication error better to remain in retrieve mode and allow BMS hardware to handle shutdown */
         }
         #endif
-        #if ENABLE_BATTERY_GAUGE
-        // critical battery
-        if (shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v) {
-            stateMachine_set_state(ST_SHUTDOWN);
-            break;
-        }
-        #endif // ENABLE_BATTERY_GAUGE
 
         break;
 
@@ -572,6 +516,11 @@ int updateStateMachine() {
 
         // Note that tagMonitor.sh will trigger an actual powerdown once the battery levels drop a bit more.
 
+        break;
+
+    default:
+        CETI_ERR("Tag in unknown mission state. Restarting state machine");
+        stateMachine_set_state(ST_START);
         break;
     }
     return (0);

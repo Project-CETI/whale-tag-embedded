@@ -38,6 +38,7 @@ static const char state_str[][MAX_STATE_STRING_LEN] = {
     "BRN_ON", "RETRIEVE", "SHUTDOWN", "UNKNOWN"};
 
 #define WIFI_GRACE_PERIOD_MIN 10
+#define MISSION_BMS_CONSECUTIVE_ERROR_THRESHOLD 5
 
 //-----------------------------------------------------------------------------
 // Global variables

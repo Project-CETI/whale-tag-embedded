@@ -8,6 +8,8 @@
 #include "cetiTagApp/cetiTag.h"
 #include "cetiTagApp/state_machine.h"
 #include "cetiTagApp/utils/config.h"
+#include "cetiTagApp/utils/error.h"
+
 
 /* dependencies */
 CetiPressureSample fake_pressure_sample = {};
@@ -15,7 +17,6 @@ CetiBatterySample  fake_battery_sample = {};
 
 CetiPressureSample *g_pressure = &fake_pressure_sample;
 CetiBatterySample *shm_battery = &fake_battery_sample;
-
 
 int g_stateMachine_thread_tid;
 int g_exit = 0;
@@ -56,6 +57,12 @@ int64_t get_global_time_us() {
   current_time_us = (int64_t)(current_timeval.tv_sec * 1000000LL) +
                     (int64_t)(current_timeval.tv_usec);
   return current_time_us;
+}
+
+int64_t get_global_time_s(void) {
+  struct timeval current_timeval;
+  gettimeofday(&current_timeval, NULL);
+  return (int64_t)(current_timeval.tv_sec);
 }
 
 int getRtcCount() {
@@ -128,11 +135,43 @@ void test__updateStateMachine_ST_RECORD_DIVING_lowBattery_okTime(void){
     }
 }
 
+void test__updateStateMachine_ST_RECORD_DIVING_errBattery_okTime(void){
+    stateMachine_set_state(ST_RECORD_DIVING);
+    fake_pressure_sample.pressure_bar = ((double)rand()/(double)RAND_MAX * 1000.0 + g_config.dive_pressure + 0.00000001);
+    fake_battery_sample.cell_voltage_v[0] = ((double)rand()/(double)RAND_MAX * (4.2 - g_config.release_voltage_v/2) + g_config.release_voltage_v/2);
+    fake_battery_sample.cell_voltage_v[1] = ((double)rand()/(double)RAND_MAX * (4.2 - g_config.release_voltage_v/2) + g_config.release_voltage_v/2);
+    updateStateMachine();
+    //test that consecutive count resets
+    fake_battery_sample.error = WT_RESULT(WT_DEV_BMS, WT_ERR_BMS_WRITE_PROT_DISABLE_FAIL);
+    for(int i = 0; i < MISSION_BMS_CONSECUTIVE_ERROR_THRESHOLD - 1; i++){
+        updateStateMachine();
+        TEST_ASSERT_EQUAL(ST_RECORD_DIVING, stateMachine_get_state());
+    }
+    fake_battery_sample.error = WT_OK;
+    updateStateMachine();
+    TEST_ASSERT_EQUAL(ST_RECORD_DIVING, stateMachine_get_state());
+
+    //test that consecutive count causes trigger
+    fake_battery_sample.error = WT_RESULT(WT_DEV_BMS, WT_ERR_BMS_WRITE_PROT_DISABLE_FAIL);
+    for(int i = 0; i < MISSION_BMS_CONSECUTIVE_ERROR_THRESHOLD - 1; i++){
+        fake_battery_sample.cell_voltage_v[0] = ((double)rand()/(double)RAND_MAX * 4.2);
+        fake_battery_sample.cell_voltage_v[1] = ((double)rand()/(double)RAND_MAX * 4.2);
+        updateStateMachine();
+        TEST_ASSERT_EQUAL(ST_RECORD_DIVING, stateMachine_get_state());
+    }
+    updateStateMachine();
+    TEST_ASSERT_EQUAL(ST_BRN_ON, stateMachine_get_state());
+}
+
 void test__updateStateMachine_ST_RECORD_DIVING_timeup(void){
     g_config.timeout_s = 1;
     stateMachine_set_state(ST_START);
+
     updateStateMachine();
-    sleep(1); //to ensure timeout
+    stateMachine_set_state(ST_RECORD_DIVING);
+    updateStateMachine();
+
+    sleep(g_config.timeout_s + 1); //to ensure timeout
     for(int i = 0; i < FUZZY_COUNT; i++){
         stateMachine_set_state(ST_RECORD_DIVING);
         fake_pressure_sample.pressure_bar = ((double)rand()/(double)RAND_MAX * 4.0*g_config.surface_pressure - g_config.surface_pressure);
@@ -176,11 +215,39 @@ void test__updateStateMachine_ST_RECORD_SURFACE_lowBattery_okTime(void){
     }
 }
 
+void test__updateStateMachine_ST_RECORD_SURFACE_errBattery_okTime(void){
+    stateMachine_set_state(ST_RECORD_SURFACE);
+    fake_pressure_sample.pressure_bar = ((double)rand()/(double)RAND_MAX * 2.0*g_config.dive_pressure - g_config.dive_pressure);
+    fake_battery_sample.cell_voltage_v[0] = ((double)rand()/(double)RAND_MAX * (4.2 - g_config.release_voltage_v/2) + g_config.release_voltage_v/2);
+    fake_battery_sample.cell_voltage_v[1] = ((double)rand()/(double)RAND_MAX * (4.2 - g_config.release_voltage_v/2) + g_config.release_voltage_v/2);
+    updateStateMachine();
+    //test that consecutive count resets
+    fake_battery_sample.error = WT_RESULT(WT_DEV_BMS, WT_ERR_BMS_WRITE_PROT_DISABLE_FAIL);
+    for(int i = 0; i < MISSION_BMS_CONSECUTIVE_ERROR_THRESHOLD - 1; i++){
+        updateStateMachine();
+        TEST_ASSERT_EQUAL(ST_RECORD_SURFACE, stateMachine_get_state());
+    }
+    fake_battery_sample.error = WT_OK;
+    updateStateMachine();
+    TEST_ASSERT_EQUAL(ST_RECORD_SURFACE, stateMachine_get_state());
+
+    //test that consecutive count causes trigger
+    fake_battery_sample.error = WT_RESULT(WT_DEV_BMS, WT_ERR_BMS_WRITE_PROT_DISABLE_FAIL);
+    for(int i = 0; i < MISSION_BMS_CONSECUTIVE_ERROR_THRESHOLD - 1; i++){
+        fake_battery_sample.cell_voltage_v[0] = ((double)rand()/(double)RAND_MAX * 4.2);
+        fake_battery_sample.cell_voltage_v[1] = ((double)rand()/(double)RAND_MAX * 4.2);
+        updateStateMachine();
+        TEST_ASSERT_EQUAL(ST_RECORD_SURFACE, stateMachine_get_state());
+    }
+    updateStateMachine();
+    TEST_ASSERT_EQUAL(ST_BRN_ON, stateMachine_get_state());
+}
+
 void test__updateStateMachine_ST_RECORD_SURFACE_timeup(void){
     g_config.timeout_s = 1;
     stateMachine_set_state(ST_START);
     updateStateMachine();
-    sleep(1); //to ensure timeout
+    sleep(g_config.timeout_s + 1); //to ensure timeout
     for(int i = 0; i < FUZZY_COUNT; i++){
         stateMachine_set_state(ST_RECORD_SURFACE);
         fake_pressure_sample.pressure_bar = ((double)rand()/(double)RAND_MAX * 4.0*g_config.dive_pressure - g_config.dive_pressure);
@@ -205,9 +272,31 @@ void test__updateStateMachine_ST_BRN_ON_timeup_okBattery(void){
     stateMachine_set_state(ST_BRN_ON);
     fake_battery_sample.cell_voltage_v[0] = 4.2;
     fake_battery_sample.cell_voltage_v[1] = 4.2;
-    sleep(2);
+    sleep(g_config.burn_interval_s + 1);
     updateStateMachine();
     TEST_ASSERT_EQUAL(ST_RETRIEVE, stateMachine_get_state());
+}
+
+void test__updateStateMachine_ST_BRN_ON_criticalBattery(void){
+    g_config.burn_interval_s = 2;
+    stateMachine_set_state(ST_BRN_ON);
+    fake_battery_sample.cell_voltage_v[0] = 3.05;
+    fake_battery_sample.cell_voltage_v[1] = 3.05;
+    updateStateMachine();
+    TEST_ASSERT_EQUAL(ST_SHUTDOWN, stateMachine_get_state());
+}
+
+void test__updateStateMachine_ST_BRN_ON_errBattery(void){
+    fake_battery_sample.error = WT_RESULT(WT_DEV_BMS, WT_ERR_BMS_WRITE_PROT_DISABLE_FAIL);
+    test__updateStateMachine_ST_BRN_ON_noTimeup_okBattery();
+
+    stateMachine_set_state(ST_BRN_ON);
+    fake_battery_sample.cell_voltage_v[0] = 3.05;
+    fake_battery_sample.cell_voltage_v[1] = 3.05;
+    updateStateMachine();
+    TEST_ASSERT_EQUAL(ST_BRN_ON, stateMachine_get_state());
+    
+    test__updateStateMachine_ST_BRN_ON_timeup_okBattery();
 }
 
 void test__updateStateMachine_ST_RETRIEVE_okBattery(void){
@@ -228,6 +317,18 @@ void test__updateStateMachine_ST_RETRIEVE_criticalBattery(void){
         updateStateMachine();
         TEST_ASSERT_EQUAL(ST_SHUTDOWN, stateMachine_get_state());
     }
+}
+
+void test__updateStateMachine_ST_RETRIEVE_errBattery(void){
+    fake_battery_sample.error = WT_RESULT(WT_DEV_BMS, WT_ERR_BMS_WRITE_PROT_DISABLE_FAIL);
+    test__updateStateMachine_ST_RETRIEVE_okBattery();
+
+    stateMachine_set_state(ST_RETRIEVE);
+    fake_battery_sample.cell_voltage_v[0] = 3.05;
+    fake_battery_sample.cell_voltage_v[1] = 3.05;
+    updateStateMachine();
+
+    TEST_ASSERT_EQUAL(ST_RETRIEVE, stateMachine_get_state());
 }
 
 void test_strtomissionstate(void) {
@@ -267,9 +368,9 @@ void test_strtomissionstate(void) {
 void setUp(void) {
     // set stuff up here
     srand(time(NULL));
-    
     //Update burnwire to far in the future
     g_config.timeout_s = 0xFFFFFFFF;
+    fake_battery_sample.error = WT_OK;
     stateMachine_set_state(ST_START);
     updateStateMachine();
 }
@@ -286,16 +387,21 @@ int main(void) {
     RUN_TEST(test__updateStateMachine_ST_START_highPressure);
     RUN_TEST(test__updateStateMachine_ST_RECORD_DIVING_timeup);
     RUN_TEST(test__updateStateMachine_ST_RECORD_DIVING_lowBattery_okTime);
+    RUN_TEST(test__updateStateMachine_ST_RECORD_DIVING_errBattery_okTime);
     RUN_TEST(test__updateStateMachine_ST_RECORD_DIVING_highPressure_okBattery_okTime);
     RUN_TEST(test__updateStateMachine_ST_RECORD_DIVING_lowPressure_okBattery_okTime);
     RUN_TEST(test__updateStateMachine_ST_RECORD_SURFACE_timeup);
     RUN_TEST(test__updateStateMachine_ST_RECORD_SURFACE_lowBattery_okTime);
+    RUN_TEST(test__updateStateMachine_ST_RECORD_SURFACE_errBattery_okTime);
     RUN_TEST(test__updateStateMachine_ST_RECORD_SURFACE_highPressure_okBattery_okTime);
     RUN_TEST(test__updateStateMachine_ST_RECORD_SURFACE_lowPressure_okBattery_okTime);
     RUN_TEST(test__updateStateMachine_ST_BRN_ON_noTimeup_okBattery);
     RUN_TEST(test__updateStateMachine_ST_BRN_ON_timeup_okBattery);
+    RUN_TEST(test__updateStateMachine_ST_BRN_ON_criticalBattery);
+    RUN_TEST(test__updateStateMachine_ST_BRN_ON_errBattery);
     RUN_TEST(test__updateStateMachine_ST_RETRIEVE_okBattery);
     RUN_TEST(test__updateStateMachine_ST_RETRIEVE_criticalBattery);
+    RUN_TEST(test__updateStateMachine_ST_RETRIEVE_errBattery);
 
     printf("\nState string parsing tests\n");
     RUN_TEST(test_strtomissionstate);
