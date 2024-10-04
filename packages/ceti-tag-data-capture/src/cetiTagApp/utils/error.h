@@ -4,6 +4,8 @@
 // Copyright:    Harvard University Wood Lab, Cummings Electronics Labs, 
 //               MIT CSAIL
 // Contributors: Michael Salino-Hugg, [TODO: Add other contributors here]
+//
+// Description: This header handles device errors.
 //-----------------------------------------------------------------------------
 #ifndef __LIB_WHALE_TAG_ERROR_H__
 #define __LIB_WHALE_TAG_ERROR_H__

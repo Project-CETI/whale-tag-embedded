@@ -26,7 +26,8 @@ TEST_LDFLAGS    = -lpthread -lFLAC -lm -lrt -L $(UNITY_DIR) -lunity
 TESTABLE_OBJ = $(SRC_DIR)/cetiTagApp/utils/str.o \
 	$(SRC_DIR)/cetiTagApp/state_machine.o \
 	$(SRC_DIR)/cetiTagApp/aprs.o \
-	$(SRC_DIR)/cetiTagApp/utils/logging.o
+	$(SRC_DIR)/cetiTagApp/utils/logging.o \
+	$(SRC_DIR)/cetiTagApp/utils/error.o
 
 # Colorful text printing
 NO_COL  := \033[0m
@@ -38,7 +39,7 @@ BLINK   := \033[33;5m
 
 # Libraries
 ## Unity
-UNITY_DIR = lib/Unity
+UNITY_DIR = $(TEST_DIR)/lib/Unity
 UNITY = $(UNITY_DIR)/libunity.a
 $(UNITY_DIR)/Makefile:
 	cd $(UNITY_DIR) && cmake .
@@ -112,5 +113,5 @@ $(TEST_BIN_DIR)/cetiTagApp/utils/str.test: TEST_TEST_DEP = cetiTagApp/utils/str.
 $(TEST_BIN_DIR)/cetiTagApp/utils/str.test: TEST_REAL_DEP = cetiTagApp/utils/str.o
 
 $(TEST_BIN_DIR)/cetiTagApp/state_machine.test: TEST_TEST_DEP = cetiTagApp/state_machine.o 
-$(TEST_BIN_DIR)/cetiTagApp/state_machine.test: TEST_REAL_DEP = cetiTagApp/state_machine.o cetiTagApp/aprs.o cetiTagApp/utils/logging.o cetiTagApp/utils/str.o
+$(TEST_BIN_DIR)/cetiTagApp/state_machine.test: TEST_REAL_DEP = cetiTagApp/state_machine.o cetiTagApp/aprs.o cetiTagApp/utils/error.o cetiTagApp/utils/logging.o cetiTagApp/utils/str.o
 $(TEST_BIN_DIR)/cetiTagApp/state_machine.test: TEST_STUB_DEP = cetiTagApp/utils/power.o cetiTagApp/burnwire.o cetiTagApp/recovery.o
