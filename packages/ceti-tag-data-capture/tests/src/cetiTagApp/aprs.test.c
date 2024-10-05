@@ -2,23 +2,23 @@
 
 #include "cetiTagApp/aprs.h"
 
-void test_callsign_try_from_str(void){
+void test_callsign_try_from_str(void) {
     int result = 0;
     APRSCallsign cs = {};
-    
-    APRSCallsign expected_cs =  {.callsign = "KC1TUJ", .ssid = 3};
+
+    APRSCallsign expected_cs = {.callsign = "KC1TUJ", .ssid = 3};
     result = callsign_try_from_str(&cs, "KC1TUJ-3", NULL);
     TEST_ASSERT_EQUAL_INT(0, result);
     TEST_ASSERT_EQUAL_STRING(expected_cs.callsign, cs.callsign);
     TEST_ASSERT_EQUAL_UINT8(expected_cs.ssid, cs.ssid);
 
-    expected_cs =  (APRSCallsign){.callsign = "J75Y", .ssid = 0};
+    expected_cs = (APRSCallsign){.callsign = "J75Y", .ssid = 0};
     result = callsign_try_from_str(&cs, " J75Y", NULL);
     TEST_ASSERT_EQUAL_INT(0, result);
     TEST_ASSERT_EQUAL_STRING(expected_cs.callsign, cs.callsign);
     TEST_ASSERT_EQUAL_UINT8(expected_cs.ssid, cs.ssid);
 
-    expected_cs =  (APRSCallsign){.callsign = "J75Z", .ssid = 0};
+    expected_cs = (APRSCallsign){.callsign = "J75Z", .ssid = 0};
     result = callsign_try_from_str(&cs, " J75Z", NULL);
     TEST_ASSERT_EQUAL_INT(0, result);
     TEST_ASSERT_EQUAL_STRING(expected_cs.callsign, cs.callsign);
@@ -31,7 +31,7 @@ void test_callsign_try_from_str(void){
     TEST_ASSERT_EQUAL_INT(-1, result);
 }
 
-void test_callsign_to_str(void){
+void test_callsign_to_str(void) {
     APRSCallsign cs1 = {
         .callsign = "KC1TUJ",
         .ssid = 12,

@@ -27,7 +27,7 @@
 // Methods
 //-----------------------------------------------------------------------------
 int init_battery();
-void* battery_thread(void* paramPtr);
+void *battery_thread(void *paramPtr);
 int resetBattTempFlags(void);
 
 //-----------------------------------------------------------------------------

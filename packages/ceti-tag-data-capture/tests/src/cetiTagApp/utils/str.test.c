@@ -7,17 +7,17 @@
 
 #include "cetiTagApp/utils/str.h"
 
-void test_strtobool(void){
+void test_strtobool(void) {
     //test "true"
-    for(int i = 0; i <  (1 << 4); i++){
+    for (int i = 0; i < (1 << 4); i++) {
         char true_string[5 + 4 + 1] = "     true";
-        for(int letter = 0; letter < 4; letter++){
-            if(i & (1 << letter)){
+        for (int letter = 0; letter < 4; letter++) {
+            if (i & (1 << letter)) {
                 true_string[letter] = toupper(true_string[letter]);
             }
         }
-        TEST_ASSERT_TRUE_MESSAGE(strtobool(&true_string[5], NULL), true_string); // base string
-        TEST_ASSERT_TRUE_MESSAGE(strtobool(&true_string[rand()%5], NULL), true_string); //string with leading whitespace
+        TEST_ASSERT_TRUE_MESSAGE(strtobool(&true_string[5], NULL), true_string);          // base string
+        TEST_ASSERT_TRUE_MESSAGE(strtobool(&true_string[rand() % 5], NULL), true_string); // string with leading whitespace
     }
 
     //test "false"
@@ -35,7 +35,6 @@ void test_strtobool(void){
     TEST_ASSERT_FALSE(strtobool(end_ptr, &end_ptr));
     TEST_ASSERT_TRUE(strtobool(end_ptr, NULL));
 }
-
 
 void test_strtoquotedstring(void) {
     char result_string[256];

@@ -5,17 +5,17 @@
 //               MIT CSAIL
 // Contributors: Michael Salino-Hugg, [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
-// This header has definitions that need to acccessible by both commands.c and 
+// This header has definitions that need to acccessible by both commands.c and
 // and subcommands/*.c files, but not publicly to the rest of the application
 //-----------------------------------------------------------------------------
 
 #ifndef COMMANDS_INTERNAL_H
 #define COMMANDS_INTERNAL_H
 
-#include "utils/str.h"  //for str
+#include "utils/str.h" //for str
 
-#include <stdio.h>      // for FILE
-#include <unistd.h>     // for size_t
+#include <stdio.h>  // for FILE
+#include <unistd.h> // for size_t
 
 //-----------------------------------------------------------------------------
 // Typedefs
@@ -23,7 +23,7 @@
 typedef struct {
     str name;
     const char *description;
-    int (*parse)(const char*_String);
+    int (*parse)(const char *_String);
 } CommandDescription;
 
 //-----------------------------------------------------------------------------
@@ -56,23 +56,23 @@ extern const size_t recovery_subcommand_list_size;
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
-int audioCmd_stop(const char * args);
-int audioCmd_start(const char * args);
-int audioCmd_reset(const char * args);
+int audioCmd_stop(const char *args);
+int audioCmd_start(const char *args);
+int audioCmd_reset(const char *args);
 
-int batteryCmd_get_cell_voltage_1(const char * args);
-int batteryCmd_get_cell_voltage_2(const char * args);
-int batteryCmd_check_battery(const char * args);
-int batteryCmd_reset(const char * args);
+int batteryCmd_get_cell_voltage_1(const char *args);
+int batteryCmd_get_cell_voltage_2(const char *args);
+int batteryCmd_check_battery(const char *args);
+int batteryCmd_reset(const char *args);
 
-int burnwireCmd_on(const char * args);
-int burnwireCmd_off(const char * args);
+int burnwireCmd_on(const char *args);
+int burnwireCmd_off(const char *args);
 
-//ToDo: these are exposed just to support legacy commands 
+// ToDo: these are exposed just to support legacy commands
 int fpgaCmd_config(const char *args);
 int fpgaCmd_reset(const char *args);
 int fpgaCmd_version(const char *args);
 int fpgaCmd_checkCam(const char *args);
 
-int imuCmd_reset(const char * args);
+int imuCmd_reset(const char *args);
 #endif

@@ -14,7 +14,6 @@
 // Includes
 //-----------------------------------------------------------------------------
 
-
 #include "battery.h"
 #include "burnwire.h"
 #include "launcher.h" // for specification of enabled sensors, init_tag(), g_exit, sampling rate, data filepath, and CPU affinity, etc.

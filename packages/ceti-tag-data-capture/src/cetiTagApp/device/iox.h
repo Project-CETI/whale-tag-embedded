@@ -1,7 +1,7 @@
 //-----------------------------------------------------------------------------
 // Project:      CETI Tag Electronics
 // Version:      Refer to _versioning.h
-// Copyright:    Harvard University Wood Lab, Cummings Electronics Labs, 
+// Copyright:    Harvard University Wood Lab, Cummings Electronics Labs,
 //               MIT CSAIL
 // Contributors: Michael Salino-Hugg,
 //               [TODO: Add other contributors here]
@@ -10,7 +10,7 @@
 #define __CETI_WHALE_TAG_HAL_IOX__
 
 #include "../utils/error.h" // for WTResult type
-#include <stdint.h>      // for uint8_t
+#include <stdint.h>         // for uint8_t
 
 // === Definitions ========================================================
 #define IOX_GPIO_5V_EN (0)
@@ -19,8 +19,8 @@
 // free (3)
 #define IOX_GPIO_BURNWIRE_ON (4)
 // free (5)
-#define IOX_GPIO_ECG_LOD_N  (6)
-#define IOX_GPIO_ECG_LOD_P  (7)
+#define IOX_GPIO_ECG_LOD_N (6)
+#define IOX_GPIO_ECG_LOD_P (7)
 
 // === Type Definitions =======================================================
 typedef enum {
@@ -45,7 +45,7 @@ typedef enum iox_register_e {
 
 // === Functions ==============================================================
 
-//Hardware device interaction metho
+// Hardware device interaction metho
 
 WTResult iox_init(void);
 void iox_terminate(void);

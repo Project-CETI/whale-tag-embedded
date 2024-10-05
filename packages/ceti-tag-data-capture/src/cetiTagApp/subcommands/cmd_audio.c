@@ -11,7 +11,7 @@ int audioCmd_reset(const char *args) {
 }
 int audioCmd_sampleRate(const char *args) {
     uint32_t sample_rate = strtoul(args, NULL, 0);
-    switch(sample_rate){
+    switch (sample_rate) {
         case 48:
             audio_set_sample_rate(AUDIO_SAMPLE_RATE_48KHZ);
             break;
@@ -24,9 +24,9 @@ int audioCmd_sampleRate(const char *args) {
             audio_set_sample_rate(AUDIO_SAMPLE_RATE_192KHZ);
             break;
 
-        default: 
+        default:
             fprintf(g_rsp_pipe, "Error invalid cell number.\n");
-            fprintf(g_rsp_pipe, "Usage: `audio sampleRate (48 | 96 | 192)`\n"); 
+            fprintf(g_rsp_pipe, "Usage: `audio sampleRate (48 | 96 | 192)`\n");
             return -1;
     }
     fprintf(g_rsp_pipe, "Audio rate set to %d kHz\n", sample_rate); // echo it
@@ -58,14 +58,14 @@ int audioCmd_force_overflow(const char *args) {
 }
 
 const CommandDescription audio_subcommand_list[] = {
-    {.name = STR_FROM("start"),      .description = "Start audio acquistion", .parse=audioCmd_start},
-    {.name = STR_FROM("stop"),       .description = "Stop audio acquistion", .parse=audioCmd_stop},
-    {.name = STR_FROM("sampleRate"), .description = "Set audio sampling rate in kHz. Useage: `audio sampleRate (48 | 96 | 192)`", .parse=audioCmd_sampleRate},
-    {.name = STR_FROM("reset"),      .description = "Reset audio HW FIFO", .parse=audioCmd_reset},
+    {.name = STR_FROM("start"), .description = "Start audio acquistion", .parse = audioCmd_start},
+    {.name = STR_FROM("stop"), .description = "Stop audio acquistion", .parse = audioCmd_stop},
+    {.name = STR_FROM("sampleRate"), .description = "Set audio sampling rate in kHz. Useage: `audio sampleRate (48 | 96 | 192)`", .parse = audioCmd_sampleRate},
+    {.name = STR_FROM("reset"), .description = "Reset audio HW FIFO", .parse = audioCmd_reset},
 #ifdef DEBUG
-    {.name = STR_FROM("forceOverflow"),     .description = "Simulate an audio overflow", .parse=audioCmd_simulate_overflow},
-    {.name = STR_FROM("simulateOverflow"),  .description = "Force an audio overflow", .parse=audioCmd_force_overflow},
+    {.name = STR_FROM("forceOverflow"), .description = "Simulate an audio overflow", .parse = audioCmd_simulate_overflow},
+    {.name = STR_FROM("simulateOverflow"), .description = "Force an audio overflow", .parse = audioCmd_force_overflow},
 #endif
 };
 
-const size_t audio_subcommand_list_size = sizeof(audio_subcommand_list)/sizeof(*audio_subcommand_list);
+const size_t audio_subcommand_list_size = sizeof(audio_subcommand_list) / sizeof(*audio_subcommand_list);

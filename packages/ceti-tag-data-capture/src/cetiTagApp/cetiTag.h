@@ -69,65 +69,65 @@
 #define AUDIO_LCM_BYTES (147456)
 
 #define AUDIO_CHANNELS (3)
-//multiple of AUDIO_LCM_BYTES closest to 75 seconds @ 16-bit, 96kSPS, (14401536)
+// multiple of AUDIO_LCM_BYTES closest to 75 seconds @ 16-bit, 96kSPS, (14401536)
 #define AUDIO_BUFFER_SIZE_BYTES_PER_CHANNEL (14401536)
-#define AUDIO_BUFFER_SIZE_BYTES (AUDIO_CHANNELS*AUDIO_BUFFER_SIZE_BYTES_PER_CHANNEL)
-#define AUDIO_BUFFER_SIZE_BLOCKS (AUDIO_BUFFER_SIZE_BYTES/SPI_BLOCK_SIZE)
-#define AUDIO_BUFFER_SIZE_SAMPLE16 (AUDIO_BUFFER_SIZE_BYTES/ (sizeof(int16_t)*AUDIO_CHANNELS))
-#define AUDIO_BUFFER_SIZE_SAMPLE24 (AUDIO_BUFFER_SIZE_BYTES/ (3*AUDIO_CHANNELS))
-#define AUDIO_BLOCK_FILL_SPEED_US(sample_rate, bit_depth) (SPI_BLOCK_SIZE * 1000000.0/(AUDIO_CHANNELS * (sample_rate) * ((bit_depth)/ 8)))
-#define AUDIO_PAGE_FILL_SPEED_US(sample_rate, bit_depth)  (AUDIO_BUFFER_SIZE_BYTES * 1000000.0/(AUDIO_CHANNELS * (sample_rate) * ((bit_depth)/ 8)))
+#define AUDIO_BUFFER_SIZE_BYTES (AUDIO_CHANNELS * AUDIO_BUFFER_SIZE_BYTES_PER_CHANNEL)
+#define AUDIO_BUFFER_SIZE_BLOCKS (AUDIO_BUFFER_SIZE_BYTES / SPI_BLOCK_SIZE)
+#define AUDIO_BUFFER_SIZE_SAMPLE16 (AUDIO_BUFFER_SIZE_BYTES / (sizeof(int16_t) * AUDIO_CHANNELS))
+#define AUDIO_BUFFER_SIZE_SAMPLE24 (AUDIO_BUFFER_SIZE_BYTES / (3 * AUDIO_CHANNELS))
+#define AUDIO_BLOCK_FILL_SPEED_US(sample_rate, bit_depth) (SPI_BLOCK_SIZE * 1000000.0 / (AUDIO_CHANNELS * (sample_rate) * ((bit_depth) / 8)))
+#define AUDIO_PAGE_FILL_SPEED_US(sample_rate, bit_depth) (AUDIO_BUFFER_SIZE_BYTES * 1000000.0 / (AUDIO_CHANNELS * (sample_rate) * ((bit_depth) / 8)))
 
 // === BMS ===
-#define BATTERY_SAMPLING_PERIOD_US    1000000
+#define BATTERY_SAMPLING_PERIOD_US 1000000
 
 // === ECG ===
-#define ECG_NUM_BUFFERS         2     // One for logging, one for writing.
-#define ECG_BUFFER_LENGTH       10000 // Once a buffer fills, it will be flushed to a file
-#define ECG_SAMPLING_PERIOD_US  1000
-#define ECG_PAGE_FILL_PERIOD_US (ECG_SAMPLING_PERIOD_US*ECG_BUFFER_LENGTH)
+#define ECG_NUM_BUFFERS 2       // One for logging, one for writing.
+#define ECG_BUFFER_LENGTH 10000 // Once a buffer fills, it will be flushed to a file
+#define ECG_SAMPLING_PERIOD_US 1000
+#define ECG_PAGE_FILL_PERIOD_US (ECG_SAMPLING_PERIOD_US * ECG_BUFFER_LENGTH)
 
 // === IMU ===
 #define IMU_QUATERNION_SAMPLE_PERIOD_US 50000 // rate for the computed orientation
-#define IMU_9DOF_SAMPLE_PERIOD_US 20000 // rate for the accelerometer/gyroscope/magnetometer
+#define IMU_9DOF_SAMPLE_PERIOD_US 20000       // rate for the accelerometer/gyroscope/magnetometer
 
 // === LIGHT ===
-#define LIGHT_SAMPLING_PERIOD_US      1000000
+#define LIGHT_SAMPLING_PERIOD_US 1000000
 
 // === PRESSURE ===
-#define PRESSURE_SAMPLING_PERIOD_US   1000000
+#define PRESSURE_SAMPLING_PERIOD_US 1000000
 
 //-----------------------------------------------------------------------------
 // Type Definitions
 //-----------------------------------------------------------------------------
 // === AUDIO ===
 typedef struct {
-    int page; // which buffer will be populated with new incoming data
+    int page;  // which buffer will be populated with new incoming data
     int block; // which block will be populated with new incoming data
     union {
         uint8_t raw[AUDIO_BUFFER_SIZE_BYTES];
-        char    blocks[AUDIO_BUFFER_SIZE_BLOCKS][SPI_BLOCK_SIZE];
+        char blocks[AUDIO_BUFFER_SIZE_BLOCKS][SPI_BLOCK_SIZE];
         uint8_t sample16[AUDIO_BUFFER_SIZE_SAMPLE16][AUDIO_CHANNELS][2];
         uint8_t sample24[AUDIO_BUFFER_SIZE_SAMPLE24][AUDIO_CHANNELS][3];
-    }data[2];
+    } data[2];
 } CetiAudioBuffer;
 
 // === BMS ===
 typedef struct {
     int64_t sys_time_us;
     int32_t error;
-    int     rtc_time_s;
-    double  cell_voltage_v[2];
-    double  cell_temperature_c[2];
-    double  current_mA;
-    double  state_of_charge;
+    int rtc_time_s;
+    double cell_voltage_v[2];
+    double cell_temperature_c[2];
+    double current_mA;
+    double state_of_charge;
     uint16_t status;
     uint16_t protection_alert;
 } CetiBatterySample;
 
 // === ECG ===
 typedef struct {
-    int page; // which buffer will be populated with new incoming data
+    int page;   // which buffer will be populated with new incoming data
     int sample; // which sample will be populated with new incoming data
     int lod_enabled;
     /* ToDo: Leaving this as seperate buffers to maintain existing code
@@ -151,7 +151,7 @@ typedef struct {
 typedef struct {
     int64_t sys_time_us;
     int64_t reading_delay_us;
-    int     rtc_time_s;
+    int rtc_time_s;
     int16_t i;
     int16_t j;
     int16_t k;
@@ -162,7 +162,7 @@ typedef struct {
 typedef struct {
     int64_t sys_time_us;
     int64_t reading_delay_us;
-    int     rtc_time_s;
+    int rtc_time_s;
     int16_t x;
     int16_t y;
     int16_t z;
@@ -172,7 +172,7 @@ typedef struct {
 typedef struct {
     int64_t sys_time_us;
     int64_t reading_delay_us;
-    int     rtc_time_s;
+    int rtc_time_s;
     int16_t x;
     int16_t y;
     int16_t z;
@@ -182,7 +182,7 @@ typedef struct {
 typedef struct {
     int64_t sys_time_us;
     int64_t reading_delay_us;
-    int     rtc_time_s;
+    int rtc_time_s;
     int16_t x;
     int16_t y;
     int16_t z;
@@ -192,25 +192,25 @@ typedef struct {
 // === LIGHT ===
 typedef struct {
     int64_t sys_time_us;
-    int     rtc_time_s;
+    int rtc_time_s;
     int32_t error;
-    int     visible;
-    int     infrared;
+    int visible;
+    int infrared;
 } CetiLightSample;
 
 // === PRESSURE ===
 typedef struct {
     int64_t sys_time_us;
-    int     rtc_time_s;
+    int rtc_time_s;
     int32_t error;
-    double  pressure_bar;
-    double  temperature_c;
+    double pressure_bar;
+    double temperature_c;
 } CetiPressureSample;
 
 typedef struct {
     int64_t sys_time_us;
-    int     rtc_time_s;
-    char    nmea_sentence[96];    
+    int rtc_time_s;
+    char nmea_sentence[96];
 } CetiRecoverySample;
 
-#endif //CETI_TAG_H
+#endif // CETI_TAG_H

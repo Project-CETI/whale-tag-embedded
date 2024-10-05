@@ -6,53 +6,55 @@
 int strtobool(const char *_String, const char **_EndPtr) {
     const char *end_ptr;
     const char *value_str = strtoidentifier(_String, &end_ptr);
-    if (value_str == NULL){
+    if (value_str == NULL) {
         return 0;
     }
 
-    //update end ptr
-    if(_EndPtr != NULL){
+    // update end ptr
+    if (_EndPtr != NULL) {
         *_EndPtr = end_ptr;
     }
-    
-    if((end_ptr - value_str) != 4){
-        //can't be true based on length
+
+    if ((end_ptr - value_str) != 4) {
+        // can't be true based on length
         return 0;
     }
-    
+
     char case_insensitive[5] = {0};
-    for(int i = 0; i < 4; i++){
+    for (int i = 0; i < 4; i++) {
         case_insensitive[i] = tolower(value_str[i]);
     }
 
     return (memcmp("true", case_insensitive, 4) == 0);
 }
 
-const char * strtoidentifier(const char *_String, const char **_EndPtr) {
-    errno = 0; //reset errno;
+const char *strtoidentifier(const char *_String, const char **_EndPtr) {
+    errno = 0; // reset errno;
 
-    if(_String == NULL){
-        return 0; //invalid _String
+    if (_String == NULL) {
+        return 0; // invalid _String
     }
-    
-    //skip whitespace
-    while(isspace(*_String)){_String++;} 
 
-    const char *identifier_start = _String;
-    //look for start character
-    if(!isalpha(*_String) && (*_String != '_')){
-        if (_EndPtr != NULL){
-            *_EndPtr = _String;
-        }
-        return 0; //not an identifier
-    }
-    _String++;
-    
-    //find end of String
-    while(isalnum(*_String) || (*_String == '_')){
+    // skip whitespace
+    while (isspace(*_String)) {
         _String++;
     }
-    if (_EndPtr != NULL){
+
+    const char *identifier_start = _String;
+    // look for start character
+    if (!isalpha(*_String) && (*_String != '_')) {
+        if (_EndPtr != NULL) {
+            *_EndPtr = _String;
+        }
+        return 0; // not an identifier
+    }
+    _String++;
+
+    // find end of String
+    while (isalnum(*_String) || (*_String == '_')) {
+        _String++;
+    }
+    if (_EndPtr != NULL) {
         *_EndPtr = _String;
     }
     return identifier_start;
@@ -60,35 +62,37 @@ const char * strtoidentifier(const char *_String, const char **_EndPtr) {
 
 /**
  * @brief Returns quoted string (including the quotes). Returns NULL if not quoted string is found
- * @return const char* 
+ * @return const char*
  */
-const char * strtoquotedstring(const char *_String, const char ** _EndPtr){
+const char *strtoquotedstring(const char *_String, const char **_EndPtr) {
     const char *start;
-    
-    if(_String == NULL){
-        return NULL; //invalid _String
-    }
-    
-    //skip whitespace
-    while(isspace(*_String)){_String++;} 
 
-    if(*_String != '"'){ 
-        return NULL; 
+    if (_String == NULL) {
+        return NULL; // invalid _String
+    }
+
+    // skip whitespace
+    while (isspace(*_String)) {
+        _String++;
+    }
+
+    if (*_String != '"') {
+        return NULL;
     }
     start = _String;
     _String++;
-    while(*_String != '"') {
+    while (*_String != '"') {
         if (*_String == '\\') {
             _String++;
         }
-        
-        if(*_String == 0){
+
+        if (*_String == 0) {
             return NULL;
         }
         _String++;
     }
     _String++;
-    if(_EndPtr != NULL) {
+    if (_EndPtr != NULL) {
         *_EndPtr = _String;
     }
     return start;

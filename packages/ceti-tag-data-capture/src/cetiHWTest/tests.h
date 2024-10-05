@@ -17,7 +17,7 @@ typedef enum {
     TEST_STATE_TERMINATE,
 } TestState;
 
-typedef TestState (TestUpdateMethod)(FILE *file);
+typedef TestState(TestUpdateMethod)(FILE *file);
 
 TestState test_ToDo(FILE *pResultsFiles);
 
