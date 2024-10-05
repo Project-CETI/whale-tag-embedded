@@ -26,4 +26,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_CLANG_FORMAT: true
+          VALIDATE_BASH: true
+          VALIDATE_BASH_EXEC: true
 ...
