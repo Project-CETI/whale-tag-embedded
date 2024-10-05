@@ -1,15 +1,15 @@
 //-----------------------------------------------------------------------------
 // Project:      CETI Tag Electronics
 // Version:      Refer to _versioning.h
-// Copyright:    Harvard University Wood Lab, Cummings Electronics Labs, 
+// Copyright:    Harvard University Wood Lab, Cummings Electronics Labs,
 //               MIT CSAIL
 // Contributors: Michael Salino-Hugg, [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 #ifndef __LIB_WHALE_TAG_THREAD_ERROR_H__
 #define __LIB_WHALE_TAG_THREAD_ERROR_H__
 
-#include <stdint.h>
 #include "error.h"
+#include <stdint.h>
 
 typedef enum {
     THREAD_MAIN = 0,
@@ -42,18 +42,17 @@ typedef enum {
     uint16_t error_code;
 }
 
-The convinient thing here is that errors as a number can be easily compared 
-and passed. This is also compatible with the device error type `WTResult` 
-found in `utils/error.h` as the thread ID can simply be concatenated to the 
+The convinient thing here is that errors as a number can be easily compared
+and passed. This is also compatible with the device error type `WTResult`
+found in `utils/error.h` as the thread ID can simply be concatenated to the
 value as the MSB.
 */
 typedef uint32_t ThreadError;
 
 #define THREAD_OK (0)
-#define THREAD_ERR(thread, error) (((thread & 0xFF) << 24) | ((uint32_t) error & 0x00FFFFFF))
+#define THREAD_ERR(thread, error) (((thread & 0xFF) << 24) | ((uint32_t)error & 0x00FFFFFF))
 #define THREAD_ERR_GET_THREAD(thread_error) ((thread_error >> 24) & 0xFF)
 #define THREAD_ERR_GET_DEVICE(thread_error) ((thread_error >> 16) & 0xFF)
-#define THREAD_ERR_GET_ERROR(thread_error) (thread_error& 0xFFFF)
-
+#define THREAD_ERR_GET_ERROR(thread_error) (thread_error & 0xFFFF)
 
 #endif

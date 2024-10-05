@@ -153,10 +153,10 @@ lint:
 	docker run \
 		-e RUN_LOCAL=true \
   		-e LOG_LEVEL=NOTICE \
-		-e VALIDATE_ALL_CODEBASE=false \
-		-e VALIDATE_CLANG_FORMAT=true \
-		-e VALIDATE_BASH=true \
-		-e VALIDATE_BASH_EXEC=true \
+		-e VALIDATE_CPP=false \
+		-e VALIDATE_DOCKERFILE_HADOLINT=false \
+		-e VALIDATE_JSCPD=false \
+		-e VALIDATE_NATURAL_LANGUAGE=false \
 		-v $(shell pwd):/tmp/lint \
 		--rm ghcr.io/super-linter/super-linter:latest
 
