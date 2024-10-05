@@ -20,27 +20,27 @@ BURNWIRE_TIME=20m
 ## Forwards command to command pipe while performing error checking
 send_command() {
   # check that app is running
-  ps -p $child > /dev/null
-  if [ $? -ne 0 ] ;  then 
+  if ! ps -p $child > /dev/null ;  then 
     echo "cetiTagApp is not running"
     return $ERR_NO_CHILD
   fi
 
   # send response to pipe
-  echo "$*" > $IPC_DIR/cetiCommand
-  if [ $? -ne 0 ] ; then
+  
+  if ! echo "$*" > "$IPC_DIR"/cetiCommand; then
     echo "Failed to send command to cetiCommand pipe"
     return $ERR_UNRESPONSIVE_CHILD
   fi
 
   # read return
-  response=$(timeout $PIPE_RESPONSE_TIMEOUT cat $IPC_DIR/cetiResponse)
-  if [ $? -ne 0 ] ; then
+  response=$(timeout $PIPE_RESPONSE_TIMEOUT cat "$IPC_DIR"/cetiResponse)
+  status=$?
+  if [ $status -ne 0 ] ; then
     echo "Failed to receive command response in timely manor"
     return $ERR_UNRESPONSIVE_CHILD
   fi
   
-  echo $response
+  echo "$response"
   return 0
 }
 
@@ -51,23 +51,23 @@ emergency_shutdown() {
   FPGA_CAM_RESET=5
   FPGA_CAM_DOUT=18
   FPGA_CAM_SCK=16
-  raspi-gpio set FPGA_CAM_RESET dh op
-  raspi-gpio set FPGA_CAM_SCK dl op
-  raspi-gpio set FPGA_CAM_DOUT dl op
-  for byte in ${SHUTDOWN_COMMAND[@]}
+  raspi-gpio set $FPGA_CAM_RESET dh op
+  raspi-gpio set $FPGA_CAM_SCK dl op
+  raspi-gpio set $FPGA_CAM_DOUT dl op
+  for byte in "${SHUTDOWN_COMMAND[@]}"
   do
     for bit in {0..7}
     do
       if [[ "$((byte & (1 <<(7 - bit))))" == "0" ]]
       then
-        raspi-gpio set FPGA_CAM_DOUT dl
+        raspi-gpio set $FPGA_CAM_DOUT dl
       else
-        raspi-gpio set FPGA_CAM_DOUT dh 
+        raspi-gpio set $FPGA_CAM_DOUT dh 
       fi
       sleep 0.1
-      raspi-gpio set FPGA_CAM_SCK dh
+      raspi-gpio set $FPGA_CAM_SCK dh
       sleep 0.1
-      raspi-gpio set FPGA_CAM_SCK dl
+      raspi-gpio set $FPGA_CAM_SCK dl
       sleep 0.1
     done
   done
@@ -75,9 +75,9 @@ emergency_shutdown() {
   do
     for bit in {0..7}
     do
-      raspi-gpio set FPGA_CAM_SCK dh
+      raspi-gpio set $FPGA_CAM_SCK dh
       sleep 0.1
-      raspi-gpio set FPGA_CAM_SCK dl
+      raspi-gpio set $FPGA_CAM_SCK dl
       sleep 0.1
     done
   done
@@ -94,11 +94,12 @@ emergency_release() {
   echo "Starting emergency shutdown"
   
   echo "Activating burnwire"
-  IOX_CONFIG=i2cget -y 1 0x21 0x03
-  if [ $? -eq 0 ] ; then
+  IOX_CONFIG=$(i2cget -y 1 0x21 0x03)
+  status=$?
+  if [ $status -eq 0 ] ; then
     # turn on burnwire
     i2cset -y 1 0x21 0x03 $((IOX_CONFIG & ~(1 << 4)))
-    IOX_OUT=i2cget -y 1 0x21 0x01
+    IOX_OUT=$(i2cget -y 1 0x21 0x01)
     IOX_OUT=$((IOX_OUT | (1 << 4)))
     i2cset -y 1 0x21 0x01 $IOX_OUT
 
@@ -114,17 +115,17 @@ emergency_release() {
 }
 
 ERR_NO_CHILD=1
-ERR_UNRESPOSIVE_CHILD=2
+ERR_UNRESPONSIVE_CHILD=2
 ## Handle common errors
 handle_error() {
   case $1 in
-    $ERR_UNRESPONSIVE_CHILD)
+    "$ERR_UNRESPONSIVE_CHILD" )
       echo "Err: unresponsive child"
       echo "Killing process $child"
       kill -9  "$child" 2>/dev/null
       ;& #fallthrough
     
-    $ERR_NO_CHILD)
+    "$ERR_NO_CHILD" )
       echo "Err: no child"
       echo "Attempting to restart child process"
       # start child
@@ -133,8 +134,7 @@ handle_error() {
       sleep $STARTUP_TIME # wait for app to boot
       data_acquisition_running=1
       #check that app is still running
-      ps -p $child > /dev/null
-      if [ $? -ne 0 ] ; then
+      if ! ps -p $child > /dev/null ; then
         echo "Err: Failed to restart child process"
         emergency_release
       fi
@@ -145,8 +145,9 @@ handle_error() {
 _term() {
   echo "stopping cetiTagApp"
   send_command "quit"
-  if [ $? -ne 0 ] ; then
-    handle_error $?
+  status=$?
+  if [ $status -ne 0 ] ; then
+    handle_error $status
   fi
 
   kill --TERM  "$child" 2>/dev/null
@@ -181,14 +182,15 @@ do
 # Check that there is disk space available to continue recording.
 # The tag app should automatically stop if there is less than 1 GiB free.
   disk_avail_kb=$(df --output=target,avail | grep /data)
-  set $disk_avail_kb
+  set "$disk_avail_kb"
   echo "$2 KiB available"
-  if [ $data_acquisition_running -eq 1 ] && [ $2 -lt $((1*1024*1024)) ]
+  if [ $data_acquisition_running -eq 1 ] && [ "$2" -lt $((1*1024*1024)) ]
   then
     echo "disk almost full; stopping data acquisition"
     send_command "stopDataAcq"
-    if [ $? -ne 0 ] ; then
-      handle_error $?
+    status=$?
+    if [ $status -ne 0 ] ; then
+      handle_error $status
       continue
     fi
     echo "signaled to stop data acquisition"
@@ -209,20 +211,23 @@ do
 
 #check that process is active before calling into pipe
   v1=$(send_command "battery cellV 0")
-  if [ $? -ne 0 ] ; then
-    handle_error $?
+  status=$?
+  if [ $status -ne 0 ] ; then
+    handle_error $status
     continue
   fi
 
   v2=$(send_command "battery cellV 1")
-  if [ $? -ne 0 ] ; then
-    handle_error $?
+  status=$?
+  if [ $status -ne 0 ] ; then
+    handle_error $status
     continue
   fi
 
   iMa=$(send_command "battery current")
-  if [ $? -ne 0 ] ; then
-    handle_error $?
+  status=$?
+  if [ $status -ne 0 ] ; then
+    handle_error $status
     continue
   fi
 
@@ -242,9 +247,11 @@ do
     if [ "$check1" -gt 0 ] || [ "$check2" -gt 0 ] 
     then
       echo "low battery cell detected; stopping data acquisition"
+      
       send_command "stopDataAcq"
-      if [ $? -ne 0 ] ; then
-        handle_error $?
+      status=$?
+      if [ $status -ne 0 ] ; then
+        handle_error $status
         continue
       fi
       echo "signaled to stop data acquisition"
@@ -265,8 +272,8 @@ do
     then
       echo "low battery cell detected; powering down the Pi now!"
       echo s > /proc/sysrq-trigger
-      send_command "powerdown"
-      if [ $? -ne 0 ] ; then
+      
+      if ! send_command "powerdown" ; then
         kill -9  "$child" 2>/dev/null
         emergency_shutdown
       fi
@@ -296,13 +303,15 @@ do
     echo "FIFO overflow detected, waiting for the main app to handle it"
     sleep 30
     overflow=$(pigs r 12)
-    if [ "$overflow" -eq 1 ]q
+    if [ "$overflow" -eq 1 ]
     then
       echo "FIFO overflow still detected, restarting the main app"
       # Tell the main app to gracefully quit.
+     
       send_command "stopDataAcq"
-      if [ $? -ne 0 ] ; then
-        handle_error $?
+      status=$?
+      if [ $status -ne 0 ] ; then
+        handle_error $status
         continue
       fi
       echo -n "$(date '+%s,%F %H-%M-%S')" | sudo tee -a /data/tagMonitor_log_fifo_overflows.csv

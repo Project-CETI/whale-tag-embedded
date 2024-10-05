@@ -36,8 +36,8 @@ i2cset -y 1 0x36 0x60 0xE904 w
 sleep 10
 # 6
 x=$(i2cget -y 1 0x36 0x61 w)
-y=$(($x & 0x0004))
-if [[ $y -eq 4 ]]
+y=$((x & 0x0004))
+if (( y == 4 ))
 then
     echo 'NV Error Bit not cleared, try again'
     exit 1
@@ -54,8 +54,8 @@ i2cset -y 1 0x36 0xAB 0x8000 w
 # 11
 sleep 1
 x=$(i2cget -y 1 0x36 0xAB w)
-y=$(($x & 0x8000))
-if [[ $y -eq 0x8000 ]]
+y=$((x & 0x8000))
+if (( y == 0x8000 ))
 then
     echo 'POR Process not complete. Wait, then clear write protection'
     exit 0
@@ -63,5 +63,5 @@ fi
 # 12
 i2cset -y 1 0x36 0x61 0x00f9 w
 i2cset -y 1 0x36 0x61 0x00f9 w
-echo 'Nonvolitile memory set`
+echo 'Nonvolitile memory set'
 exit 0

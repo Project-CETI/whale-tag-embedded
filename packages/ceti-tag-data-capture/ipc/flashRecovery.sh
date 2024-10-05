@@ -44,7 +44,7 @@ sleep 1
 stm32flash /dev/serial0 > /dev/null 2>&1
 code=$?
 
-if [ $code -eq 1 ]
+if [[ $code -eq 1 ]]
 then
         echo 'stm32flash cannot initialize device.'
         exit 1
@@ -68,10 +68,10 @@ echo 'stm32 device has been initialized.'
 # elif
 if [[  $1 == *.bin ]]; then
         bin="$1"
-elif [ $1 == *.elf ]; then
+elif [[ $1 == *.elf ]]; then
         elf="$1"
         bin='/opt/ceti-tag-data-capture/ipc/flash.bin'
-        sudo objcopy -O binary $elf $bin
+        sudo objcopy -O binary "$elf" $bin
 else
         echo 'Invalid argument supplied'
         exit 1
@@ -85,7 +85,7 @@ if ! test -f "$bin"; then
 fi
 
 # Flashes board
-stm32flash -v -w $bin /dev/serial0
+stm32flash -v -w "$bin" /dev/serial0
 code=$?
 sleep 1
 if [ $code -eq 1 ]
