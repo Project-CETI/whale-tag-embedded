@@ -30,7 +30,6 @@ jobs:
       - name: Run Super-Linter
         uses: super-linter/super-linter@v7.1.0
         env:
-          DEFAULT_BRANCH: v2_3
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VALIDATE_CPP: false
           VALIDATE_DOCKERFILE_HADOLINT: false
