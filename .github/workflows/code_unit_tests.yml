@@ -12,13 +12,17 @@ jobs:
     name: Code Unit Test
     # Set the type of machine to run on
     runs-on: ubuntu-latest
-
     steps:
       # Checks out a copy of your repository on the ubuntu-latest machine
       - name: Checkout Code
         uses: actions/checkout@v2
         with:
           submodules: true
+
+      - name: Download Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install flac libflac-dev
 
       # update submodules
       - name: Git Submodule Update
