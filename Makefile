@@ -155,7 +155,6 @@ lint:
   		-e LOG_LEVEL=NOTICE \
 		-e VALIDATE_ALL_CODEBASE=false \
 		-e VALIDATE_CLANG_FORMAT=true \
-		-e FIX_CLANG_FORMAT=true \
 		-v $(shell pwd):/tmp/lint \
 		--rm ghcr.io/super-linter/super-linter:latest
 
