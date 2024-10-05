@@ -152,7 +152,6 @@ $(TARGET_IMG): $(ENV_IMG) $(PACKAGES) $(patsubst %.sh, %.timestamp, $(PACKAGE_IN
 lint: 
 	docker run \
 		-e RUN_LOCAL=true \
-  		-e LOG_LEVEL=NOTICE \
 		-e VALIDATE_CPP=false \
 		-e VALIDATE_DOCKERFILE_HADOLINT=false \
 		-e VALIDATE_JSCPD=false \
