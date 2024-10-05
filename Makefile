@@ -47,6 +47,7 @@ RPI_TOOL_TS = $(BUILD_DIR)/rpi-image.timestamp
 	build \
 	test \
 	packages \
+	lint \
 	docker-image \
 	docker-image-remove \
 	docker-shell \
@@ -147,6 +148,16 @@ $(TARGET_IMG): $(ENV_IMG) $(PACKAGES) $(patsubst %.sh, %.timestamp, $(PACKAGE_IN
 	mv -f $@.tmp $@
 	@echo "$$(< $(BUILD_DIR)/logo.txt)"
 	
+
+lint: 
+	docker run \
+		-e RUN_LOCAL=true \
+  		-e LOG_LEVEL=NOTICE \
+		-e VALIDATE_ALL_CODEBASE=false \
+		-e VALIDATE_CLANG_FORMAT=true \
+		-e FIX_CLANG_FORMAT=true \
+		-v $(shell pwd):/tmp/lint \
+		--rm ghcr.io/super-linter/super-linter:latest
 
 # Docker helpers
 $(DOCKER_IMAGE):

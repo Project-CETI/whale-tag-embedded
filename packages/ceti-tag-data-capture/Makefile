@@ -43,8 +43,7 @@ LDFLAGS    = -lpthread -lpigpio -lFLAC -lm -lrt
 	install \
 	clean \
 	debug \
-	$(APPS) \
-	list
+	$(APPS)
 	
 build: $(APPS)
 
