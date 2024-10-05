@@ -121,7 +121,7 @@
 #endif
 #endif
 
-#endif //UNIT_TEST
+#endif // UNIT_TEST
 
 // Include this regardless of ENABLE_SYSTEMMONITOR
 //  since the launcher will use its helpers to check disk usage.

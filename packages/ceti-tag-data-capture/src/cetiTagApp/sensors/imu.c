@@ -408,7 +408,7 @@ void *imu_thread(void *paramPtr) {
                 }
 
                 // If any file size limit has been reached, start a new file.
-                if ((imu_data_file_size_b >= (long)(IMU_MAX_FILE_SIZE_MB)*1024L * 1024L || imu_data_file_size_b < 0) && !g_stopAcquisition) {
+                if ((imu_data_file_size_b >= (long)(IMU_MAX_FILE_SIZE_MB) * 1024L * 1024L || imu_data_file_size_b < 0) && !g_stopAcquisition) {
                     imu_close_all_files();
                     imu_init_data_files();
 

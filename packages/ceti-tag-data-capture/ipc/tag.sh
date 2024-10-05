@@ -1,4 +1,4 @@
 #!/bin/bash
-echo "$1 $2" > cetiCommand
+echo "$1 $2" >cetiCommand
 
 cat cetiResponse

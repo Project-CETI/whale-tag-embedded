@@ -156,8 +156,11 @@ lint:
 		-e VALIDATE_DOCKERFILE_HADOLINT=false \
 		-e VALIDATE_JSCPD=false \
 		-e VALIDATE_NATURAL_LANGUAGE=false \
+		-e VALIDATE_CHECKOV=false \
+		-e LINTER_RULES_PATH=.github/linters \
+		-e DEFAULT_BRANCH=v2_3 \
 		-v $(shell pwd):/tmp/lint \
-		--rm ghcr.io/super-linter/super-linter:latest
+		--rm ghcr.io/super-linter/super-linter:v7.1.0
 
 # Docker helpers
 $(DOCKER_IMAGE):

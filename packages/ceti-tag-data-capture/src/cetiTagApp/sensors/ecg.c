@@ -350,7 +350,7 @@ void *ecg_thread_writeData(void *paramPtr) {
                 fclose(ecg_data_file);
 
                 // If the file size limit has been reached, start a new file.
-                if ((ecg_data_file_size_b >= (long)(ECG_MAX_FILE_SIZE_MB)*1024L * 1024L || ecg_data_file_size_b < 0) && !g_stopAcquisition)
+                if ((ecg_data_file_size_b >= (long)(ECG_MAX_FILE_SIZE_MB) * 1024L * 1024L || ecg_data_file_size_b < 0) && !g_stopAcquisition)
                     init_ecg_data_file(0);
 
                 // CETI_LOG("Wrote %d entries in %lld us", ECG_BUFFER_LENGTH, get_global_time_us() - start_time_us);
