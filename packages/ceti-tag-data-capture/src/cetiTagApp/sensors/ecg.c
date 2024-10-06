@@ -155,12 +155,13 @@ void *ecg_thread_getData(void *paramPtr) {
     int should_reinitialize = 0;
     long long start_time_ms = get_global_time_ms();
     while (!g_stopAcquisition) {
-        //wait for data to be ready
-        if(ecg_adc_read_data_ready() != 0){
-            //don't worry about sleeping;
-            // usleep(100);
-            //ToDo: does not implement timeout check like non-sleepy code
-            continue;// continue used to guarentee outer loop exit conditions are checked and respected
+        // wait for data to be ready
+        if (ecg_adc_read_data_ready() != 0) {
+            // don't worry about sleeping;
+            //  usleep(100);
+
+            // ToDo: does not implement timeout check like non-sleepy code
+            continue; // continue used to guarentee outer loop exit conditions are checked and respected
         }
 
         // Store the new data sample and its timestamp.
@@ -185,6 +186,13 @@ void *ecg_thread_getData(void *paramPtr) {
         // Update indexes.
         shm_ecg->sample_indexes[shm_ecg->page][shm_ecg->sample] = sample_index;
         sample_index++;
+
+        /* MSH: Possible performance improvements:
+         * 1) Reserve sample processing (i.e. conversion to strings) for
+         * buffer write operation.
+         * 2) strcat() requires iteration over the existing string every call.
+         * Consider tracking end of current notes pointer.
+         */
 
         // Check if there was an error reading from the ADC.
         // Note that the sample will already be set to ECG_INVALID_PLACEHOLDER
@@ -252,8 +260,8 @@ void *ecg_thread_getData(void *paramPtr) {
 
         // // sleep duration shortened to 75% of sample interval to ensure ADC config still dictates sampling interval
         int64_t elapsed_time = (get_global_time_us() - prev_ecg_adc_latest_reading_global_time_us);
-        if((ECG_SAMPLING_PERIOD_US * 75 / 100  - elapsed_time) > 0) {
-            usleep(ECG_SAMPLING_PERIOD_US * 75 / 100  - elapsed_time);
+        if ((ECG_SAMPLING_PERIOD_US * 75 / 100 - elapsed_time) > 0) {
+            usleep(ECG_SAMPLING_PERIOD_US * 75 / 100 - elapsed_time);
         }
     }
     // Print the duration and the sampling rate.
