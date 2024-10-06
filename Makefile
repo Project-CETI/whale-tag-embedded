@@ -48,6 +48,7 @@ RPI_TOOL_TS = $(BUILD_DIR)/rpi-image.timestamp
 	test \
 	packages \
 	lint \
+	lint_fix \
 	docker-image \
 	docker-image-remove \
 	docker-shell \
@@ -158,7 +159,24 @@ lint:
 		-e VALIDATE_NATURAL_LANGUAGE=false \
 		-e VALIDATE_CHECKOV=false \
 		-e LINTER_RULES_PATH=.github/linters \
-		-e DEFAULT_BRANCH=v2_3 \
+		-e DEFAULT_BRANCH=main \
+		-v $(shell pwd):/tmp/lint \
+		--rm ghcr.io/super-linter/super-linter:v7.1.0
+
+lint_fix: 
+	docker run \
+		-e RUN_LOCAL=true \
+		-e VALIDATE_CPP=false \
+		-e VALIDATE_DOCKERFILE_HADOLINT=false \
+		-e VALIDATE_JSCPD=false \
+		-e VALIDATE_NATURAL_LANGUAGE=false \
+		-e VALIDATE_CHECKOV=false \
+		-e FIX_CLANG_FORMAT=true \
+		-e FIX_MARKDOWN_PRETTIER=true \
+		-e FIX_YAML_PRETTIER=true \
+		-e FIX_SHELL_SHFMT=true \
+		-e LINTER_RULES_PATH=.github/linters \
+		-e DEFAULT_BRANCH=main \
 		-v $(shell pwd):/tmp/lint \
 		--rm ghcr.io/super-linter/super-linter:v7.1.0
 
