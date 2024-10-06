@@ -176,7 +176,8 @@ while :; do
 	# Check that there is disk space available to continue recording.
 	# The tag app should automatically stop if there is less than 1 GiB free.
 	disk_avail_kb=$(df --output=target,avail | grep /data)
-	set "$disk_avail_kb"
+	# shellcheck disable=SC2086 # Intended splitting of data_avail_kb
+	set $disk_avail_kb
 	echo "$2 KiB available"
 	if [ $data_acquisition_running -eq 1 ] && [ "$2" -lt $((1 * 1024 * 1024)) ]; then
 		echo "disk almost full; stopping data acquisition"
