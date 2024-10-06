@@ -17,8 +17,7 @@
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
-#define FORCE_NETWORKS_OFF_ON_START 0 // turn off networks regardless of dive status
-#define CETI_CONFIG_FILE "../config/ceti-config.txt"
+#define FORCE_NETWORKS_OFF_ON_START 0 // turn off networks regardless of dive status 
 
 typedef enum {         // Tag operational states for deployment sequencing
     ST_CONFIG = 0,     // get the deployment parameters from config file
