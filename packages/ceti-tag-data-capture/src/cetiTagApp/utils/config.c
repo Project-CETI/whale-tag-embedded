@@ -15,6 +15,7 @@
 #include <errno.h>  //for error detection for string conversion
 #include <stdio.h>  // for FILE
 #include <stdlib.h> // for atof, atol, etc
+#include <time.h>
 
 /**************************
  *
@@ -30,6 +31,7 @@ TagConfig g_config = {
     .release_voltage_v = CONFIG_DEFAULT_RELEASE_VOLTAGE_V,
     .critical_voltage_v = CONFIG_DEFAULT_CRITICAL_VOLTAGE_V,
     .timeout_s = CONFIG_DEFAULT_TIMEOUT_S,
+    .tod_release = {.valid = 0},
     .burn_interval_s = CONFIG_DEFAULT_BURN_INTERVAL_S,
     .recovery = {
         .enabled = CONFIG_DEFAULT_RECOVERY_ENABLED,
@@ -58,6 +60,8 @@ static ConfigError __config_parse_dive_pressure(const char *_String);
 static ConfigError __config_parse_release_voltage(const char *_String);
 static ConfigError __config_parse_critical_voltage(const char *_String);
 static ConfigError __config_parse_timeout(const char *_String);
+static ConfigError __config_parse_time_of_day(const char *_String);
+// static ConfigError __config_parse_date_time(const char *_String);
 static ConfigError __config_parse_burn_interval_value(const char *_String);
 static ConfigError __config_parse_recovery_enable_value(const char *_String);
 static ConfigError __config_parse_recovery_callsign_value(const char *_String);
@@ -72,6 +76,7 @@ const ConfigList config_keys[] = {
     {.key = STR_FROM("V1"), .parse = __config_parse_release_voltage},
     {.key = STR_FROM("V2"), .parse = __config_parse_critical_voltage},
     {.key = STR_FROM("T0"), .parse = __config_parse_timeout},
+    // {.key = STR_FROM("date_time"), .parse = __config_parse_date_time},
     {.key = STR_FROM("BT"), .parse = __config_parse_burn_interval_value},
     {.key = STR_FROM("audio_filter"), .parse = __config_parse_audio_filter_type},
     {.key = STR_FROM("audio_bitdepth"), .parse = __config_parse_audio_bitdepth},
@@ -80,6 +85,7 @@ const ConfigList config_keys[] = {
     {.key = STR_FROM("rec_callsign"), .parse = __config_parse_recovery_callsign_value},
     {.key = STR_FROM("rec_recipient"), .parse = __config_parse_recovery_recipient_value},
     {.key = STR_FROM("rec_freq"), .parse = __config_parse_recovery_freq_value},
+    {.key = STR_FROM("time_of_day_release"), .parse = __config_parse_time_of_day},
 };
 
 /* Private Methods ***********************************************************/
@@ -264,6 +270,23 @@ static ConfigError __config_parse_timeout(const char *_String) {
 
     g_config.timeout_s = parsed_value;
     CETI_DEBUG("time release set to %ld seconds", parsed_value);
+    return CONFIG_OK;
+}
+
+static ConfigError __config_parse_time_of_day(const char *_String) {
+    struct tm tm = {};
+    char *end_ptr = strptime(_String, "%R %Z", &tm);
+    if (end_ptr == NULL) {
+        *end_ptr = strptime(_String, "%R %z", &tm);
+        if (end_ptr == NULL) {
+            end_ptr = strptime(_String, "%R", &tm);
+            if (end_ptr == NULL) {
+                return CONFIG_ERR_INVALID_VALUE;
+            }
+        }
+    }
+    memcpy(&g_config.tod_release.value, &tm, sizeof(tm));
+    g_config.tod_release.valid = true;
     return CONFIG_OK;
 }
 
