@@ -14,22 +14,20 @@
 // Includes
 //-----------------------------------------------------------------------------
 
-
+#include "../cetiTag.h"       //for CetiImuQuatSample
 #include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
 #include "../utils/logging.h"
 #include "../utils/timing.h" // for timestamps
-#include "../cetiTag.h" //for CetiImuQuatSample
 
 #include <inttypes.h>
 #include <math.h> // for fmin()
+#include <math.h> // for fmin(), sqrt(), atan2(), M_PI
 #include <pigpio.h>
 #include <pthread.h> // to set CPU affinity
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h> // for usleep()
-#include <math.h> // for fmin(), sqrt(), atan2(), M_PI
-#include <pthread.h> // to set CPU affinity
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
@@ -43,13 +41,7 @@
 // reduce delays in the loop)
 #define IMU_DATA_FILE_FLUSH_PERIOD_US 1000000
 
-typedef struct { // euler angles
-    double roll;
-    double pitch;
-    double yaw;
-} EulerAngles_f64;
-
-#define BUS_IMU 0x00   //IMU is only device on i2c0
+#define BUS_IMU 0x00 // IMU is only device on i2c0
 #define ADDR_IMU 0x4A
 #define IMU_N_RESET 4
 // Bitbang IMU I2C
@@ -127,11 +119,11 @@ typedef struct { // euler angles
 // #define IMU_CALIBRATE_ACCEL_GYRO_MAG 4
 // #define IMU_CALIBRATE_STOP 5
 
-//imu_setup report enable bits
-#define IMU_QUAT_ENABLED  (1 << IMU_SENSOR_REPORTID_ROTATION_VECTOR)
+// imu_setup report enable bits
+#define IMU_QUAT_ENABLED (1 << IMU_SENSOR_REPORTID_ROTATION_VECTOR)
 #define IMU_ACCEL_ENABLED (1 << IMU_SENSOR_REPORTID_ACCELEROMETER)
-#define IMU_GYRO_ENABLED  (1 << IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED)
-#define IMU_MAG_ENABLED   (1 << IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED)
+#define IMU_GYRO_ENABLED (1 << IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED)
+#define IMU_MAG_ENABLED (1 << IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED)
 #define IMU_ALL_ENABLED (IMU_QUAT_ENABLED | IMU_ACCEL_ENABLED | IMU_GYRO_ENABLED | IMU_MAG_ENABLED)
 
 //-----------------------------------------------------------------------------
@@ -148,7 +140,5 @@ int resetIMU();
 int setupIMU(uint8_t enabled_features);
 int imu_enable_feature_report(int report_id, uint32_t report_interval_us);
 int imu_read_data();
-int imu_get_euler_angles(EulerAngles_f64 *e);
-void* imu_thread(void* paramPtr);
-void quat2eul(EulerAngles_f64 *e, CetiImuQuatSample *q);
+void *imu_thread(void *paramPtr);
 #endif // IMU_H

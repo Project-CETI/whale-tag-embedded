@@ -14,19 +14,6 @@
 // Includes
 //-----------------------------------------------------------------------------
 
-#include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
-#include "../systemMonitor.h" // for the global CPU assignment variable to update
-#include "../cetiTag.h"
-
-#include <pthread.h> // to set CPU affinity
-#include <sched.h>   // to set process priority
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/time.h>
-#include <unistd.h>
-
 //-----------------------------------------------------------------------------
 // Definitions/Configurations
 //-----------------------------------------------------------------------------
@@ -47,7 +34,7 @@
 
 // value assigned to kHz value for easy printing, but enum limit number of options
 
-typedef enum audio_sample_rate_e{
+typedef enum audio_sample_rate_e {
     AUDIO_SAMPLE_RATE_DEFAULT,
     AUDIO_SAMPLE_RATE_48KHZ = 48,
     AUDIO_SAMPLE_RATE_96KHZ = 96,
@@ -64,7 +51,7 @@ typedef enum audio_filter_type_e {
     AUDIO_FILTER_SINC5 = 1,
 } AudioFilterType;
 
-typedef struct audio_config_t{
+typedef struct audio_config_t {
     AudioFilterType filter_type;
     AudioSampleRate sample_rate;
     AudioBitDepth bit_depth;

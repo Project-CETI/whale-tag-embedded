@@ -14,11 +14,9 @@
 // Includes
 //-----------------------------------------------------------------------------
 
-
 #include "battery.h"
 #include "burnwire.h"
 #include "launcher.h" // for specification of enabled sensors, init_tag(), g_exit, sampling rate, data filepath, and CPU affinity, etc.
-#include "recovery.h"
 #include "sensors/imu.h"
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 #include "utils/logging.h"
@@ -40,9 +38,7 @@
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
-extern FILE *g_cmd_pipe;
-extern FILE *g_rsp_pipe;
-extern char g_command[256];
+
 extern int g_command_thread_is_running;
 
 //-----------------------------------------------------------------------------

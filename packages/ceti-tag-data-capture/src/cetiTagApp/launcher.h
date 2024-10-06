@@ -54,7 +54,7 @@
 #define IMU_CPU 1
 #define LIGHT_CPU 1
 #define PRESSURETEMPERATURE_CPU 1
-#define RECOVERY_CPU 1
+#define RECOVERY_RX_CPU 1
 #define RTC_CPU 1
 #define COMMAND_CPU 0
 #define STATEMACHINE_CPU 0
@@ -74,6 +74,7 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
+#ifndef UNIT_TEST
 #include <pigpio.h>
 
 #include "commands.h"
@@ -90,7 +91,7 @@
 #endif
 
 #if ENABLE_FPGA
-#include "fpga.h"
+#include "device/fpga.h"
 #endif
 
 #if ENABLE_RECOVERY
@@ -120,6 +121,7 @@
 #endif
 #endif
 
+#endif // UNIT_TEST
 
 // Include this regardless of ENABLE_SYSTEMMONITOR
 //  since the launcher will use its helpers to check disk usage.
@@ -130,6 +132,7 @@
 //-----------------------------------------------------------------------------
 extern int g_exit;
 extern int g_stopAcquisition;
+extern int g_stopLogging;
 extern char g_process_path[256];
 
 //-----------------------------------------------------------------------------
