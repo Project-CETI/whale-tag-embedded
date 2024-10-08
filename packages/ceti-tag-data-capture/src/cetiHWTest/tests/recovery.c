@@ -5,8 +5,8 @@
 //-----------------------------------------------------------------------------
 #include "../tests.h"
 
-#include "../tui.h"
 #include "../../cetiTagApp/cetiTag.h"
+#include "../tui.h"
 
 #include <fcntl.h>
 #include <pthread.h>
@@ -33,7 +33,7 @@ TestState test_recovery(FILE *pResultsFile) {
 //         .callsign = "KC1TUJ",
 //         .ssid = 3,
 //     };
-    
+
 //     sentence[0] = 0;
 //     if (recovery_init()  != 0) {
 //         printf(RED(FAIL) "UART Communication Failure.\n");
@@ -63,7 +63,7 @@ TestState test_recovery(FILE *pResultsFile) {
 //         return TEST_STATE_FAILED; //imu communication error
 //     }
 //     recovery_set_aprs_message_recipient(&(APRSCallsign){.callsign = "KC1QXQ", .ssid = 8});
-        
+
 //     // recovery_set_critical_voltage(6.2f);
 
 //     // recovery_set_aprs_freq_mhz(145.05f);
@@ -127,18 +127,17 @@ TestState test_recovery(FILE *pResultsFile) {
 //         printf("\e[9;1H\e[0KGPS: %s\n", gps_pass ? GREEN(PASS) : YELLOW("Waiting for lock... "));
 //         printf("\e[10;4H\e[0K%s\n", sentence);
 
-
 //         // get user input
 //         if(read(STDIN_FILENO, &input, 1) == 1){
 //             if(!vhf_pass){
-//                 if( (('0' <= input) && (input <= '9')) 
-//                     || (('A' <= input) && (input <= 'Z')) 
-//                     || (('a' <= input) && (input <= 'z')) 
+//                 if( (('0' <= input) && (input <= '9'))
+//                     || (('A' <= input) && (input <= 'Z'))
+//                     || (('a' <= input) && (input <= 'z'))
 //                 ){ //character
 //                     user_input[cursor] = input;
 //                     if (cursor < 3) {
 //                         cursor += 1;
-//                     } 
+//                     }
 //                     input = 0;
 //                     if(memcmp(rand_str, user_input, 5) == 0){
 //                         vhf_pass = true;

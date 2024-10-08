@@ -18,13 +18,13 @@
 #include <unistd.h> // for usleep()
 
 #define NUM_BYTES_MESSAGE 8
-#define FPGA_BITSTREAM_SIZE_BYTES (243048 * 2)  // See Xilinx Configuration User Guide UG332
+#define FPGA_BITSTREAM_SIZE_BYTES (243048 * 2) // See Xilinx Configuration User Guide UG332
 #define FPGA_BITSTREAM_CONFIG_FILE_SIZE_BYTES (149516)
 
 /*****************************************************************************
  * Device Code
-*/
-WTResult wt_fpga_init(const char *fpga_bitstream_path){
+ */
+WTResult wt_fpga_init(const char *fpga_bitstream_path) {
     // Power present flag used by FPGA during shutdown
     gpioSetMode(FPGA_POWER_FLAG, PI_OUTPUT);
     gpioWrite(FPGA_POWER_FLAG, 1);
@@ -80,7 +80,6 @@ WTResult wt_fpga_load_bitstream(const char *fpga_bitstream_path) {
         return WT_RESULT(WT_DEV_FPGA, WT_ERR_FILE_READ);
     }
 
-
     // Relase FPGA_PROG_B
     usleep(500);
     gpioWrite(FPGA_PROG_B, 1);
@@ -102,7 +101,7 @@ WTResult wt_fpga_load_bitstream(const char *fpga_bitstream_path) {
         }
     }
 
-    //free configuration bitstream memory
+    // free configuration bitstream memory
     free(pConfig);
 
     return gpioRead(FPGA_DONE) ? WT_OK : WT_RESULT(WT_DEV_FPGA, WT_ERR_FPGA_N_DONE);
@@ -117,66 +116,66 @@ WTResult wt_fpga_load_bitstream(const char *fpga_bitstream_path) {
 //  string
 //-----------------------------------------------------------------------------
 void wt_fpga_cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
-         unsigned int pld0, unsigned int pld1, char *pResponse) {
-  int i, j;
-  char data_byte = 0x00;
-  char send_packet[NUM_BYTES_MESSAGE];
-  char recv_packet[NUM_BYTES_MESSAGE];
+                 unsigned int pld0, unsigned int pld1, char *pResponse) {
+    int i, j;
+    char data_byte = 0x00;
+    char send_packet[NUM_BYTES_MESSAGE];
+    char recv_packet[NUM_BYTES_MESSAGE];
 
-  gpioSetMode(FPGA_CAM_RESET, PI_OUTPUT);
-  gpioSetMode(FPGA_CAM_DOUT, PI_OUTPUT);
-  gpioSetMode(FPGA_CAM_DIN, PI_INPUT);
-  gpioSetMode(FPGA_CAM_SCK, PI_OUTPUT);
+    gpioSetMode(FPGA_CAM_RESET, PI_OUTPUT);
+    gpioSetMode(FPGA_CAM_DOUT, PI_OUTPUT);
+    gpioSetMode(FPGA_CAM_DIN, PI_INPUT);
+    gpioSetMode(FPGA_CAM_SCK, PI_OUTPUT);
 
-  // Initialize the GPIO lines
-  gpioWrite(FPGA_CAM_RESET, 1);
-  gpioWrite(FPGA_CAM_SCK, 0);
-  gpioWrite(FPGA_CAM_DOUT, 0);
+    // Initialize the GPIO lines
+    gpioWrite(FPGA_CAM_RESET, 1);
+    gpioWrite(FPGA_CAM_SCK, 0);
+    gpioWrite(FPGA_CAM_DOUT, 0);
 
-  // Send a CAM packet Pi -> FPGA
-  send_packet[0] = 0x02;         // STX
-  send_packet[1] = (char)opcode; // Opcode
-  send_packet[2] = (char)arg0;   // Arg0
-  send_packet[3] = (char)arg1;   // Arg1
-  send_packet[4] = (char)pld0;   // Payload0
-  send_packet[5] = (char)pld1;   // Payload1
-  send_packet[6] = 0x00;         // Checksum
-  send_packet[7] = 0x03;         // ETX
+    // Send a CAM packet Pi -> FPGA
+    send_packet[0] = 0x02;         // STX
+    send_packet[1] = (char)opcode; // Opcode
+    send_packet[2] = (char)arg0;   // Arg0
+    send_packet[3] = (char)arg1;   // Arg1
+    send_packet[4] = (char)pld0;   // Payload0
+    send_packet[5] = (char)pld1;   // Payload1
+    send_packet[6] = 0x00;         // Checksum
+    send_packet[7] = 0x03;         // ETX
 
-  for (j = 0; j < NUM_BYTES_MESSAGE; j++) {
-    data_byte = send_packet[j];
+    for (j = 0; j < NUM_BYTES_MESSAGE; j++) {
+        data_byte = send_packet[j];
 
-    for (i = 0; i < 8; i++) {
-      gpioWrite(FPGA_CAM_DOUT, !!(data_byte & 0x80)); // setup data
-      usleep(100);
-      gpioWrite(FPGA_CAM_SCK, 1); // pulse the clock
-      usleep(100);
-      gpioWrite(FPGA_CAM_SCK, 0);
-      usleep(100);
-      data_byte = data_byte << 1;
+        for (i = 0; i < 8; i++) {
+            gpioWrite(FPGA_CAM_DOUT, !!(data_byte & 0x80)); // setup data
+            usleep(100);
+            gpioWrite(FPGA_CAM_SCK, 1); // pulse the clock
+            usleep(100);
+            gpioWrite(FPGA_CAM_SCK, 0);
+            usleep(100);
+            data_byte = data_byte << 1;
+        }
     }
-  }
-  gpioWrite(FPGA_CAM_DOUT, 0);
-  usleep(2);
+    gpioWrite(FPGA_CAM_DOUT, 0);
+    usleep(2);
 
-  usleep(2000); // need to let i2c finish
+    usleep(2000); // need to let i2c finish
 
-  // Receive the response packet FPGA -> Pi
-  for (j = 0; j < NUM_BYTES_MESSAGE; j++) {
+    // Receive the response packet FPGA -> Pi
+    for (j = 0; j < NUM_BYTES_MESSAGE; j++) {
 
-    data_byte = 0;
+        data_byte = 0;
 
-    for (i = 0; i < 8; i++) {
-      gpioWrite(FPGA_CAM_SCK, 1); // pulse the clock
-      usleep(100);
-      data_byte = (gpioRead(FPGA_CAM_DIN) << (7 - i) | data_byte);
-      gpioWrite(FPGA_CAM_SCK, 0);
-      usleep(100);
+        for (i = 0; i < 8; i++) {
+            gpioWrite(FPGA_CAM_SCK, 1); // pulse the clock
+            usleep(100);
+            data_byte = (gpioRead(FPGA_CAM_DIN) << (7 - i) | data_byte);
+            gpioWrite(FPGA_CAM_SCK, 0);
+            usleep(100);
+        }
+
+        recv_packet[j] = data_byte;
     }
-
-    recv_packet[j] = data_byte;
-  }
-  if(pResponse != NULL){
-    memcpy(pResponse, recv_packet, NUM_BYTES_MESSAGE);
-  }
+    if (pResponse != NULL) {
+        memcpy(pResponse, recv_packet, NUM_BYTES_MESSAGE);
+    }
 }

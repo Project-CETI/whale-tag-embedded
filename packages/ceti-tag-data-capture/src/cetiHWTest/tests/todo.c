@@ -8,16 +8,16 @@
 #include "../tui.h"
 
 TestState test_ToDo(FILE *pResultsFiles) {
-    //display message
+    // display message
     printf(YELLOW("TODO: IMPLEMENT THIS TEST!!!!!!!\n"));
 
-    //get user input
+    // get user input
     char input = '\0';
-    while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)){
+    while ((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)) {
         ;
     }
 
-    if(input == 27)
+    if (input == 27)
         return TEST_STATE_TERMINATE;
 
     return TEST_STATE_PASSED;

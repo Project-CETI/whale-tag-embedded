@@ -5,8 +5,8 @@
 //-----------------------------------------------------------------------------
 #include "../tests.h"
 
-#include "../tui.h"
 #include "../../cetiTagApp/cetiTag.h"
+#include "../tui.h"
 
 #include <net/if.h>
 #include <string.h>
@@ -41,38 +41,38 @@ static int checkInterfaceStatus(const char *interface) {
 }
 
 // Tests for WiFi and Eth0 connections
-TestState test_internet(FILE *pResultsFile){
+TestState test_internet(FILE *pResultsFile) {
     int wlan0_pass = 0;
     int eth0_pass = 0;
     char input = 0;
 
     printf("Instructions: connect ethernet and wifi\n\n");
 
-    while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0) && !(eth0_pass && wlan0_pass)){
-        //test connection
-        if(!wlan0_pass)
+    while ((read(STDIN_FILENO, &input, 1) != 1) && (input == 0) && !(eth0_pass && wlan0_pass)) {
+        // test connection
+        if (!wlan0_pass)
             wlan0_pass |= checkInterfaceStatus("wlan0");
-        
+
         if (!eth0_pass)
             eth0_pass |= checkInterfaceStatus("eth0");
 
-        //display progress
+        // display progress
         printf("\e[4;1H\e[0Kwlan0: %s\n", wlan0_pass ? GREEN(PASS) : YELLOW("Waiting for connection..."));
         printf("\e[7;1H\e[0K eth0: %s\n", eth0_pass ? GREEN(PASS) : YELLOW("Waiting for connection..."));
         fflush(stdin);
     }
 
-    //record results
+    // record results
     fprintf(pResultsFile, "[%s]: wlan0\n", wlan0_pass ? "PASS" : "FAIL");
     fprintf(pResultsFile, "[%s]: eth0\n", eth0_pass ? "PASS" : "FAIL");
 
-    //wait for user to advance screen
-    if(input == 0){
-        do{
+    // wait for user to advance screen
+    if (input == 0) {
+        do {
             ;
-        }while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0));
+        } while ((read(STDIN_FILENO, &input, 1) != 1) && (input == 0));
     }
-    return (input == 27) ? TEST_STATE_TERMINATE
-         : (eth0_pass && wlan0_pass) ? TEST_STATE_PASSED
-         : TEST_STATE_FAILED;
+    return (input == 27)               ? TEST_STATE_TERMINATE
+           : (eth0_pass && wlan0_pass) ? TEST_STATE_PASSED
+                                       : TEST_STATE_FAILED;
 }
