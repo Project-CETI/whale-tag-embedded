@@ -179,6 +179,11 @@ lint_fix:
 		-e DEFAULT_BRANCH=main \
 		-v $(shell pwd):/tmp/lint \
 		--rm ghcr.io/super-linter/super-linter:v7.1.0
+	# Updating bash executables permissions
+	git update-index --chmod=+x build/*.sh
+	git update-index --chmod=+x overlay/usr/lib/raspberrypi-sys-mods/firstboot
+	git update-index --chmod=+x packages/ceti-tag-data-capture/ipc/*.sh
+
 
 # Docker helpers
 $(DOCKER_IMAGE):
