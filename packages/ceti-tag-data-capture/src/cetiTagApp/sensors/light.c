@@ -9,20 +9,21 @@
 
 #include "light.h"
 
+#include "../device/dev_light.h"
+#include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
+#include "../systemMonitor.h" // for the global CPU assignment variable to update
+#include "../utils/logging.h"
 #include "../utils/memory.h"
 
+#include <errno.h> //for errno
 #include <fcntl.h>
+#include <pthread.h> // to set CPU affinity
 #include <semaphore.h>
+#include <string.h> //for strerror_r;
 
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
-
-#define LIGHT_TRY_OPEN(fd)                                 \
-    if ((fd = i2cOpen(1, ADDR_LIGHT, 0)) < 0) {            \
-        CETI_ERR("Failed to connect to the light sensor"); \
-        return -1;                                         \
-    }
 
 // Global/static variables
 int g_light_thread_is_running = 0;
@@ -37,8 +38,9 @@ CetiLightSample *g_light;
 sem_t *light_data_ready;
 
 int init_light() {
-    if (light_wake() != 0) {
-        CETI_ERR("Failed to wake light sensor");
+    WTResult hw_result = light_wake();
+    if (hw_result != WT_OK) {
+        CETI_ERR("Failed to wake light sensor %s", wt_strerror(hw_result));
         return -1;
     }
     CETI_LOG("Successfully initialized the light sensor");
@@ -67,7 +69,7 @@ void light_update_sample(void) {
     // create sample
     g_light->sys_time_us = get_global_time_us();
     g_light->rtc_time_s = getRtcCount();
-    g_light->error = getAmbientLight(&g_light->visible, &g_light->infrared);
+    g_light->error = light_get_value(&g_light->visible, &g_light->infrared);
 
     // push semaphore to indicate to user applications that new data is available
     sem_post(light_data_ready);
@@ -97,6 +99,8 @@ void light_sample_to_csv(FILE *fp, CetiLightSample *pSample) {
 // Main thread
 //-----------------------------------------------------------------------------
 void *light_thread(void *paramPtr) {
+    static uint32_t s_hw_error_reported = 0;
+    static uint32_t s_file_error_reported = 0;
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_light_thread_tid = gettid();
 
@@ -120,12 +124,27 @@ void *light_thread(void *paramPtr) {
     while (!g_stopAcquisition) {
         // Acquire timing and sensor information as close together as possible.
         light_update_sample();
+        if (g_light->error == WT_OK) {
+            s_hw_error_reported = 0;
+        } else {
+            // report non-consecutive errors
+            if (!s_hw_error_reported) {
+                CETI_ERR("%s", wt_strerror(g_light->error));
+                s_hw_error_reported = 1;
+            }
+        }
 
         if (!g_stopLogging) {
             light_data_file = fopen(LIGHT_DATA_FILEPATH, "at");
             if (light_data_file == NULL) {
-                CETI_LOG("failed to open data output file: %s", LIGHT_DATA_FILEPATH);
+                // report non-consecutive file errors
+                if (!s_file_error_reported) {
+                    char error_buffer[256];
+                    CETI_ERR("Failed to open data file: %s", strerror_r(errno, error_buffer, sizeof(error_buffer)));
+                    s_file_error_reported = 1;
+                }
             } else {
+                s_file_error_reported = 0;
                 light_sample_to_csv(light_data_file, g_light);
                 fclose(light_data_file);
             }
@@ -143,64 +162,27 @@ void *light_thread(void *paramPtr) {
     return NULL;
 }
 
-//-----------------------------------------------------------------------------
-// Ambient light sensor LiteON LTR-329ALS-01 Interface
-//-----------------------------------------------------------------------------
-
-int getAmbientLight(int *pAmbientLightVisible, int *pAmbientLightIR) {
-    int fd;
-
-    LIGHT_TRY_OPEN(fd);
-
-    // Read both wavelengths.
-    *pAmbientLightVisible = i2cReadWordData(fd, 0x88); // visible
-    *pAmbientLightIR = i2cReadWordData(fd, 0x8A);      // infrared
-    i2cClose(fd);
-    return (0);
-}
-
 int light_verify(void) {
-    int fd;
-    int result;
     uint8_t manu_id, part_id, rev_id;
-
-    LIGHT_TRY_OPEN(fd);
-
-    if ((result = i2cReadWordData(fd, 0x87)) < 0) {
+    if (light_get_manufacturer(&manu_id) != WT_OK) {
         CETI_ERR("Failed to read light sensor");
-        i2cClose(fd);
-        return result;
+        return 0;
     }
 
-    manu_id = (uint8_t)result;
     if (manu_id != 0x05) {
-        i2cClose(fd);
-        return 1;
+        return 0;
     }
 
-    if ((result = i2cReadWordData(fd, 0x86)) < 0) {
+    if (light_get_part(&part_id, &rev_id) != WT_OK) {
         CETI_ERR("Failed to read light sensor");
-        i2cClose(fd);
-        return result;
+        return 0;
     }
-    i2cClose(fd);
-
-    part_id = (uint8_t)result >> 4;
-    rev_id = (uint8_t)result & 0x0F;
 
     if (part_id != 0x0a)
-        return 2;
+        return 0;
     if (rev_id != 0x00)
-        return 3;
+        return 0;
 
     // part part verified
-    return 0;
-}
-
-int light_wake(void) {
-    int fd;
-
-    LIGHT_TRY_OPEN(fd);
-    return i2cWriteByteData(fd, 0x80, 0x1); // wake the light sensor up
-    i2cClose(fd);
+    return 1;
 }
