@@ -83,7 +83,7 @@ int main(void) {
         num_threads++;
     }
 
-if (!(s_thread_failures & (1 << THREAD_MISSION))) {
+    if (!(s_thread_failures & (1 << THREAD_MISSION))) {
         // Run the state machine.
         pthread_create(&thread_ids[num_threads], NULL, &stateMachine_thread, NULL);
         threads_running[num_threads] = &g_stateMachine_thread_is_running;
@@ -92,8 +92,8 @@ if (!(s_thread_failures & (1 << THREAD_MISSION))) {
 
     // IMU
 #if ENABLE_IMU
-if (!(s_thread_failures & (1 << THREAD_IMU_ACQ))) {
-    pthread_create(&thread_ids[num_threads], NULL, &imu_thread, NULL);
+    if (!(s_thread_failures & (1 << THREAD_IMU_ACQ))) {
+        pthread_create(&thread_ids[num_threads], NULL, &imu_thread, NULL);
         threads_running[num_threads] = &g_imu_thread_is_running;
         num_threads++;
     }
@@ -139,7 +139,7 @@ if (!(s_thread_failures & (1 << THREAD_IMU_ACQ))) {
 #if ENABLE_ECG
     if (!(s_thread_failures & (1 << THREAD_ECG_ACQ))) {
 #if ENABLE_ECG_LOD
-        if (!(s_thread_failures & (1 << THREAD_ECG_LOD_ACQ))){
+        if (!(s_thread_failures & (1 << THREAD_ECG_LOD_ACQ))) {
             pthread_create(&thread_ids[num_threads], NULL, &ecg_lod_thread, NULL);
             threads_running[num_threads] = &g_ecg_lod_thread_is_running;
             num_threads++;
@@ -158,7 +158,7 @@ if (!(s_thread_failures & (1 << THREAD_IMU_ACQ))) {
 
     // System resource monitor
 #if ENABLE_SYSTEMMONITOR
-    if (!(s_thread_failures & (1 << THREAD_META_ACQ))){
+    if (!(s_thread_failures & (1 << THREAD_META_ACQ))) {
         pthread_create(&thread_ids[num_threads], NULL, &systemMonitor_thread, NULL);
         threads_running[num_threads] = &g_systemMonitor_thread_is_running;
         num_threads++;
@@ -167,7 +167,7 @@ if (!(s_thread_failures & (1 << THREAD_IMU_ACQ))) {
 
     // Audio
 #if ENABLE_AUDIO
-    if (!(s_thread_failures & (1 << THREAD_AUDIO_ACQ))){
+    if (!(s_thread_failures & (1 << THREAD_AUDIO_ACQ))) {
         usleep(1000000); // wait to make sure all other threads are on their assigned CPUs (maybe not needed?)
         pthread_create(&thread_ids[num_threads], NULL, &audio_thread_spi, NULL);
         threads_running[num_threads] = &g_audio_thread_spi_is_running;
@@ -177,8 +177,8 @@ if (!(s_thread_failures & (1 << THREAD_IMU_ACQ))) {
 #if ENABLE_AUDIO_FLAC
         pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeFlac, NULL);
 #else
-        // dump raw audio files
-        pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeRaw, NULL);
+    // dump raw audio files
+    pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeRaw, NULL);
 #endif
         threads_running[num_threads] = &g_audio_thread_writeData_is_running;
         audio_write_thread_index = num_threads;
@@ -205,7 +205,7 @@ if (!(s_thread_failures & (1 << THREAD_IMU_ACQ))) {
 
 // Check if the audio needs to be restarted after an overflow.
 #if ENABLE_AUDIO
-        if (!(s_thread_failures & (1 << THREAD_AUDIO_ACQ))){
+        if (!(s_thread_failures & (1 << THREAD_AUDIO_ACQ))) {
             if (g_audio_overflow_detected && (g_audio_thread_spi_is_running && g_audio_thread_writeData_is_running)) {
                 // Wait for the threads to stop.
                 while (g_audio_thread_spi_is_running || g_audio_thread_writeData_is_running)
@@ -217,8 +217,8 @@ if (!(s_thread_failures & (1 << THREAD_IMU_ACQ))) {
                 pthread_create(&thread_ids[audio_write_thread_index], NULL, &audio_thread_writeFlac, NULL);
                 threads_running[audio_write_thread_index] = &g_audio_thread_writeData_is_running;
 #else
-                pthread_create(&thread_ids[audio_write_thread_index], NULL, &audio_thread_writeRaw, NULL);
-                threads_running[audio_write_thread_index] = &g_audio_thread_writeData_is_running;
+            pthread_create(&thread_ids[audio_write_thread_index], NULL, &audio_thread_writeRaw, NULL);
+            threads_running[audio_write_thread_index] = &g_audio_thread_writeData_is_running;
 #endif
                 usleep(100000);
             }
@@ -288,7 +288,7 @@ if (!(s_thread_failures & (1 << THREAD_IMU_ACQ))) {
 
 //-----------------------------------------------------------------------------
 // Helper method to initialize the tag.
-//-----------------------------------------------------------------------------    
+//-----------------------------------------------------------------------------
 int init_tag() {
     int result = 0;
 
@@ -306,7 +306,6 @@ int init_tag() {
     } else {
         CETI_LOG("Successfully initialized pigpio");
     }
-    
 
     if (init_timing() != 0) {
         s_thread_failures |= (1 << THREAD_RTC_ACQ);
@@ -347,13 +346,13 @@ int init_tag() {
 #endif
 
 #if ENABLE_LIGHT_SENSOR
-    if (init_light() != 0 ) {
+    if (init_light() != 0) {
         s_thread_failures |= (1 << THREAD_ALS_ACQ);
     }
 #endif
 
 #if ENABLE_IMU
-    if (init_imu() != 0 ) {
+    if (init_imu() != 0) {
         s_thread_failures |= (1 << THREAD_ALS_ACQ);
     }
 #endif
@@ -397,7 +396,7 @@ int init_tag() {
 
     if (s_thread_failures != 0) {
         CETI_ERR("Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
-        //if recovery OK, message about errors
+        // if recovery OK, message about errors
         if (!(s_thread_failures & (1 << THREAD_GPS_ACQ))) {
             char err_msg[68] = {};
             snprintf(recovery_message, 67, "Init Err: %04Xh", s_thread_failures);
