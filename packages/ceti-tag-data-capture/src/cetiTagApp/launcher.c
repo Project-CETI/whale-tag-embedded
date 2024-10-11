@@ -9,7 +9,9 @@
 
 #include "launcher.h"
 #include "utils/config.h"
+#include "utils/thread_error.h"
 
+#include <stdint.h>
 //-----------------------------------------------------------------------------
 // Initialize global variables
 //-----------------------------------------------------------------------------
@@ -17,6 +19,7 @@ int g_exit = 0;
 int g_stopAcquisition = 0;
 int g_stopLogging = 0;
 char g_process_path[256] = "/opt/ceti-tag-data-capture/bin";
+static uint32_t s_thread_failures = 0;
 
 void sig_handler(int signum) {
     CETI_LOG("Received termination request.");
@@ -28,6 +31,7 @@ void sig_handler(int signum) {
 //-----------------------------------------------------------------------------
 // Main loop.
 //-----------------------------------------------------------------------------
+
 int main(void) {
     // Define callbacks for handling signals.
     signal(SIGINT, sig_handler);
@@ -65,133 +69,121 @@ int main(void) {
     CETI_LOG("Starting acquisition threads");
     // RTC
 #if ENABLE_RTC
-    pthread_create(&thread_ids[num_threads], NULL, &rtc_thread, NULL);
-    threads_running[num_threads] = &g_rtc_thread_is_running;
-#ifdef DEBUG
-    strcpy(thread_name[num_threads], "rtc");
-#endif
-    num_threads++;
-#endif
-    // Handle user commands.
-    pthread_create(&thread_ids[num_threads], NULL, &command_thread, NULL);
-    threads_running[num_threads] = &g_command_thread_is_running;
-#ifdef DEBUG
-    strcpy(thread_name[num_threads], "command");
-#endif
-    num_threads++;
-    // Run the state machine.
-    pthread_create(&thread_ids[num_threads], NULL, &stateMachine_thread, NULL);
-    threads_running[num_threads] = &g_stateMachine_thread_is_running;
-#ifdef DEBUG
-    strcpy(thread_name[num_threads], "statemachine");
-#endif
-    num_threads++;
-    // IMU
-#if ENABLE_IMU
-    pthread_create(&thread_ids[num_threads], NULL, &imu_thread, NULL);
-    threads_running[num_threads] = &g_imu_thread_is_running;
-#ifdef DEBUG
-    strcpy(thread_name[num_threads], "imu");
-#endif
-    num_threads++;
-#endif
-    // Ambient light
-#if ENABLE_LIGHT_SENSOR
-    pthread_create(&thread_ids[num_threads], NULL, &light_thread, NULL);
-    threads_running[num_threads] = &g_light_thread_is_running;
-#ifdef DEBUG
-    strcpy(thread_name[num_threads], "light");
-#endif
-    num_threads++;
-#endif
-    // Water pressure and temperature
-#if ENABLE_PRESSURETEMPERATURE_SENSOR
-    pthread_create(&thread_ids[num_threads], NULL, &pressureTemperature_thread, NULL);
-    threads_running[num_threads] = &g_pressureTemperature_thread_is_running;
-#ifdef DEBUG
-    strcpy(thread_name[num_threads], "pressure");
-#endif
-    num_threads++;
-#endif
-    // Battery status monitor
-#if ENABLE_BATTERY_GAUGE
-    pthread_create(&thread_ids[num_threads], NULL, &battery_thread, NULL);
-    threads_running[num_threads] = &g_battery_thread_is_running;
-#ifdef DEBUG
-    strcpy(thread_name[num_threads], "battery");
-#endif
-    num_threads++;
-#endif
-    // Recovery board (GPS).
-#if ENABLE_RECOVERY
-    if (g_config.recovery.enabled) {
-        pthread_create(&thread_ids[num_threads], NULL, &recovery_rx_thread, NULL);
-        threads_running[num_threads] = &g_recovery_rx_thread_is_running;
-#ifdef DEBUG
-        strcpy(thread_name[num_threads], "recovery");
-#endif
+    if (!(s_thread_failures & (1 << THREAD_RTC_ACQ))) {
+        pthread_create(&thread_ids[num_threads], NULL, &rtc_thread, NULL);
+        threads_running[num_threads] = &g_rtc_thread_is_running;
         num_threads++;
     }
 #endif
+
+    // Handle user commands.
+    if (!(s_thread_failures & (1 << THREAD_COMMAND_PROCESS))) {
+        pthread_create(&thread_ids[num_threads], NULL, &command_thread, NULL);
+        threads_running[num_threads] = &g_command_thread_is_running;
+        num_threads++;
+    }
+
+if (!(s_thread_failures & (1 << THREAD_MISSION))) {
+        // Run the state machine.
+        pthread_create(&thread_ids[num_threads], NULL, &stateMachine_thread, NULL);
+        threads_running[num_threads] = &g_stateMachine_thread_is_running;
+        num_threads++;
+    }
+
+    // IMU
+#if ENABLE_IMU
+if (!(s_thread_failures & (1 << THREAD_IMU_ACQ))) {
+    pthread_create(&thread_ids[num_threads], NULL, &imu_thread, NULL);
+        threads_running[num_threads] = &g_imu_thread_is_running;
+        num_threads++;
+    }
+#endif
+
+    // Ambient light
+    if (!(s_thread_failures & (1 << THREAD_ALS_ACQ))) {
+#if ENABLE_LIGHT_SENSOR
+        pthread_create(&thread_ids[num_threads], NULL, &light_thread, NULL);
+        threads_running[num_threads] = &g_light_thread_is_running;
+        num_threads++;
+    }
+
+#endif
+
+    // Water pressure and temperature
+#if ENABLE_PRESSURETEMPERATURE_SENSOR
+    if (!(s_thread_failures & (1 << THREAD_PRESSURE_ACQ))) {
+        pthread_create(&thread_ids[num_threads], NULL, &pressureTemperature_thread, NULL);
+        threads_running[num_threads] = &g_pressureTemperature_thread_is_running;
+        num_threads++;
+    }
+#endif
+
+    // Battery status monitor
+#if ENABLE_BATTERY_GAUGE
+    if (!(s_thread_failures & (1 << THREAD_BMS_ACQ))) {
+        pthread_create(&thread_ids[num_threads], NULL, &battery_thread, NULL);
+        threads_running[num_threads] = &g_battery_thread_is_running;
+        num_threads++;
+    }
+#endif
+    // Recovery board (GPS).
+#if ENABLE_RECOVERY
+    if (g_config.recovery.enabled && !(s_thread_failures & (1 << THREAD_GPS_ACQ))) {
+        pthread_create(&thread_ids[num_threads], NULL, &recovery_rx_thread, NULL);
+        threads_running[num_threads] = &g_recovery_rx_thread_is_running;
+        num_threads++;
+    }
+#endif
+
     // ECG
 #if ENABLE_ECG
+    if (!(s_thread_failures & (1 << THREAD_ECG_ACQ))) {
 #if ENABLE_ECG_LOD
-    pthread_create(&thread_ids[num_threads], NULL, &ecg_lod_thread, NULL);
-    threads_running[num_threads] = &g_ecg_lod_thread_is_running;
-#ifdef DEBUG
-    strcpy(thread_name[num_threads], "ecg_lod");
-#endif // DEBUG
-    num_threads++;
+        if (!(s_thread_failures & (1 << THREAD_ECG_LOD_ACQ))){
+            pthread_create(&thread_ids[num_threads], NULL, &ecg_lod_thread, NULL);
+            threads_running[num_threads] = &g_ecg_lod_thread_is_running;
+            num_threads++;
 #endif // ENABLE_ECG_LOD
+        }
 
-    pthread_create(&thread_ids[num_threads], NULL, &ecg_thread_getData, NULL);
-    threads_running[num_threads] = &g_ecg_thread_getData_is_running;
-#ifdef DEBUG
-    strcpy(thread_name[num_threads], "ecg_acq");
-#endif
-    num_threads++;
+        pthread_create(&thread_ids[num_threads], NULL, &ecg_thread_getData, NULL);
+        threads_running[num_threads] = &g_ecg_thread_getData_is_running;
+        num_threads++;
 
-    pthread_create(&thread_ids[num_threads], NULL, &ecg_thread_writeData, NULL);
-    threads_running[num_threads] = &g_ecg_thread_writeData_is_running;
-#ifdef DEBUG
-    strcpy(thread_name[num_threads], "ecg_log");
+        pthread_create(&thread_ids[num_threads], NULL, &ecg_thread_writeData, NULL);
+        threads_running[num_threads] = &g_ecg_thread_writeData_is_running;
+        num_threads++;
+    }
 #endif
-    num_threads++;
-#endif
+
     // System resource monitor
 #if ENABLE_SYSTEMMONITOR
-    pthread_create(&thread_ids[num_threads], NULL, &systemMonitor_thread, NULL);
-    threads_running[num_threads] = &g_systemMonitor_thread_is_running;
-#ifdef DEBUG
-    strcpy(thread_name[num_threads], "sys_monitor");
+    if (!(s_thread_failures & (1 << THREAD_META_ACQ))){
+        pthread_create(&thread_ids[num_threads], NULL, &systemMonitor_thread, NULL);
+        threads_running[num_threads] = &g_systemMonitor_thread_is_running;
+        num_threads++;
+    }
 #endif
-    num_threads++;
-#endif
+
     // Audio
 #if ENABLE_AUDIO
-    usleep(1000000); // wait to make sure all other threads are on their assigned CPUs (maybe not needed?)
-    pthread_create(&thread_ids[num_threads], NULL, &audio_thread_spi, NULL);
-    threads_running[num_threads] = &g_audio_thread_spi_is_running;
-#ifdef DEBUG
-    strcpy(thread_name[num_threads], "audio_acq");
-#endif
-    audio_acquisition_thread_index = num_threads;
-    num_threads++;
+    if (!(s_thread_failures & (1 << THREAD_AUDIO_ACQ))){
+        usleep(1000000); // wait to make sure all other threads are on their assigned CPUs (maybe not needed?)
+        pthread_create(&thread_ids[num_threads], NULL, &audio_thread_spi, NULL);
+        threads_running[num_threads] = &g_audio_thread_spi_is_running;
+        audio_acquisition_thread_index = num_threads;
+        num_threads++;
+
 #if ENABLE_AUDIO_FLAC
-    pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeFlac, NULL);
-    threads_running[num_threads] = &g_audio_thread_writeData_is_running;
-#ifdef DEBUG
-    strcpy(thread_name[num_threads], "audio_write");
-#endif
-    audio_write_thread_index = num_threads;
-    num_threads++;
+        pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeFlac, NULL);
 #else
-    // dump raw audio files
-    pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeRaw, NULL);
-    threads_running[num_threads] = &g_audio_thread_writeData_is_running;
-    audio_write_thread_index = num_threads;
-    num_threads++;
+        // dump raw audio files
+        pthread_create(&thread_ids[num_threads], NULL, &audio_thread_writeRaw, NULL);
 #endif
+        threads_running[num_threads] = &g_audio_thread_writeData_is_running;
+        audio_write_thread_index = num_threads;
+        num_threads++;
+    }
 #endif
 
     usleep(100000);
@@ -213,21 +205,23 @@ int main(void) {
 
 // Check if the audio needs to be restarted after an overflow.
 #if ENABLE_AUDIO
-        if (g_audio_overflow_detected && (g_audio_thread_spi_is_running && g_audio_thread_writeData_is_running)) {
-            // Wait for the threads to stop.
-            while (g_audio_thread_spi_is_running || g_audio_thread_writeData_is_running)
-                usleep(100000);
-            // Restart the threads.
-            pthread_create(&thread_ids[audio_acquisition_thread_index], NULL, &audio_thread_spi, NULL);
-            threads_running[audio_acquisition_thread_index] = &g_audio_thread_spi_is_running;
+        if (!(s_thread_failures & (1 << THREAD_AUDIO_ACQ))){
+            if (g_audio_overflow_detected && (g_audio_thread_spi_is_running && g_audio_thread_writeData_is_running)) {
+                // Wait for the threads to stop.
+                while (g_audio_thread_spi_is_running || g_audio_thread_writeData_is_running)
+                    usleep(100000);
+                // Restart the threads.
+                pthread_create(&thread_ids[audio_acquisition_thread_index], NULL, &audio_thread_spi, NULL);
+                threads_running[audio_acquisition_thread_index] = &g_audio_thread_spi_is_running;
 #if ENABLE_AUDIO_FLAC
-            pthread_create(&thread_ids[audio_write_thread_index], NULL, &audio_thread_writeFlac, NULL);
-            threads_running[audio_write_thread_index] = &g_audio_thread_writeData_is_running;
+                pthread_create(&thread_ids[audio_write_thread_index], NULL, &audio_thread_writeFlac, NULL);
+                threads_running[audio_write_thread_index] = &g_audio_thread_writeData_is_running;
 #else
-            pthread_create(&thread_ids[audio_write_thread_index], NULL, &audio_thread_writeRaw, NULL);
-            threads_running[audio_write_thread_index] = &g_audio_thread_writeData_is_running;
+                pthread_create(&thread_ids[audio_write_thread_index], NULL, &audio_thread_writeRaw, NULL);
+                threads_running[audio_write_thread_index] = &g_audio_thread_writeData_is_running;
 #endif
-            usleep(100000);
+                usleep(100000);
+            }
         }
 #endif
 #ifdef DEBUG
@@ -294,7 +288,7 @@ int main(void) {
 
 //-----------------------------------------------------------------------------
 // Helper method to initialize the tag.
-//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------    
 int init_tag() {
     int result = 0;
 
@@ -312,9 +306,17 @@ int init_tag() {
     } else {
         CETI_LOG("Successfully initialized pigpio");
     }
-    result += init_timing() == 0 ? 0 : -1;
-    result += init_commands() == 0 ? 0 : -1;
-    result += init_stateMachine() == 0 ? 0 : -1;
+    
+
+    if (init_timing() != 0) {
+        s_thread_failures |= (1 << THREAD_RTC_ACQ);
+    }
+    if (init_commands() != 0) {
+        s_thread_failures |= (1 << THREAD_COMMAND_PROCESS);
+    }
+    if (init_stateMachine() != 0) {
+        s_thread_failures |= (1 << THREAD_MISSION);
+    }
 
 #if ENABLE_FPGA
     char fpga_bitstream_path[512];
@@ -327,60 +329,81 @@ int init_tag() {
     // strncat(fpga_bitstream_path, FPGA_BITSTREAM, sizeof(fpga_bitstream_path) - 1);
     WTResult fpga_result = wt_fpga_init(fpga_bitstream_path);
     if (fpga_result != WT_OK) {
-        CETI_ERR("%s", wt_strerror(fpga_result));
-        result += -1;
+        CETI_ERR("Failed to initialize FPGA: %s", wt_strerror(fpga_result));
+        return 2;
     }
 #endif
 
 #if ENABLE_BATTERY_GAUGE
-    result += init_battery() == 0 ? 0 : -1;
-#endif
-
-#if ENABLE_BURNWIRE
-    result += init_burnwire() == 0 ? 0 : -1;
+    if (init_battery() != 0) {
+        s_thread_failures |= (1 << THREAD_BMS_ACQ);
+    }
 #endif
 
 #if ENABLE_AUDIO
-    result += audio_thread_init() == 0 ? 0 : -1;
+    if (audio_thread_init() != 0) {
+        s_thread_failures |= (1 << THREAD_AUDIO_ACQ);
+    }
 #endif
 
 #if ENABLE_LIGHT_SENSOR
-    result += init_light() == 0 ? 0 : -1;
+    if (init_light() != 0 ) {
+        s_thread_failures |= (1 << THREAD_ALS_ACQ);
+    }
 #endif
 
 #if ENABLE_IMU
-    result += init_imu() == 0 ? 0 : -1;
+    if (init_imu() != 0 ) {
+        s_thread_failures |= (1 << THREAD_ALS_ACQ);
+    }
 #endif
 
 #if ENABLE_RECOVERY
     if (g_config.recovery.enabled) {
-        result += recovery_thread_init(&g_config) == 0 ? 0 : -1;
+        if (recovery_thread_init(&g_config) != 0) {
+            s_thread_failures |= (1 << THREAD_GPS_ACQ);
+        }
     } else {
         recovery_off();
     }
 #endif
 
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
-    result += init_pressureTemperature() == 0 ? 0 : -1;
+    if (init_pressureTemperature() != 0) {
+        s_thread_failures |= (1 << THREAD_PRESSURE_ACQ);
+    }
 #endif
 
 #if ENABLE_ECG
 #if ENABLE_ECG_LOD
-    result += ecg_lod_init() == 0 ? 0 : -1;
+    if (ecg_lod_init() != 0) {
+        s_thread_failures |= (1 << THREAD_ECG_LOD_ACQ);
+    }
 #endif
-    result += init_ecg() == 0 ? 0 : -1;
+    if (ecg_lod_init() != 0) {
+        s_thread_failures |= (1 << THREAD_ECG_ACQ);
+    }
 #endif
 
 #if ENABLE_SYSTEMMONITOR
-    result += init_systemMonitor() == 0 ? 0 : -1;
+    if (init_systemMonitor() != 0) {
+        s_thread_failures |= (1 << THREAD_META_ACQ);
+    }
 #endif
 
-    result += sync_global_time_init();
-
-    if (result < 0) {
-        CETI_ERR("Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
-        return result;
+    if (sync_global_time_init() != 0) {
+        CETI_WARN("Failed to syncronize RTC, GPS, and systemtime stamps");
     }
 
-    return result;
+    if (s_thread_failures != 0) {
+        CETI_ERR("Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
+        //if recovery OK, message about errors
+        if (!(s_thread_failures & (1 << THREAD_GPS_ACQ))) {
+            char err_msg[68] = {};
+            snprintf(recovery_message, 67, "Init Err: %04Xh", s_thread_failures);
+            recovery_message(err_msg);
+        }
+    }
+
+    return s_thread_failures;
 }

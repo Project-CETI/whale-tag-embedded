@@ -55,6 +55,11 @@ static const char *stateMachine_data_file_headers[] = {
 static const int num_stateMachine_data_file_headers = sizeof(stateMachine_data_file_headers) / sizeof(*stateMachine_data_file_headers);
 
 int init_stateMachine() {
+#if ENABLE_BURNWIRE
+    if (init_burnwire() != WT_OK) {
+        return -1;
+    }
+#endif
 
     CETI_LOG("Successfully initialized the state machine");
     // Open an output file to write data.
