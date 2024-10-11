@@ -53,7 +53,7 @@ int main(void) {
     // Initialize components.
     CETI_LOG("-------------------------------------------------");
     CETI_LOG("Starting initialization");
-    init_tag(); // returns 0 if all components succeeded, < 0 if error(s)
+    init_tag(); // returns 0 if all components succeeded, error bit mask if errors
 
     //-----------------------------------------------------------------------------
     // Create threads.
@@ -290,7 +290,7 @@ int main(void) {
 // Helper method to initialize the tag.
 //-----------------------------------------------------------------------------
 int init_tag() {
-    int result = 0;
+    s_thread_failures = 0;
 
     // Load the deployment configuration
     char config_file_path[512];
@@ -399,7 +399,7 @@ int init_tag() {
         // if recovery OK, message about errors
         if (!(s_thread_failures & (1 << THREAD_GPS_ACQ))) {
             char err_msg[68] = {};
-            snprintf(recovery_message, 67, "Init Err: %04Xh", s_thread_failures);
+            snprintf(err_msg, 67, "Init Err: %04Xh", s_thread_failures);
             recovery_message(err_msg);
         }
     }
