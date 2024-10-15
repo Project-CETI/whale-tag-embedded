@@ -18,6 +18,7 @@
 int g_exit = 0;
 int g_stopAcquisition = 0;
 int g_stopLogging = 0;
+char g_hostname[512] = {};
 char g_process_path[256] = "/opt/ceti-tag-data-capture/bin";
 static uint32_t s_thread_failures = 0;
 
@@ -292,6 +293,9 @@ int main(void) {
 int init_tag() {
     s_thread_failures = 0;
 
+    // get hostname for later use
+    gethostname(g_hostname, sizeof(g_hostname) - 1);
+
     // Load the deployment configuration
     char config_file_path[512];
     strncpy(config_file_path, g_process_path, sizeof(config_file_path) - 1);
@@ -396,12 +400,21 @@ int init_tag() {
 
     if (s_thread_failures != 0) {
         CETI_ERR("Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
+#if ENABLE_RECOVERY
         // if recovery OK, message about errors
         if (!(s_thread_failures & (1 << THREAD_GPS_ACQ))) {
             char err_msg[68] = {};
-            snprintf(err_msg, 67, "Init Err: %04Xh", s_thread_failures);
+            snprintf(err_msg, sizeof(err_msg) - 1, "%s: Init Err: %04Xh", g_hostname, s_thread_failures);
             recovery_message(err_msg);
         }
+#endif
+    } else {
+        CETI_LOG("All enabled tag components were successfully initialized");
+#if ENABLE_RECOVERY
+        char msg[68] = {};
+        snprintf(msg, sizeof(msg) - 1, "CETI %s ready!", g_hostname);
+        recovery_message(msg);
+#endif
     }
 
     return s_thread_failures;

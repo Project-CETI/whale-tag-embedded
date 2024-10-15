@@ -284,14 +284,6 @@ int updateStateMachine() {
 // configure recovery board
 #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
-                // send wake message
-                char hostname[512];
-                gethostname(hostname, 511);
-
-                char message[1024];
-                snprintf(message, sizeof(message), "CETI %s ready!", hostname);
-                recovery_message(message);
-
                 char rec_callsign_msg[10];
                 char callsign_msg[10];
                 callsign_to_str(&g_config.recovery.callsign, callsign_msg);
