@@ -12,6 +12,7 @@
 // 221102 Start work on i2c power off transmission method. Companion Debian is version 2.1-4
 // 230905 Expose FIFO Overflow (latched version)to Pi HAT GPIO_12
 // 240730 New features for v2.3 tag. i2c word write to support BMS; swap recovery RX/TX
+// 241010 4-channel version in work, development special
 //
 //-----------------------------------------------------------------------------
 // Additional Information
