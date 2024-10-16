@@ -20,9 +20,8 @@
 // 		v2.2 hardware
 
 `define VER_MAJ 8'h23    //Serial revision, for hardware v2.3
-`define VER_MIN 8'h00    //Serial revision, minor. 00 is baseline 240730 
-
-
+//`define VER_MIN 8'h00  //Serial revision, minor. 00 is baseline 240730 
+`define VER_MIN 8'hD0	 //D0 is for the 4-channel special build (the "D" is for a development version)
 
 module cam(
 	input wire n_reset,  			//from host
