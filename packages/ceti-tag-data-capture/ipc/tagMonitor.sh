@@ -141,15 +141,14 @@ _term() {
 	echo "stopping cetiTagApp"
 	send_command "quit"
 	status=$?
-	if [ $status -ne 0 ]; then
-		handle_error $status
+	if [ $status -ne $ERR_NO_CHILD ]; then
+		# Child exists but is not responding
+		kill --TERM "$child" 2>/dev/null
+
+		## Wait for cetiTagApp to finish
+		echo "Waiting on child process $child to finish..."
+		wait "$child"
 	fi
-
-	kill --TERM "$child" 2>/dev/null
-
-	## Wait for cetiTagApp to finish
-	echo "Waiting on child process $child to finish..."
-	wait "$child"
 
 	echo "Child process $child complete"
 	echo "Good bye"

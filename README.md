@@ -7,12 +7,13 @@ in the ocean during data collection for [project CETI](https://www.projectceti.o
 
 ## hardware, branches && git tags
 
-main branch always points to the development targeting the latest hardware.
+main branch always points to the code targeting the hardware that is actively deployed in the field.
 If you are looking for artifacts for a specific version of the hardware, look under the releases tab.
 Each release for each hardware version is marked with a git tag.
 The branch name v0 targets the v0 hardware, which is a rapsberry pi zero w with octoboard soundcard.
 The branch v2 targets the v2 MVP hardware designed by Matt Cummings, with the deploy target of Jan'22.
 V2 hardware is a raspberry pi zero w with three custome bonnets. The hydrophones are driven by an fpga.
+V2_2 targets tags v2_2, with raspberry pi zero 2 main computer, and more electrical and mechanical changes.
 
 ## building
 
@@ -87,10 +88,10 @@ For more info on data ingestion see [this doc](https://docs.google.com/document/
 ## ceti-tag-data-capture
 
 The source code is in packages/ceti-tag-data-capture.
-The main script that is executed by the systemd is
-/opt/ceti-tag-data-capture/ceti-tag-data-capture.sh
 
-This is the main data collection python script. It spins up several processes in parallel to collect the audio data, and IMU data. All of the files are assumed to go to /data folder.
+The main script that is executed by the systemd. The service description is in packages/ceti-tag-data-capture/debian/ceti-tag-data-capture.service
+
+This is the main data collection application. All of the files are assumed to go to /data folder.
 
 Note this script is started on system startup and is being restarted if things go wrong in attempt to provide the most reliability.
 
