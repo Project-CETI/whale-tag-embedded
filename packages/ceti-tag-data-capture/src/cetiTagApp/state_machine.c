@@ -233,6 +233,10 @@ int stateMachine_set_state(wt_state_t new_state) {
 
             break;
 
+        case ST_SHUTDOWN:
+            CETI_WARN("!!! Battery critical !!!");
+            break;
+
         default:
             break;
     }
@@ -513,7 +517,6 @@ int updateStateMachine() {
         //  Shut everything off in an orderly way if battery is critical to
         //  reduce file system corruption risk
         case (ST_SHUTDOWN):
-            CETI_ERR("!!! Battery critical !!!");
 #if ENABLE_BURNWIRE
             burnwireOff();
 #endif // ENABLE_BURNWIRE
