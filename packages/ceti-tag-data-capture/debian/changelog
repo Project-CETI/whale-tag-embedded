@@ -1,3 +1,16 @@
+ceti-tag-data-capture (2.3-0) stable; urgency=medium
+
+  * Baseline version for the new v2.3 hardware platform
+
+ --  CETI Project <cetiproject.org>  Thu, 15 Aug 2024 00:00:01 -0800
+
+ceti-tag-data-capture (2.1-6) stable; urgency=medium
+
+  * Add ECG sensor support
+  * Use flac compression for audio data
+
+ --  CETI Project <cetiproject.org>  Sat, 03 Dec 2022 00:00:01 -0800
+
 ceti-tag-data-capture (2.1-5) stable; urgency=medium
 
   * Create a separate partition on sdcard to store the captured data
@@ -18,7 +31,7 @@ ceti-tag-data-capture (2.1-3) stable; urgency=medium
   * rework the state machine
   * use bitbanging to drive IMU to utilize clock stretching on i2c-1
 
- --  CETI Project <cetiproject.org>  Fri, 15 Jul 2022 00:00:01 -0800
+ --  CETI Project <cetiproject.org>  Thu, 18 Aug 2022 00:00:01 -0800
 ceti-tag-data-capture (2.1-2) stable; urgency=medium
 
   * Fix csv corruption due to state being incorrectly written

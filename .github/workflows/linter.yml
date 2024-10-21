@@ -8,22 +8,31 @@ jobs:
   # Set the job key. The key is displayed as the job name
   # when a job name is not provided
   super-lint:
-    # Name the Job
     name: Lint code base
-    # Set the type of machine to run on
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: read
+      # To report GitHub Actions status checks
+      statuses: write
 
     steps:
       # Checks out a copy of your repository on the ubuntu-latest machine
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+        with:
+          # super-linter needs the full git history to get the
+          # list of files that changed across commits
+          fetch-depth: 0
 
       # Runs the Super-Linter action
       - name: Run Super-Linter
-        uses: github/super-linter@v4
+        uses: super-linter/super-linter@v7.1.0
         env:
-          DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VALIDATE_DOCKERFILE: false
+          VALIDATE_CPP: false
           VALIDATE_DOCKERFILE_HADOLINT: false
-...
+          VALIDATE_JSCPD: false
+          VALIDATE_NATURAL_LANGUAGE: false
+          VALIDATE_CHECKOV: false #I'm not sure on docker permissions -MSH

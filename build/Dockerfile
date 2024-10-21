@@ -1,25 +1,25 @@
-FROM debian:buster
+FROM debian:bullseye
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
-    git \
-    mc \
-    curl \
-    gettext \
-    vim \
-    sudo \
-    python3 \
-    python3-pip \
-    python3-distutils \
-    qemu \
-    qemu-user-static \
     binfmt-support \
-    debhelper \
-    fakeroot \
     build-essential \
-    parted \
+    curl \
+    debhelper \
     dkms \
-    zerofree \
+    dos2unix \
     e2fsprogs \
+    fakeroot \
+    gettext \
+    git \
+    fdisk \
+    lintian \
+    mc \
+    parted \
+    python3 \
+    python3-distutils \
+    python3-pip \
+    qemu \
+    qemu-system-arm \
+    sudo \
     unzip \
     zip \
-    lintian

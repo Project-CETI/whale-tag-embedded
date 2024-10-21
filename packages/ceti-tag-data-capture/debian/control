@@ -7,5 +7,5 @@ Standards-Version: 3.8.1
 
 Package: ceti-tag-data-capture
 Depends: pigpio
-Architecture: armhf
+Architecture: arm64
 Description: Captures data from input sensors of the Whale Tag and saves it onto the filesystem

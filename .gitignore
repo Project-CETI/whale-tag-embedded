@@ -5,6 +5,7 @@ __pycache__/
 
 # C extensions
 *.so
+*.o
 
 # Distribution / packaging
 .Python
@@ -48,6 +49,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+*.test
 
 # Translations
 *.mo
@@ -128,3 +130,8 @@ dmypy.json
 
 out/
 raspbian/
+raspios.img
+raspios/
+packages/ceti-tag-data-capture/bin/
+packages/ceti-tag-data-capture/data
+*.timestamp

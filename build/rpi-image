@@ -1,0 +1,556 @@
+#!/usr/bin/env python3
+
+import argparse
+import contextlib
+import dataclasses
+import functools
+import hashlib
+import json
+import lzma
+import os
+import pathlib
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.parse
+import urllib.request
+
+'''
+https://wiki.debian.org/RaspberryPi/qemu-user-static
+
+Allow kernel to run arbitrary executable file formats:
+
+  apt-get update
+  apt-get install -y qemu qemu-user-static binfmt-support
+
+  update-binfmts --display
+  ls -la /proc/sys/fs/binfmt_misc
+
+Run inside docker container:
+
+  docker run --rm -it --privileged -v `pwd`:/work --workdir /work debian:bullseye
+  apt-get update && apt-get install -y python3 fdisk
+'''
+
+SFDISK = '/sbin/sfdisk'
+
+@dataclasses.dataclass(frozen=True)
+class Partition:
+  number: int
+  type: str
+  start_sectors: int
+  size_sectors: int
+  sector_size: int
+
+  @property
+  def end_sectors(self):
+    return self.start_sectors + self.size_sectors
+
+  @property
+  def size(self):
+    return self.size_sectors * self.sector_size
+
+  @property
+  def start(self):
+    return self.start_sectors * self.sector_size
+
+  @property
+  def end(self):
+    return self.start + self.size
+
+@dataclasses.dataclass(frozen=True)
+class Mount:
+  host_path: pathlib.Path
+  image_path: pathlib.Path
+  read_only: bool
+
+def round_up(value, align):
+  return align * ((value + align - 1) // align)
+
+def make_mount(s, read_only):
+  parts = s.split(':')
+  if len(parts) == 1:
+    host_path = image_path = pathlib.Path(parts[0])
+  elif len(parts) == 2:
+    host_path = pathlib.Path(parts[0])
+    image_path = pathlib.Path(parts[1])
+  else:
+    raise ValueError(f'invalid format: {s}')
+
+  if not host_path.exists():
+    raise ValueError(f'host path does not exist: {host_path}')
+
+  if not image_path.is_absolute():
+    raise ValueError(f'image path must be absolute: {image_path}')
+
+  return Mount(host_path, image_path, read_only)
+
+def truncate(path_file, size):
+  return subprocess.run(['truncate', path_file, '--size', str(size)], check=True)
+
+def chroot(root_dir, cmd):
+  return subprocess.run(['chroot', '.'] + cmd, cwd=root_dir)
+
+def umount(mount_point, attempts=5, timeout=0.1):
+  while attempts > 0:
+    try:
+      attempts -= 1
+      return subprocess.run(['umount', mount_point], check=True)
+    except subprocess.CalledProcessError:
+      time.sleep(timeout)
+
+def split_existing(path):
+  suffix = pathlib.Path()
+  while not path.exists():
+    suffix = path.name / suffix
+    path = path.parent
+  return path, suffix
+
+@contextlib.contextmanager
+def mount_point(path, as_file):
+  existing, missing = split_existing(path)
+
+  if not missing.parts:
+    yield
+  else:
+    if as_file:
+      if len(missing.parts) == 1:
+        path.touch()
+        try:
+          yield
+        finally:
+          path.unlink()
+      else:
+        assert len(missing.parts) > 1
+        path.parent.mkdir(parents=True)
+        path.touch()
+        try:
+          yield
+        finally:
+          shutil.rmtree(existing / missing.parts[0])
+    else:
+      assert len(missing.parts) > 0
+      path.mkdir(parents=True)
+      try:
+        yield
+      finally:
+        shutil.rmtree(existing / missing.parts[0])
+
+@contextlib.contextmanager
+def loop_dev(image_file, offset):
+  cmd = ['losetup', '--find', '--show', '--offset', str(offset), image_file]
+  process = subprocess.run(cmd, capture_output=True, text=True, check=True)
+  dev = process.stdout.strip()
+  try:
+    yield dev
+  finally:
+    subprocess.run(['losetup', '--detach', dev], check=True)
+
+@contextlib.contextmanager
+def loop_mount(image_file, mount_dir, offset, read_only):
+  with loop_dev(image_file, offset) as dev:
+    cmd = ['mount', dev, mount_dir]
+    if read_only:
+      cmd += ['--options', 'ro']
+    subprocess.run(cmd, check=True)
+    try:
+      yield mount_dir
+    finally:
+      umount(mount_dir)
+
+@contextlib.contextmanager
+def bind_mount(host_path, image_path, read_only):
+  if host_path.is_dir():
+    as_file = False
+  elif host_path.is_file():
+    as_file = True
+  else:
+    raise ValueError('host path does not exist')
+
+  with mount_point(image_path, as_file):
+    cmd = ['mount', '--bind', host_path, image_path]
+    if read_only:
+      cmd += ['--options', 'ro']
+    subprocess.run(cmd, check=True)
+    try:
+      yield image_path
+    finally:
+      umount(image_path)
+
+def read_partitions(image_file):
+  output = subprocess.run([SFDISK, '--list-types'],
+                           capture_output=True, text=True, check=True).stdout
+  labels = dict(x.strip().split('  ') for x in output.strip().split('\n')[2:])
+
+  output = subprocess.run([SFDISK, '--json', image_file],
+                          capture_output=True, text=True, check=True).stdout
+  table = json.loads(output)['partitiontable']
+  sector_size = table.get('sectorsize', 512)
+
+  def partitions():
+    for partition in table['partitions']:
+      yield Partition(number=int(partition['node'][len(table['device']):]),
+                      type=labels[partition['type']],
+                      start_sectors=int(partition['start']),
+                      size_sectors=int(partition['size']),
+                      sector_size=sector_size)
+
+  return list(partitions())
+
+def read_last_partition(image_file):
+  partitions = read_partitions(image_file)
+  if not partitions:
+    sys.exit('Image file has no partitions.')
+  return partitions[-1]
+
+def read_filesystem(image_file, offset):
+  with loop_dev(image_file, offset) as dev:
+    try:
+      stdout = subprocess.run(['blkid', '--probe', '--output', 'export', dev],
+                              capture_output=True, text=True, check=True).stdout
+      return dict(s.split('=') for s in stdout.strip().split('\n'))
+    except subprocess.CalledProcessError:
+      return {}
+
+@contextlib.contextmanager
+def mount_image(image_file, root_dir, mounts, read_only):
+  partitions = read_partitions(image_file)
+
+  assert(len(partitions) >= 2)
+  boot_partition = partitions[0]
+  assert(boot_partition.number == 1)
+  root_partition = partitions[1]
+  assert(root_partition.number == 2)
+
+  with contextlib.ExitStack() as stack:
+    stack.enter_context(loop_mount(image_file, root_dir,
+                                   root_partition.start, read_only))
+    stack.enter_context(loop_mount(image_file, root_dir / 'boot',
+                                   boot_partition.start, read_only))
+    for m in mounts:
+      stack.enter_context(bind_mount(m.host_path,
+                                     root_dir / m.image_path.relative_to('/'),
+                                     m.read_only))
+    yield root_dir
+
+@contextlib.contextmanager
+def disable_ld_preload(root_dir):
+  src = root_dir / 'etc' / 'ld.so.preload'
+  bak = root_dir / 'etc' / 'ld.so.preload.bak'
+
+  if src.exists():
+    src.rename(bak)
+    try:
+      yield
+    finally:
+      bak.rename(src)
+  else:
+    yield
+
+@contextlib.contextmanager
+def mount_dir(root_dir):
+  if root_dir:
+    yield root_dir
+  else:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      yield pathlib.Path(tmp_dir)
+
+def copyfileobj_hash(src, dst, hash_class):
+  h = hash_class()
+  while True:
+    buf = src.read(1024 * 1024)
+    if not buf:
+      break
+    h.update(buf)
+    dst.write(buf)
+  return h.hexdigest()
+
+def image_filename(url):
+  path = urllib.parse.unquote(urllib.parse.urlparse(url).path)
+  return pathlib.Path(path).stem
+
+def raspios_list(suffix):
+  url = 'https://downloads.raspberrypi.org/os_list_imagingutility_v3.json'
+  with urllib.request.urlopen(url) as f:
+    json_data = json.loads(f.read())
+
+  items = [item for item in json_data['os_list'] if not 'subitems' in item]
+  for item in json_data['os_list']:
+    if 'subitems' in item:
+      items.extend(item['subitems'])
+  items = [item for item in items if 'url' in item]
+
+  return [item for item in items if suffix in image_filename(item['url'])]
+
+def subcommand_urls(args):
+  items = raspios_list(args.suffix)
+  if args.json:
+    print(json.dumps(items, indent=2))
+  else:
+    fields = args.fields.split(',')
+    for item in items:
+      print(','.join(str(item.get(field, '')) for field in fields))
+
+def subcommand_download(args):
+  items = raspios_list(args.suffix)
+  if len(items) != 1:
+    sys.exit(f'There are {len(items)} suffix matches instead of one.')
+
+  item = items[0]
+  image_url = item['url']
+  image_file_sha256 = item['extract_sha256']
+
+  if args.output:
+    image_file = args.output
+  else:
+    image_file = pathlib.Path(image_filename(image_url))
+
+  if image_file.exists():
+    sys.exit(f"Image file '{image_file}' already exists.")
+
+  with urllib.request.urlopen(image_url) as response:
+    content_type = response.headers['Content-Type']
+    if content_type != 'application/x-xz':
+      sys.exit("Content type '{content_type}' does not match 'application/x-xz'")
+    with lzma.open(response) as src, \
+         tempfile.NamedTemporaryFile(prefix='rpi-image-', delete=False) as dst:
+      dst_sha256 = copyfileobj_hash(src, dst, hashlib.sha256)
+      dst_path = dst.name
+
+  if dst_sha256 != image_file_sha256:
+    sys.exit('Invalid image file SHA-256 checksum.')
+
+  shutil.move(dst_path, image_file)
+  print(image_file)
+
+def subcommand_list(args):
+  for p in read_partitions(args.image):
+    fs = read_filesystem(args.image, p.start)
+    print(f'#{p.number}: type={p.type}, start={p.start}, end={p.end}, size={p.size},',
+          f"fs_type={fs.get('TYPE', 'N/A')}, fs_label={fs.get('LABEL', 'N/A')}")
+
+def subcommand_expand(args):
+  last_partition = read_last_partition(args.image)
+
+  expand, new_partition_size = args.size
+  if expand:
+    new_partition_size += last_partition.size
+
+  if new_partition_size < last_partition.size:
+    sys.exit('New partition size cannot become smaller.')
+
+  image_size = args.image.stat().st_size
+  new_image_size = last_partition.start + new_partition_size
+
+  print(f'=> Expanding image file (bytes): {image_size} -> {new_image_size}',
+        f'(change: {new_image_size - image_size})')
+  truncate(args.image, new_image_size)
+
+  print(f'=> Expanding last partition (bytes): {last_partition.size} -> {new_partition_size}',
+        f'(change: {new_partition_size - last_partition.size})')
+  subprocess.run([SFDISK, '-N', str(last_partition.number), args.image],
+                 input=', +', text=True, check=True)
+
+  if not read_filesystem(args.image, last_partition.start):
+    return
+
+  print('=> Expanding filesystem:')
+  with loop_dev(args.image, offset=last_partition.start) as dev:
+    print('==> Checking filesystem:')
+    subprocess.run(['e2fsck', '-yf', dev], check=True)
+    print('==> Resizing filesystem:')
+    subprocess.run(['resize2fs', dev], check=True)
+
+def subcommand_append(args):
+  last_partition = read_last_partition(args.image)
+  new_partition_size = round_up(args.size, last_partition.sector_size)
+  new_partition_size_sectors = new_partition_size // last_partition.sector_size
+
+  image_size = args.image.stat().st_size
+  new_image_size = last_partition.end + new_partition_size
+
+  print(f'=> Expanding image file (bytes): {image_size} -> {new_image_size}',
+        f'(change: {new_image_size - image_size})')
+  truncate(args.image, new_image_size)
+
+  print('=> Appending last partition:')
+  subprocess.run([SFDISK, '--append', args.image],
+                 input=f'{last_partition.end_sectors}, {new_partition_size_sectors}',
+                 text=True, check=True)
+
+  if not args.filesystem:
+    return
+
+  print('=> Creating filesystem:')
+  with loop_dev(args.image, offset=last_partition.end) as dev:
+    cmd = [f'mkfs.{args.filesystem}', dev]
+    if args.label:
+      cmd += ['-L', args.label]
+    subprocess.run(cmd, check=True)
+
+def subcommand_delete(args):
+  partitions = read_partitions(args.image)
+  assert len(partitions) > 2
+
+  print('=> Deleting partition:')
+  subprocess.run([SFDISK, '--delete', args.image, str(partitions[-1].number)])
+  truncate(args.image, partitions[-2].end)
+
+def subcommand_mount(args):
+  with mount_dir(args.directory) as root_dir:
+    with mount_image(args.image, root_dir, [], args.read_only):
+      sys.exit(subprocess.run(args.command, cwd=root_dir).returncode)
+
+def subcommand_run(args):
+  mounts = [make_mount(s, read_only=True) for s in ('/dev', '/sys', '/proc', '/dev/pts')]
+  mounts += (args.bind or [])
+  mounts += (args.bind_ro or [])
+
+  if args.user:
+    command = ['su', '-l', args.user]
+    if args.command:
+      command += ['-c', shlex.join(args.command)]
+  else:
+    command = args.command
+
+  with mount_dir(args.directory) as root_dir:
+    with mount_image(args.image, root_dir, mounts, args.read_only) as root_dir:
+      with disable_ld_preload(root_dir):
+        sys.exit(chroot(root_dir, command).returncode)
+
+def nonempty_str(s):
+  if not s:
+    raise argparse.ArgumentTypeError('empty')
+  return s
+
+def existing_file(s):
+  path = pathlib.Path(s)
+  if not path.is_file():
+    raise argparse.ArgumentTypeError(f'file does not exist: {s}')
+  return path
+
+def existing_dir(s):
+  path = pathlib.Path(s)
+  if not path.is_dir():
+    raise argparse.ArgumentTypeError(f'directory does not exist: {s}')
+  return path
+
+def valid_mount(s, read_only):
+  try:
+    return make_mount(s, read_only)
+  except ValueError as e:
+    raise argparse.ArgumentTypeError(str(e))
+
+def valid_filesystem(s):
+  if shutil.which(f'mkfs.{s}') is None:
+    raise argparse.ArgumentTypeError(f'invalid filesystem: {s}')
+  return s
+
+UNIT_MULTIPLIER = {
+  '': 1,
+  'K': 1024,
+  'M': 1024 ** 2,
+  'G': 1024 ** 3,
+  'KB': 1000,
+  'MB': 1000 ** 2,
+  'GB': 1000 ** 3,
+}
+
+def expand_size(s):
+  SIZE_PATTERN = re.compile(r'''
+    ^(?P<exapnd>\+?)          # optional '+'
+     (?P<value>\d*\.\d+|\d+)  # float
+     (?P<unit>%s)$            # unit
+  ''' % '|'.join(UNIT_MULTIPLIER.keys()), re.VERBOSE)
+
+  m = SIZE_PATTERN.match(s)
+  if not m:
+    raise argparse.ArgumentTypeError('e.g. +125M (relative) or 1.5G (absolute)')
+  expand, value, unit = m.groups()
+  return expand == '+', int(float(value) * UNIT_MULTIPLIER[unit])
+
+def append_size(s):
+  SIZE_PATTERN = re.compile(r'''
+    ^(?P<value>\d*\.\d+|\d+)  # float
+     (?P<unit>%s)$            # unit
+  ''' % '|'.join(UNIT_MULTIPLIER.keys()), re.VERBOSE)
+
+  m = SIZE_PATTERN.match(s)
+  if not m:
+    raise argparse.ArgumentTypeError('e.g. 125M or 1.5G')
+  value, unit = m.groups()
+  return int(float(value) * UNIT_MULTIPLIER[unit])
+
+def main():
+  parser = argparse.ArgumentParser(prog='rpi-image')
+  subparsers = parser.add_subparsers(required=True, dest='subparser_name')
+
+  urls_parser = subparsers.add_parser('urls', help='print image download urls')
+  urls_parser.add_argument('--json', '-J', action='store_true',
+                           help='dump info in JSON format')
+  urls_parser.add_argument('--fields', type=nonempty_str, default='url',
+                           help='comma-separated fields to display')
+  urls_parser.set_defaults(func=subcommand_urls, requires_root=False)
+
+  download_parser = subparsers.add_parser('download', help='download image file')
+  download_parser.add_argument('--output', '-O', type=pathlib.Path,
+                               help='image file name')
+  download_parser.set_defaults(func=subcommand_download, requires_root=False)
+
+  for p in urls_parser, download_parser:
+    p.add_argument('--suffix', default='', help='image name suffix')
+
+  list_parser = subparsers.add_parser('list', help='list all partitions')
+  list_parser.set_defaults(func=subcommand_list, requires_root=True)
+
+  expand_parser = subparsers.add_parser('expand', help='expand last partition')
+  expand_parser.add_argument('--size', '-s', type=expand_size, required=True)
+  expand_parser.set_defaults(func=subcommand_expand, requires_root=True)
+
+  append_parser = subparsers.add_parser('append', help='append partition')
+  append_parser.add_argument('--size', '-s', type=append_size, required=True)
+  append_parser.add_argument('--filesystem', '-fs', type=valid_filesystem,
+                             help='filesystem to create')
+  append_parser.add_argument('--label', '-l',
+                             help='partition label (when filesystem is created)')
+  append_parser.set_defaults(func=subcommand_append, requires_root=True)
+
+  delete_parser = subparsers.add_parser('delete', help='delete last partition')
+  delete_parser.set_defaults(func=subcommand_delete, requires_root=True)
+
+  mount_parser = subparsers.add_parser('mount', help='mount image and run command')
+  mount_parser.set_defaults(func=subcommand_mount, requires_root=True)
+
+  run_parser = subparsers.add_parser('run', help='run command inside image')
+  run_parser.add_argument('--bind', action='append', metavar='PATH:[PATH]',
+                          type=functools.partial(valid_mount, read_only=False),
+                          help='bind mount a file or directory from the host into the image')
+  run_parser.add_argument('--bind-ro', action='append', metavar='PATH:[PATH]',
+                          type=functools.partial(valid_mount, read_only=True),
+                          help='similar, but creates a read-only bind mount')
+  run_parser.add_argument('--user', '-u', help='run as logged in user')
+  run_parser.set_defaults(func=subcommand_run, requires_root=True)
+
+  for p in (list_parser, expand_parser, append_parser, delete_parser,
+            mount_parser, run_parser):
+    p.add_argument('--image', '-i', type=existing_file, metavar='FILE',
+                   required=True, help='image file (.img)')
+
+  for p in mount_parser, run_parser:
+    p.add_argument('--read-only', action='store_true',
+                   help='mount the root directory read-only')
+    p.add_argument('--directory', '-D', type=existing_dir, metavar='DIR',
+                   help='root directory for the image')
+    p.add_argument('command', nargs='*', help='command to execute')
+
+  args = parser.parse_args()
+  if args.requires_root and os.geteuid() != 0:
+    sys.exit("You need root privileges, try again using 'sudo'.")
+  args.func(args)
+
+if __name__ == '__main__':
+  main()

@@ -1,0 +1,395 @@
+#!/bin/bash
+
+reboot_pi() {
+	umount /boot
+	umount /data
+	mount / -o remount,ro
+	sync
+	if [ "$NOOBS" = "1" ]; then
+		if [ "$NEW_KERNEL" = "1" ]; then
+			reboot -f "$BOOT_PART_NUM"
+			sleep 5
+		else
+			echo "$BOOT_PART_NUM" >"/sys/module/${BCM_MODULE}/parameters/reboot_part"
+		fi
+	fi
+	reboot -f
+	sleep 5
+	exit 0
+}
+
+check_noobs() {
+	if [ "$BOOT_PART_NUM" = "1" ]; then
+		NOOBS=0
+	else
+		NOOBS=1
+	fi
+}
+
+get_variables() {
+	ROOT_PART_DEV=$(findmnt / -o source -n)
+	ROOT_PART_NAME=$(echo "$ROOT_PART_DEV" | cut -d "/" -f 3)
+	ROOT_DEV_NAME=$(echo /sys/block/*/"${ROOT_PART_NAME}" | cut -d "/" -f 4)
+	ROOT_DEV="/dev/${ROOT_DEV_NAME}"
+	ROOT_PART_NUM=$(cat "/sys/block/${ROOT_DEV_NAME}/${ROOT_PART_NAME}/partition")
+
+	BOOT_PART_DEV=$(findmnt /boot -o source -n)
+	BOOT_PART_NAME=$(echo "$BOOT_PART_DEV" | cut -d "/" -f 3)
+	BOOT_DEV_NAME=$(echo /sys/block/*/"${BOOT_PART_NAME}" | cut -d "/" -f 4)
+	BOOT_PART_NUM=$(cat "/sys/block/${BOOT_DEV_NAME}/${BOOT_PART_NAME}/partition")
+
+	DATA_PART_DEV=$(findmnt /data -o source -n)
+	DATA_PART_NAME=$(echo "$DATA_PART_DEV" | cut -d "/" -f 3)
+	DATA_DEV_NAME=$(echo /sys/block/*/"${DATA_PART_NAME}" | cut -d "/" -f 4)
+	DATA_DEV="/dev/${DATA_DEV_NAME}"
+	DATA_PART_NUM=$(cat "/sys/block/${DATA_DEV_NAME}/${DATA_PART_NAME}/partition")
+
+	OLD_DISKID=$(fdisk -l "$ROOT_DEV" | sed -n 's/Disk identifier: 0x\([^ ]*\)/\1/p')
+
+	check_noobs
+
+	# shellcheck disable=SC2034 # Unused variables left for readability
+	ROOT_DEV_SIZE=$(cat "/sys/block/${ROOT_DEV_NAME}/size")
+	DATA_DEV_SIZE=$(cat "/sys/block/${DATA_DEV_NAME}/size")
+	TARGET_END=$((DATA_DEV_SIZE - 1))
+
+	PARTITION_TABLE=$(parted -m "$ROOT_DEV" unit s print | tr -d 's')
+
+	LAST_PART_NUM=$(echo "$PARTITION_TABLE" | tail -n 1 | cut -d ":" -f 1)
+
+	ROOT_PART_LINE=$(echo "$PARTITION_TABLE" | grep -e "^${ROOT_PART_NUM}:")
+	ROOT_PART_START=$(echo "$ROOT_PART_LINE" | cut -d ":" -f 2)
+	ROOT_PART_END=$(echo "$ROOT_PART_LINE" | cut -d ":" -f 3)
+
+	DATA_PART_LINE=$(echo "$PARTITION_TABLE" | grep -e "^${DATA_PART_NUM}:")
+	# shellcheck disable=SC2034 # Unused variables left for readability
+	DATA_PART_START=$(echo "$DATA_PART_LINE" | cut -d ":" -f 2)
+	DATA_PART_END=$(echo "$DATA_PART_LINE" | cut -d ":" -f 3)
+
+	if [ "$NOOBS" = "1" ]; then
+		EXT_PART_LINE=$(echo "$PARTITION_TABLE" | grep ":::;" | head -n 1)
+		EXT_PART_NUM=$(echo "$EXT_PART_LINE" | cut -d ":" -f 1)
+		EXT_PART_START=$(echo "$EXT_PART_LINE" | cut -d ":" -f 2)
+		EXT_PART_END=$(echo "$EXT_PART_LINE" | cut -d ":" -f 3)
+	fi
+}
+
+fix_partuuid() {
+	DISKID="$(tr -dc 'a-f0-9' </dev/hwrng | dd bs=1 count=8 2>/dev/null)"
+	fdisk "$ROOT_DEV" >/dev/null <<EOF
+x
+i
+0x$DISKID
+r
+w
+EOF
+	# shellcheck disable=SC2181 #akward to not check error code in this manor
+	if [ "$?" -eq 0 ]; then
+		sed -i "s/${OLD_DISKID}/${DISKID}/g" /etc/fstab
+		sed -i "s/${OLD_DISKID}/${DISKID}/" /boot/cmdline.txt
+		sync
+	fi
+
+}
+
+# shellcheck disable=SC2317 #codeblock is unused
+fix_wpa() {
+	if [ -e /boot/firstrun.sh ] &&
+		! grep -q 'imager_custom set_wlan' /boot/firstrun.sh &&
+		grep -q wpa_supplicant.conf /boot/firstrun.sh; then
+		modprobe rfkill
+		REGDOMAIN=$(sed -n 's/^\s*country=\(..\)$/\1/p' /boot/firstrun.sh)
+		[ -n "$REGDOMAIN" ] && raspi-config nonint do_wifi_country "$REGDOMAIN"
+		if systemctl -q is-enabled NetworkManager; then
+			systemctl disable NetworkManager
+		fi
+	fi
+}
+
+check_variables() {
+	if [ "$NOOBS" = "1" ]; then
+		if [ "$EXT_PART_NUM" -gt 4 ] ||
+			[ "$EXT_PART_START" -gt "$ROOT_PART_START" ] ||
+			[ "$EXT_PART_END" -lt "$ROOT_PART_END" ]; then
+			FAIL_REASON="Unsupported extended partition\n$FAIL_REASON"
+			return 1
+		fi
+	fi
+
+	if [ "$DATA_PART_NUM" -ne "$LAST_PART_NUM" ]; then
+		# Skip resize if data partition is not last
+		return 1
+	fi
+
+	if [ "$DATA_PART_END" -gt "$TARGET_END" ]; then
+		FAIL_REASON="Data partition runs past the end of device\n$FAIL_REASON"
+		return 1
+	fi
+
+	if [ ! -b "$ROOT_DEV" ] || [ ! -b "$ROOT_PART_DEV" ] || [ ! -b "$BOOT_PART_DEV" ] || [ ! -b "$DATA_PART_DEV" ]; then
+		FAIL_REASON="Could not determine partitions\n$FAIL_REASON"
+		return 1
+	fi
+
+	if [ "$DATA_PART_END" -eq "$TARGET_END" ]; then
+		# Data partition already the expected size
+		return 1
+	fi
+}
+
+check_kernel() {
+	MAJOR="$(uname -r | cut -f1 -d.)"
+	MINOR="$(uname -r | cut -f2 -d.)"
+	if [ "$MAJOR" -eq "4" ] && [ "$MINOR" -lt "9" ]; then
+		return 0
+	fi
+	if [ "$MAJOR" -lt "4" ]; then
+		return 0
+	fi
+	NEW_KERNEL=1
+}
+
+do_resize() {
+	check_kernel
+
+	echo "Resizing data partition..."
+
+	umount /data
+
+	if ! parted -s "$DATA_DEV" u s resizepart "$DATA_PART_NUM" "$TARGET_END"; then
+		FAIL_REASON="Partition table resize of the data partition ($DATA_PART_DEV) failed\n$FAIL_REASON"
+		return 1
+	fi
+
+	partprobe "$DATA_DEV"
+	e2fsck -yf "$DATA_PART_DEV"
+	resize2fs "$DATA_PART_DEV"
+	mount -L cetiData /data
+	mount /data -o remount,rw
+
+	RET="$?"
+	return "$RET"
+}
+
+sethostname() {
+	if [ -z "$NETWORK_ADAPTER_NAME" ]; then
+		NETWORK_FILES=(/sys/class/net/e*)
+		NETWORK_ADAPTER_NAME="${NETWORK_FILES[0]##*/}"
+	fi
+
+	MAC_ADDRESS="/sys/class/net/$NETWORK_ADAPTER_NAME/address"
+	if [ -f "$MAC_ADDRESS" ]; then
+		DEVICE_ID="$(<"$MAC_ADDRESS" sed s/':'//g)"
+	fi
+
+	if [ -z "$DEVICE_ID" ]; then
+		DEVICE_ID="$(</proc/cpuinfo grep Serial | sed s/'.*:\s0*'/''/)"
+	fi
+
+	# If we still have no UID, just give up
+	if [ -z "$DEVICE_ID" ]; then
+		echo "Unable to find an identifier for the hw, exiting"
+		exit 1
+	fi
+
+	# Set device is as the hostname
+	DEVICE_ID="wt-$DEVICE_ID"
+	HOSTNAME="$(hostname)"
+
+	if [ "$HOSTNAME" != "$DEVICE_ID" ]; then
+		echo "Changing hostname to $DEVICE_ID"
+		hostname "$DEVICE_ID"
+		echo "127.0.0.1 $DEVICE_ID" >>/etc/hosts
+		echo "$DEVICE_ID" >/etc/hostname
+		sysctl kernel.hostname="$DEVICE_ID"
+	fi
+}
+
+regenerate_ssh_host_keys() {
+	/usr/lib/raspberrypi-sys-mods/regenerate_ssh_host_keys
+	RET="$?"
+	return "$RET"
+}
+
+apply_custom() {
+	CONFIG_FILE="$1"
+	if ! python3 -c "import toml" 2>/dev/null; then
+		FAIL_REASON="custom.toml provided, but python3-toml is not installed\n$FAIL_REASON"
+	else
+		set -o pipefail
+		/usr/lib/raspberrypi-sys-mods/init_config "$CONFIG_FILE" |& tee /run/firstboot.log | while read -r line; do
+			MSG="$MSG\n$line"
+			whiptail --infobox "$MSG" 20 60
+		done
+		# shellcheck disable=SC2181 #akward to not check error code in this manor
+		if [ "$?" -ne 0 ]; then
+			mv /run/firstboot.log /var/log/firstboot.log
+			FAIL_REASON="Failed to apply customisations from custom.toml\n\nLog file saved as /var/log/firstboot.log\n$FAIL_REASON"
+		fi
+		set +o pipefail
+	fi
+	rm -f "$CONFIG_FILE"
+}
+
+add_wifi() {
+	{
+		echo 'network={'
+		echo '	ssid="CETI"'
+		echo '	psk="Talk2Whales"'
+		echo '}'
+	} >>/etc/wpa_supplicant/wpa_supplicant.conf
+}
+
+add_swap() {
+	# Create a folder where the swap file will reside
+	sudo mkdir /data/swap
+	# Set up the swap
+	sudo dphys-swapfile swapoff
+	sudo sh -c "echo 'CONF_SWAPFILE=/data/swap/swapfile' >> /etc/dphys-swapfile"
+	sudo sh -c "echo 'CONF_SWAPSIZE=1024' >> /etc/dphys-swapfile"
+	sudo dphys-swapfile setup
+	sudo dphys-swapfile swapon
+	# Only use swap in emergencies.
+	#   Swappiness is a number from 0-100, with 0 being less likely to use swap.
+	#   The default value is 60.
+	#   More information from https://unix.stackexchange.com/a/265716:
+	#    vm.swappiness = 0   # Swap is disabled. In earlier versions, this meant that the kernel would swap only to avoid an out of memory condition, but in later versions this is achieved by setting to 1.
+	#    vm.swappiness = 1   # Kernel version 3.5 and over, as well as kernel version 2.6.32-303 and over: Minimum amount of swapping without disabling it entirely.
+	#    vm.swappiness = 10  # This value is sometimes recommended to improve performance when sufficient memory exists in a system, this value *10* could be considered for the performance being expected.
+	#    vm.swappiness = 60  # The default value.
+	#    vm.swappiness = 100 # The kernel will swap aggressively.
+	sudo sh -c "echo 'vm.swappiness=1' >> /etc/sysctl.conf"
+}
+
+configure_logging() {
+	# Limit the journal size.
+	sudo sh -c "echo 'SystemMaxUse=15M' >> /etc/systemd/journald.conf"
+	sudo sh -c "echo 'RuntimeMaxUse=15M' >> /etc/systemd/journald.conf"
+	sudo sh -c "echo 'MaxLevelStore=warning' >> /etc/systemd/journald.conf"
+	sudo sh -c "echo 'MaxLevelSyslog=debug' >> /etc/systemd/journald.conf"
+
+	# Limit various log sizes and rotate old versions into the a separate folder.
+	#   The main app can periodically move this archive folder to the data partition.
+	#   (Note that rotatelog requires olddir to be on the same device as the main log.)
+	# Also disable compression to hopefully save some CPU usage.
+	sudo rm /etc/logrotate.d/rsyslog
+	sudo touch /etc/logrotate.d/rsyslog
+	sudo mkdir /var/log/old_logs
+	sudo sh -c "echo '
+/var/log/syslog
+{
+				rotate 100
+				size 5M
+				olddir /var/log/old_logs
+				missingok
+				notifempty
+				nocompress
+				copytruncate
+}
+/var/log/mail.info
+/var/log/mail.warn
+/var/log/mail.err
+/var/log/mail.log
+/var/log/daemon.log
+/var/log/kern.log
+/var/log/auth.log
+/var/log/user.log
+{
+				rotate 100
+				size 5M
+				olddir /var/log/old_logs
+				missingok
+				notifempty
+				nocompress
+				copytruncate
+}
+/var/log/lpr.log
+/var/log/cron.log
+/var/log/debug
+{
+				rotate 100
+				size 5M
+				olddir /var/log/old_logs
+				missingok
+				notifempty
+				nocompress
+				copytruncate
+}
+/var/log/messages
+{
+				rotate 100
+				size=1M
+				olddir /var/log/old_logs
+				missingok
+				notifempty
+				nocompress
+				copytruncate
+}
+' >> /etc/logrotate.d/rsyslog"
+}
+
+main() {
+	get_variables
+
+	if check_variables; then
+		do_resize
+	fi
+
+	# Enable I2C0
+	raspi-config nonint do_i2c 0
+
+	# Enable SPI
+	raspi-config nonint do_spi 0
+
+	# Enable UART port, but disable serial console and ability to log into pi using it
+	raspi-config nonint do_serial 2
+
+	whiptail --infobox "Generating SSH keys..." 20 60
+	regenerate_ssh_host_keys
+
+	if [ -f "/boot/custom.toml" ]; then
+		MSG="Applying customisations from custom.toml...\n"
+		whiptail --infobox "$MSG" 20 60
+		apply_custom "/boot/custom.toml"
+	fi
+
+	fix_partuuid
+	sethostname
+	raspi-config nonint do_ssh 0
+	add_wifi
+	add_swap
+	configure_logging
+	raspi-config nonint do_overlayfs 0
+	# Enable RTC trickle charge
+	i2cset -y 1 0x68 0x09 0xAA
+	return 0
+}
+
+mount -t proc proc /proc
+mount -t sysfs sys /sys
+mount -t tmpfs tmp /run
+mkdir -p /run/systemd
+mount /boot
+mkdir -p /data
+mount -L cetiData /data
+mount /boot -o remount,rw
+mount / -o remount,rw
+
+sed -i 's| init=/usr/lib/raspberrypi-sys-mods/firstboot||' /boot/cmdline.txt
+sed -i 's| sdhci\.debug_quirks2=4||' /boot/cmdline.txt
+
+if ! grep -q splash /boot/cmdline.txt; then
+	sed -i "s/ quiet//g" /boot/cmdline.txt
+fi
+sync
+
+main
+
+if [ -z "$FAIL_REASON" ]; then
+	whiptail --infobox "Rebooting..." 20 60
+	sleep 1
+else
+	whiptail --msgbox "Failed running firstboot:\n${FAIL_REASON}" 20 60
+fi
+
+reboot_pi
