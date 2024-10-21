@@ -14,16 +14,15 @@
 #include "aprs.h"
 #include "utils/config.h" //for TagConfig
 
-
 #include <time.h> //for time_t
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
 typedef enum recovery_power_level_e {
-	RECOVERY_POWER_LOW,
-	RECOVERY_POWER_HIGH,
-}RecoveryPowerLevel;
+    RECOVERY_POWER_LOW,
+    RECOVERY_POWER_HIGH,
+} RecoveryPowerLevel;
 
 //-----------------------------------------------------------------------------
 // Global variables
@@ -57,13 +56,6 @@ int recovery_off(void);
 // Thread Methods
 //-----------------------------------------------------------------------------
 int recovery_thread_init(TagConfig *pConfig);
-void* recovery_rx_thread(void* paramPtr);
+void *recovery_rx_thread(void *paramPtr);
 
 #endif // RECOVERY_H
-
-
-
-
-
-
-

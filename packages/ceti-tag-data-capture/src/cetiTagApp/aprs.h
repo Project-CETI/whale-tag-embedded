@@ -6,8 +6,8 @@
 #include <unistd.h>
 
 typedef struct aprs_callsign_t {
-	char callsign[7];
-	uint8_t ssid;
+    char callsign[7];
+    uint8_t ssid;
 } APRSCallsign;
 
 /**

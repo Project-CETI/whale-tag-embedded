@@ -2,8 +2,8 @@
 set -e
 
 if [ "$#" -ne 1 ]; then
-    echo "$0 <overlay-dir>" >&2
-    exit 1
+	echo "$0 <overlay-dir>" >&2
+	exit 1
 fi
 
 OVERLAY_DIR="$1"
@@ -15,21 +15,21 @@ export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=yes
 apt update
 
 time apt install "${APT_NONINTERACTIVE}" --fix-broken --fix-missing --no-upgrade \
-  alsa-utils \
-  avahi-utils \
-  bc \
-  build-essential \
-  libpigpio-dev \
-  pigpio \
-  devscripts \
-  dkms \
-  dnsmasq \
-  flac \
-  libflac-dev \
-  libi2c-dev \
-  i2c-tools \
-  netcat \
-  zlib1g-dev \
+	alsa-utils \
+	avahi-utils \
+	bc \
+	build-essential \
+	libpigpio-dev \
+	pigpio \
+	devscripts \
+	dkms \
+	dnsmasq \
+	flac \
+	libflac-dev \
+	libi2c-dev \
+	i2c-tools \
+	netcat \
+	zlib1g-dev
 
 apt "${APT_NONINTERACTIVE}" autoremove
 
@@ -47,13 +47,13 @@ sed -i '$ s/$/ rfkill.default_state=1/' /boot/cmdline.txt
 # Setup hardware parameters for i2c
 raspi-config nonint do_i2c 0
 {
-  echo "dtparam=i2c_vc=on"
-  echo "dtparam=i2c_vc_baudrate=400000"
-  echo "dtparam=i2c_arm_baudrate=400000"
-} >> /boot/config.txt
+	echo "dtparam=i2c_vc=on"
+	echo "dtparam=i2c_vc_baudrate=400000"
+	echo "dtparam=i2c_arm_baudrate=400000"
+} >>/boot/config.txt
 
 # Setup UART for flashing recovery board
-echo "dtoverlay=miniuart-bt" >> /boot/config.txt
+echo "dtoverlay=miniuart-bt" >>/boot/config.txt
 
 # Set timezone
 raspi-config nonint do_change_timezone "America/Dominica"
@@ -75,7 +75,7 @@ mkdir -p /data
 chmod 777 /data
 
 # Add entry in fstab to mount a data partition to /data by label if present
-echo "/dev/disk/by-label/cetiData /data ext4 defaults,nofail 0 0" >> /etc/fstab
+echo "/dev/disk/by-label/cetiData /data ext4 defaults,nofail 0 0" >>/etc/fstab
 
 # Do not run pi wizard
 rm -rf /etc/xdg/autostart/piwiz.desktop

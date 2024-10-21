@@ -12,21 +12,21 @@
 // Includes
 //-----------------------------------------------------------------------------
 
-
-#include "utils/logging.h"
 #include "launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
-#include "sys/types.h"
-#include "sys/sysinfo.h"
-#include "stdlib.h"
-#include "stdio.h"
-#include "string.h"
+#include "utils/logging.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/sysinfo.h>
+#include <sys/types.h>
 
 #include <pthread.h> // to set CPU affinity
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
-#define NUM_CPU_ENTRIES 5 // overall, then 4 cores
+#define NUM_CPU_ENTRIES 5              // overall, then 4 cores
 #define TID_PRINT_PERIOD_US 7130000000 // How often to print thread IDs; -1 to never print
 #define LOGROTATE_PERIOD_US 3600000000 // How often to force a log-file rotation; -1 to not use.
 
@@ -51,8 +51,8 @@ int get_cpu_id_for_tid(int tid);
 float get_cpu_temperature_c();
 float get_gpu_temperature_c();
 void force_system_log_rotation();
-int system_call_with_output(char* cmd, char* result);
-void* systemMonitor_thread(void* paramPtr);
+int system_call_with_output(char *cmd, char *result);
+void *systemMonitor_thread(void *paramPtr);
 
 //-----------------------------------------------------------------------------
 // Global variables
@@ -74,10 +74,3 @@ extern int g_ecg_lod_thread_tid;
 extern int g_systemMonitor_thread_tid;
 
 #endif // SYSTEMMONITOR_H
-
-
-
-
-
-
-

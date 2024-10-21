@@ -5,16 +5,14 @@ that is used to build the image for the embedded computer
 inside the Whale Tags to be deployed onto the sperm whales
 in the ocean during data collection for [project CETI](https://www.projectceti.org/).
 
-
 ## hardware, branches && git tags
 
 main branch always points to the development targeting the latest hardware.
 If you are looking for artifacts for a specific version of the hardware, look under the releases tab.
 Each release for each hardware version is marked with a git tag.
-The branch name v0 targets the v0 hardware, which  is a rapsberry pi zero w with octoboard soundcard.
+The branch name v0 targets the v0 hardware, which is a rapsberry pi zero w with octoboard soundcard.
 The branch v2 targets the v2 MVP hardware designed by Matt Cummings, with the deploy target of Jan'22.
 V2 hardware is a raspberry pi zero w with three custome bonnets. The hydrophones are driven by an fpga.
-
 
 ## building
 
@@ -46,31 +44,30 @@ then mounting it and running inside QEMU, then natively running commands
 inside the setup_image.sh, including the debian packages build.
 It will also install all the packages that are built into the resulting sdcard image.
 
-
 ## installing
 
 After you follow the steps to build, the /out folder will contain
 all the debian packages built, as well as the sdcard.img.
 
 Then you can use Etcher, or simply
+
 ```bash
 dd if=out/sdcard.img of=/dev/sdX bs=4M
 ```
 
 If you decide to only update the data collection software,
 you can copy the .deb over and install.
+
 ```bash
 scp ceti-tag-data-capture_X.X-X_all.deb pi:raspberrypi:~
 ssh pi@raspberrypi
 dpkg -i ceti-tag-data-capture_X.X-X_all.deb
 ```
 
-
 ## packages
 
 As you could see from above, the custom code for the whale tags is wrapped
 in a set of debian packages. Below is the list of all of them with the description of what they do.
-
 
 ## ceti-tag-set-hostname
 
@@ -81,12 +78,11 @@ This script is run at device start, and changes the hostname to unique identifia
 /proc/cpuinfo serial number is used.
 
 The reason the system hostname is changed are two-fold:
-1) to avoid hostname collisions if two or more tags are on the same network
-2) for the data ingestion pipeline to be able to uniquely identify the source of data, and collate the ingested data from different sessions
+
+1. to avoid hostname collisions if two or more tags are on the same network
+2. for the data ingestion pipeline to be able to uniquely identify the source of data, and collate the ingested data from different sessions
 
 For more info on data ingestion see [this doc](https://docs.google.com/document/d/181EHvxuhCzK52iVt1-lNrv1JLxsavYCylSLfFJ6ssQ0/edit#).
-
-
 
 ## ceti-tag-data-capture
 
@@ -97,7 +93,6 @@ The main script that is executed by the systemd is
 This is the main data collection python script. It spins up several processes in parallel to collect the audio data, and IMU data. All of the files are assumed to go to /data folder.
 
 Note this script is started on system startup and is being restarted if things go wrong in attempt to provide the most reliability.
-
 
 ## updating debian package versions
 
