@@ -55,6 +55,11 @@ static const char *stateMachine_data_file_headers[] = {
 static const int num_stateMachine_data_file_headers = sizeof(stateMachine_data_file_headers) / sizeof(*stateMachine_data_file_headers);
 
 int init_stateMachine() {
+#if ENABLE_BURNWIRE
+    if (init_burnwire() != WT_OK) {
+        return -1;
+    }
+#endif
 
     CETI_LOG("Successfully initialized the state machine");
     // Open an output file to write data.
@@ -279,14 +284,6 @@ int updateStateMachine() {
 // configure recovery board
 #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
-                // send wake message
-                char hostname[512];
-                gethostname(hostname, 511);
-
-                char message[1024];
-                snprintf(message, sizeof(message), "CETI %s ready!", hostname);
-                recovery_message(message);
-
                 char rec_callsign_msg[10];
                 char callsign_msg[10];
                 callsign_to_str(&g_config.recovery.callsign, callsign_msg);
