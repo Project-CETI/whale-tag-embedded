@@ -18,22 +18,18 @@
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
 #include "../utils/logging.h"
 
-#include <pigpio.h>
 #include <pthread.h> // to set CPU affinity
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
-#define ADDR_LIGHT 0x29
 
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
 int init_light();
-int getAmbientLight(int *pAmbientLightVisible, int *pAmbientLightIR);
 void *light_thread(void *paramPtr);
 int light_verify(void);
-int light_wake(void);
 
 //-----------------------------------------------------------------------------
 // Global variables
