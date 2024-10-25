@@ -42,7 +42,6 @@
 #include "../utils/memory.h"
 #include "../utils/timing.h"
 
-
 // Private system headers
 #include <FLAC/stream_encoder.h>
 #include <fcntl.h>

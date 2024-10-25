@@ -36,6 +36,7 @@
 #include <pigpio.h>
 #endif // UNIT_TEST
 
+#include <signal.h>
 #include <stdint.h>
 
 //-----------------------------------------------------------------------------

@@ -18,17 +18,15 @@
 #include "sensors/imu.h"
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 #include "utils/logging.h"
-#include "utils/str.h"         //strtoidentifier()
+#include "utils/str.h" //strtoidentifier()
 #include "utils/timing.h"
 
 #include <ctype.h>
 #include <errno.h>
 #include <pthread.h> // to set CPU affinity
-#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-
 
 //-----------------------------------------------------------------------------
 //

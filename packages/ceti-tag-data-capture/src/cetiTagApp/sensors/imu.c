@@ -15,7 +15,6 @@
 #include "../utils/memory.h"
 #include "../utils/timing.h" // for timestamps
 
-
 #include <fcntl.h>
 #include <inttypes.h>
 #include <math.h> // for fmin()
@@ -28,7 +27,6 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h> // for usleep()
-
 
 //-----------------------------------------------------------------------------
 // Initialization
