@@ -9,6 +9,9 @@
 
 #include "launcher.h"
 #include "utils/config.h"
+#include "utils/thread_error.h"
+
+#include <stdint.h>
 
 //-----------------------------------------------------------------------------
 // Initialize global variables
@@ -17,6 +20,8 @@ int g_exit = 0;
 int g_stopAcquisition = 0;
 int g_stopLogging = 0;
 char g_process_path[256] = "/opt/ceti-tag-data-capture/bin";
+
+static uint32_t s_threads_in_error = 0;
 
 void sig_handler(int signum) {
     CETI_LOG("Received termination request.");
@@ -312,9 +317,15 @@ int init_tag() {
     } else {
         CETI_LOG("Successfully initialized pigpio");
     }
-    result += init_timing() == 0 ? 0 : -1;
-    result += init_commands() == 0 ? 0 : -1;
-    result += init_stateMachine() == 0 ? 0 : -1;
+    if (init_timing() != 0) {
+        result += -1;
+    }
+    if (init_commands() != 0) {
+        result += -1;
+    }
+    if (init_stateMachine() != 0) {
+        result += -1;
+    }
 
 #if ENABLE_FPGA
     char fpga_bitstream_path[512];
@@ -333,46 +344,66 @@ int init_tag() {
 #endif
 
 #if ENABLE_BATTERY_GAUGE
-    result += init_battery() == 0 ? 0 : -1;
+    if (init_battery() != 0) {
+        result += -1;
+    }
 #endif
 
 #if ENABLE_BURNWIRE
-    result += init_burnwire() == 0 ? 0 : -1;
+    if (init_burnwire() != 0) {
+        result += -1;
+    }
 #endif
 
 #if ENABLE_AUDIO
-    result += audio_thread_init() == 0 ? 0 : -1;
+    if (audio_thread_init() != 0) {
+        result += -1;
+    }
 #endif
 
 #if ENABLE_LIGHT_SENSOR
-    result += init_light() == 0 ? 0 : -1;
+    if (init_light() != 0) {
+        result += -1;
+    }
 #endif
 
 #if ENABLE_IMU
-    result += init_imu() == 0 ? 0 : -1;
+    if (init_imu() != 0) {
+        result += -1;
+    }
 #endif
 
 #if ENABLE_RECOVERY
     if (g_config.recovery.enabled) {
-        result += recovery_thread_init(&g_config) == 0 ? 0 : -1;
+        if (recovery_thread_init(&g_config) != 0) {
+            result += -1;
+        }
     } else {
         recovery_off();
     }
 #endif
 
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
-    result += init_pressureTemperature() == 0 ? 0 : -1;
+    if (init_pressureTemperature() != 0) {
+        result += -1;
+    }
 #endif
 
 #if ENABLE_ECG
 #if ENABLE_ECG_LOD
-    result += ecg_lod_init() == 0 ? 0 : -1;
+    if (ecg_lod_init() != 0) {
+        result += -1;
+    }
 #endif
-    result += init_ecg() == 0 ? 0 : -1;
+    if (init_ecg() != 0) {
+        result += -1;
+    }
 #endif
 
 #if ENABLE_SYSTEMMONITOR
-    result += init_systemMonitor() == 0 ? 0 : -1;
+    if (init_systemMonitor() != 0) {
+        result += -1;
+    }
 #endif
 
     result += sync_global_time_init();
