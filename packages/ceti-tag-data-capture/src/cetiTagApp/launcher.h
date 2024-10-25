@@ -31,13 +31,11 @@
 //-----------------------------------------------------------------------------
 // State Change Configurations
 //-----------------------------------------------------------------------------
-#define BURNWIRE_BURN_INTERVAL_DEFAULT_MIN 20        // time in minutes that the burnwire remains on
 #define MIN_DATA_PARTITION_FREE_KB (1 * 1024 * 1024) // 1 GiB
 
 //-----------------------------------------------------------------------------
 // Sampling and logging configuration.
 //-----------------------------------------------------------------------------
-#define RECOVERY_SAMPLING_PERIOD_US 5000000
 #define RTC_UPDATE_PERIOD_LONG_US 950000 // A coarse delay, to get close to when the RTC is expected to change
 #define RTC_UPDATE_PERIOD_SHORT_US 10000 // A finer delay, to find the new RTC value close to its update time
 #define COMMAND_POLLING_PERIOD_US 100000
@@ -74,58 +72,6 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
-#ifndef UNIT_TEST
-#include <pigpio.h>
-
-#include "commands.h"
-#include "state_machine.h"
-#include "utils/logging.h"
-#include "utils/timing.h"
-
-#if ENABLE_BATTERY_GAUGE
-#include "battery.h"
-#endif
-
-#if ENABLE_BURNWIRE
-#include "burnwire.h"
-#endif
-
-#if ENABLE_FPGA
-#include "device/fpga.h"
-#endif
-
-#if ENABLE_RECOVERY
-#include "recovery.h"
-#endif
-
-#if ENABLE_AUDIO
-#include "sensors/audio.h"
-#endif
-
-#if ENABLE_IMU
-#include "sensors/imu.h"
-#endif
-
-#if ENABLE_LIGHT_SENSOR
-#include "sensors/light.h"
-#endif
-
-#if ENABLE_PRESSURETEMPERATURE_SENSOR
-#include "sensors/pressure_temperature.h"
-#endif
-
-#if ENABLE_ECG
-#include "sensors/ecg.h"
-#if ENABLE_ECG_LOD
-#include "sensors/ecg_helpers/ecg_lod.h"
-#endif
-#endif
-
-#endif // UNIT_TEST
-
-// Include this regardless of ENABLE_SYSTEMMONITOR
-//  since the launcher will use its helpers to check disk usage.
-#include "systemMonitor.h"
 
 //-----------------------------------------------------------------------------
 // Global variables

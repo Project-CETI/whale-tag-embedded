@@ -14,20 +14,6 @@
 // Includes
 //-----------------------------------------------------------------------------
 
-#include "../cetiTag.h"       //for CetiImuQuatSample
-#include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
-#include "../systemMonitor.h" // for the global CPU assignment variable to update
-#include "../utils/logging.h"
-#include "../utils/timing.h" // for timestamps
-
-#include <inttypes.h>
-#include <math.h> // for fmin()
-#include <math.h> // for fmin(), sqrt(), atan2(), M_PI
-#include <pigpio.h>
-#include <pthread.h> // to set CPU affinity
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h> // for usleep()
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration

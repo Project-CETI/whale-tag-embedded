@@ -11,6 +11,7 @@
 
 #include "../device/rtc.h"
 #include "../launcher.h" // for g_exit, the state machine data filepath, to get an initial RTC timestamp if needed
+#include "../systemMonitor.h"
 #include "logging.h"
 
 #include <pthread.h> // to set CPU affinity

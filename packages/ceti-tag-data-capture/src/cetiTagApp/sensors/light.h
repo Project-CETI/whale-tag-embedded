@@ -14,12 +14,6 @@
 // Includes
 //-----------------------------------------------------------------------------
 
-#include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
-#include "../systemMonitor.h" // for the global CPU assignment variable to update
-#include "../utils/logging.h"
-
-#include <pthread.h> // to set CPU affinity
-
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------

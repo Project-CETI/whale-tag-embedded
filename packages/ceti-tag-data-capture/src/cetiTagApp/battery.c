@@ -13,6 +13,7 @@
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 #include "utils/logging.h"
 #include "utils/memory.h"
+#include "utils/timing.h"
 
 // === Private System Libraries ===
 #include <fcntl.h>

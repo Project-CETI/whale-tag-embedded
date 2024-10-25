@@ -9,12 +9,18 @@
 
 #include "light.h"
 
+#include "../cetiTag.h"
 #include "../device/ltr329als.h"
+#include "../launcher.h"      // for g_stopAcquisition, data filepath, and CPU affinity
+#include "../systemMonitor.h" // for the global CPU assignment variable to update
+#include "../utils/logging.h"
 #include "../utils/memory.h"
 #include "../utils/thread_error.h"
+#include "../utils/timing.h"
 
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h> // to set CPU affinity
 #include <semaphore.h>
 #include <stdio.h>
 #include <string.h>

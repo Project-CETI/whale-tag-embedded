@@ -16,11 +16,11 @@
 #include "../utils/logging.h"
 #include "../utils/memory.h"
 #include "../utils/thread_error.h"
+#include "../utils/timing.h"
 
 // === Private System Libraries ===
 #include <errno.h>
 #include <fcntl.h>
-#include <pigpio.h>
 #include <pthread.h> // to set CPU affinity
 #include <semaphore.h>
 #include <stdint.h>

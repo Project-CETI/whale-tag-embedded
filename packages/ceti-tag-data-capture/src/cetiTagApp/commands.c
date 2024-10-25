@@ -9,10 +9,26 @@
 
 #include "commands.h"          //publice header
 #include "commands_internal.h" //semi-private header
+
+#include "battery.h"
+#include "burnwire.h"
+#include "device/fpga.h"
+#include "launcher.h" // for specification of enabled sensors, init_tag(), g_exit, sampling rate, data filepath, and CPU affinity, etc.
+#include "sensors/audio.h"
+#include "sensors/imu.h"
+#include "systemMonitor.h" // for the global CPU assignment variable to update
+#include "utils/logging.h"
 #include "utils/str.h"         //strtoidentifier()
+#include "utils/timing.h"
 
 #include <ctype.h>
 #include <errno.h>
+#include <pthread.h> // to set CPU affinity
+#include <signal.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
 
 //-----------------------------------------------------------------------------
 //

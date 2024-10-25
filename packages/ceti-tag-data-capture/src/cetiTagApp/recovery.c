@@ -15,6 +15,7 @@
 #include "utils/error.h"
 #include "utils/logging.h"
 #include "utils/memory.h"
+#include "utils/timing.h"
 
 #include <fcntl.h>
 #include <pigpio.h>

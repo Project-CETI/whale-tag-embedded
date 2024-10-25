@@ -8,8 +8,33 @@
 //-----------------------------------------------------------------------------
 
 #include "launcher.h"
+
+#include "battery.h"
+#include "burnwire.h"
+#include "device/fpga.h"
+#include "recovery.h"
+#include "sensors/audio.h"
+#include "sensors/light.h"
+#include "sensors/pressure_temperature.h"
+#include "state_machine.h"
+#include "systemMonitor.h"
 #include "utils/config.h"
+#include "utils/logging.h"
 #include "utils/thread_error.h"
+#include "utils/timing.h"
+
+/* Headers that include hardware dependent libraries can't be unit tested.
+ * i.e. exclude any header with <pigpio.h> included in it.
+ * (MSH)
+ */
+#ifndef UNIT_TEST
+#include "commands.h"
+#include "sensors/ecg.h"
+#include "sensors/ecg_helpers/ecg_lod.h"
+#include "sensors/imu.h"
+
+#include <pigpio.h>
+#endif // UNIT_TEST
 
 #include <stdint.h>
 
