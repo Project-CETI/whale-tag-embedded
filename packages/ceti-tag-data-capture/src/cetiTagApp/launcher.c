@@ -102,21 +102,31 @@ int main(void) {
 #endif
     // Ambient light
 #if ENABLE_LIGHT_SENSOR
-    pthread_create(&thread_ids[num_threads], NULL, &light_thread, NULL);
-    threads_running[num_threads] = &g_light_thread_is_running;
+    if (s_threads_in_error & (1 << THREAD_ALS_ACQ)) {
+        CETI_WARN("Failed to initialize light acquisition thread. THREAD NOT CREATED.");
+    } else {
+        pthread_create(&thread_ids[num_threads], NULL, &light_thread, NULL);
+        threads_running[num_threads] = &g_light_thread_is_running;
+        CETI_DEBUG("Thread created: Light Acquisition");
 #ifdef DEBUG
-    strcpy(thread_name[num_threads], "light");
+        strcpy(thread_name[num_threads], "light");
 #endif
-    num_threads++;
+        num_threads++;
+    }
 #endif
     // Water pressure and temperature
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
-    pthread_create(&thread_ids[num_threads], NULL, &pressureTemperature_thread, NULL);
-    threads_running[num_threads] = &g_pressureTemperature_thread_is_running;
+    if (s_threads_in_error & (1 << THREAD_PRESSURE_ACQ)) {
+        CETI_WARN("Failed to initialize pressure acquisition thread. THREAD NOT CREATED");
+    } else {
+        pthread_create(&thread_ids[num_threads], NULL, &pressureTemperature_thread, NULL);
+        threads_running[num_threads] = &g_pressureTemperature_thread_is_running;
+        CETI_DEBUG("Thread created: Pressure Acquisition");
 #ifdef DEBUG
-    strcpy(thread_name[num_threads], "pressure");
+        strcpy(thread_name[num_threads], "pressure");
 #endif
-    num_threads++;
+        num_threads++;
+    }
 #endif
     // Battery status monitor
 #if ENABLE_BATTERY_GAUGE
@@ -363,6 +373,7 @@ int init_tag() {
 
 #if ENABLE_LIGHT_SENSOR
     if (init_light() != 0) {
+        s_threads_in_error |= (1 << THREAD_ALS_ACQ);
         result += -1;
     }
 #endif
@@ -385,6 +396,7 @@ int init_tag() {
 
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
     if (init_pressureTemperature() != 0) {
+        s_threads_in_error |= (1 << THREAD_PRESSURE_ACQ);
         result += -1;
     }
 #endif
@@ -408,9 +420,9 @@ int init_tag() {
 
     result += sync_global_time_init();
 
-    if (result < 0) {
+    if (result < 0 || (s_threads_in_error)) {
         CETI_ERR("Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
-        return result;
+        return result - s_threads_in_error;
     }
 
     return result;
