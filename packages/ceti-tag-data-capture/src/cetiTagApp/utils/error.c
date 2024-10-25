@@ -208,6 +208,8 @@ static const char *err_str[] = {
     [-WT_ERR_RECOVERY_OVERSIZED_COMMENT] = "comment exceeds 40 char limit",
     [-WT_ERR_RECOVERY_OVERSIZED_MESSAGE] = "message exceeds 67 char limit",
     [-WT_ERR_RECOVERY_UNDERSIZED_GPS_BUFFER] = "destination gps buffer too small",
+    [-WT_ERR_PRESSURE_INVALID_RESPONSE] = "invalid pressure sensor response",
+    [-WT_ERR_PRESSURE_BUSY] = "pressure sensor is busy",
     [-WT_ERR_BMS_WRITE_PROT_DISABLE_FAIL] = "failed to disable write protection",
 };
 

@@ -648,7 +648,6 @@ int recovery_thread_init(TagConfig *pConfig) {
     // setup semaphores
     sem_nmea_sentence_ready = sem_open(RECOVERY_SEM_NAME, O_CREAT, 0644, 0);
     if (sem_nmea_sentence_ready == SEM_FAILED) {
-        perror("sem_open");
         CETI_ERR("Failed to create recovery semaphore");
         return -1;
     }

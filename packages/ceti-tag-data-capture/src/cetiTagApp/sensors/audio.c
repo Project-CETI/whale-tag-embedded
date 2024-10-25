@@ -328,14 +328,12 @@ int audio_thread_init(void) {
     // create synchronization semaphores
     sem_audio_block = sem_open(AUDIO_BLOCK_SEM_NAME, O_CREAT, 0644, 0);
     if (sem_audio_block == SEM_FAILED) {
-        perror("sem_open");
         CETI_ERR("Failed to create block ready semaphore");
         return -1;
     }
 
     sem_audio_page = sem_open(AUDIO_BLOCK_SEM_NAME, O_CREAT, 0644, 0);
     if (sem_audio_page == SEM_FAILED) {
-        perror("sem_open");
         CETI_ERR("Failed to create page ready semaphore");
         return -1;
     }

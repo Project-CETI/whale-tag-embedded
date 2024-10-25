@@ -5,18 +5,15 @@
 //               MIT CSAIL
 // Contributors: Matt Cummings, Peter Malkin, Joseph DelPreto,
 //               Michael Salino-Hugg, [TODO: Add other contributors here]
-// Description: Ambient Light Sensor device driver for LiteON LTR-329ALS-01
+// Description: PDevice driver for Keller 4LD pressure transmitter
 //-----------------------------------------------------------------------------
-#ifndef __CETI_WHALE_TAG_HAL_LTR329ALS__
-#define __CETI_WHALE_TAG_HAL_LTR329ALS__
+#ifndef __CETI_WHALE_TAG_HAL_KELLER_4LD__
+#define __CETI_WHALE_TAG_HAL_KELLER_4LD__
 
 #include "../utils/error.h" //for WTResult
 
 #include <stdint.h>
 
-WTResult als_wake(void);
-WTResult als_get_measurement(int *pVisible, int *pInfrared);
-WTResult als_get_manufacturer_id(uint8_t *pManuId);
-WTResult als_get_part_id(uint8_t *pPartId, uint8_t *pRevisionId);
+WTResult pressure_get_measurement(double *pPressureBar, double *pTempC);
 
-#endif // __CETI_WHALE_TAG_HAL_LTR329ALS__
+#endif // __CETI_WHALE_TAG_HAL_KELLER_4LD__

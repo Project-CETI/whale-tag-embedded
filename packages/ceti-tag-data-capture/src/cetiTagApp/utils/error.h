@@ -74,6 +74,10 @@ typedef enum wt_device_id_e {
 #define WT_ERR_RECOVERY_OVERSIZED_MESSAGE (WT_ERR_RECOVERY_START - 4)
 #define WT_ERR_RECOVERY_UNDERSIZED_GPS_BUFFER (WT_ERR_RECOVERY_START - 5)
 
+#define WT_ERR_PRESSURE_START (WT_ERR_RECOVERY_START - 6)
+#define WT_ERR_PRESSURE_INVALID_RESPONSE (WT_ERR_PRESSURE_START - 0)
+#define WT_ERR_PRESSURE_BUSY (WT_ERR_PRESSURE_START - 1)
+
 /**
  * @brief WTResult is a 32-bit error code the 16 upper bits are the device id
  *      number, and the 16 lower bits are the error code. Error codes are taken

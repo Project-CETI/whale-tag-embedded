@@ -38,7 +38,7 @@
 #define ALS_MEAS_RATE_REPEAT_2000_MS (0b111 << 0)
 
 #define ALS_MEAS_RATE_INTEGRATION_100_MS (0b000 << 3)
-#define ALS_MEAS_RATE_INTEGRATION_50_MS  (0b001 << 3)
+#define ALS_MEAS_RATE_INTEGRATION_50_MS (0b001 << 3)
 #define ALS_MEAS_RATE_INTEGRATION_200_MS (0b010 << 3)
 #define ALS_MEAS_RATE_INTEGRATION_400_MS (0b011 << 3)
 #define ALS_MEAS_RATE_INTEGRATION_150_MS (0b100 << 3)
@@ -47,7 +47,6 @@
 #define ALS_MEAS_RATE_INTEGRATION_350_MS (0b111 << 3)
 
 #define ALS_MEAS_RATE_DEFAULT (ALS_MEAS_RATE_INTEGRATION_100_MS | ALS_MEAS_RATE_REPEAT_500_MS)
-
 
 typedef enum {
     ALS_REG_CONTRL = 0x80,
@@ -61,16 +60,16 @@ typedef enum {
 
 WTResult als_wake(void) {
     int fd = PI_TRY(WT_DEV_LIGHT, i2cOpen(ALS_I2C_BUS, ALS_I2C_DEV_ADDR, 0));
-    PI_TRY(WT_DEV_LIGHT, i2cWriteByteData(fd, ALS_REG_CONTRL, ALS_CONTRL_GAIN_1 | ALS_CONTRL_MODE_ACTIVE), i2cClose(fd));  // wake the light sensor up
+    PI_TRY(WT_DEV_LIGHT, i2cWriteByteData(fd, ALS_REG_CONTRL, ALS_CONTRL_GAIN_1 | ALS_CONTRL_MODE_ACTIVE), i2cClose(fd)); // wake the light sensor up
     i2cClose(fd);
-    usleep(ALS_WAKEUP_TIME_US); //wait for sensor to wake before using
+    usleep(ALS_WAKEUP_TIME_US); // wait for sensor to wake before using
     return WT_OK;
 }
 
-WTResult als_get_measurement(int * pVisible, int *pInfrared) {
+WTResult als_get_measurement(int *pVisible, int *pInfrared) {
     int fd = PI_TRY(WT_DEV_LIGHT, i2cOpen(ALS_I2C_BUS, ALS_I2C_DEV_ADDR, 0));
-    int visible = PI_TRY(WT_DEV_LIGHT, i2cReadWordData(fd, ALS_REG_DATA_CH1), i2cClose(fd)); 
-    int infrared = PI_TRY(WT_DEV_LIGHT, i2cReadWordData(fd, ALS_REG_DATA_CH0), i2cClose(fd)); 
+    int visible = PI_TRY(WT_DEV_LIGHT, i2cReadWordData(fd, ALS_REG_DATA_CH1), i2cClose(fd));
+    int infrared = PI_TRY(WT_DEV_LIGHT, i2cReadWordData(fd, ALS_REG_DATA_CH0), i2cClose(fd));
     i2cClose(fd);
     if (pVisible != NULL) {
         *pVisible = visible;
@@ -83,7 +82,7 @@ WTResult als_get_measurement(int * pVisible, int *pInfrared) {
 
 WTResult als_get_manufacturer_id(uint8_t *pManuId) {
     int fd = PI_TRY(WT_DEV_LIGHT, i2cOpen(ALS_I2C_BUS, ALS_I2C_DEV_ADDR, 0));
-    int manu_id = PI_TRY(WT_DEV_LIGHT, i2cReadByteData(fd, ALS_REG_MANUFAC_ID), i2cClose(fd)); 
+    int manu_id = PI_TRY(WT_DEV_LIGHT, i2cReadByteData(fd, ALS_REG_MANUFAC_ID), i2cClose(fd));
     i2cClose(fd);
 
     if (pManuId != NULL) {
@@ -94,7 +93,7 @@ WTResult als_get_manufacturer_id(uint8_t *pManuId) {
 
 WTResult als_get_part_id(uint8_t *pPartId, uint8_t *pRevisionId) {
     int fd = PI_TRY(WT_DEV_LIGHT, i2cOpen(ALS_I2C_BUS, ALS_I2C_DEV_ADDR, 0));
-    int raw = PI_TRY(WT_DEV_LIGHT, i2cReadByteData(fd, ALS_REG_PART_ID), i2cClose(fd)); 
+    int raw = PI_TRY(WT_DEV_LIGHT, i2cReadByteData(fd, ALS_REG_PART_ID), i2cClose(fd));
     i2cClose(fd);
 
     if (pPartId != NULL) {

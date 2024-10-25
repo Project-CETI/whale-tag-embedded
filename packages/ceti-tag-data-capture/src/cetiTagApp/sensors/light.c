@@ -13,8 +13,11 @@
 #include "../utils/memory.h"
 #include "../utils/thread_error.h"
 
+#include <errno.h>
 #include <fcntl.h>
 #include <semaphore.h>
+#include <stdio.h>
+#include <string.h>
 
 //-----------------------------------------------------------------------------
 // Initialization
@@ -22,24 +25,28 @@
 
 // Global/static variables
 int g_light_thread_is_running = 0;
-static FILE *light_data_file = NULL;
-static char light_data_file_notes[256] = "";
-static const char *light_data_file_headers[] = {
-    "Ambient Light: Visible",
-    "Ambient Light: IR",
-};
-static const int num_light_data_file_headers = sizeof(light_data_file_headers) / sizeof(*light_data_file_headers);
+#define LIGHT_CSV_HEADER      \
+    "Timestamp [us]"          \
+    ",RTC Count"              \
+    ",Notes"                  \
+    ",Ambient Light: Visible" \
+    ",Ambient Light: IR"
+
 CetiLightSample *g_light;
 sem_t *light_data_ready;
+
+static int s_log_restarted = 1;
 
 int light_verify(void) {
     uint8_t manu_id, part_id, rev_id;
 
     WTResult result = als_get_manufacturer_id(&manu_id);
 
-    if(result == WT_OK) { result = als_get_part_id(&part_id, &rev_id); }
+    if (result == WT_OK) {
+        result = als_get_part_id(&part_id, &rev_id);
+    }
 
-    return ( (result == WT_OK) && (manu_id == 0x05) && (part_id == 0x0a) && (rev_id == 0x00));
+    return ((result == WT_OK) && (manu_id == 0x05) && (part_id == 0x0a) && (rev_id == 0x00));
 }
 
 int init_light() {
@@ -62,17 +69,25 @@ int init_light() {
     // setup semaphore
     light_data_ready = sem_open(LIGHT_SEM_NAME, O_CREAT, 0644, 0);
     if (light_data_ready == SEM_FAILED) {
-        perror("sem_open");
         CETI_ERR("Failed to create semaphore");
         return -1;
     }
 
     // Open an output file to write data.
-    if (init_data_file(light_data_file, LIGHT_DATA_FILEPATH,
-                       light_data_file_headers, num_light_data_file_headers,
-                       light_data_file_notes, "init_light()") < 0) {
+    int data_file_exists = (access(LIGHT_DATA_FILEPATH, F_OK) != -1);
+    FILE *data_file = fopen(LIGHT_DATA_FILEPATH, "at");
+    if (data_file == NULL) {
+        CETI_ERR("Failed to open/create an output data file: " LIGHT_DATA_FILEPATH ": %s", strerror(errno));
         return -1;
     }
+
+    // Write headers if the file didn't already exist.
+    if (!data_file_exists) {
+        fprintf(data_file, LIGHT_CSV_HEADER "\n");
+    }
+    fclose(data_file); // Close the file.
+    s_log_restarted = 1;
+    CETI_LOG("Using output data file: " LIGHT_DATA_FILEPATH);
 
     return 0;
 }
@@ -92,13 +107,17 @@ void light_sample_to_csv(FILE *fp, CetiLightSample *pSample) {
     fprintf(fp, "%ld", g_light->sys_time_us);
     fprintf(fp, ",%d", g_light->rtc_time_s);
     // Write any notes, then clear them so they are only written once.
-    fprintf(fp, ",%s", light_data_file_notes);
-    if (g_light->error != 0)
+    if (s_log_restarted) {
+        fprintf(fp, "Restarted! | ");
+        s_log_restarted = 0;
+    }
+    if (g_light->error != 0) {
         fprintf(fp, "ERROR(%s) | ", wt_strerror(g_light->error));
+    }
     if (g_light->visible < -80 || g_light->infrared < -80) {
         fprintf(fp, "INVALID? | ");
     }
-    light_data_file_notes[0] = '\0';
+
     // Write the sensor data.
     fprintf(fp, ",%d", g_light->visible);
     fprintf(fp, ",%d", g_light->infrared);
@@ -137,7 +156,7 @@ void *light_thread(void *paramPtr) {
         update_thread_device_status(THREAD_ALS_ACQ, g_light->error, __FUNCTION__);
 
         if (!g_stopLogging) {
-            light_data_file = fopen(LIGHT_DATA_FILEPATH, "at");
+            FILE *light_data_file = fopen(LIGHT_DATA_FILEPATH, "at");
             if (light_data_file == NULL) {
                 CETI_LOG("failed to open data output file: %s", LIGHT_DATA_FILEPATH);
             } else {
@@ -157,8 +176,3 @@ void *light_thread(void *paramPtr) {
     CETI_LOG("Done!");
     return NULL;
 }
-
-//-----------------------------------------------------------------------------
-// Ambient light sensor LiteON LTR-329ALS-01 Interface
-//-----------------------------------------------------------------------------
-

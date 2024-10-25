@@ -109,25 +109,21 @@ int init_imu() {
     // setup semaphores
     s_quat_ready = sem_open(IMU_QUAT_SEM_NAME, O_CREAT, 0644, 0);
     if (s_quat_ready == SEM_FAILED) {
-        perror("sem_open");
         CETI_ERR("Failed to create quaternion semaphore");
         return -1;
     }
     s_accel_ready = sem_open(IMU_ACCEL_SEM_NAME, O_CREAT, 0644, 0);
     if (s_accel_ready == SEM_FAILED) {
-        perror("sem_open");
         CETI_ERR("Failed to create acceleration semaphore");
         return -1;
     }
     s_gyro_ready = sem_open(IMU_GYRO_SEM_NAME, O_CREAT, 0644, 0);
     if (s_gyro_ready == SEM_FAILED) {
-        perror("sem_open");
         CETI_ERR("Failed to create gyroscope semaphore");
         return -1;
     }
     s_mag_ready = sem_open(IMU_MAG_SEM_NAME, O_CREAT, 0644, 0);
     if (s_mag_ready == SEM_FAILED) {
-        perror("sem_open");
         CETI_ERR("Failed to create magnetometer semaphore");
         return -1;
     }

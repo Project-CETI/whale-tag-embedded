@@ -61,7 +61,6 @@ TestState test_pressure(FILE *pResultsFile) {
 
     printf("Instructions: Use a syringe to apply pressure to the tag's depth sensor\n");
     do {
-        // int result = getPressureTemperature(&pressure_bar, &temperature_c);
         sem_wait(pressure_data_ready);
         if (pressure_data->error != 0) {
             sem_close(pressure_data_ready);
