@@ -203,7 +203,7 @@ int stateMachine_set_state(wt_state_t new_state) {
                     fprintf(file_burnwire_timeout_start_s, "%u", burnwire_timeout_start_s);
                     fclose(file_burnwire_timeout_start_s);
                 } else {
-                    CETI_WARN("Failed to create %s: %s", STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, )
+                    CETI_WARN("Failed to create %s: %s", STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, strerror(errno));
                 }
 #endif
             }

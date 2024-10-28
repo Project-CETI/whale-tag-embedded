@@ -69,7 +69,7 @@ int init_light() {
 
     g_light->error = als_wake();
     if (g_light->error != WT_OK) {
-        CETI_ERR("Failed to initialize light sensor: %s", wt_strerror(hw_result));
+        CETI_ERR("Failed to initialize light sensor: %s", wt_strerror(g_light->error));
         return -1;
     }
 
