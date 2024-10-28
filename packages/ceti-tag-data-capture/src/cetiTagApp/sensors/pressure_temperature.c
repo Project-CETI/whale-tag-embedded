@@ -149,7 +149,7 @@ void *pressureTemperature_thread(void *paramPtr) {
     uint32_t skip_count;
     while (!g_stopAcquisition) {
         skip_count++;
-        if ((skip_count == decay_multiplier))  {
+        if ((skip_count == decay_multiplier)) {
             skip_count = 0;
             // update sample for system
             pressure_update_sample();
@@ -159,9 +159,9 @@ void *pressureTemperature_thread(void *paramPtr) {
             if (g_pressure->error == WT_OK) {
                 decay_multiplier = 1;
             } else {
-                consecutive_error_count++; 
+                consecutive_error_count++;
                 if (!(consecutive_error_count < 5)) {
-                    decay_multiplier << 1; //double decay time
+                    decay_multiplier << 1; // double decay time
                 }
             }
 
