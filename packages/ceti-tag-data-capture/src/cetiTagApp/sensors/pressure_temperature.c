@@ -64,6 +64,7 @@ void pressure_sample_to_csv(FILE *fp, CetiPressureSample *pSample) {
     fprintf(fp, "%ld", g_pressure->sys_time_us);
     fprintf(fp, ",%d", g_pressure->rtc_time_s);
     // Write any notes, then clear them so they are only written once.
+    fprintf(fp, ",");
     if (s_log_restarted) {
         s_log_restarted = 0;
         fprintf(fp, "Restarted! | ");
@@ -102,13 +103,6 @@ int init_pressureTemperature(void) {
         return -1;
     }
 
-    // check that hardware is communicating, but don't worry about values
-    g_pressure->error = pressure_get_measurement(NULL, NULL);
-    if (g_pressure->error != WT_OK) {
-        CETI_ERR("Failed to read pressure sensor: %s", wt_strerror(g_pressure->error));
-        return -1;
-    }
-
     // Write headers if the file didn't already exist.
     if (!data_file_exists) {
         fprintf(data_file, PRESSURE_CSV_HEADER "\n");
@@ -116,6 +110,13 @@ int init_pressureTemperature(void) {
     fclose(data_file); // Close the file.
     s_log_restarted = 1;
     CETI_LOG("Using output data file: " PRESSURETEMPERATURE_DATA_FILEPATH);
+
+    // check that hardware is communicating, but don't worry about values
+    g_pressure->error = pressure_get_measurement(NULL, NULL);
+    if (g_pressure->error != WT_OK) {
+        CETI_ERR("Failed to read pressure sensor: %s", wt_strerror(g_pressure->error));
+        return -1;
+    }
 
     CETI_LOG("Successfully initialized the pressure/temperature sensor.");
     return 0;

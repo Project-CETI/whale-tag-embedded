@@ -67,18 +67,6 @@ int init_light() {
         return -1;
     }
 
-    g_light->error = als_wake();
-    if (g_light->error != WT_OK) {
-        CETI_ERR("Failed to initialize light sensor: %s", wt_strerror(g_light->error));
-        return -1;
-    }
-
-    if (!light_verify()) {
-        CETI_ERR("Could not verify light sensor");
-        return -1;
-    }
-    CETI_LOG("Successfully initialized the light sensor");
-
     // Open an output file to write data.
     int data_file_exists = (access(LIGHT_DATA_FILEPATH, F_OK) != -1);
     FILE *data_file = fopen(LIGHT_DATA_FILEPATH, "at");
@@ -94,6 +82,18 @@ int init_light() {
     fclose(data_file); // Close the file.
     s_log_restarted = 1;
     CETI_LOG("Using output data file: " LIGHT_DATA_FILEPATH);
+
+    g_light->error = als_wake();
+    if (g_light->error != WT_OK) {
+        CETI_ERR("Failed to initialize light sensor: %s", wt_strerror(g_light->error));
+        return -1;
+    }
+
+    if (!light_verify()) {
+        CETI_ERR("Could not verify light sensor");
+        return -1;
+    }
+    CETI_LOG("Successfully initialized the light sensor");
 
     return 0;
 }
@@ -113,6 +113,7 @@ void light_sample_to_csv(FILE *fp, CetiLightSample *pSample) {
     fprintf(fp, "%ld", g_light->sys_time_us);
     fprintf(fp, ",%d", g_light->rtc_time_s);
     // Write any notes, then clear them so they are only written once.
+    fprintf(fp, ",");
     if (s_log_restarted) {
         fprintf(fp, "Restarted! | ");
         s_log_restarted = 0;

@@ -274,7 +274,7 @@ void battery_sample_to_csv(FILE *fp, CetiBatterySample *pSample) {
     fprintf(fp, ",%s", battery_data_file_notes);
     strcpy(battery_data_file_notes, "");
     if (pSample->error != WT_OK) {
-        fprintf(fp, "ERROR(%s, %04Xh) | ", wt_strerror_device_name(pSample->error), (pSample->error & 0xFFFF));
+        fprintf(fp, "ERROR(%s) | ", wt_strerror(pSample->error));
     }
     if (pSample->cell_voltage_v[0] < 0.0 || pSample->cell_voltage_v[1] < 0.0 || pSample->cell_temperature_c[0] < -80.0 || pSample->cell_temperature_c[1] < -80.0) { // it seems to return -0.01 for voltages and -5.19 for current when no sensor is connected
         CETI_WARN("readings are likely invalid");
