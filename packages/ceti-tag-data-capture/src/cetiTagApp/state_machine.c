@@ -57,7 +57,6 @@ static const char *stateMachine_data_file_headers[] = {
 static const int num_stateMachine_data_file_headers = sizeof(stateMachine_data_file_headers) / sizeof(*stateMachine_data_file_headers);
 
 int init_stateMachine() {
-
     CETI_LOG("Successfully initialized the state machine");
     // Open an output file to write data.
     if (init_data_file(stateMachine_data_file, STATEMACHINE_DATA_FILEPATH,

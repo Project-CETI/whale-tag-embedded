@@ -129,30 +129,28 @@ int main(void) {
     // Ambient light
 #if ENABLE_LIGHT_SENSOR
     if (s_threads_in_error & (1 << THREAD_ALS_ACQ)) {
-        CETI_WARN("Failed to initialize light acquisition thread. THREAD NOT CREATED.");
-    } else {
-        pthread_create(&thread_ids[num_threads], NULL, &light_thread, NULL);
-        threads_running[num_threads] = &g_light_thread_is_running;
-        CETI_DEBUG("Thread created: Light Acquisition");
-#ifdef DEBUG
-        strcpy(thread_name[num_threads], "light");
-#endif
-        num_threads++;
+        CETI_WARN("Failed to initialize light acquisition thread. Thread created to log errors.");
     }
+    pthread_create(&thread_ids[num_threads], NULL, &light_thread, NULL);
+    threads_running[num_threads] = &g_light_thread_is_running;
+    CETI_DEBUG("Thread created: Light Acquisition");
+#ifdef DEBUG
+    strcpy(thread_name[num_threads], "light");
+#endif
+    num_threads++;
 #endif
     // Water pressure and temperature
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
     if (s_threads_in_error & (1 << THREAD_PRESSURE_ACQ)) {
-        CETI_WARN("Failed to initialize pressure acquisition thread. THREAD NOT CREATED");
-    } else {
-        pthread_create(&thread_ids[num_threads], NULL, &pressureTemperature_thread, NULL);
-        threads_running[num_threads] = &g_pressureTemperature_thread_is_running;
-        CETI_DEBUG("Thread created: Pressure Acquisition");
-#ifdef DEBUG
-        strcpy(thread_name[num_threads], "pressure");
-#endif
-        num_threads++;
+        CETI_WARN("Failed to initialize pressure acquisition thread. Thread created to log errors");
     }
+    pthread_create(&thread_ids[num_threads], NULL, &pressureTemperature_thread, NULL);
+    threads_running[num_threads] = &g_pressureTemperature_thread_is_running;
+    CETI_DEBUG("Thread created: Pressure Acquisition");
+#ifdef DEBUG
+    strcpy(thread_name[num_threads], "pressure");
+#endif
+    num_threads++;
 #endif
     // Battery status monitor
 #if ENABLE_BATTERY_GAUGE
