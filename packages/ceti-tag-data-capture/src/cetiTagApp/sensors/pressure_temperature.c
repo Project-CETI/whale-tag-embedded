@@ -146,7 +146,8 @@ void *pressureTemperature_thread(void *paramPtr) {
     g_pressureTemperature_thread_is_running = 1;
     uint32_t consecutive_error_count = 0;
     uint32_t decay_multiplier = 1;
-    uint32_t skip_count;
+    uint32_t skip_count = 0;
+    int64_t wake_up_time_us;
     while (!g_stopAcquisition) {
         skip_count++;
         if ((skip_count >= decay_multiplier)) {
@@ -154,7 +155,7 @@ void *pressureTemperature_thread(void *paramPtr) {
             // update sample for system
             pressure_update_sample();
             update_thread_device_status(THREAD_PRESSURE_ACQ, g_pressure->error, __FUNCTION__);
-
+            wake_up_time_us = g_pressure->sys_time_us;
             // register erro and decay retry rate
             if (g_pressure->error == WT_OK) {
                 decay_multiplier = 1;
@@ -176,12 +177,14 @@ void *pressureTemperature_thread(void *paramPtr) {
                     fclose(fp);
                 }
             }
+        } else {
+            wake_up_time_us = get_global_time_us();
         }
 
         // Delay to implement a desired sampling rate.
         // Take into account the time it took to acquire/save data.
         polling_sleep_duration_us = PRESSURE_SAMPLING_PERIOD_US;
-        polling_sleep_duration_us -= get_global_time_us() - g_pressure->sys_time_us;
+        polling_sleep_duration_us -= get_global_time_us() - wake_up_time_us;
         if (polling_sleep_duration_us > 0) {
             usleep(polling_sleep_duration_us);
         }
