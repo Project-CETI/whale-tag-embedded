@@ -84,13 +84,6 @@ void pressure_sample_to_csv(FILE *fp, CetiPressureSample *pSample) {
 // CetiTagApp - Main thread
 //-----------------------------------------------------------------------------
 int init_pressureTemperature(void) {
-    // check that hardware is communicating, but don't worry about values
-    WTResult hw_result = pressure_get_measurement(NULL, NULL);
-    if (hw_result != WT_OK) {
-        CETI_ERR("Failed to read pressure sensor: %s", wt_strerror(hw_result));
-        return -1;
-    }
-
     // setup shared memory
     g_pressure = create_shared_memory_region(PRESSURE_SHM_NAME, sizeof(CetiPressureSample));
 
@@ -106,6 +99,13 @@ int init_pressureTemperature(void) {
     FILE *data_file = fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
     if (data_file == NULL) {
         CETI_ERR("Failed to open/create an output data file: " PRESSURETEMPERATURE_DATA_FILEPATH ": %s", strerror(errno));
+        return -1;
+    }
+
+    // check that hardware is communicating, but don't worry about values
+    g_pressure->error = pressure_get_measurement(NULL, NULL);
+    if (g_pressure->error != WT_OK) {
+        CETI_ERR("Failed to read pressure sensor: %s", wt_strerror(g_pressure->error));
         return -1;
     }
 

@@ -24,10 +24,12 @@
 #include "utils/str.h"    //for strtoidentifier
 #include "utils/timing.h" //for get_global_time_us(), getRtcCount()
 
+#include <errno.h>
 #include <pthread.h> // to set CPU affinity
 #include <stdint.h>
 #include <stdio.h>  // for FILE
 #include <stdlib.h> // for atof, atol, strtoul, etc
+#include <string.h>
 #include <unistd.h> // gethostname
 
 //-----------------------------------------------------------------------------
@@ -197,8 +199,12 @@ int stateMachine_set_state(wt_state_t new_state) {
                 CETI_LOG("Starting dive; recording burnwire timeout start time %u", burnwire_timeout_start_s);
                 FILE *file_burnwire_timeout_start_s = NULL;
                 file_burnwire_timeout_start_s = fopen(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, "w");
-                fprintf(file_burnwire_timeout_start_s, "%u", burnwire_timeout_start_s);
-                fclose(file_burnwire_timeout_start_s);
+                if (file_burnwire_timeout_start_s != NULL) {
+                    fprintf(file_burnwire_timeout_start_s, "%u", burnwire_timeout_start_s);
+                    fclose(file_burnwire_timeout_start_s);
+                } else {
+                    CETI_WARN("Failed to create %s: %s", STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, )
+                }
 #endif
             }
             break;

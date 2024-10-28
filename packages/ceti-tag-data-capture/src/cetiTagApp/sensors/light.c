@@ -56,18 +56,6 @@ int light_verify(void) {
 }
 
 int init_light() {
-    WTResult hw_result = als_wake();
-    if (hw_result != WT_OK) {
-        CETI_ERR("Failed to initialize light sensor: %s", wt_strerror(hw_result));
-        return -1;
-    }
-
-    if (!light_verify()) {
-        CETI_ERR("Could not verify light sensor");
-        return -1;
-    }
-
-    CETI_LOG("Successfully initialized the light sensor");
 
     // setup shared memory
     g_light = create_shared_memory_region(LIGHT_SHM_NAME, sizeof(CetiLightSample));
@@ -78,6 +66,18 @@ int init_light() {
         CETI_ERR("Failed to create semaphore");
         return -1;
     }
+
+    g_light->error = als_wake();
+    if (g_light->error != WT_OK) {
+        CETI_ERR("Failed to initialize light sensor: %s", wt_strerror(hw_result));
+        return -1;
+    }
+
+    if (!light_verify()) {
+        CETI_ERR("Could not verify light sensor");
+        return -1;
+    }
+    CETI_LOG("Successfully initialized the light sensor");
 
     // Open an output file to write data.
     int data_file_exists = (access(LIGHT_DATA_FILEPATH, F_OK) != -1);
