@@ -144,19 +144,36 @@ void *pressureTemperature_thread(void *paramPtr) {
     CETI_LOG("Starting loop to periodically acquire data");
     int64_t polling_sleep_duration_us;
     g_pressureTemperature_thread_is_running = 1;
+    uint32_t consecutive_error_count = 0;
+    uint32_t decay_multiplier = 1;
+    uint32_t skip_count;
     while (!g_stopAcquisition) {
-        // update sample for system
-        pressure_update_sample();
-        update_thread_device_status(THREAD_PRESSURE_ACQ, g_pressure->error, __FUNCTION__);
+        skip_count++;
+        if ((skip_count == decay_multiplier))  {
+            skip_count = 0;
+            // update sample for system
+            pressure_update_sample();
+            update_thread_device_status(THREAD_PRESSURE_ACQ, g_pressure->error, __FUNCTION__);
 
-        // log sample
-        if (!g_stopLogging) {
-            FILE *fp = fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
-            if (fp == NULL) {
-                CETI_LOG("failed to open data output file: " PRESSURETEMPERATURE_DATA_FILEPATH);
+            // register erro and decay retry rate
+            if (g_pressure->error == WT_OK) {
+                decay_multiplier = 1;
             } else {
-                pressure_sample_to_csv(fp, g_pressure);
-                fclose(fp);
+                consecutive_error_count++; 
+                if (!(consecutive_error_count < 5)) {
+                    decay_multiplier << 1; //double decay time
+                }
+            }
+
+            // log sample
+            if (!g_stopLogging) {
+                FILE *fp = fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
+                if (fp == NULL) {
+                    CETI_LOG("failed to open data output file: " PRESSURETEMPERATURE_DATA_FILEPATH);
+                } else {
+                    pressure_sample_to_csv(fp, g_pressure);
+                    fclose(fp);
+                }
             }
         }
 
