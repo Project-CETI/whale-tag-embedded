@@ -24,7 +24,7 @@
 
 TestState test_audio(FILE *pResultsFile) {
     char input = 0;
-    int channel_pass[3] = {0, 0, 0};
+    int channel_pass[AUDIO_CHANNELS] = {0, 0, 0};
     const double target = 0.25;
 
     CetiAudioBuffer *shm_audio;
