@@ -303,7 +303,14 @@ int init_tag() {
     strncpy(config_file_path, g_process_path, sizeof(config_file_path) - 1);
     strncat(config_file_path, CETI_CONFIG_FILE, sizeof(config_file_path) - 1);
     CETI_LOG("Configuring the deployment parameters from %s", config_file_path);
+    // Read safe nonvolatile config
     config_read(config_file_path);
+
+    // Read config overlay from /data
+    config_read("/data/ceti-config.txt");
+
+    // Log used config used this deployment
+    config_log();
 
     // Tag-wide initialization.
     if (gpioInitialise() < 0) {
