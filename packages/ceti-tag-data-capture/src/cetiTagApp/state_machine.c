@@ -438,6 +438,13 @@ int updateStateMachine() {
             }
 #endif
 
+// Transition state if outside geofence
+#if ENABLE_RECOVERY
+            if (recovrey_enabled) {
+                
+            }
+#endif
+
 // Transition state if diving.
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
             if ((g_pressure->error == WT_OK) && (g_pressure->pressure_bar > g_config.dive_pressure)) {
