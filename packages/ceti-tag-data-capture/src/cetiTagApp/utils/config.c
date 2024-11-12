@@ -468,35 +468,41 @@ int config_read(const char *filename) {
     return 0;
 }
 
+/**
+ * @brief logs final tag config to /data/folder logging deployment
+ *
+ */
 void config_log(void) {
     // Open file data_config_timestamp.txt
     char config_file_path[256];
     uint64_t timestamp = get_global_time_us();
-    snprintf(config_file_path, 255, "/data/config_%lu.txt", timestamp);
-    FILE *config_log = fopen(config_file_path, "wt");
-    if (config_log == NULL) {
+    snprintf(config_file_path, 255, "/data/data_config_%lu.txt", timestamp);
+    FILE *fConfig = fopen(config_file_path, "wt");
+    if (fConfig == NULL) {
         return;
     }
-    fprintf(config_log, "Deployment Timestamp: %lu\n", timestamp);
-    fprintf(config_log, "P1 : %.2f # bar # surface pressure\n", g_config.surface_pressure);
-    fprintf(config_log, "P2 : %.2f # bar # dive pressure\n", g_config.dive_pressure);
-    fprintf(config_log, "V1 : %.2f # V # release voltage\n", g_config.release_voltage_v);
-    fprintf(config_log, "V2 : %.2f # V # critical voltage\n", g_config.critical_voltage_v);
-    fprintf(config_log, "T0 : %lu # Seconds # time until release\n", g_config.timeout_s);
-    fprintf(config_log, "BT : %lu # Seconds # burn time\n", g_config.burn_interval_s);
+    fprintf(fConfig, "# Deployment Timestamp: %lu\n", timestamp);
+    fprintf(fConfig, "P1 : %.2f # bar # surface pressure\n", g_config.surface_pressure);
+    fprintf(fConfig, "P2 : %.2f # bar # dive pressure\n", g_config.dive_pressure);
+    fprintf(fConfig, "V1 : %.2f # V # release voltage\n", g_config.release_voltage_v);
+    fprintf(fConfig, "V2 : %.2f # V # critical voltage\n", g_config.critical_voltage_v);
+    fprintf(fConfig, "T0 : %lu # Seconds # time until release\n", g_config.timeout_s);
+    fprintf(fConfig, "BT : %lu # Seconds # burn time\n", g_config.burn_interval_s);
     if (g_config.audio.filter_type == AUDIO_FILTER_SINC5) {
-        fprintf(config_log, "audio_filter : sinc5\n");
+        fprintf(fConfig, "audio_filter : sinc5\n");
     } else {
-        fprintf(config_log, "audio_filter : wideband\n");
+        fprintf(fConfig, "audio_filter : wideband\n");
     }
-    fprintf(config_log, "audio_bitdepth : %d\n", (int)g_config.audio.bit_depth);
-    fprintf(config_log, "audio_sample_rate : %d # KHz\n", (int)g_config.audio.sample_rate);
-    fprintf(config_log, "rec_enabled : %s\n", (g_config.recovery.enabled) ? "true" : "false");
+    fprintf(fConfig, "audio_bitdepth : %d\n", (int)g_config.audio.bit_depth);
+    fprintf(fConfig, "audio_sample_rate : %d # KHz\n", (int)g_config.audio.sample_rate);
+    fprintf(fConfig, "rec_enabled : %s\n", (g_config.recovery.enabled) ? "true" : "false");
     char cs[15];
     callsign_to_str(&g_config.recovery.callsign, cs);
-    fprintf(config_log, "rec_callsign : %s\n", cs);
+    fprintf(fConfig, "rec_callsign : %s\n", cs);
 
     callsign_to_str(&g_config.recovery.recipient, cs);
-    fprintf(config_log, "rec_recipient : %s\n", cs);
-    fprintf(config_log, "rec_freq : %.3f # MHz\n", g_config.recovery.freq_MHz);
+    fprintf(fConfig, "rec_recipient : %s\n", cs);
+    fprintf(fConfig, "rec_freq : %.3f # MHz\n", g_config.recovery.freq_MHz);
+    fflush(fConfig);
+    fclose(fConfig);
 }
