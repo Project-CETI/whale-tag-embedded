@@ -59,4 +59,6 @@ int strtobool_s(const char *_String, const char **_EndPtr);
 time_t strtotime_s(const char *_String, char **_EndPtr);
 int config_read(const char *filename);
 int config_parse_line(const char *_String);
+void config_log(void);
+
 #endif // CETI_CONFIG_H
