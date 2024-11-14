@@ -275,15 +275,9 @@ static ConfigError __config_parse_timeout(const char *_String) {
 
 static ConfigError __config_parse_time_of_day(const char *_String) {
     struct tm tm = {};
-    char *end_ptr = strptime(_String, "%R %Z", &tm);
+    char *end_ptr = strptime(_String, "%R", &tm);
     if (end_ptr == NULL) {
-        *end_ptr = strptime(_String, "%R %z", &tm);
-        if (end_ptr == NULL) {
-            end_ptr = strptime(_String, "%R", &tm);
-            if (end_ptr == NULL) {
-                return CONFIG_ERR_INVALID_VALUE;
-            }
-        }
+        return CONFIG_ERR_INVALID_VALUE;
     }
     memcpy(&g_config.tod_release.value, &tm, sizeof(tm));
     g_config.tod_release.valid = true;
