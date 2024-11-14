@@ -280,7 +280,7 @@ static ConfigError __config_parse_time_of_day(const char *_String) {
         return CONFIG_ERR_INVALID_VALUE;
     }
     memcpy(&g_config.tod_release.value, &tm, sizeof(tm));
-    g_config.tod_release.valid = true;
+    g_config.tod_release.valid = 1;
     return CONFIG_OK;
 }
 
@@ -504,6 +504,9 @@ void config_log(void) {
     fprintf(fConfig, "V1 : %.2f # V # release voltage\n", g_config.release_voltage_v);
     fprintf(fConfig, "V2 : %.2f # V # critical voltage\n", g_config.critical_voltage_v);
     fprintf(fConfig, "T0 : %lu # Seconds # time until release\n", g_config.timeout_s);
+    if (g_config.tod_release.valid) {
+        fprintf(fConfig, "time_of_day_release: %d:%d\n", g_config.tod_release.value.tm_sec, g_config.tod_release.value.tm_min);
+    }
     fprintf(fConfig, "BT : %lu # Seconds # burn time\n", g_config.burn_interval_s);
     if (g_config.audio.filter_type == AUDIO_FILTER_SINC5) {
         fprintf(fConfig, "audio_filter : sinc5\n");
