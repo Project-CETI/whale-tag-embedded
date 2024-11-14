@@ -188,18 +188,18 @@ int64_t get_next_time_of_day_occurance_s(const struct tm *time_of_day) {
 
     // Get the current time
     time(&current_time);
-    struct tm *current_tm = localtime(&current_time); // Get current local time as struct tm
+    struct tm *current_tm = gmtime(&current_time); // Get current local time as struct tm
 
     // set to today's date
     tm.tm_year = current_tm->tm_year;
     tm.tm_mon = current_tm->tm_mon;
     tm.tm_mday = current_tm->tm_mday;
-    next_time = mktime(&tm);
+    next_time = timegm(&tm);
 
     // check that time hasn't already happened
     if (next_time <= current_time) {
         tm.tm_mday += 1;
-        next_time = mktime(&tm);
+        next_time = timegm(&tm);
     }
 
     // return epoch time
