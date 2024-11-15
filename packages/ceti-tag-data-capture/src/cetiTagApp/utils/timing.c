@@ -179,6 +179,12 @@ int sync_global_time_init(void) {
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
+#ifdef UNIT_TEST
+struct tm s_fake_time;
+void set_fake_time(const struct tm *tm_s) {
+    s_fake_time = *tm_s;
+}
+#endif
 int64_t get_next_time_of_day_occurance_s(const struct tm *time_of_day) {
     struct tm tm = {};
     time_t current_time, next_time;
@@ -187,8 +193,14 @@ int64_t get_next_time_of_day_occurance_s(const struct tm *time_of_day) {
     memcpy(&tm, time_of_day, sizeof(tm));
 
     // Get the current time
+#ifndef UNIT_TEST
     time(&current_time);
     struct tm *current_tm = gmtime(&current_time); // Get current local time as struct tm
+#else
+    struct tm *current_tm = &s_fake_time;
+    current_time = timegm(current_tm);
+
+#endif
 
     // set to today's date
     tm.tm_year = current_tm->tm_year;
