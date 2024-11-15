@@ -1,15 +1,14 @@
 #include <unity.h>
 
-#include "cetiTagApp/utils/timing.h"
 #include "cetiTagApp/utils/error.h"
+#include "cetiTagApp/utils/timing.h"
 
 int g_exit = 0;
 int g_stopAcquisition = 0;
 int g_stopLogging = 0;
 
-
 void test__get_next_time_of_day_occurance_s__month_overflow(void) {
-    //set fake_time
+    // set fake_time
     struct tm now = {
         .tm_year = 2024,
         .tm_mon = 11,
@@ -32,11 +31,11 @@ void test__get_next_time_of_day_occurance_s__month_overflow(void) {
     TEST_ASSERT_EQUAL_INT(1, result_tm->tm_mday);
     TEST_ASSERT_EQUAL_INT(16, result_tm->tm_hour);
     TEST_ASSERT_EQUAL_INT(05, result_tm->tm_min);
-    //get_next_time_of_day_occrance
+    // get_next_time_of_day_occrance
 }
 
 void test__get_next_time_of_day_occurance_s__day_overflow(void) {
-    //set fake_time
+    // set fake_time
     struct tm now = {
         .tm_year = 2024,
         .tm_mon = 0,
@@ -59,7 +58,7 @@ void test__get_next_time_of_day_occurance_s__day_overflow(void) {
     TEST_ASSERT_EQUAL_INT(1, result_tm->tm_mday);
     TEST_ASSERT_EQUAL_INT(16, result_tm->tm_hour);
     TEST_ASSERT_EQUAL_INT(05, result_tm->tm_min);
-    //get_next_time_of_day_occrance
+    // get_next_time_of_day_occrance
 }
 
 void setUp(void) {
