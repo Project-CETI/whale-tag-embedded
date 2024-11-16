@@ -61,7 +61,6 @@ static ConfigError __config_parse_release_voltage(const char *_String);
 static ConfigError __config_parse_critical_voltage(const char *_String);
 static ConfigError __config_parse_timeout(const char *_String);
 static ConfigError __config_parse_time_of_day(const char *_String);
-// static ConfigError __config_parse_date_time(const char *_String);
 static ConfigError __config_parse_burn_interval_value(const char *_String);
 static ConfigError __config_parse_recovery_enable_value(const char *_String);
 static ConfigError __config_parse_recovery_callsign_value(const char *_String);
@@ -71,13 +70,20 @@ static ConfigError __config_parse_recovery_freq_value(const char *_String);
 /* method is what to do with the value*/
 // This would have more efficient lookup as a hash table
 const ConfigList config_keys[] = {
+    // ToDo: Depreciate these as they are not very verbose/descriptive
     {.key = STR_FROM("P1"), .parse = __config_parse_surface_pressure},
     {.key = STR_FROM("P2"), .parse = __config_parse_dive_pressure},
     {.key = STR_FROM("V1"), .parse = __config_parse_release_voltage},
     {.key = STR_FROM("V2"), .parse = __config_parse_critical_voltage},
     {.key = STR_FROM("T0"), .parse = __config_parse_timeout},
-    // {.key = STR_FROM("date_time"), .parse = __config_parse_date_time},
     {.key = STR_FROM("BT"), .parse = __config_parse_burn_interval_value},
+
+    {.key = STR_FROM("surface_pressure"), .parse = __config_parse_surface_pressure},
+    {.key = STR_FROM("dive_pressure"), .parse = __config_parse_dive_pressure},
+    {.key = STR_FROM("release_voltage"), .parse = __config_parse_release_voltage},
+    {.key = STR_FROM("critical_voltage"), .parse = __config_parse_critical_voltage},
+    {.key = STR_FROM("timeout_release"), .parse = __config_parse_timeout},
+    {.key = STR_FROM("burn_interval"), .parse = __config_parse_burn_interval_value},
     {.key = STR_FROM("audio_filter"), .parse = __config_parse_audio_filter_type},
     {.key = STR_FROM("audio_bitdepth"), .parse = __config_parse_audio_bitdepth},
     {.key = STR_FROM("audio_sample_rate"), .parse = __config_parse_audio_sample_rate},
@@ -499,30 +505,30 @@ void config_log(void) {
         return;
     }
     fprintf(fConfig, "# Deployment Timestamp: %lu\n", timestamp);
-    fprintf(fConfig, "P1 : %.2f # bar # surface pressure\n", g_config.surface_pressure);
-    fprintf(fConfig, "P2 : %.2f # bar # dive pressure\n", g_config.dive_pressure);
-    fprintf(fConfig, "V1 : %.2f # V # release voltage\n", g_config.release_voltage_v);
-    fprintf(fConfig, "V2 : %.2f # V # critical voltage\n", g_config.critical_voltage_v);
-    fprintf(fConfig, "T0 : %lu # Seconds # time until release\n", g_config.timeout_s);
+    fprintf(fConfig, "surface_pressure = %.2f # bar\n", g_config.surface_pressure);
+    fprintf(fConfig, "dive_pressure = %.2f # bar\n", g_config.dive_pressure);
+    fprintf(fConfig, "release_voltage = %.2f # V\n", g_config.release_voltage_v);
+    fprintf(fConfig, "critical_voltage = %.2f # V\n", g_config.critical_voltage_v);
+    fprintf(fConfig, "timeout_release = %lu # Seconds\n", g_config.timeout_s);
     if (g_config.tod_release.valid) {
-        fprintf(fConfig, "time_of_day_release: %d:%d\n", g_config.tod_release.value.tm_sec, g_config.tod_release.value.tm_min);
+        fprintf(fConfig, "time_of_day_release= %02d:%02d\n", g_config.tod_release.value.tm_hour, g_config.tod_release.value.tm_min);
     }
-    fprintf(fConfig, "BT : %lu # Seconds # burn time\n", g_config.burn_interval_s);
+    fprintf(fConfig, "BT = %lu # Seconds # burn time\n", g_config.burn_interval_s);
     if (g_config.audio.filter_type == AUDIO_FILTER_SINC5) {
-        fprintf(fConfig, "audio_filter : sinc5\n");
+        fprintf(fConfig, "audio_filter = sinc5\n");
     } else {
-        fprintf(fConfig, "audio_filter : wideband\n");
+        fprintf(fConfig, "audio_filter = wideband\n");
     }
-    fprintf(fConfig, "audio_bitdepth : %d\n", (int)g_config.audio.bit_depth);
-    fprintf(fConfig, "audio_sample_rate : %d # KHz\n", (int)g_config.audio.sample_rate);
-    fprintf(fConfig, "rec_enabled : %s\n", (g_config.recovery.enabled) ? "true" : "false");
+    fprintf(fConfig, "audio_bitdepth =: %d\n", (int)g_config.audio.bit_depth);
+    fprintf(fConfig, "audio_sample_rate = %d # KHz\n", (int)g_config.audio.sample_rate);
+    fprintf(fConfig, "rec_enabled = %s\n", (g_config.recovery.enabled) ? "true" : "false");
     char cs[15];
     callsign_to_str(&g_config.recovery.callsign, cs);
-    fprintf(fConfig, "rec_callsign : %s\n", cs);
+    fprintf(fConfig, "rec_callsign = %s\n", cs);
 
     callsign_to_str(&g_config.recovery.recipient, cs);
-    fprintf(fConfig, "rec_recipient : %s\n", cs);
-    fprintf(fConfig, "rec_freq : %.3f # MHz\n", g_config.recovery.freq_MHz);
+    fprintf(fConfig, "rec_recipient = %s\n", cs);
+    fprintf(fConfig, "rec_freq = %.3f # MHz\n", g_config.recovery.freq_MHz);
     fflush(fConfig);
     fclose(fConfig);
 }
