@@ -27,7 +27,7 @@ typedef enum {
     KELLER_4LD_CMD_REQUEST_MEASUREMENT = 0xAC,
 } Keller4ldCommand;
 
-WTResult pressure_get_measurement(double *pPressureBar, double *pTempC) {
+WTResult pressure_get_measurement_raw(int16_t *pPressure, int16_t *pTemp) {
     char raw[5] = {};
     int fd = PI_TRY(WT_DEV_PRESSURE, i2cOpen(PRESSURE_I2C_BUS, PRESSURE_I2C_DEV_ADDR, 0));
     PI_TRY(WT_DEV_PRESSURE, i2cWriteByte(fd, KELLER_4LD_CMD_REQUEST_MEASUREMENT), i2cClose(fd)); // measurement request from the device
@@ -46,16 +46,32 @@ WTResult pressure_get_measurement(double *pPressureBar, double *pTempC) {
     }
 
     // packet is ok, parse data
-    if (pPressureBar != NULL) {
-        int16_t pressure_data = (((int16_t)raw[1]) << 8) | ((int16_t)raw[2]);
-        // convert to bar
-        *pPressureBar = ((PRESSURE_MAX - PRESSURE_MIN) / 32768.0) * (pressure_data - 16384);
+    if (pPressure != NULL) {
+        *pPressure = (((int16_t)raw[1]) << 8) | ((int16_t)raw[2]);
     }
 
-    if (pTempC != NULL) {
-        int16_t temperature_data = (((int16_t)raw[3]) << 8) | ((int16_t)raw[4]);
-        // convert to deg C
-        *pTempC = (double)((temperature_data >> 4) - 24) * .05 - 50.0;
+    if (pTemp != NULL) {
+        *pPressure = (((int16_t)raw[3]) << 8) | ((int16_t)raw[4]);
     }
+    return WT_OK;
+}
+
+WTResult pressure_get_measurement(double *pPressureBar, double *pTempC) {
+    int16_t pressure_data = 0;
+    int16_t temperature_data = 0;
+
+    // get raw register values
+    WT_TRY(WT_DEV_PRESSURE, pressure_get_measurement_raw(&pressure_data, &temperature_data));
+    
+    // convert to bar
+    if (pPressureBar != NULL) {
+        *pPressureBar = KELLER_4LD_RAW_TO_PRESSURE_BAR(pressure_data);
+    }
+
+    // convert to deg C
+    if (pTempC != NULL) {
+        *pTempC = KELLER_4LD_RAW_TO_TEMPERATURE_C(temperature_data);
+    }
+
     return WT_OK;
 }
