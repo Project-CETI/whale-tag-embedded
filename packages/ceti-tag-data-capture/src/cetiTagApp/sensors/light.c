@@ -9,6 +9,7 @@
 
 #include "light.h"
 
+#include "../acq/decay.h"
 #include "../cetiTag.h"
 #include "../device/ltr329als.h"
 #include "../launcher.h"      // for g_stopAcquisition, data filepath, and CPU affinity
@@ -136,6 +137,7 @@ void light_sample_to_csv(FILE *fp, CetiLightSample *pSample) {
 // Main thread
 //-----------------------------------------------------------------------------
 void *light_thread(void *paramPtr) {
+    AcqDecay decay = decay_new(5);
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_light_thread_tid = gettid();
 
@@ -157,10 +159,16 @@ void *light_thread(void *paramPtr) {
     int64_t polling_sleep_duration_us;
     g_light_thread_is_running = 1;
     while (!g_stopAcquisition) {
+        if (!decay_shouldSample(&decay)) {
+            usleep(LIGHT_SAMPLING_PERIOD_US);
+            continue;
+        }
+
         // Acquire timing and sensor information as close together as possible.
         light_update_sample();
 
         update_thread_device_status(THREAD_ALS_ACQ, g_light->error, __FUNCTION__);
+        decay_update(&decay, g_light->error);
 
         if (!g_stopLogging) {
             FILE *light_data_file = fopen(LIGHT_DATA_FILEPATH, "at");
