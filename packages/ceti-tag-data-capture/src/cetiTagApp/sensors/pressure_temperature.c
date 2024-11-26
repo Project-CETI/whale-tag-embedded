@@ -10,6 +10,7 @@
 #include "pressure_temperature.h"
 
 // === Private Local Libraries ===
+#include "../acq/decay.h"
 #include "../device/keller4ld.h"
 #include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
@@ -123,6 +124,8 @@ int init_pressureTemperature(void) {
 }
 
 void *pressureTemperature_thread(void *paramPtr) {
+    AcqDecay decay = decay_new(5);
+
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_pressureTemperature_thread_tid = gettid();
 
@@ -144,47 +147,35 @@ void *pressureTemperature_thread(void *paramPtr) {
     CETI_LOG("Starting loop to periodically acquire data");
     int64_t polling_sleep_duration_us;
     g_pressureTemperature_thread_is_running = 1;
-    uint32_t consecutive_error_count = 0;
-    uint32_t decay_multiplier = 1;
-    uint32_t skip_count = 0;
-    int64_t wake_up_time_us;
     while (!g_stopAcquisition) {
-        skip_count++;
-        if ((skip_count >= decay_multiplier)) {
-            skip_count = 0;
-            // update sample for system
-            pressure_update_sample();
-            update_thread_device_status(THREAD_PRESSURE_ACQ, g_pressure->error, __FUNCTION__);
-            wake_up_time_us = g_pressure->sys_time_us;
-            // register erro and decay retry rate
-            if (g_pressure->error == WT_OK) {
-                decay_multiplier = 1;
-                consecutive_error_count = 0;
-            } else {
-                consecutive_error_count++;
-                if (!(consecutive_error_count < 5)) {
-                    decay_multiplier = decay_multiplier << 1; // double decay time
-                }
-            }
+        // check if sample should be skipped due to sensor being continually in error.
+        if (!decay_shouldSample(&decay)) {
+            usleep(PRESSURE_SAMPLING_PERIOD_US);
+            continue;
+        }
 
-            // log sample
-            if (!g_stopLogging) {
-                FILE *fp = fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
-                if (fp == NULL) {
-                    CETI_LOG("failed to open data output file: " PRESSURETEMPERATURE_DATA_FILEPATH);
-                } else {
-                    pressure_sample_to_csv(fp, g_pressure);
-                    fclose(fp);
-                }
+        // update sample for system
+        pressure_update_sample();
+        update_thread_device_status(THREAD_PRESSURE_ACQ, g_pressure->error, __FUNCTION__);
+        
+        // register decay retry rate
+        decay_update(&decay, g_pressure->error);
+
+        // log sample
+        if (!g_stopLogging) {
+            FILE *fp = fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
+            if (fp == NULL) {
+                CETI_LOG("failed to open data output file: " PRESSURETEMPERATURE_DATA_FILEPATH);
+            } else {
+                pressure_sample_to_csv(fp, g_pressure);
+                fclose(fp);
             }
-        } else {
-            wake_up_time_us = get_global_time_us();
         }
 
         // Delay to implement a desired sampling rate.
         // Take into account the time it took to acquire/save data.
         polling_sleep_duration_us = PRESSURE_SAMPLING_PERIOD_US;
-        polling_sleep_duration_us -= get_global_time_us() - wake_up_time_us;
+        polling_sleep_duration_us -= get_global_time_us() - g_pressure->sys_time_us;
         if (polling_sleep_duration_us > 0) {
             usleep(polling_sleep_duration_us);
         }
