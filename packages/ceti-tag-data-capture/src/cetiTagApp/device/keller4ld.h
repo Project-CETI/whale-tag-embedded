@@ -14,8 +14,8 @@
 
 #include <stdint.h>
 
-#define KELLER_4LD_RAW_TO_PRESSURE_BAR(raw)  (((PRESSURE_MAX - PRESSURE_MIN) / 32768.0) * (double)((raw) - 16384))
-#define KELLER_4LD_RAW_TO_TEMPERATURE_C(raw)  ((double)(((raw) >> 4) - 24) * .05 - 50.0)
+#define KELLER_4LD_RAW_TO_PRESSURE_BAR(raw) (((PRESSURE_MAX - PRESSURE_MIN) / 32768.0) * (double)((raw)-16384))
+#define KELLER_4LD_RAW_TO_TEMPERATURE_C(raw) ((double)(((raw) >> 4) - 24) * .05 - 50.0)
 
 WTResult pressure_get_measurement_raw(int16_t *pPressure, int16_t *pTemp);
 WTResult pressure_get_measurement(double *pPressureBar, double *pTempC);

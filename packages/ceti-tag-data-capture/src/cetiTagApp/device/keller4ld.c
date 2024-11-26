@@ -62,7 +62,7 @@ WTResult pressure_get_measurement(double *pPressureBar, double *pTempC) {
 
     // get raw register values
     WT_TRY(WT_DEV_PRESSURE, pressure_get_measurement_raw(&pressure_data, &temperature_data));
-    
+
     // convert to bar
     if (pPressureBar != NULL) {
         *pPressureBar = KELLER_4LD_RAW_TO_PRESSURE_BAR(pressure_data);

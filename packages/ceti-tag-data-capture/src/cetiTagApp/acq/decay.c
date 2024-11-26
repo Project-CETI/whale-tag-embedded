@@ -20,7 +20,7 @@ int decay_shouldSample(AcqDecay *self) {
 void decay_update(AcqDecay *self, WTResult result) {
     if (result == WT_OK) {
         self->decay_multiplier = 1;
-        self->consecutive_error_count = 0; 
+        self->consecutive_error_count = 0;
     } else {
         self->consecutive_error_count++;
         if (!(self->consecutive_error_count < self->grace_count)) {

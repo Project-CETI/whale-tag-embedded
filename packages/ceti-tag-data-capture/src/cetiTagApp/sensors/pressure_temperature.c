@@ -157,7 +157,7 @@ void *pressureTemperature_thread(void *paramPtr) {
         // update sample for system
         pressure_update_sample();
         update_thread_device_status(THREAD_PRESSURE_ACQ, g_pressure->error, __FUNCTION__);
-        
+
         // register decay retry rate
         decay_update(&decay, g_pressure->error);
 

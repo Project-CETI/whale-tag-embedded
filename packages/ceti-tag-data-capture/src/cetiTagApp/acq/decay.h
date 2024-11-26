@@ -14,22 +14,22 @@ typedef struct {
 
 /**
  * @brief create a new AcqDecay struct
- * 
- * @param grace_count 
- * @return const AcqDecay 
+ *
+ * @param grace_count
+ * @return const AcqDecay
  */
 const AcqDecay decay_new(uint32_t grace_count);
 
 /**
- * @brief checks if the users should sample this iteration or skip 
- * 
- * @param self 
+ * @brief checks if the users should sample this iteration or skip
+ *
+ * @param self
  * @return int 1 if users should sample, 0 if users should skip sample
  */
 int decay_shouldSample(AcqDecay *self);
 
 /**
- * @brief Updates decay based on a sample result 
+ * @brief Updates decay based on a sample result
  */
 void decay_update(AcqDecay *self, WTResult result);
 
