@@ -175,3 +175,45 @@ int sync_global_time_init(void) {
     }
     return 0;
 }
+
+//-----------------------------------------------------------------------------
+//
+//-----------------------------------------------------------------------------
+#ifdef UNIT_TEST
+struct tm s_fake_time;
+void set_fake_time(const struct tm *tm_s) {
+    s_fake_time = *tm_s;
+}
+#endif
+int64_t get_next_time_of_day_occurance_s(const struct tm *time_of_day) {
+    struct tm tm = {};
+    time_t current_time, next_time;
+
+    // copy tm struct from input/config
+    memcpy(&tm, time_of_day, sizeof(tm));
+
+    // Get the current time
+#ifndef UNIT_TEST
+    time(&current_time);
+    struct tm *current_tm = gmtime(&current_time); // Get current local time as struct tm
+#else
+    struct tm *current_tm = &s_fake_time;
+    current_time = timegm(current_tm);
+
+#endif
+
+    // set to today's date
+    tm.tm_year = current_tm->tm_year;
+    tm.tm_mon = current_tm->tm_mon;
+    tm.tm_mday = current_tm->tm_mday;
+    next_time = timegm(&tm);
+
+    // check that time hasn't already happened
+    if (next_time <= current_time) {
+        tm.tm_mday += 1;
+        next_time = timegm(&tm);
+    }
+
+    // return epoch time
+    return next_time;
+}

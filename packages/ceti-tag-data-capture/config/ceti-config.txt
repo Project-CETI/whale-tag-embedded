@@ -35,15 +35,23 @@ V2=6.201
 # Default units are minutes, 
 # (d/D = days, h/H = hours, m/M = minutes, s/S = seconds)
 T0=4d
-#
+
+#------------------------------------------------------------------------------
+# Time of Day Release Time
+# Time of day that the tag will release each day
+# (optional) parameter formatted as hh:mm in UTC (GMT) with 
+# hh = (0..23)
+# mm = (0..59) 
+#------------------------------------------------------------------------------
+# time_of_day_release = 20:00
+
 #------------------------------------------------------------------------------
 # Burn Interval (Minutes)
 # Time interval that the burnwire remains on for releasing tag from whale
 # Default units are minutes, use integers only
 # (d/D = days, h/H = hours, m/M = minutes, s/S = seconds)
-BT=20m
-#
 #------------------------------------------------------------------------------
+BT=20m
 
 #------------------------------------------------------------------------------
 # Audio Filter Type
