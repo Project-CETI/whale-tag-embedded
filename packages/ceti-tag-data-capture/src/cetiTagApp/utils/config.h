@@ -44,6 +44,10 @@ typedef struct tag_configuration {
     float release_voltage_v;
     float critical_voltage_v;
     time_t timeout_s;
+    struct {
+        int valid;
+        struct tm value;
+    } tod_release;
     time_t burn_interval_s;
     struct {
         int enabled;

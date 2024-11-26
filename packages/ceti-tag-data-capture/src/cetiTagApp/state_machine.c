@@ -44,6 +44,7 @@ static int networking_is_enabled = 1;
 // RTC counts
 static unsigned int start_time_s = 0;
 static unsigned int burnwire_timeout_start_s = 0;
+static int64_t burnwire_time_of_day_release_s = 0;
 static uint32_t burnwire_started_time_s = 0;
 static int s_state_machine_paused = 0;
 // Output file
@@ -333,6 +334,10 @@ int updateStateMachine() {
                 }
             }
             CETI_LOG("Using the following burnwire timeout start time: %u", burnwire_timeout_start_s);
+            if (g_config.tod_release.valid) {
+                burnwire_time_of_day_release_s = get_next_time_of_day_occurance_s(&g_config.tod_release.value);
+                CETI_LOG("Time of day release set to %lu", burnwire_time_of_day_release_s);
+            }
 // Turn off networking if desired.
 #if FORCE_NETWORKS_OFF_ON_START
             wifi_disable();
@@ -369,6 +374,10 @@ int updateStateMachine() {
             // Turn on the burnwire if the timeout has passed since the deployment started.
             if ((get_global_time_s() - burnwire_timeout_start_s) > g_config.timeout_s) {
                 CETI_LOG("TIMEOUT!!! Initializing Burn");
+                stateMachine_set_state(ST_BRN_ON);
+                break;
+            } else if (g_config.tod_release.valid && (burnwire_time_of_day_release_s < get_global_time_s())) {
+                CETI_LOG("Time of day release!!! Initializing Burn");
                 stateMachine_set_state(ST_BRN_ON);
                 break;
             }
@@ -412,6 +421,10 @@ int updateStateMachine() {
             // Turn on the burnwire if the timeout has passed since the deployment started.
             if (get_global_time_s() - burnwire_timeout_start_s > g_config.timeout_s) {
                 CETI_LOG("TIMEOUT!!! Initializing Burn");
+                stateMachine_set_state(ST_BRN_ON);
+                break;
+            } else if (g_config.tod_release.valid && (burnwire_time_of_day_release_s < get_global_time_s())) {
+                CETI_LOG("Time of day release!!! Initializing Burn");
                 stateMachine_set_state(ST_BRN_ON);
                 break;
             }
