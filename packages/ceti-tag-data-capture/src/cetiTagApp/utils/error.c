@@ -260,6 +260,45 @@ const char *wt_strerror(WTResult errnum) {
     return __wt_errstr;
 }
 
+char *wt_strerror_r(WTResult errnum, char *buf, size_t buflen) {
+    int device = (errnum >> 16) & 0xFFFF;
+    int error = ((int16_t)(errnum & 0xFFFF));
+
+    // construct error string
+    if (device == 0) { // no device
+        if (error > 0) {
+            // system error
+            strncpy(buf, strerror(errno), buflen - 1);
+        } else if ((error <= PI_INIT_FAILED) && (-error < sizeof(err_str) / sizeof(char *))) {
+            // device error
+            strncpy(buf, err_str[-error], buflen - 1);
+        } else {
+            snprintf(buf, buflen - 1, "unkown error # %d", error);
+        }
+    } else if ((device < sizeof(device_name) / sizeof(char *))) { // device
+        if (error > 0) {
+            // system error
+            snprintf(buf, buflen - 1, "%s : %s", device_name[device], strerror(errno));
+        } else if ((error <= PI_INIT_FAILED) && (-error < sizeof(err_str) / sizeof(char *))) {
+            // device error
+            snprintf(buf, buflen - 1, "%s : %s", device_name[device], err_str[-error]);
+        } else {
+            snprintf(buf, buflen - 1, "%s : unknown error # %d", device_name[device], error);
+        }
+    } else { // unknown edvice
+        if (error > 0) {
+            // system error
+            snprintf(buf, buflen - 1, "%s : %s", device_name[device], strerror(errno));
+        } else if ((error <= PI_INIT_FAILED) && (-error < sizeof(err_str) / sizeof(char *))) {
+            // device error
+            snprintf(buf, buflen - 1, "unknown_device # %d : %s", device, err_str[-error]);
+        } else {
+            snprintf(buf, buflen - 1, "unknown_device # %d : unkown error # %d", device, error);
+        }
+    }
+    return buf;
+}
+
 const char *wt_strerror_device_name(WTResult errnum) {
     int device = (errnum >> 16) & 0xFFFF;
     return device_name[device];

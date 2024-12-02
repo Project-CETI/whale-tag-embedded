@@ -11,6 +11,7 @@
 #define __LIB_WHALE_TAG_ERROR_H__
 
 #include <stdint.h>
+#include <unistd.h>
 
 typedef enum wt_device_id_e {
     WT_DEV_NONE = 0,
@@ -89,10 +90,19 @@ typedef uint32_t WTResult;
  * @brief Returns a pointer to an error description string based on the errno. Note consectuive calls to
  *      `wt_strerror` will modify the contents inside the returned string pointer.
  *
- * @param errno
+ * @param errnum
  * @return const char*
  */
-const char *wt_strerror(WTResult errno);
+const char *wt_strerror(WTResult errnum);
+
+/**
+ * @brief Thread safe version of wt_strerror. Returns a pointer to an error description string based on the errno. Note consectuive calls to
+ *      `wt_strerror` will modify the contents inside the returned string pointer.
+ *
+ * @param errnum
+ * @return const char*
+ */
+char *wt_strerror_r(WTResult errnum, char *buf, size_t buflen);
 
 /**
  * @brief Returns a pointer to an error device name string based on the errno.
