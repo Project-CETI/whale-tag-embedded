@@ -457,8 +457,6 @@ float get_gpu_temperature_c() {
 // System logs
 //------------------------------------------
 
-#define LOG_DIRECTORY "/var/log"
-
 long get_log_size_kb() {
     char log_size_kb[20] = "";
     int system_success = system_call_with_output(
