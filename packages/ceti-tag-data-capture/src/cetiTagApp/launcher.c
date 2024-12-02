@@ -380,7 +380,8 @@ int init_tag() {
     // strncat(fpga_bitstream_path, FPGA_BITSTREAM, sizeof(fpga_bitstream_path) - 1);
     WTResult fpga_result = wt_fpga_init(fpga_bitstream_path);
     if (fpga_result != WT_OK) {
-        CETI_ERR("%s", wt_strerror(fpga_result));
+        char err_str[512];
+        CETI_ERR("%s", wt_strerror_r(fpga_result, err_str, sizeof(err_str)));
         result += -1;
     }
 #endif

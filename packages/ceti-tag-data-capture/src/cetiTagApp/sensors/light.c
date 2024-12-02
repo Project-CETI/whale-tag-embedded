@@ -86,7 +86,8 @@ int init_light() {
 
     g_light->error = als_wake();
     if (g_light->error != WT_OK) {
-        CETI_ERR("Failed to initialize light sensor: %s", wt_strerror(g_light->error));
+        char err_str[512];
+        CETI_ERR("Failed to initialize light sensor: %s", wt_strerror_r(g_light->error, err_str, sizeof(err_str)));
         return -1;
     }
 
@@ -120,7 +121,8 @@ void light_sample_to_csv(FILE *fp, CetiLightSample *pSample) {
         s_log_restarted = 0;
     }
     if (g_light->error != 0) {
-        fprintf(fp, "ERROR(%s) | ", wt_strerror(g_light->error));
+        char err_str[512];
+        fprintf(fp, "ERROR(%s) | ", wt_strerror_r(g_light->error, err_str, sizeof(err_str)));
     }
     if (g_light->visible < -80 || g_light->infrared < -80) {
         fprintf(fp, "INVALID? | ");

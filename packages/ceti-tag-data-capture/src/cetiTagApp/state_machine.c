@@ -394,12 +394,14 @@ int updateStateMachine() {
             } else {
                 // report new errors
                 if (s_bms_error_count == 0) {
-                    CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
+                    char err_str[512];
+                    CETI_ERR("BMS reading resulted in error: %s", wt_strerror_r(shm_battery->error, err_str, sizeof(err_str)));
                 }
                 s_bms_error_count++;
                 // burn if consistently in error
                 if (s_bms_error_count >= MISSION_BMS_CONSECUTIVE_ERROR_THRESHOLD) {
-                    CETI_ERR("BMS remained in error for %d samples, initiaing: %s", s_bms_error_count, wt_strerror(shm_battery->error));
+                    char err_str[512];
+                    CETI_ERR("BMS remained in error for %d samples, initiaing: %s", s_bms_error_count, wt_strerror_r(shm_battery->error, err_str, sizeof(err_str)));
                     CETI_LOG("BMS ERROR!!! Initializing Burn");
                     stateMachine_set_state(ST_BRN_ON);
                     break;
@@ -441,14 +443,16 @@ int updateStateMachine() {
             } else {
                 // report new errors
                 if (s_bms_error_count == 0) {
-                    CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
+                    char err_str[512];
+                    CETI_ERR("BMS reading resulted in error: %s", wt_strerror_r(shm_battery->error, err_str, sizeof(err_str)));
                 }
 
                 s_bms_error_count++;
 
                 // burn if consistently in error
                 if (s_bms_error_count == MISSION_BMS_CONSECUTIVE_ERROR_THRESHOLD) {
-                    CETI_ERR("BMS remained in error for %d samples, initiaing: %s", s_bms_error_count, wt_strerror(shm_battery->error));
+                    char err_str[512];
+                    CETI_ERR("BMS remained in error for %d samples, initiaing: %s", s_bms_error_count, wt_strerror_r(shm_battery->error, err_str, sizeof(err_str)));
                     CETI_LOG("BMS ERROR!!! Initializing Burn");
                     stateMachine_set_state(ST_BRN_ON);
                     break;
@@ -479,7 +483,8 @@ int updateStateMachine() {
                 }
             } else {
                 if (s_bms_error_count == 0) {
-                    CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
+                    char err_str[512];
+                    CETI_ERR("BMS reading resulted in error: %s", wt_strerror_r(shm_battery->error, err_str, sizeof(err_str)));
                 }
 
                 s_bms_error_count++;
@@ -510,7 +515,8 @@ int updateStateMachine() {
                 }
             } else {
                 if (s_bms_error_count == 0) {
-                    CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
+                    char err_str[512];
+                    CETI_ERR("BMS reading resulted in error: %s", wt_strerror_r(shm_battery->error, err_str, sizeof(err_str)));
                 }
 
                 s_bms_error_count++;

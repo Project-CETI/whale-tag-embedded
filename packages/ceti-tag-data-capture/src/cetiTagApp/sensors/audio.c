@@ -309,7 +309,8 @@ int audio_thread_init(void) {
 #endif
     WTResult hal_result = wt_audio_init();
     if (hal_result != WT_OK) {
-        CETI_ERR("Failed to initialize audio hardware: %s", wt_strerror(hal_result));
+        char err_str[512];
+        CETI_ERR("Failed to initialize audio hardware: %s", wt_strerror_r(hal_result, err_str, sizeof(err_str)));
         return (-1);
     }
     if (!audio_setup(&g_config.audio)) {

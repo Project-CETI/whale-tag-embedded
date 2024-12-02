@@ -7,7 +7,8 @@ void update_thread_device_status(ThreadKind thread_id, WTResult device_status, c
         thread_device_status &= ~(1 << thread_id);
     } else {
         if ((thread_device_status & (1 << thread_id)) == 0) { // warn if thread was previously ok
-            syslog(LOG_DEBUG, "[ERROR]: %s(): Device error: %s", thread_name, wt_strerror(device_status));
+            char err_str[512];
+            syslog(LOG_DEBUG, "[ERROR]: %s(): Device error: %s", thread_name, wt_strerror_r(device_status, err_str, sizeof(err_str)));
             thread_device_status |= (1 << thread_id);
         }
     }

@@ -50,7 +50,8 @@ static int charging_disabled, discharging_disabled;
 int init_battery() {
     WTResult hw_result = max17320_init();
     if (hw_result != WT_OK) {
-        CETI_ERR("Failed to connect to MAX17320 Fuel Gauge: %s", wt_strerror(hw_result));
+        char err_str[512];
+        CETI_ERR("Failed to connect to MAX17320 Fuel Gauge: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
         return -1;
     }
 
@@ -274,7 +275,8 @@ void battery_sample_to_csv(FILE *fp, CetiBatterySample *pSample) {
     fprintf(fp, ",%s", battery_data_file_notes);
     strcpy(battery_data_file_notes, "");
     if (pSample->error != WT_OK) {
-        fprintf(fp, "ERROR(%s) | ", wt_strerror(pSample->error));
+        char err_str[512];
+        fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pSample->error, err_str, sizeof(err_str)));
     }
     if (pSample->cell_voltage_v[0] < 0.0 || pSample->cell_voltage_v[1] < 0.0 || pSample->cell_temperature_c[0] < -80.0 || pSample->cell_temperature_c[1] < -80.0) { // it seems to return -0.01 for voltages and -5.19 for current when no sensor is connected
         CETI_WARN("readings are likely invalid");
@@ -336,7 +338,8 @@ void *battery_thread(void *paramPtr) {
                 if (!charging_disabled) {
                     WTResult hw_result = max17320_disable_charging();
                     if (hw_result != WT_OK) {
-                        CETI_ERR("Could not disable charging FET: %s", wt_strerror(hw_result));
+                        char err_str[512];
+                        CETI_ERR("Could not disable charging FET: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
                     } else {
                         charging_disabled = 1;
                         CETI_WARN("Battery charging disabled, cell %d outside thermal limits: %.3f C", i_cell + 1, shm_battery->cell_temperature_c[i_cell]);
@@ -348,7 +351,8 @@ void *battery_thread(void *paramPtr) {
                 if (!discharging_disabled) {
                     WTResult hw_result = max17320_disable_discharging();
                     if (hw_result != WT_OK) {
-                        CETI_ERR("Could not disable discharging FET: %s", wt_strerror(hw_result));
+                        char err_str[512];
+                        CETI_ERR("Could not disable discharging FET: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
                     } else {
                         discharging_disabled = 1;
                         CETI_WARN("Battery discharging disabled, cell %d outside thermal limit: %.3f C", i_cell + 1, shm_battery->cell_temperature_c[i_cell]);
@@ -393,13 +397,15 @@ int resetBattTempFlags(void) {
     WTResult hw_result = WT_OK;
     hw_result = max17320_enable_discharging();
     if (hw_result != WT_OK) {
-        CETI_ERR("Could not enable discharging FET: %s", wt_strerror(hw_result));
+        char err_str[512];
+        CETI_ERR("Could not enable discharging FET: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
         return hw_result;
     }
     discharging_disabled = 0;
     hw_result = max17320_enable_charging();
     if (hw_result != WT_OK) {
-        CETI_ERR("Could not enable charging FET: %s", wt_strerror(hw_result));
+        char err_str[512];
+        CETI_ERR("Could not enable charging FET: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
         return hw_result;
     }
     charging_disabled = 0;

@@ -27,7 +27,8 @@ int ecg_lod_init(void) {
         latest_iox_status = iox_set_mode(IOX_GPIO_ECG_LOD_N, IOX_MODE_INPUT);
 
     if (latest_iox_status != WT_OK) {
-        CETI_ERR("Failed to initialize ECG leads-off detection: %s", wt_strerror(latest_iox_status));
+        char err_str[512];
+        CETI_ERR("Failed to initialize ECG leads-off detection: %s", wt_strerror_r(latest_iox_status, err_str, sizeof(err_str)));
         return -1;
     }
     CETI_LOG("Successfully initialized ECG leads-off detection");

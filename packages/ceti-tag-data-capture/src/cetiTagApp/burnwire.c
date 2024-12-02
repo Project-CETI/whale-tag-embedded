@@ -32,13 +32,15 @@ static WTResult __burnwire_init(void) {
 int init_burnwire() {
     WTResult hal_result = __burnwire_init();
     if (hal_result != WT_OK) {
-        CETI_ERR("Failed to initialize the burnwire : %s", wt_strerror(hal_result));
+        char err_str[512];
+        CETI_ERR("Failed to initialize the burnwire : %s", wt_strerror_r(hal_result, err_str, sizeof(err_str)));
         return -1;
     }
 
     hal_result = __burnwire_off();
     if (hal_result < 0) {
-        CETI_ERR("Failed to turn off the burnwire: %s", wt_strerror(hal_result));
+        char err_str[512];
+        CETI_ERR("Failed to turn off the burnwire: %s", wt_strerror_r(hal_result, err_str, sizeof(err_str)));
         return (-1);
     }
     CETI_LOG("Successfully initialized the burnwire");
@@ -52,7 +54,8 @@ int init_burnwire() {
 int burnwireOn(void) {
     WTResult hal_result = __burnwire_on();
     if (hal_result < 0) {
-        CETI_ERR("Failed to turn on the burnwire: %s", wt_strerror(hal_result));
+        char err_str[512];
+        CETI_ERR("Failed to turn on the burnwire: %s", wt_strerror_r(hal_result, err_str, sizeof(err_str)));
         return (-1);
     }
     return 0;
@@ -61,7 +64,8 @@ int burnwireOn(void) {
 int burnwireOff(void) {
     WTResult hal_result = __burnwire_off();
     if (hal_result < 0) {
-        CETI_ERR("Failed to turn off the burnwire: %s", wt_strerror(hal_result));
+        char err_str[512];
+        CETI_ERR("Failed to turn off the burnwire: %s", wt_strerror_r(hal_result, err_str, sizeof(err_str)));
         return (-1);
     }
     return 0;

@@ -72,7 +72,8 @@ void pressure_sample_to_csv(FILE *fp, CetiPressureSample *pSample) {
     }
 
     if (g_pressure->error != 0) {
-        fprintf(fp, "ERROR(%s) | ", wt_strerror(g_pressure->error));
+        char err_str[512];
+        fprintf(fp, "ERROR(%s) | ", wt_strerror_r(g_pressure->error, err_str, sizeof(err_str)));
     }
 
     // Write the sensor data.
@@ -115,7 +116,8 @@ int init_pressureTemperature(void) {
     // check that hardware is communicating, but don't worry about values
     g_pressure->error = pressure_get_measurement(NULL, NULL);
     if (g_pressure->error != WT_OK) {
-        CETI_ERR("Failed to read pressure sensor: %s", wt_strerror(g_pressure->error));
+        char err_str[512];
+        CETI_ERR("Failed to read pressure sensor: %s", wt_strerror_r(g_pressure->error, err_str, sizeof(err_str)));
         return -1;
     }
 

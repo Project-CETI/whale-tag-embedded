@@ -200,7 +200,8 @@ static int __recovery_query(RecoverCommand query_command, uint8_t *pValid) {
     RecPktHeader q_pkt = REC_EMPTY_PKT(query_command);
     WTResult write_result = __recovery_write_packet((const RecoveryPacket *)&q_pkt);
     if (write_result != WT_OK) {
-        CETI_ERR("Failed to send query to recovery board: %s", wt_strerror(write_result));
+        char err_str[512];
+        CETI_ERR("Failed to send query to recovery board: %s", wt_strerror_r(write_result, err_str, sizeof(err_str)));
         return 0;
     }
 
@@ -284,7 +285,8 @@ static bool __ping(void) {
     RecoveryPacket r_pkt = {.header.type = -1};
     WTResult write_result = __recovery_write_packet((const RecoveryPacket *)&q_pkt);
     if (write_result != WT_OK) {
-        CETI_ERR("Failed to send ping to recovery board: %s", wt_strerror(write_result));
+        char err_str[512];
+        CETI_ERR("Failed to send ping to recovery board: %s", wt_strerror_r(write_result, err_str, sizeof(err_str)));
         return 0;
     }
 
@@ -571,7 +573,8 @@ int recovery_wake(void) {
     RecPktHeader start_pkt = REC_EMPTY_PKT(REC_CMD_START);
     WTResult tx_result = __recovery_write(&start_pkt, sizeof(start_pkt));
     if (tx_result != WT_OK) {
-        CETI_ERR("Failed to wake board: %s", wt_strerror(tx_result));
+        char err_str[512];
+        CETI_ERR("Failed to wake board: %s", wt_strerror_r(tx_result, err_str, sizeof(err_str)));
         return -1;
     }
     s_recovery_board_model.state = REC_STATE_APRS;
@@ -582,7 +585,8 @@ int recovery_sleep(void) {
     RecPktHeader start_pkt = REC_EMPTY_PKT(REC_CMD_STOP);
     WTResult tx_result = __recovery_write(&start_pkt, sizeof(start_pkt));
     if (tx_result != WT_OK) {
-        CETI_ERR("Failed to put board to sleep: %s", wt_strerror(tx_result));
+        char err_str[512];
+        CETI_ERR("Failed to put board to sleep: %s", wt_strerror_r(tx_result, err_str, sizeof(err_str)));
         return -1;
     }
     s_recovery_board_model.state = REC_STATE_APRS;
@@ -597,7 +601,8 @@ int recovery_sleep(void) {
 int recovery_on(void) {
     WTResult hw_result = wt_recovery_on();
     if (hw_result != WT_OK) {
-        CETI_ERR("Failed power recovery board: %s", wt_strerror(hw_result));
+        char err_str[512];
+        CETI_ERR("Failed power recovery board: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
         return -1;
     }
     return 0;
@@ -611,7 +616,8 @@ int recovery_on(void) {
 int recovery_off(void) {
     WTResult hw_result = wt_recovery_off();
     if (hw_result != WT_OK) {
-        CETI_ERR("Failed cut power to recovery board: %s", wt_strerror(hw_result));
+        char err_str[512];
+        CETI_ERR("Failed cut power to recovery board: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
         return -1;
     }
     return 0;
@@ -631,7 +637,8 @@ int recovery_thread_init(TagConfig *pConfig) {
     if (hw_result == WT_OK)
         hw_result = recovery_set_critical_voltage(pConfig->critical_voltage_v);
     if (hw_result != WT_OK) {
-        CETI_ERR("Failed to initalize recovery board hardware: %s", wt_strerror(hw_result));
+        char err_str[512];
+        CETI_ERR("Failed to initalize recovery board hardware: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
         return -1;
     }
     if (!__ping()) {
@@ -705,7 +712,8 @@ void *recovery_rx_thread(void *paramPtr) {
         if (result == WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT))
             break;                               // normal termination condition reacted
         if (result != WT_OK) {                   // actual error occured
-            CETI_ERR("%s", wt_strerror(result)); // print error
+            char err_str[512];
+            CETI_ERR("%s", wt_strerror_r(result, err_str, sizeof(err_str))); // print error
             // TODO actually handle error.
             continue;
         }
