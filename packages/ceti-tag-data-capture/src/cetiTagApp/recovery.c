@@ -710,8 +710,8 @@ void *recovery_rx_thread(void *paramPtr) {
         // wait for recovery board packet
         WTResult result = __recovery_get_packet(&pkt, __recovery_rx_thread_should_exit);
         if (result == WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT))
-            break;                               // normal termination condition reacted
-        if (result != WT_OK) {                   // actual error occured
+            break;             // normal termination condition reacted
+        if (result != WT_OK) { // actual error occured
             char err_str[512];
             CETI_ERR("%s", wt_strerror_r(result, err_str, sizeof(err_str))); // print error
             // TODO actually handle error.
