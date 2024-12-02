@@ -100,3 +100,6 @@ mv /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt /home/pi/.bash_history
 git clone https://git.code.sf.net/p/stm32flash/code stm32flash-code
 make install -C stm32flash-code -j4
 rm -rf stm32flash-code
+
+# move location of syslogs to volatile partition to ensure logging is captured
+sed -i 's,var/log,data/logs,g' /etc/rsyslog.conf

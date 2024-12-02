@@ -216,19 +216,6 @@ void *systemMonitor_thread(void *paramPtr) {
             }
         }
 
-        if (!g_stopLogging) {
-// Force log rotations, to enforce the size limits specified in firstboot
-//  and to move logs onto the persistent data partition.
-// Note that this will continue even after data acquisition is signaled to stop,
-//  but the logs are generally small (one test indicated about 1.1 MiB over 11 hours,
-//  which would fill the 1 GiB free space threshold in about 1.2 years).
-#if LOGROTATE_PERIOD_US >= 0
-            if (get_global_time_us() - last_logrotate_time_us >= LOGROTATE_PERIOD_US) {
-                force_system_log_rotation();
-                last_logrotate_time_us = get_global_time_us();
-            }
-#endif
-        }
         // Delay to implement a desired sampling rate.
         // Take into account the time it took to acquire/save data.
         polling_sleep_duration_us = SYSTEMMONITOR_SAMPLING_PERIOD_US;
@@ -473,7 +460,7 @@ float get_gpu_temperature_c() {
 long get_log_size_kb() {
     char log_size_kb[20] = "";
     int system_success = system_call_with_output(
-        "du /var/log/ 2>/dev/null | grep /var/log/$ | awk '{print $1}'",
+        "du " LOG_DIRECTORY "/ 2>/dev/null | grep " LOG_DIRECTORY "/$ | awk '{print $1}'",
         log_size_kb);
     if (system_success == -1 || strlen(log_size_kb) == 0)
         return -1;
@@ -483,34 +470,11 @@ long get_log_size_kb() {
 long get_syslog_size_kb() {
     char syslog_size_kb[20] = "";
     int system_success = system_call_with_output(
-        "du /var/log/syslog 2>/dev/null | grep /var/log/syslog$ | awk '{print $1}'",
+        "du " LOG_DIRECTORY "/syslog 2>/dev/null | grep " LOG_DIRECTORY "/syslog$ | awk '{print $1}'",
         syslog_size_kb);
     if (system_success == -1 || strlen(syslog_size_kb) == 0)
         return -1;
     return (long)atof(syslog_size_kb);
-}
-
-void force_system_log_rotation() {
-    CETI_LOG("Forcing a log file rotation");
-    char system_command[100];
-    char system_response[100];
-    long long log_rotation_time_us = get_global_time_us();
-    // Rotate the logs.
-    system_call_with_output("sudo logrotate -f /etc/logrotate.d/rsyslog", system_response);
-    // Check if it archived any old logs.
-    // The configuration in firstboot tells it to use /var/log/old_logs for old files.
-    if (system_call_with_output("ls -l /var/log/old_logs/ | wc -l", system_response) != -1) {
-        int num_old_log_files = atof(system_response) - 1; // subtract 1 for the line that lists the total count
-        if (num_old_log_files > 0) {
-            // Make a directory for the old logs on the data partition.
-            system_call_with_output("sudo mkdir /data/logs", system_response);
-            sprintf(system_command, "sudo mkdir /data/logs/logs_copied_%lld", log_rotation_time_us);
-            system_call_with_output(system_command, system_response);
-            // Move the old logs to the data partition.
-            sprintf(system_command, "sudo mv /var/log/old_logs/* /data/logs/logs_copied_%lld", log_rotation_time_us);
-            system_call_with_output(system_command, system_response);
-        }
-    }
 }
 
 // Various
