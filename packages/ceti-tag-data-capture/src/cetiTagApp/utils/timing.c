@@ -53,6 +53,9 @@ WTResult getRtcStatus(void) { return latest_rtc_error; }
 
 void updateRtcCount() {
     uint32_t count_s = 0;
+    
+    sync_global_time_init();
+
     latest_rtc_error = rtc_get_count(&count_s);
     if (latest_rtc_error == WT_OK) {
         latest_rtc_count = (int)count_s;

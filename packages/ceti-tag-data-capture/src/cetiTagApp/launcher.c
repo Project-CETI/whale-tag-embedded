@@ -450,8 +450,6 @@ int init_tag() {
     }
 #endif
 
-    result += sync_global_time_init();
-
     if (result < 0 || (s_threads_in_error)) {
         CETI_ERR("Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
         return result - s_threads_in_error;
