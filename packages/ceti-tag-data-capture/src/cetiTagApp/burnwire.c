@@ -37,12 +37,6 @@ int init_burnwire() {
         return -1;
     }
 
-    hal_result = __burnwire_off();
-    if (hal_result < 0) {
-        char err_str[512];
-        CETI_ERR("Failed to turn off the burnwire: %s", wt_strerror_r(hal_result, err_str, sizeof(err_str)));
-        return (-1);
-    }
     CETI_LOG("Successfully initialized the burnwire");
     return 0;
 }
