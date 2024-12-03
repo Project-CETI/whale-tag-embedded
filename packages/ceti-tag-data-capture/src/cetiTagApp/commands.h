@@ -29,7 +29,6 @@ extern int g_command_thread_is_running;
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
-int init_commands();
 int handle_command(void);
 void *command_thread(void *paramPtr);
 

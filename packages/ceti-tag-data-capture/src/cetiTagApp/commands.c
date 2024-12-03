@@ -126,12 +126,6 @@ int g_command_thread_is_running = 0;
 static char rsp_pipe_path[512];
 
 //-----------------------------------------------------------------------------
-int init_commands() {
-    CETI_LOG("Successfully initialized the command handler [did nothing]");
-    return 0;
-}
-
-//-----------------------------------------------------------------------------
 static int __command_quit(const char *args) {
     fprintf(g_rsp_pipe, "Received Quit command - stopping the app\n"); // echo it back
     CETI_LOG("SETTING EXIT FLAG");

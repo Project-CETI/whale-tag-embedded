@@ -362,9 +362,6 @@ int init_tag() {
     if (init_timing() != 0) {
         result += -1;
     }
-    if (init_commands() != 0) {
-        result += -1;
-    }
     if (init_stateMachine() != 0) {
         result += -1;
     }
