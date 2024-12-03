@@ -30,6 +30,9 @@ static int64_t last_rtc_update_time_us = -1;
 
 int init_timing() {
 #if ENABLE_RTC
+
+    sync_global_time_init();
+
     // Test whether the RTC is available.
     updateRtcCount();
     if (latest_rtc_error != WT_OK) {
@@ -54,8 +57,6 @@ WTResult getRtcStatus(void) { return latest_rtc_error; }
 
 void updateRtcCount() {
     uint32_t count_s = 0;
-
-    sync_global_time_init();
 
     latest_rtc_error = rtc_get_count(&count_s);
     if (latest_rtc_error == WT_OK) {
