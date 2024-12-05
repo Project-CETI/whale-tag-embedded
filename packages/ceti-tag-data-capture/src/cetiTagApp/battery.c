@@ -36,7 +36,7 @@ const NvExpected g_nv_expected[20] = {
     {.name = "NTPRTTH1", .addr = 0x1d1, .value = 0x280a},
     {.name = "NIPRTTH1", .addr = 0x1d3, .value = 0x32ce},
     {.name = "NBALTH", .addr = 0x1d4, .value = 0x0ca0},
-    {.name = "NPROTMISCTH", .addr = 0x1d6, .value = 0x0313},
+    {.name = "NPROTMISCTH", .addr = 0x1d6, .value = 0x0813},
     {.name = "NPROTCFG", .addr = 0x1d7, .value = 0x0c08},
     {.name = "NJEITAV", .addr = 0x1d9, .value = 0xec00},
     {.name = "NOVPRTTH", .addr = 0x1da, .value = 0xb3a0},
