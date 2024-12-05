@@ -384,8 +384,12 @@ int init_tag() {
 #endif
 
 #if ENABLE_BATTERY_GAUGE
-    if (init_battery() != 0) {
-        result += -1;
+    int bms_error = init_battery();
+    if (bms_error != 0) {
+        if (thread_error & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)){
+            s_threads_in_error |= (1 << THREAD_BMS_ACQ);
+        } else {
+        result += -1; //non-critical error
     }
 #endif
 
@@ -432,11 +436,6 @@ int init_tag() {
 #endif
 
 #if ENABLE_ECG
-#if ENABLE_ECG_LOD
-    if (ecg_lod_init() != 0) {
-        result += -1;
-    }
-#endif
     if (init_ecg() != 0) {
         result += -1;
     }

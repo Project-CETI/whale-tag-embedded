@@ -13,6 +13,7 @@
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 #include "utils/logging.h"
 #include "utils/memory.h"
+#include "utils/thread_error.h"
 #include "utils/timing.h"
 
 // === Private System Libraries ===
@@ -48,30 +49,40 @@ static int charging_disabled, discharging_disabled;
 // Initialization
 //-----------------------------------------------------------------------------
 int init_battery() {
+    int t_result = THREAD_OK;
+    char err_str[512] = {};
+    
     WTResult hw_result = max17320_init();
     if (hw_result != WT_OK) {
-        char err_str[512];
         CETI_ERR("Failed to connect to MAX17320 Fuel Gauge: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
-        return -1;
+        t_result |= THREAD_ERR_HW;
     }
 
     // Open an output file to write data.
     CETI_LOG("Successfully initialized the battery gauge");
     if (init_data_file(battery_data_file, BATTERY_DATA_FILEPATH,
                        battery_data_file_headers, num_battery_data_file_headers,
-                       battery_data_file_notes, "init_battery()") < 0)
-        return -1;
+                       battery_data_file_notes, "init_battery()") < 0) {
+        CETI_ERR("Failed to open " BATTERY_DATA_FILEPATH ": %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_DATA_FILE_FAILED;
+    }
+        
 
     // setup shared memory
     shm_battery = create_shared_memory_region(BATTERY_SHM_NAME, sizeof(CetiBatterySample));
+    if (shm_battery == NULL) {
+        CETI_ERR("Failed to create shared memory " BATTERY_SHM_NAME ": %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SHM_FAILED;
+    }
 
     // setup semaphore
     sem_battery_data_ready = sem_open(BATTERY_SEM_NAME, O_CREAT, 0644, 0);
     if (sem_battery_data_ready == SEM_FAILED) {
-        CETI_ERR("Failed to create semaphore");
-        return -1;
+        CETI_ERR("Failed to create semaphore " BATTERY_SEM_NAME ": %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SEM_FAILED;
     }
-    return 0;
+    
+    return t_result;
 }
 
 //-----------------------------------------------------------------------------
@@ -384,7 +395,11 @@ void *battery_thread(void *paramPtr) {
             usleep(polling_sleep_duration_us);
     }
     sem_close(sem_battery_data_ready);
+    sem_unlink(BATTERY_SEM_NAME);
+
     munmap(shm_battery, sizeof(CetiBatterySample));
+    shm_unlink(BATTERY_SHM_NAME);
+    
     g_battery_thread_is_running = 0;
     CETI_LOG("Done!");
     return NULL;

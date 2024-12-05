@@ -87,22 +87,29 @@ void pressure_sample_to_csv(FILE *fp, CetiPressureSample *pSample) {
 // CetiTagApp - Main thread
 //-----------------------------------------------------------------------------
 int init_pressureTemperature(void) {
+    char err_str[512];
+    int critical_failure = 0;
+    
     // setup shared memory
     g_pressure = create_shared_memory_region(PRESSURE_SHM_NAME, sizeof(CetiPressureSample));
+    if (g_pressure == NULL) {
+        CETI_ERR("Failed to map shared memory: %s", strerror_r(errno, err_str, sizeof(err_str)));
+        return -1; // critical failure
+    }
 
     // setup semaphore
     s_pressure_data_ready = sem_open(PRESSURE_SEM_NAME, O_CREAT, 0644, 0);
     if (s_pressure_data_ready == SEM_FAILED) {
-        CETI_ERR("Failed to create semaphore");
-        return -1;
+        CETI_ERR("Failed to create semaphore: %s", strerror_r(errno, err_str, sizeof(err_str)));
+        return -1; // critical failure
     }
 
     // Open an output file to write data.
     int data_file_exists = (access(PRESSURETEMPERATURE_DATA_FILEPATH, F_OK) != -1);
     FILE *data_file = fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
     if (data_file == NULL) {
-        CETI_ERR("Failed to open/create an output data file: " PRESSURETEMPERATURE_DATA_FILEPATH ": %s", strerror(errno));
-        return -1;
+        CETI_ERR("Failed to open/create an output data file: " PRESSURETEMPERATURE_DATA_FILEPATH ": %s", strerror_r(errno, err_str, sizeof(err_str)));
+        return -1; // IS THIS CRITICAL?
     }
 
     // Write headers if the file didn't already exist.
@@ -116,9 +123,7 @@ int init_pressureTemperature(void) {
     // check that hardware is communicating, but don't worry about values
     g_pressure->error = pressure_get_measurement(NULL, NULL);
     if (g_pressure->error != WT_OK) {
-        char err_str[512];
         CETI_ERR("Failed to read pressure sensor: %s", wt_strerror_r(g_pressure->error, err_str, sizeof(err_str)));
-        return -1;
     }
 
     CETI_LOG("Successfully initialized the pressure/temperature sensor.");

@@ -15,6 +15,7 @@
 #include "utils/error.h"
 #include "utils/logging.h"
 #include "utils/memory.h"
+#include "utils/thread_error.h"
 #include "utils/timing.h"
 
 #include <fcntl.h>
@@ -626,7 +627,9 @@ int recovery_off(void) {
 //-----------------------------------------------------------------------------
 // Main thread
 //-----------------------------------------------------------------------------
-int recovery_thread_init(TagConfig *pConfig) {
+ThreadResult recovery_thread_init(TagConfig *pConfig) {
+    char err_str[512];
+    ThreadResult t_result = THREAD_OK;
     WTResult hw_result = wt_recovery_init();
     if (hw_result == WT_OK)
         hw_result = recovery_set_aprs_freq_mhz(pConfig->recovery.freq_MHz);
@@ -637,12 +640,11 @@ int recovery_thread_init(TagConfig *pConfig) {
     if (hw_result == WT_OK)
         hw_result = recovery_set_critical_voltage(pConfig->critical_voltage_v);
     if (hw_result != WT_OK) {
-        char err_str[512];
         CETI_ERR("Failed to initalize recovery board hardware: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
-        return -1;
+        t_result = WT_RESULT_TO_THREAD_RESULT(THREAD_GPS_ACQ, hw_result);
     }
     if (!__ping()) {
-        return WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT);
+        WT_RESULT_TO_THREAD_RESULT(THREAD_GPS_ACQ, WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT));
     }
 
     s_recovery_board_model.state = REC_STATE_APRS;
@@ -651,25 +653,25 @@ int recovery_thread_init(TagConfig *pConfig) {
     shm_nmea_sentence = create_shared_memory_region(RECOVERY_SHM_NAME, sizeof(CetiRecoverySample));
     if (shm_nmea_sentence == NULL) {
         CETI_ERR("Failed to create shared memory region");
-        return -1;
+        t_result |= THREAD_RESULT(THREAD_GPS_ACQ, THREAD_ERR_SHM_FAILED);
     }
     // setup semaphores
     sem_nmea_sentence_ready = sem_open(RECOVERY_SEM_NAME, O_CREAT, 0644, 0);
     if (sem_nmea_sentence_ready == SEM_FAILED) {
         CETI_ERR("Failed to create recovery semaphore");
-        return -1;
+        t_result |= THREAD_RESULT(THREAD_GPS_ACQ, THREAD_ERR_SHM_FAILED);
     }
-
-    // // Open an output file to write data.
+    
+    // Open an output file to write data.
     if (init_data_file(recovery_data_file, RECOVERY_DATA_FILEPATH,
                        recovery_data_file_headers, num_recovery_data_file_headers,
                        recovery_data_file_notes, "init_data_file()") < 0) {
         CETI_LOG("Failed to initialize recovery board thread");
-        return -1;
+        t_result |= THREAD_RESULT(THREAD_GPS_ACQ, THREAD_ERR_DATA_FILE_FAILED);
     }
-
+    
     CETI_LOG("Successfully initialized recovery board thread");
-    return 0;
+    return t_result;
 }
 
 static void __recovery_sample_to_csv(CetiRecoverySample *pSample) {
@@ -807,7 +809,9 @@ void *recovery_rx_thread(void *paramPtr) {
         }
     }
     sem_close(sem_nmea_sentence_ready);
+    sem_unlink(RECOVERY_SEM_NAME);
     munmap(shm_nmea_sentence, sizeof(CetiRecoverySample));
+    shm_unlink(RECOVERY_SHM_NAME);
     g_recovery_rx_thread_is_running = 0;
     CETI_LOG("Done!");
     return NULL;

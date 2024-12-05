@@ -72,6 +72,10 @@ int init_ecg() {
 }
 
 int init_ecg_electronics() {
+#if ENABLE_ECG_LOD
+    ecg_lod_init();
+#endif
+
     // Set up and configure the ADC.
     if (ecg_adc_setup(ECG_I2C_BUS) < 0)
         return -1;
