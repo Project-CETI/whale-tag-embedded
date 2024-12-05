@@ -25,7 +25,7 @@
 //-----------------------------------------------------------------------------
 // Global/static variables
 //-----------------------------------------------------------------------------
-const NvExpected g_nv_expected[20] = {
+const NvExpected g_nv_expected[] = {
     {.name = "NRSENSE", .addr = 0x1cf, .value = 0x03e8},
     {.name = "NDESIGNCAP", .addr = 0x1b3, .value = 0x2710},
     {.name = "NPACKCFG", .addr = 0x1b5, .value = 0xc208},
@@ -46,7 +46,7 @@ const NvExpected g_nv_expected[20] = {
     {.name = "NTHERMCFG", .addr = 0x1ca, .value = 0x71be},
     {.name = "NVEMPTY", .addr = 0x19e, .value = 0x9659},
     {.name = "NFULLSOCTHR", .addr = 0x1c6, .value = 0x5005},
-};
+    {.name = NULL}};
 
 int g_battery_thread_is_running = 0;
 static FILE *battery_data_file = NULL;
@@ -72,13 +72,13 @@ static int charging_disabled, discharging_disabled;
 
 /**
  * @brief Read BMS nonvolatile memory and verifies values are the expected value.
- * 
+ *
  * @return int true if match, else false
  */
 int battery_verify(void) {
     int incorrect = 0;
-    CETI_LOG("Nonvoltile RAM Settings:");                  // echo it
-    for (int i = 0; i < sizeof(g_nv_expected) / sizeof(*g_nv_expected); i++) {
+    CETI_LOG("Nonvoltile RAM Settings:"); // echo it
+    for (int i = 0; g_nv_expected[i].name != NULL; i++) {
         uint16_t actual;
 
         // hardware access register
@@ -100,7 +100,7 @@ int battery_verify(void) {
     if (incorrect != 0) {
         CETI_WARN("%d values did not match expected value", incorrect);
         return 0;
-    } 
+    }
     return 1;
 }
 
@@ -114,7 +114,7 @@ int init_battery() {
     // check if BMS nv
     if (!battery_verify()) {
         CETI_ERR("MAX17320 nonvolatile memory was not as expected: %s", wt_strerror(hw_result));
-        CETI_ERR("    Consider rewriting NV memory!!!!"); 
+        CETI_ERR("    Consider rewriting NV memory!!!!");
         CETI_LOG("Attempting to overlay values:");
         hw_result = max17320_clear_write_protection();
         if (hw_result == WT_OK) {

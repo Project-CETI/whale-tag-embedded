@@ -99,7 +99,7 @@ int batteryCmd_verify(const char *args) {
     int incorrect = 0;
     fprintf(g_rsp_pipe, "NV Ram verification not fully implemented\n"); // echo it
     fprintf(g_rsp_pipe, "Nonvoltile RAM Settings:\n");                  // echo it
-    for (int i = 0; i < sizeof(g_nv_expected) / sizeof(*g_nv_expected); i++) {
+    for (int i = 0; g_nv_expected[i].name != NULL; i++) {
         uint16_t actual;
 
         // hardware access register

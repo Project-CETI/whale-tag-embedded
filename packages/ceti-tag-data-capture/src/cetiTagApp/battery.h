@@ -29,8 +29,6 @@ typedef struct {
     uint16_t value;
 } NvExpected;
 
-const NvExpected g_nv_expected[20];
-
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
@@ -41,6 +39,7 @@ int resetBattTempFlags(void);
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
+extern const NvExpected g_nv_expected[];
 extern int g_battery_thread_is_running;
 // Store global versions of the latest readings since the state machine will use them.
 extern CetiBatterySample *shm_battery;
