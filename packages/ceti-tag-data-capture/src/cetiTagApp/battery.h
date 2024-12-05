@@ -21,7 +21,13 @@
 #define MIN_CHARGE_TEMP (10)
 #define MAX_CHARGE_TEMP (40)
 #define MIN_DISCHARGE_TEMP (0)
-#define MAX_DISCHARGE_TEMP (50)
+#define MAX_DISCHARGE_TEMP (56)
+
+typedef struct {
+    char *name;
+    uint16_t addr;
+    uint16_t value;
+} NvExpected;
 
 //-----------------------------------------------------------------------------
 // Methods
@@ -33,6 +39,7 @@ int resetBattTempFlags(void);
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
+extern const NvExpected g_nv_expected[];
 extern int g_battery_thread_is_running;
 // Store global versions of the latest readings since the state machine will use them.
 extern CetiBatterySample *shm_battery;
