@@ -21,7 +21,7 @@
 #define MIN_CHARGE_TEMP (10)
 #define MAX_CHARGE_TEMP (40)
 #define MIN_DISCHARGE_TEMP (0)
-#define MAX_DISCHARGE_TEMP (50)
+#define MAX_DISCHARGE_TEMP (56)
 
 typedef struct {
     char *name;
