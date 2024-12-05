@@ -322,12 +322,6 @@ int main(void) {
 
     CETI_LOG("Done!");
 
-// Save logs to the data partition.
-#if ENABLE_SYSTEMMONITOR
-    usleep(100000);
-    force_system_log_rotation();
-#endif
-
     return (0);
 }
 

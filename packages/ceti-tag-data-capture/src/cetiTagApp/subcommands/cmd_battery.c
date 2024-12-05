@@ -100,44 +100,15 @@ int batteryCmd_reset(const char *args) {
     return 0;
 }
 
-typedef struct {
-    char *name;
-    uint16_t addr;
-    uint16_t value;
-} NvExpected;
-
-static const NvExpected nv_expected[] = {
-    {.name = "NRSENSE", .addr = 0x1cf, .value = 0x03e8},
-    {.name = "NDESIGNCAP", .addr = 0x1b3, .value = 0x2710},
-    {.name = "NPACKCFG", .addr = 0x1b5, .value = 0xc208},
-    {.name = "NNVCFG0", .addr = 0x1b8, .value = 0x0830},
-    {.name = "NNVCFG1", .addr = 0x1b9, .value = 0x2100},
-    {.name = "NNVCFG2", .addr = 0x1ba, .value = 0x822d},
-    {.name = "NUVPRTTH", .addr = 0x1d0, .value = 0xa002},
-    {.name = "NTPRTTH1", .addr = 0x1d1, .value = 0x280a},
-    {.name = "NIPRTTH1", .addr = 0x1d3, .value = 0x32ce},
-    {.name = "NBALTH", .addr = 0x1d4, .value = 0x0ca0},
-    {.name = "NPROTMISCTH", .addr = 0x1d6, .value = 0x0313},
-    {.name = "NPROTCFG", .addr = 0x1d7, .value = 0x0c08},
-    {.name = "NJEITAV", .addr = 0x1d9, .value = 0xec00},
-    {.name = "NOVPRTTH", .addr = 0x1da, .value = 0xb3a0},
-    {.name = "NDELAYCFG", .addr = 0x1dc, .value = 0x0035},
-    {.name = "NODSCCFG", .addr = 0x1de, .value = 0x4058},
-    {.name = "NCONFIG", .addr = 0x1b0, .value = 0x0290},
-    {.name = "NTHERMCFG", .addr = 0x1ca, .value = 0x71be},
-    {.name = "NVEMPTY", .addr = 0x19e, .value = 0x9659},
-    {.name = "NFULLSOCTHR", .addr = 0x1c6, .value = 0x5005},
-};
-
 int batteryCmd_verify(const char *args) {
     int incorrect = 0;
     fprintf(g_rsp_pipe, "NV Ram verification not fully implemented\n"); // echo it
     fprintf(g_rsp_pipe, "Nonvoltile RAM Settings:\n");                  // echo it
-    for (int i = 0; i < sizeof(nv_expected) / sizeof(*nv_expected); i++) {
+    for (int i = 0; g_nv_expected[i].name != NULL; i++) {
         uint16_t actual;
 
         // hardware access register
-        WTResult result = max17320_read(nv_expected[i].addr, &actual);
+        WTResult result = max17320_read(g_nv_expected[i].addr, &actual);
         if (result != WT_OK) {
             char err_str[512];
             CETI_ERR("BMS device read error: %s\n", wt_strerror_r(result, err_str, sizeof(err_str)));
@@ -146,11 +117,11 @@ int batteryCmd_verify(const char *args) {
         }
 
         // assertions
-        if (actual != nv_expected[i].value) {
-            fprintf(g_rsp_pipe, "%-12s: 0x%04x != 0x%04x !!!!\n", nv_expected[i].name, actual, nv_expected[i].value);
+        if (actual != g_nv_expected[i].value) {
+            fprintf(g_rsp_pipe, "%-12s: 0x%04x != 0x%04x !!!!\n", g_nv_expected[i].name, actual, g_nv_expected[i].value);
             incorrect++;
         } else {
-            fprintf(g_rsp_pipe, "%-12s: 0x%04x  OK!\n", nv_expected[i].name, actual);
+            fprintf(g_rsp_pipe, "%-12s: 0x%04x  OK!\n", g_nv_expected[i].name, actual);
         }
     }
 

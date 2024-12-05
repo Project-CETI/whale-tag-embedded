@@ -19,6 +19,8 @@
 #define TID_PRINT_PERIOD_US 7130000000 // How often to print thread IDs; -1 to never print
 #define LOGROTATE_PERIOD_US 3600000000 // How often to force a log-file rotation; -1 to not use.
 
+#define LOG_DIRECTORY "/data/logs" // syslog directory for checking log sizes
+
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
@@ -39,7 +41,6 @@ int update_cpu_usage();
 int get_cpu_id_for_tid(int tid);
 float get_cpu_temperature_c();
 float get_gpu_temperature_c();
-void force_system_log_rotation();
 int system_call_with_output(char *cmd, char *result);
 void *systemMonitor_thread(void *paramPtr);
 
