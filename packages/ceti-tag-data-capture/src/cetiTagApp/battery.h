@@ -23,6 +23,14 @@
 #define MIN_DISCHARGE_TEMP (0)
 #define MAX_DISCHARGE_TEMP (50)
 
+typedef struct {
+    char *name;
+    uint16_t addr;
+    uint16_t value;
+} NvExpected;
+
+const NvExpected g_nv_expected[20];
+
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------

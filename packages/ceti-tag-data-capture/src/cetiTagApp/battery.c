@@ -25,13 +25,7 @@
 //-----------------------------------------------------------------------------
 // Global/static variables
 //-----------------------------------------------------------------------------
-typedef struct {
-    char *name;
-    uint16_t addr;
-    uint16_t value;
-} NvExpected;
-
-static const NvExpected s_nv_expected[] = {
+const NvExpected g_nv_expected[20] = {
     {.name = "NRSENSE", .addr = 0x1cf, .value = 0x03e8},
     {.name = "NDESIGNCAP", .addr = 0x1b3, .value = 0x2710},
     {.name = "NPACKCFG", .addr = 0x1b5, .value = 0xc208},
@@ -84,22 +78,22 @@ static int charging_disabled, discharging_disabled;
 int battery_verify(void) {
     int incorrect = 0;
     CETI_LOG("Nonvoltile RAM Settings:");                  // echo it
-    for (int i = 0; i < sizeof(s_nv_expected) / sizeof(*s_nv_expected); i++) {
+    for (int i = 0; i < sizeof(g_nv_expected) / sizeof(*g_nv_expected); i++) {
         uint16_t actual;
 
         // hardware access register
-        WTResult result = max17320_read(s_nv_expected[i].addr, &actual);
+        WTResult result = max17320_read(g_nv_expected[i].addr, &actual);
         if (result != WT_OK) {
             CETI_ERR("BMS device read error: %s\n", wt_strerror(result));
             return 0;
         }
 
         // assertions
-        if (actual != s_nv_expected[i].value) {
-            CETI_WARN("%-12s: 0x%04x != 0x%04x !!!!", s_nv_expected[i].name, actual, s_nv_expected[i].value);
+        if (actual != g_nv_expected[i].value) {
+            CETI_WARN("%-12s: 0x%04x != 0x%04x !!!!", g_nv_expected[i].name, actual, g_nv_expected[i].value);
             incorrect++;
         } else {
-            CETI_LOG("%-12s: 0x%04x  OK!\n", s_nv_expected[i].name, actual);
+            CETI_LOG("%-12s: 0x%04x  OK!\n", g_nv_expected[i].name, actual);
         }
     }
 
@@ -124,9 +118,9 @@ int init_battery() {
         CETI_LOG("Attempting to overlay values:");
         hw_result = max17320_clear_write_protection();
         if (hw_result == WT_OK) {
-            for (int i = 0; i < sizeof(s_nv_expected) / sizeof(*s_nv_expected); i++) {
-                CETI_WARN("%-12s: 0x%04x", s_nv_expected[i].name, s_nv_expected[i].value);
-                hw_result = max17320_write(s_nv_expected[i].addr, s_nv_expected[i].value);
+            for (int i = 0; i < sizeof(g_nv_expected) / sizeof(*g_nv_expected); i++) {
+                CETI_WARN("%-12s: 0x%04x", g_nv_expected[i].name, g_nv_expected[i].value);
+                hw_result = max17320_write(g_nv_expected[i].addr, g_nv_expected[i].value);
                 if (hw_result != WT_OK) {
                     break;
                 }
