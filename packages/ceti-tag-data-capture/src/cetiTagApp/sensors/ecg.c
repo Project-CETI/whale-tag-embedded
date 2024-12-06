@@ -47,7 +47,6 @@ int init_ecg() {
     if (init_ecg_electronics() < 0) {
         CETI_ERR("Unknown hardware error");
         t_result |= THREAD_ERR_HW;
-
     }
 
     // Create shared memory
@@ -136,9 +135,9 @@ void *ecg_thread_getData(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_ecg_thread_getData_tid = gettid();
 
-    if ( (shm_ecg == NULL) ||(sem_ecg_page == SEM_FAILED) || (sem_ecg_sample == SEM_FAILED)) {
+    if ((shm_ecg == NULL) || (sem_ecg_page == SEM_FAILED) || (sem_ecg_sample == SEM_FAILED)) {
         CETI_ERR("Thread started without neccesary memory resources");
-         // Clean up.
+        // Clean up.
         ecg_adc_cleanup();
         munmap(shm_ecg, sizeof(CetiEcgBuffer));
         sem_close(sem_ecg_sample);

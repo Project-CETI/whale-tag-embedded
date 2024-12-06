@@ -79,6 +79,7 @@ static int charging_disabled, discharging_disabled;
  * @return int true if match, else false
  */
 int battery_verify(void) {
+    char err_str[512];
     int incorrect = 0;
     CETI_LOG("Nonvoltile RAM Settings:"); // echo it
     for (int i = 0; g_nv_expected[i].name != NULL; i++) {
@@ -87,7 +88,7 @@ int battery_verify(void) {
         // hardware access register
         WTResult result = max17320_read(g_nv_expected[i].addr, &actual);
         if (result != WT_OK) {
-            CETI_ERR("BMS device read error: %s\n", wt_strerror(result));
+            CETI_ERR("BMS device read error: %s\n", wt_strerror_r(result, err_str, sizeof(err_str)));
             return 0;
         }
 
@@ -110,7 +111,7 @@ int battery_verify(void) {
 int init_battery() {
     int t_result = THREAD_OK;
     char err_str[512] = {};
-    
+
     WTResult hw_result = max17320_init();
     if (hw_result != WT_OK) {
         CETI_ERR("Failed to connect to MAX17320 Fuel Gauge: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
@@ -119,7 +120,7 @@ int init_battery() {
 
     // check if BMS nv
     if (!battery_verify()) {
-        CETI_ERR("MAX17320 nonvolatile memory was not as expected: %s", wt_strerror(hw_result));
+        CETI_ERR("MAX17320 nonvolatile memory was not as expected: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
         CETI_ERR("    Consider rewriting NV memory!!!!");
         CETI_LOG("Attempting to overlay values:");
         hw_result = max17320_clear_write_protection();
@@ -137,7 +138,7 @@ int init_battery() {
             hw_result = max17320_gauge_reset();
         }
         if (hw_result != WT_OK) {
-            CETI_ERR("Failed to overwrite MAX17320 nonvolatile memory: %s", wt_strerror(hw_result));
+            CETI_ERR("Failed to overwrite MAX17320 nonvolatile memory: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
         }
     } else {
         CETI_LOG("BMS OK!");
@@ -151,7 +152,6 @@ int init_battery() {
         CETI_ERR("Failed to open " BATTERY_DATA_FILEPATH ": %s", strerror_r(errno, err_str, sizeof(err_str)));
         t_result |= THREAD_ERR_DATA_FILE_FAILED;
     }
-        
 
     // setup shared memory
     shm_battery = create_shared_memory_region(BATTERY_SHM_NAME, sizeof(CetiBatterySample));
@@ -166,7 +166,7 @@ int init_battery() {
         CETI_ERR("Failed to create semaphore " BATTERY_SEM_NAME ": %s", strerror_r(errno, err_str, sizeof(err_str)));
         t_result |= THREAD_ERR_SEM_FAILED;
     }
-    
+
     return t_result;
 }
 
@@ -491,7 +491,7 @@ void *battery_thread(void *paramPtr) {
 
     munmap(shm_battery, sizeof(CetiBatterySample));
     shm_unlink(BATTERY_SHM_NAME);
-    
+
     g_battery_thread_is_running = 0;
     CETI_LOG("Done!");
     return NULL;

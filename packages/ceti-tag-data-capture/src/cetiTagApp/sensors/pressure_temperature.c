@@ -89,7 +89,7 @@ void pressure_sample_to_csv(FILE *fp, CetiPressureSample *pSample) {
 int init_pressureTemperature(void) {
     char err_str[512];
     int thread_error = THREAD_OK;
-    
+
     // setup shared memory
     g_pressure = create_shared_memory_region(PRESSURE_SHM_NAME, sizeof(CetiPressureSample));
     if (g_pressure == NULL) {
@@ -110,16 +110,15 @@ int init_pressureTemperature(void) {
     if (data_file == NULL) {
         CETI_ERR("Failed to open/create an output data file: " PRESSURETEMPERATURE_DATA_FILEPATH ": %s", strerror_r(errno, err_str, sizeof(err_str)));
         thread_error |= THREAD_ERR_DATA_FILE_FAILED;
-        
+    } else {
+        // Write headers if the file didn't already exist.
+        if (!data_file_exists) {
+            fprintf(data_file, PRESSURE_CSV_HEADER "\n");
+        }
+        fclose(data_file); // Close the file.
+        s_log_restarted = 1;
+        CETI_LOG("Using output data file: " PRESSURETEMPERATURE_DATA_FILEPATH);
     }
-
-    // Write headers if the file didn't already exist.
-    if (!data_file_exists) {
-        fprintf(data_file, PRESSURE_CSV_HEADER "\n");
-    }
-    fclose(data_file); // Close the file.
-    s_log_restarted = 1;
-    CETI_LOG("Using output data file: " PRESSURETEMPERATURE_DATA_FILEPATH);
 
     // check that hardware is communicating, but don't worry about values
     g_pressure->error = pressure_get_measurement(NULL, NULL);

@@ -44,8 +44,8 @@
 #include "../utils/timing.h"
 
 // Private system headers
-#include <errno.h>
 #include <FLAC/stream_encoder.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <pigpio.h>
 #include <pthread.h> // to set CPU affinity
@@ -96,7 +96,7 @@ static int s_audio_status_reset = 1;
     ",Overflow Detection Location" \
     ",Start Writing"               \
     ",Done Writing"                \
-    ",See SPI Block"               
+    ",See SPI Block"
 
 struct {
     uint8_t overflow;
@@ -104,9 +104,8 @@ struct {
     uint8_t start_writing;
     uint8_t done_writing;
 } g_audio_status = {
-    .overflow = 0, 
-    .overflow_location = -1
-};
+    .overflow = 0,
+    .overflow_location = -1};
 
 static int audio_writing_to_status_file = 0;
 
@@ -324,7 +323,7 @@ void audio_status_record(void) {
     }
 
     long long global_time_us = get_global_time_us();
-    uint32_t  rtc_time_s = getRtcCount();
+    uint32_t rtc_time_s = getRtcCount();
     while (audio_writing_to_status_file) {
         usleep(10);
         if (g_stopLogging) {
@@ -359,11 +358,10 @@ void audio_status_record(void) {
     fprintf(audio_status_file, "\n");
     fclose(audio_status_file);
 
-    //clear log
+    // clear log
     g_audio_status.start_writing = 0;
     g_audio_status.done_writing = 0;
     audio_writing_to_status_file = 0;
-
 }
 
 int audio_thread_init(void) {
@@ -403,24 +401,22 @@ int audio_thread_init(void) {
     if (sem_audio_page == SEM_FAILED) {
         CETI_ERR("Failed to create page ready semaphore: %s", strerror_r(errno, err_str, sizeof(err_str)));
         thread_result |= THREAD_ERR_SEM_FAILED;
-        
     }
 
-     // Open an output file to write data.
+    // Open an output file to write data.
     int data_file_exists = (access(AUDIO_STATUS_FILEPATH, F_OK) != -1);
     audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
     if (audio_status_file == NULL) {
         CETI_ERR("Failed to open/create an output data file: " AUDIO_STATUS_FILEPATH ": %s", strerror_r(errno, err_str, sizeof(err_str)));
         thread_result |= THREAD_ERR_DATA_FILE_FAILED;
+    } else {
+        // Write headers if the file didn't already exist.
+        if (!data_file_exists) {
+            fprintf(audio_status_file, AUDIO_STATUS_CSV_HEADER "\n");
+        }
+        fclose(audio_status_file); // Close the file.
     }
-
-    // Write headers if the file didn't already exist.
-    if (!data_file_exists) {
-        fprintf(audio_status_file, AUDIO_STATUS_CSV_HEADER "\n");
-    }
-    fclose(audio_status_file); // Close the file.
-
-    g_audio_overflow_detected = g_audio_status.overflow =  0;
+    g_audio_overflow_detected = g_audio_status.overflow = 0;
     g_audio_status.overflow_location = -1;
 
     return thread_result;
@@ -632,7 +628,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
             s_file_start_time = s_block_start_time;
         }
 
-        if (g_stopLogging){
+        if (g_stopLogging) {
             // Switch to waiting on the other buffer.
             audio_buffer_toWrite = !audio_buffer_toWrite;
             continue;

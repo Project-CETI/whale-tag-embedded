@@ -25,6 +25,7 @@
 #include <semaphore.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/mman.h>
 
 //-----------------------------------------------------------------------------
 // Initialization
@@ -57,15 +58,20 @@ int light_verify(void) {
 }
 
 int init_light() {
-
+    char err_str[512];
+    int t_result = THREAD_OK;
     // setup shared memory
     g_light = create_shared_memory_region(LIGHT_SHM_NAME, sizeof(CetiLightSample));
+    if (g_light == NULL) {
+        CETI_ERR("Failed to create shared memory region: %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SHM_FAILED;
+    }
 
     // setup semaphore
     light_data_ready = sem_open(LIGHT_SEM_NAME, O_CREAT, 0644, 0);
     if (light_data_ready == SEM_FAILED) {
-        CETI_ERR("Failed to create semaphore");
-        return -1;
+        CETI_ERR("Failed to create semaphore: %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SEM_FAILED;
     }
 
     // Open an output file to write data.
@@ -73,31 +79,28 @@ int init_light() {
     FILE *data_file = fopen(LIGHT_DATA_FILEPATH, "at");
     if (data_file == NULL) {
         CETI_ERR("Failed to open/create an output data file: " LIGHT_DATA_FILEPATH ": %s", strerror(errno));
-        return -1;
+        t_result |= THREAD_ERR_DATA_FILE_FAILED;
+    } else {
+        // Write headers if the file didn't already exist.
+        if (!data_file_exists) {
+            fprintf(data_file, LIGHT_CSV_HEADER "\n");
+        }
+        fclose(data_file); // Close the file.
+        s_log_restarted = 1;
+        CETI_LOG("Using output data file: " LIGHT_DATA_FILEPATH);
     }
-
-    // Write headers if the file didn't already exist.
-    if (!data_file_exists) {
-        fprintf(data_file, LIGHT_CSV_HEADER "\n");
-    }
-    fclose(data_file); // Close the file.
-    s_log_restarted = 1;
-    CETI_LOG("Using output data file: " LIGHT_DATA_FILEPATH);
 
     g_light->error = als_wake();
     if (g_light->error != WT_OK) {
-        char err_str[512];
         CETI_ERR("Failed to initialize light sensor: %s", wt_strerror_r(g_light->error, err_str, sizeof(err_str)));
-        return -1;
-    }
-
-    if (!light_verify()) {
+        t_result |= THREAD_ERR_HW;
+    } else if (!light_verify()) {
         CETI_ERR("Could not verify light sensor");
-        return -1;
+        t_result |= THREAD_ERR_HW;
+    } else {
+        CETI_LOG("Successfully initialized the light sensor");
     }
-    CETI_LOG("Successfully initialized the light sensor");
-
-    return 0;
+    return t_result;
 }
 
 void light_update_sample(void) {
@@ -142,6 +145,13 @@ void *light_thread(void *paramPtr) {
     AcqDecay decay = decay_new(5);
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_light_thread_tid = gettid();
+
+    if ((g_light == NULL) || (light_data_ready == SEM_FAILED)) {
+        CETI_ERR("Thread started without neccesary memory resources");
+        g_light_thread_is_running = 0;
+        CETI_ERR("Thread terminated");
+        return NULL;
+    }
 
     // Set the thread CPU affinity.
     if (LIGHT_CPU >= 0) {
@@ -189,6 +199,12 @@ void *light_thread(void *paramPtr) {
         if (polling_sleep_duration_us > 0)
             usleep(polling_sleep_duration_us);
     }
+    sem_close(light_data_ready);
+    sem_unlink(LIGHT_SEM_NAME);
+
+    munmap(g_light, sizeof(CetiLightSample));
+    shm_unlink(ECG_SHM_NAME);
+
     g_light_thread_is_running = 0;
     CETI_LOG("Done!");
     return NULL;

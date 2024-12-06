@@ -380,10 +380,10 @@ int init_tag() {
 #if ENABLE_BATTERY_GAUGE
     int bms_error = init_battery();
     if (bms_error != 0) {
-        if (bms_error & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)){
+        if (bms_error & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)) {
             s_threads_in_error |= (1 << THREAD_BMS_ACQ);
         } else {
-            result += -1; //non-critical error
+            result += -1; // non-critical error
         }
     }
 #endif
@@ -397,7 +397,7 @@ int init_tag() {
 #if ENABLE_AUDIO
     int audio_result = audio_thread_init();
     if (audio_result != THREAD_OK) {
-        if (audio_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)){
+        if (audio_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)) {
             s_threads_in_error |= (1 << THREAD_AUDIO_ACQ);
         }
         result += -1;
@@ -405,24 +405,36 @@ int init_tag() {
 #endif
 
 #if ENABLE_LIGHT_SENSOR
-    if (init_light() != 0) {
-        s_threads_in_error |= (1 << THREAD_ALS_ACQ);
+    int light_result = init_light();
+    if (light_result != THREAD_OK) {
+        if (light_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)) {
+            s_threads_in_error |= (1 << THREAD_ALS_ACQ);
+        }
         result += -1;
     }
 #endif
 
 #if ENABLE_IMU
-    if (init_imu() != 0) {
+    int imu_result = init_imu();
+    if (imu_result != THREAD_OK) {
+        if (imu_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)) {
+            s_threads_in_error |= (1 << THREAD_IMU_ACQ);
+        }
         result += -1;
     }
 #endif
 
 #if ENABLE_RECOVERY
     if (g_config.recovery.enabled) {
-        if (recovery_thread_init(&g_config) != 0) {
+        int recovery_result = recovery_thread_init(&g_config);
+        if (recovery_result != THREAD_OK) {
+            if (recovery_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED | THREAD_ERR_HW)) {
+                s_threads_in_error |= (1 << THREAD_GPS_ACQ);
+            }
             result += -1;
         }
-    } else {
+    }
+    if (!g_config.recovery.enabled || (s_threads_in_error & (1 << THREAD_GPS_ACQ))) {
         recovery_off();
     }
 #endif
@@ -430,7 +442,7 @@ int init_tag() {
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
     int pressure_result = init_pressureTemperature();
     if (pressure_result != THREAD_OK) {
-        if (pressure_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)){
+        if (pressure_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)) {
             s_threads_in_error |= (1 << THREAD_PRESSURE_ACQ);
         }
         result += -1;
@@ -440,7 +452,7 @@ int init_tag() {
 #if ENABLE_ECG
     int ecg_result = init_ecg();
     if (ecg_result != THREAD_OK) {
-        if (pressure_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)){
+        if (pressure_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)) {
             s_threads_in_error |= (1 << THREAD_ECG_ACQ);
         }
         result += -1;
@@ -455,6 +467,11 @@ int init_tag() {
 
     if (result < 0 || (s_threads_in_error)) {
         CETI_ERR("Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
+        if (!(s_threads_in_error & (1 << THREAD_GPS_ACQ))) {
+            char rec_msg[68] = {};
+            snprintf(rec_msg, 67, "THREAD INIT ERR: %04Xh", s_threads_in_error);
+            recovery_message(rec_msg);
+        }
         return result - s_threads_in_error;
     }
 

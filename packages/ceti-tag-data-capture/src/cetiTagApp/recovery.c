@@ -661,7 +661,7 @@ int recovery_thread_init(TagConfig *pConfig) {
         CETI_ERR("Failed to create recovery semaphore");
         t_result |= THREAD_ERR_SHM_FAILED;
     }
-    
+
     // Open an output file to write data.
     if (init_data_file(recovery_data_file, RECOVERY_DATA_FILEPATH,
                        recovery_data_file_headers, num_recovery_data_file_headers,
@@ -669,7 +669,7 @@ int recovery_thread_init(TagConfig *pConfig) {
         CETI_LOG("Failed to initialize recovery board thread");
         t_result |= THREAD_ERR_DATA_FILE_FAILED;
     }
-    
+
     CETI_LOG("Successfully initialized recovery board thread");
     return t_result;
 }
