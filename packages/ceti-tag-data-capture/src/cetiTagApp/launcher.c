@@ -394,7 +394,11 @@ int init_tag() {
 #endif
 
 #if ENABLE_AUDIO
-    if (audio_thread_init() != 0) {
+    int audio_result = audio_thread_init();
+    if (audio_result != THREAD_OK) {
+        if (thread_error & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)){
+            s_threads_in_error |= (1 << THREAD_AUDIO_ACQ);
+        }
         result += -1;
     }
 #endif
