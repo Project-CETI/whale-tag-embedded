@@ -425,8 +425,8 @@ int audio_thread_init(void) {
 void *audio_thread_spi(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_audio_thread_spi_tid = gettid();
-
-    if ((shm_audio == NULL) || (sem_audio_block = SEM_FAILED) || (sem_audio_page = SEM_FAILED)) {
+    
+    if ((shm_audio == NULL) || (sem_audio_block == SEM_FAILED) || (sem_audio_page == SEM_FAILED)) {
         CETI_ERR("Thread started without neccesary memory resources");
         // Stop FPGA audio capture and reset its buffer.
         // stop_audio_acq();
