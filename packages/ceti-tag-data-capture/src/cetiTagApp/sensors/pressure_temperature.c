@@ -88,20 +88,20 @@ void pressure_sample_to_csv(FILE *fp, CetiPressureSample *pSample) {
 //-----------------------------------------------------------------------------
 int init_pressureTemperature(void) {
     char err_str[512];
-    int critical_failure = 0;
+    int thread_error = THREAD_OK;
     
     // setup shared memory
     g_pressure = create_shared_memory_region(PRESSURE_SHM_NAME, sizeof(CetiPressureSample));
     if (g_pressure == NULL) {
         CETI_ERR("Failed to map shared memory: %s", strerror_r(errno, err_str, sizeof(err_str)));
-        return -1; // critical failure
+        thread_error |= THREAD_ERR_SHM_FAILED;
     }
 
     // setup semaphore
     s_pressure_data_ready = sem_open(PRESSURE_SEM_NAME, O_CREAT, 0644, 0);
     if (s_pressure_data_ready == SEM_FAILED) {
         CETI_ERR("Failed to create semaphore: %s", strerror_r(errno, err_str, sizeof(err_str)));
-        return -1; // critical failure
+        thread_error |= THREAD_ERR_SEM_FAILED;
     }
 
     // Open an output file to write data.
@@ -109,7 +109,8 @@ int init_pressureTemperature(void) {
     FILE *data_file = fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
     if (data_file == NULL) {
         CETI_ERR("Failed to open/create an output data file: " PRESSURETEMPERATURE_DATA_FILEPATH ": %s", strerror_r(errno, err_str, sizeof(err_str)));
-        return -1; // IS THIS CRITICAL?
+        thread_error |= THREAD_ERR_DATA_FILE_FAILED;
+        
     }
 
     // Write headers if the file didn't already exist.
@@ -124,10 +125,11 @@ int init_pressureTemperature(void) {
     g_pressure->error = pressure_get_measurement(NULL, NULL);
     if (g_pressure->error != WT_OK) {
         CETI_ERR("Failed to read pressure sensor: %s", wt_strerror_r(g_pressure->error, err_str, sizeof(err_str)));
+        thread_error |= THREAD_ERR_HW;
     }
 
     CETI_LOG("Successfully initialized the pressure/temperature sensor.");
-    return 0;
+    return thread_error;
 }
 
 void *pressureTemperature_thread(void *paramPtr) {

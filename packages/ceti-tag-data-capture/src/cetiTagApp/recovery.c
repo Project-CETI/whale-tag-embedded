@@ -627,9 +627,9 @@ int recovery_off(void) {
 //-----------------------------------------------------------------------------
 // Main thread
 //-----------------------------------------------------------------------------
-ThreadResult recovery_thread_init(TagConfig *pConfig) {
+int recovery_thread_init(TagConfig *pConfig) {
     char err_str[512];
-    ThreadResult t_result = THREAD_OK;
+    int t_result = THREAD_OK;
     WTResult hw_result = wt_recovery_init();
     if (hw_result == WT_OK)
         hw_result = recovery_set_aprs_freq_mhz(pConfig->recovery.freq_MHz);
@@ -641,10 +641,10 @@ ThreadResult recovery_thread_init(TagConfig *pConfig) {
         hw_result = recovery_set_critical_voltage(pConfig->critical_voltage_v);
     if (hw_result != WT_OK) {
         CETI_ERR("Failed to initalize recovery board hardware: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
-        t_result = WT_RESULT_TO_THREAD_RESULT(THREAD_GPS_ACQ, hw_result);
+        t_result |= THREAD_ERR_HW;
     }
     if (!__ping()) {
-        WT_RESULT_TO_THREAD_RESULT(THREAD_GPS_ACQ, WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT));
+        t_result |= THREAD_ERR_HW;
     }
 
     s_recovery_board_model.state = REC_STATE_APRS;
@@ -653,13 +653,13 @@ ThreadResult recovery_thread_init(TagConfig *pConfig) {
     shm_nmea_sentence = create_shared_memory_region(RECOVERY_SHM_NAME, sizeof(CetiRecoverySample));
     if (shm_nmea_sentence == NULL) {
         CETI_ERR("Failed to create shared memory region");
-        t_result |= THREAD_RESULT(THREAD_GPS_ACQ, THREAD_ERR_SHM_FAILED);
+        t_result |= THREAD_ERR_SHM_FAILED;
     }
     // setup semaphores
     sem_nmea_sentence_ready = sem_open(RECOVERY_SEM_NAME, O_CREAT, 0644, 0);
     if (sem_nmea_sentence_ready == SEM_FAILED) {
         CETI_ERR("Failed to create recovery semaphore");
-        t_result |= THREAD_RESULT(THREAD_GPS_ACQ, THREAD_ERR_SHM_FAILED);
+        t_result |= THREAD_ERR_SHM_FAILED;
     }
     
     // Open an output file to write data.
@@ -667,7 +667,7 @@ ThreadResult recovery_thread_init(TagConfig *pConfig) {
                        recovery_data_file_headers, num_recovery_data_file_headers,
                        recovery_data_file_notes, "init_data_file()") < 0) {
         CETI_LOG("Failed to initialize recovery board thread");
-        t_result |= THREAD_RESULT(THREAD_GPS_ACQ, THREAD_ERR_DATA_FILE_FAILED);
+        t_result |= THREAD_ERR_DATA_FILE_FAILED;
     }
     
     CETI_LOG("Successfully initialized recovery board thread");

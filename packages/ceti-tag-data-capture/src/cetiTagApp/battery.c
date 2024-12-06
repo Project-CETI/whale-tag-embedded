@@ -17,6 +17,7 @@
 #include "utils/timing.h"
 
 // === Private System Libraries ===
+#include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <semaphore.h>

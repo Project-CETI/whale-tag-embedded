@@ -84,7 +84,6 @@ static struct timeval s_block_start_time;
 
 int g_audio_overflow_detected = 0;
 int g_audio_force_overflow = 0;
-static int g_audio_status.overflow_location = -1;
 
 static FILE *audio_status_file = NULL;
 
@@ -104,7 +103,10 @@ struct {
     int8_t overflow_location;
     uint8_t start_writing;
     uint8_t done_writing;
-} g_audio_status;
+} g_audio_status = {
+    .overflow = 0, 
+    .overflow_location = -1
+};
 
 static int audio_writing_to_status_file = 0;
 
@@ -332,7 +334,7 @@ void audio_status_record(void) {
     audio_writing_to_status_file = 1;
     audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
     if (audio_status_file == NULL) {
-        CETI_ERR("Failed to open " AUDIO_STATUS_FILEPATH ": %s", strerr_r(errno, err_str, sizeof(err_str)));
+        CETI_ERR("Failed to open " AUDIO_STATUS_FILEPATH ": %s", strerror_r(errno, err_str, sizeof(err_str)));
         return;
     }
     fprintf(audio_status_file, "%lld", global_time_us);
@@ -386,20 +388,20 @@ int audio_thread_init(void) {
     // create shared memory region for audio buffer
     shm_audio = create_shared_memory_region(AUDIO_SHM_NAME, sizeof(CetiAudioBuffer));
     if (shm_audio == NULL) {
-        CETI_ERR("Failed to create shared memory region: %s", strerr_r(errno, err_str, sizeof(err_str)));
+        CETI_ERR("Failed to create shared memory region: %s", strerror_r(errno, err_str, sizeof(err_str)));
         thread_result |= THREAD_ERR_SHM_FAILED;
     }
 
     // create synchronization semaphores
     sem_audio_block = sem_open(AUDIO_BLOCK_SEM_NAME, O_CREAT, 0644, 0);
     if (sem_audio_block == SEM_FAILED) {
-        CETI_ERR("Failed to create block ready semaphore: %s", strerr_r(errno, err_str, sizeof(err_str)));
+        CETI_ERR("Failed to create block ready semaphore: %s", strerror_r(errno, err_str, sizeof(err_str)));
         thread_result |= THREAD_ERR_SEM_FAILED;
     }
 
     sem_audio_page = sem_open(AUDIO_BLOCK_SEM_NAME, O_CREAT, 0644, 0);
     if (sem_audio_page == SEM_FAILED) {
-        CETI_ERR("Failed to create page ready semaphore: %s", strerr_r(errno, err_str, sizeof(err_str)));
+        CETI_ERR("Failed to create page ready semaphore: %s", strerror_r(errno, err_str, sizeof(err_str)));
         thread_result |= THREAD_ERR_SEM_FAILED;
         
     }
@@ -630,7 +632,6 @@ void *audio_thread_writeFlac(void *paramPtr) {
             s_file_start_time = s_block_start_time;
         }
 
-        long long global_time_us = get_global_time_us();
         if (g_stopLogging){
             // Switch to waiting on the other buffer.
             audio_buffer_toWrite = !audio_buffer_toWrite;

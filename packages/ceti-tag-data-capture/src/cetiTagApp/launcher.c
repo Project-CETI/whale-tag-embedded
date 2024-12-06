@@ -380,10 +380,11 @@ int init_tag() {
 #if ENABLE_BATTERY_GAUGE
     int bms_error = init_battery();
     if (bms_error != 0) {
-        if (thread_error & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)){
+        if (bms_error & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)){
             s_threads_in_error |= (1 << THREAD_BMS_ACQ);
         } else {
-        result += -1; //non-critical error
+            result += -1; //non-critical error
+        }
     }
 #endif
 
@@ -396,7 +397,7 @@ int init_tag() {
 #if ENABLE_AUDIO
     int audio_result = audio_thread_init();
     if (audio_result != THREAD_OK) {
-        if (thread_error & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)){
+        if (audio_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)){
             s_threads_in_error |= (1 << THREAD_AUDIO_ACQ);
         }
         result += -1;
