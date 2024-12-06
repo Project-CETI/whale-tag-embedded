@@ -428,14 +428,21 @@ int init_tag() {
 #endif
 
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
-    if (init_pressureTemperature() != 0) {
-        s_threads_in_error |= (1 << THREAD_PRESSURE_ACQ);
+    int pressure_result = init_pressureTemperature();
+    if (pressure_result != THREAD_OK) {
+        if (pressure_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)){
+            s_threads_in_error |= (1 << THREAD_PRESSURE_ACQ);
+        }
         result += -1;
     }
 #endif
 
 #if ENABLE_ECG
-    if (init_ecg() != 0) {
+    int ecg_result = init_ecg();
+    if (ecg_result != THREAD_OK) {
+        if (pressure_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)){
+            s_threads_in_error |= (1 << THREAD_ECG_ACQ);
+        }
         result += -1;
     }
 #endif
