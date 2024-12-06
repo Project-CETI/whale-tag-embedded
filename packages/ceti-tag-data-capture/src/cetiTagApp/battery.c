@@ -408,6 +408,13 @@ void *battery_thread(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_battery_thread_tid = gettid();
 
+    if ((shm_battery == NULL) || (sem_battery_data_ready == SEM_FAILED)) {
+        CETI_ERR("Thread started without neccesary memory resources");
+        g_battery_thread_is_running = 0;
+        CETI_ERR("Thread terminated");
+        return NULL;
+    }
+
     // Set the thread CPU affinity.
     if (BATTERY_CPU >= 0) {
         pthread_t thread;
