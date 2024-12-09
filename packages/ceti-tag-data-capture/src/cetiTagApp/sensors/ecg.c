@@ -167,7 +167,7 @@ void *ecg_thread_getData(void *paramPtr) {
         // Store the new data sample and its timestamp.
         shm_ecg->ecg_readings[shm_ecg->page][shm_ecg->sample] = ecg_adc_raw_read_data();
         shm_ecg->sys_time_us[shm_ecg->page][shm_ecg->sample] = get_global_time_us();
-      
+
         // Update the previous timestamp, for checking whether new data is available.
         instantaneous_sampling_period_us = shm_ecg->sys_time_us[shm_ecg->page][shm_ecg->sample] - prev_ecg_adc_latest_reading_global_time_us;
         prev_ecg_adc_latest_reading_global_time_us = shm_ecg->sys_time_us[shm_ecg->page][shm_ecg->sample];
