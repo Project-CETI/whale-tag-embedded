@@ -164,7 +164,7 @@ int main(void) {
     // Recovery board (GPS).
 #if ENABLE_RECOVERY
     if (g_config.recovery.enabled) {
-        if(!(s_threads_in_error & THREAD_GPS_ACQ)) {
+        if (!(s_threads_in_error & THREAD_GPS_ACQ)) {
             pthread_create(&thread_ids[num_threads], NULL, &recovery_rx_thread, NULL);
             threads_running[num_threads] = &g_recovery_rx_thread_is_running;
 #ifdef DEBUG
