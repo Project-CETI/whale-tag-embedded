@@ -173,7 +173,8 @@ do_resize() {
 
 sethostname() {
 	if [ -z "$DEVICE_ID" ]; then
-		DEVICE_ID="$(</proc/cpuinfo grep Serial | sed s/'.*:\s0*'/''/)"
+		# Grab last 8 characters of serial number
+		DEVICE_ID="$(</proc/cpuinfo grep Serial | sed s/'.*\(.\{8\}$\)'/'\1'/)"
 	fi
 
 	# If we still have no UID, just give up
@@ -183,7 +184,7 @@ sethostname() {
 	fi
 
 	# Set device is as the hostname
-	DEVICE_ID=$(printf "wt-%08x" $((16#$DEVICE_ID)))
+	DEVICE_ID="wt-$DEVICE_ID"
 	HOSTNAME="$(hostname)"
 
 	if [ "$HOSTNAME" != "$DEVICE_ID" ]; then
