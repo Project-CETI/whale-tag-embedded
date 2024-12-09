@@ -47,11 +47,11 @@ WTResult pressure_get_measurement_raw(int16_t *pPressure, int16_t *pTemp) {
 
     // packet is ok, parse data
     if (pPressure != NULL) {
-        *pPressure = (((int16_t)raw[1]) << 8) | ((int16_t)raw[2]);
+        *pPressure = (int16_t)(((uint16_t)raw[1]) << 8) | ((uint16_t)raw[2]);
     }
 
     if (pTemp != NULL) {
-        *pPressure = (((int16_t)raw[3]) << 8) | ((int16_t)raw[4]);
+        *pTemp = (int16_t)(((uint16_t)raw[3]) << 8) | ((uint16_t)raw[4]);
     }
     return WT_OK;
 }
