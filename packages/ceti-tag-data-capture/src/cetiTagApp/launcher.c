@@ -164,12 +164,16 @@ int main(void) {
     // Recovery board (GPS).
 #if ENABLE_RECOVERY
     if (g_config.recovery.enabled) {
-        pthread_create(&thread_ids[num_threads], NULL, &recovery_rx_thread, NULL);
-        threads_running[num_threads] = &g_recovery_rx_thread_is_running;
+        if(!(s_threads_in_error & THREAD_GPS_ACQ)) {
+            pthread_create(&thread_ids[num_threads], NULL, &recovery_rx_thread, NULL);
+            threads_running[num_threads] = &g_recovery_rx_thread_is_running;
 #ifdef DEBUG
-        strcpy(thread_name[num_threads], "recovery");
+            strcpy(thread_name[num_threads], "recovery");
 #endif
-        num_threads++;
+            num_threads++;
+        } else {
+            recovery_off();
+        }
     }
 #endif
     // ECG
@@ -425,7 +429,7 @@ int init_tag() {
 #endif
 
 #if ENABLE_RECOVERY
-    if (g_config.recovery.enabled) {
+    if (g_config.recovery.enabled && ()) {
         int recovery_result = recovery_thread_init(&g_config);
         if (recovery_result != THREAD_OK) {
             if (recovery_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED | THREAD_ERR_HW)) {

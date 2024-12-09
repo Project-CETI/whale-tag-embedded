@@ -121,7 +121,7 @@ int init_pressureTemperature(void) {
     }
 
     // check that hardware is communicating, but don't worry about values
-    g_pressure->error = pressure_get_measurement(NULL, NULL); 
+    g_pressure->error = pressure_get_measurement(NULL, NULL);
     if (g_pressure->error != WT_OK) {
         CETI_ERR("Failed to read pressure sensor: %s", wt_strerror_r(g_pressure->error, err_str, sizeof(err_str)));
         thread_error |= THREAD_ERR_HW;
