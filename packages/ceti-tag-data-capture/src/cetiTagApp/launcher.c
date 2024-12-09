@@ -429,7 +429,7 @@ int init_tag() {
 #endif
 
 #if ENABLE_RECOVERY
-    if (g_config.recovery.enabled && ()) {
+    if (g_config.recovery.enabled) {
         int recovery_result = recovery_thread_init(&g_config);
         if (recovery_result != THREAD_OK) {
             if (recovery_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED | THREAD_ERR_HW)) {
