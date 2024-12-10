@@ -30,11 +30,11 @@ static int64_t last_rtc_update_time_us = -1;
 
 int init_timing() {
 #if ENABLE_RTC
+    // Test whether the RTC is available.
+    updateRtcCount();
 
     sync_global_time_init();
 
-    // Test whether the RTC is available.
-    updateRtcCount();
     if (latest_rtc_error != WT_OK) {
         char err_str[512];
         CETI_ERR("Failed to fetch a valid RTC count: %s", wt_strerror_r(latest_rtc_error, err_str, sizeof(err_str)));
