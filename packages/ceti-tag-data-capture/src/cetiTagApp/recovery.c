@@ -638,7 +638,7 @@ int recovery_thread_init(TagConfig *pConfig) {
     if (hw_result == WT_OK)
         hw_result = recovery_set_aprs_message_recipient(&pConfig->recovery.recipient);
     if (hw_result == WT_OK)
-        hw_result = recovery_set_critical_voltage(pConfig->critical_voltage_v);
+        hw_result = recovery_set_critical_voltage(2.0 * pConfig->critical_voltage_v);
     if (hw_result != WT_OK) {
         CETI_ERR("Failed to initalize recovery board hardware: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
         t_result |= THREAD_ERR_HW;

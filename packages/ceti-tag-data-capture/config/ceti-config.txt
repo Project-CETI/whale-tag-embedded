@@ -14,19 +14,18 @@
 #
 P1=0.3
 P2=0.5
-#
+
 #------------------------------------------------------------------------------
-# Battery Thresholds V1 and V2
+# Battery Thresholds per cell
 # This is used as a barebones method to determine state of charge
 # The Tag's gas gauge has more sophisticated features available
 # This is just to get started with
-# V1 - battery is low, time to release from the whale!
-# V2 - battery is critical, time to put the system to sleep
+# release_voltage - battery is low, time to release from the whale!
+# critical_voltage - battery is critical, time to put the system to sleep
 # Units are volts
-#
-V1=6.4
-V2=6.201
-#
+release_voltage=3.2
+critical_voltage=3.1
+
 #------------------------------------------------------------------------------
 # Deployment Timeout
 # Indepedent of battery state of charge, if deployment
