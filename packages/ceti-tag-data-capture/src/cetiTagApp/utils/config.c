@@ -512,7 +512,7 @@ int config_read(const char *filename) {
     CETI_LOG("Read the deployment parameters from %s", filename);
     ceti_config_file = fopen(filename, "r");
     if (ceti_config_file == NULL) {
-        CETI_ERR("Cannot open configuration file %s", filename);
+        CETI_WARN("Cannot open configuration file %s", filename);
         return (-1);
     }
 

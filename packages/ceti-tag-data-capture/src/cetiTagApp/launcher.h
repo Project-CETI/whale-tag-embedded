@@ -70,7 +70,7 @@
 #define SYSTEMMONITOR_DATA_FILEPATH "/data/data_systemMonitor.csv"
 
 #define CETI_CONFIG_FILE "../config/ceti-config.txt"       // This is non-volatile config file's relative path
-#define CETI_CONFIG_OVERWRITE_FILE "/data/ceti-config.txt" // This is the config file in /data
+#define CETI_CONFIG_OVERWRITE_FILE "/data/config/ceti-config.txt" // This is the config file in /data/config
 
 //-----------------------------------------------------------------------------
 // Includes
