@@ -547,10 +547,10 @@ int config_read(const char *filename) {
  * @brief logs final tag config to /data/folder logging deployment
  *
  */
-void config_log(void) {
+void config_log(uint64_t timestamp) {
     // Open file data_config_timestamp.txt
     char config_file_path[256];
-    uint64_t timestamp = get_global_time_us();
+
     snprintf(config_file_path, 255, "/data/data_config_%lu.txt", timestamp);
     FILE *fConfig = fopen(config_file_path, "wt");
     if (fConfig == NULL) {

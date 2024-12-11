@@ -1,0 +1,51 @@
+id: '2.3-'
+hostname: 'wt-'
+audio: 
+  channel_count: 3
+  channels: 
+    - hydrophone: 
+        brand: 'Piezo Hannas'
+        model: 'spherical 10cm'
+        id: PH091
+        placement: [0.0, 0.0, 0.0] # cm
+      gain: 18.0 # dB
+    - hydrophone:
+        brand: 'Piezo Hannas'
+        model: 'spherical 10cm'
+        id: PH091
+        placement: [0.0, 0.0, 0.0] # cm
+      gain: 18.0 # dB
+    - hydrophone:
+        brand: 'Piezo Hannas'
+        model: 'spherical 10cm'
+        id: PH091
+        placement: [0.0, 0.0, 0.0] # cm
+      gain: 18.0 # dB  
+sensors:
+  - type: pressure
+    brand: 'Keller'
+    model: 4ld
+    sample_rate: 1 # sps
+  - type: 'ambient light'
+    brand: 'LightOn'
+    model: LTR-329ALS-01
+    sample_rate: 1 #Hz
+    resolution: 16 #bit
+  - type: battery
+    brand: 'Analog Devices'
+    model: 'MAX17320'
+    sample_rate: 1 #Hz
+  - type: imu
+    brand: 'CEVA'
+    model: 'BNO086'
+    sample_rates:
+      quat: 20 #Hz
+      accel: 50 #Hz
+      gyro: 50 #Hz
+      mag: 50 #Hz
+  - type: ecg
+    sample_rate: 1000 #Hz
+    resolution: 24 #bit
+  - type: gps
+    brand: 'uBlox'
+    model: 'NEO-M9N-00B'

@@ -20,6 +20,7 @@
 #include "systemMonitor.h"
 #include "utils/config.h"
 #include "utils/logging.h"
+#include "utils/meta.h"
 #include "utils/thread_error.h"
 #include "utils/timing.h"
 
@@ -339,7 +340,11 @@ int init_tag() {
     config_read(CETI_CONFIG_OVERWRITE_FILE);
 
     // Log used config used this deployment
-    config_log();
+
+    uint64_t start_timestamp = get_global_time_us();
+    // Log tag metadata and runtime config
+    config_log(start_timestamp);
+    meta_log(start_timestamp);
 
     // Tag-wide initialization.
     if (gpioInitialise() < 0) {
