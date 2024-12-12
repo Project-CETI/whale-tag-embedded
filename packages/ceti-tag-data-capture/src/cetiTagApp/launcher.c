@@ -344,9 +344,6 @@ int init_tag() {
     CETI_LOG("Reading current settings from %s", CETI_CONFIG_OVERWRITE_FILE);
     config_read(CETI_CONFIG_OVERWRITE_FILE);
 
-    // Read config overlay from /data
-    config_read("/data/ceti-config.txt");
-
     // Log used config used this deployment
     config_log();
 
