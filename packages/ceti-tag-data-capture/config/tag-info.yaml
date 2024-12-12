@@ -1,26 +1,29 @@
-id: '2.3-'
-hostname: 'wt-'
+id: '2.3-X'
+hostname: 'wt-XXXXXXXX'
 audio: 
   channel_count: 3
   channels: 
-    - hydrophone: 
-        brand: 'Piezo Hannas'
-        model: 'spherical 10cm'
-        id: PH091
-        placement: [0.0, 0.0, 0.0] # cm
+    - id: 1
       gain: 18.0 # dB
-    - hydrophone:
+      hydrophone: 
         brand: 'Piezo Hannas'
         model: 'spherical 10cm'
         id: PH091
-        placement: [0.0, 0.0, 0.0] # cm
+        placement: {x: 0.0, y: -8.0, z: 0.0} # cm
+    - id: 2
       gain: 18.0 # dB
-    - hydrophone:
+      hydrophone:
         brand: 'Piezo Hannas'
         model: 'spherical 10cm'
         id: PH091
-        placement: [0.0, 0.0, 0.0] # cm
+        placement: {x: -6.0, y: -8.0, z: 0.0} # cm
+    - id: 3
       gain: 18.0 # dB  
+      hydrophone:
+        brand: 'Piezo Hannas'
+        model: 'spherical 10cm'
+        id: PH091
+        placement: {x: 0.0, y: 0.0, z: 0.0} # cm
 sensors:
   - type: pressure
     brand: 'Keller'
@@ -38,6 +41,7 @@ sensors:
   - type: imu
     brand: 'CEVA'
     model: 'BNO086'
+    orientation: {x: bow, y: starboard, z: up}
     sample_rates:
       quat: 20 #Hz
       accel: 50 #Hz
