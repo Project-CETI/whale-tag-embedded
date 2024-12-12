@@ -288,7 +288,6 @@ int main(void) {
             logcount--;
         }
 #endif
-
     }
     g_stopAcquisition = 1;
     CETI_LOG("-------------------------------------------------");
