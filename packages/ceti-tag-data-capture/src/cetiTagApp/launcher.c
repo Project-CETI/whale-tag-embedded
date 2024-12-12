@@ -289,11 +289,6 @@ int main(void) {
         }
 #endif
 
-        // Check if the data partition is full.
-        if (!g_stopAcquisition && get_dataPartition_free_kb() < MIN_DATA_PARTITION_FREE_KB) {
-            CETI_LOG("*** DATA PARTITION IS FULL. Stopping all threads that acquire data.");
-            g_stopAcquisition = 1;
-        }
     }
     g_stopAcquisition = 1;
     CETI_LOG("-------------------------------------------------");
