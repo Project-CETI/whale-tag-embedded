@@ -69,7 +69,7 @@
 #define STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH "/data/burnwire_timeout_start_time_s.csv"
 #define SYSTEMMONITOR_DATA_FILEPATH "/data/data_systemMonitor.csv"
 
-#define CETI_CONFIG_FILE "../config/ceti-config.txt"       // This is non-volatile config file's relative path
+#define CETI_CONFIG_FILE "../config/ceti-config.txt"              // This is non-volatile config file's relative path
 #define CETI_CONFIG_OVERWRITE_FILE "/data/config/ceti-config.txt" // This is the config file in /data/config
 
 //-----------------------------------------------------------------------------
