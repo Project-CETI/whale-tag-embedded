@@ -1,47 +1,47 @@
-id: '2.3-X'
-hostname: 'wt-XXXXXXXX'
-audio: 
+id: "2.3-X"
+hostname: "wt-XXXXXXXX"
+audio:
   channel_count: 3
-  channels: 
+  channels:
     - id: 1
       gain: 18.0 # dB
-      hydrophone: 
-        brand: 'Piezo Hannas'
-        model: 'spherical 10cm'
+      hydrophone:
+        brand: "Piezo Hannas"
+        model: "spherical 10cm"
         id: PH091
-        placement: {x: 0.0, y: -8.0, z: 0.0} # cm
+        placement: { x: 0.0, y: -8.0, z: 0.0 } # cm
     - id: 2
       gain: 18.0 # dB
       hydrophone:
-        brand: 'Piezo Hannas'
-        model: 'spherical 10cm'
+        brand: "Piezo Hannas"
+        model: "spherical 10cm"
         id: PH091
-        placement: {x: -6.0, y: -8.0, z: 0.0} # cm
+        placement: { x: -6.0, y: -8.0, z: 0.0 } # cm
     - id: 3
-      gain: 18.0 # dB  
+      gain: 18.0 # dB
       hydrophone:
-        brand: 'Piezo Hannas'
-        model: 'spherical 10cm'
+        brand: "Piezo Hannas"
+        model: "spherical 10cm"
         id: PH091
-        placement: {x: 0.0, y: 0.0, z: 0.0} # cm
+        placement: { x: 0.0, y: 0.0, z: 0.0 } # cm
 sensors:
   - type: pressure
-    brand: 'Keller'
+    brand: "Keller"
     model: 4ld
     sample_rate: 1 # sps
-  - type: 'ambient light'
-    brand: 'LightOn'
+  - type: "ambient light"
+    brand: "LightOn"
     model: LTR-329ALS-01
     sample_rate: 1 #Hz
     resolution: 16 #bit
   - type: battery
-    brand: 'Analog Devices'
-    model: 'MAX17320'
+    brand: "Analog Devices"
+    model: "MAX17320"
     sample_rate: 1 #Hz
   - type: imu
-    brand: 'CEVA'
-    model: 'BNO086'
-    orientation: {x: bow, y: starboard, z: up}
+    brand: "CEVA"
+    model: "BNO086"
+    orientation: { x: bow, y: starboard, z: up }
     sample_rates:
       quat: 20 #Hz
       accel: 50 #Hz
@@ -51,5 +51,5 @@ sensors:
     sample_rate: 1000 #Hz
     resolution: 24 #bit
   - type: gps
-    brand: 'uBlox'
-    model: 'NEO-M9N-00B'
+    brand: "uBlox"
+    model: "NEO-M9N-00B"
