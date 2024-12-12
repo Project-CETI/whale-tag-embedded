@@ -19,17 +19,11 @@
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
-#define ADDR_PRESSURETEMPERATURE 0x40
-// Keller 4LD Pressure Sensor 200 bar
-// Reference pressure is a 1 bar abs
-#define PRESSURE_MIN 0   // bar
-#define PRESSURE_MAX 200 // bar
 
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
-int init_pressureTemperature();
-int getPressureTemperature(double *pressure_bar, double *temperature_c);
+int init_pressureTemperature(void);
 void *pressureTemperature_thread(void *paramPtr);
 
 //-----------------------------------------------------------------------------

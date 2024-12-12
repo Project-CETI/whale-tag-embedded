@@ -9,12 +9,26 @@
 
 #include "imu.h"
 #include "../cetiTag.h"
+#include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
+#include "../systemMonitor.h" // for the global CPU assignment variable to update
+#include "../utils/logging.h"
 #include "../utils/memory.h"
+#include "../utils/thread_error.h"
+#include "../utils/timing.h" // for timestamps
 
+#include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
+#include <math.h> // for fmin()
+#include <math.h> // for fmin(), sqrt(), atan2(), M_PI
+#include <pigpio.h>
+#include <pthread.h> // to set CPU affinity
 #include <semaphore.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/mman.h>
+#include <unistd.h> // for usleep()
 
 //-----------------------------------------------------------------------------
 // Initialization
@@ -91,9 +105,11 @@ static sem_t *s_gyro_ready;
 static sem_t *s_mag_ready;
 
 int init_imu() {
+    char err_str[512];
+    int t_result = 0;
     if (setupIMU(IMU_ALL_ENABLED) < 0) {
         CETI_ERR("Failed to set up the IMU");
-        return -1;
+        t_result |= THREAD_ERR_HW;
     }
 
     for (int i = 0; i < IMU_DATA_TYPE_COUNT; i++) {
@@ -102,42 +118,62 @@ int init_imu() {
 
     // setup shared memory regions
     imu_quaternion = create_shared_memory_region(IMU_QUAT_SHM_NAME, sizeof(CetiImuQuatSample));
+    if (imu_quaternion == NULL) {
+        CETI_ERR("Failed to create shared memory " IMU_QUAT_SHM_NAME ": %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SHM_FAILED;
+    }
+
     imu_accel_m_ss = create_shared_memory_region(IMU_ACCEL_SHM_NAME, sizeof(CetiImuAccelSample));
+    if (imu_accel_m_ss == NULL) {
+        CETI_ERR("Failed to create shared memory " IMU_ACCEL_SHM_NAME ": %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SHM_FAILED;
+    }
+
     imu_gyro_rad_s = create_shared_memory_region(IMU_GYRO_SHM_NAME, sizeof(CetiImuGyroSample));
+    if (imu_gyro_rad_s == NULL) {
+        CETI_ERR("Failed to create shared memory " IMU_GYRO_SHM_NAME ": %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SHM_FAILED;
+    }
+
     imu_mag_ut = create_shared_memory_region(IMU_MAG_SHM_NAME, sizeof(CetiImuMagSample));
+    if (imu_mag_ut == NULL) {
+        CETI_ERR("Failed to create shared memory " IMU_MAG_SHM_NAME ": %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SHM_FAILED;
+    }
 
     // setup semaphores
     s_quat_ready = sem_open(IMU_QUAT_SEM_NAME, O_CREAT, 0644, 0);
     if (s_quat_ready == SEM_FAILED) {
-        perror("sem_open");
-        CETI_ERR("Failed to create quaternion semaphore");
-        return -1;
+        CETI_ERR("Failed to create quaternion semaphore: %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SEM_FAILED;
     }
     s_accel_ready = sem_open(IMU_ACCEL_SEM_NAME, O_CREAT, 0644, 0);
     if (s_accel_ready == SEM_FAILED) {
-        perror("sem_open");
-        CETI_ERR("Failed to create acceleration semaphore");
-        return -1;
+        CETI_ERR("Failed to create acceleration semaphore: %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SEM_FAILED;
     }
     s_gyro_ready = sem_open(IMU_GYRO_SEM_NAME, O_CREAT, 0644, 0);
     if (s_gyro_ready == SEM_FAILED) {
-        perror("sem_open");
-        CETI_ERR("Failed to create gyroscope semaphore");
-        return -1;
+        CETI_ERR("Failed to create gyroscope semaphore: %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SEM_FAILED;
     }
     s_mag_ready = sem_open(IMU_MAG_SEM_NAME, O_CREAT, 0644, 0);
     if (s_mag_ready == SEM_FAILED) {
-        perror("sem_open");
-        CETI_ERR("Failed to create magnetometer semaphore");
-        return -1;
+        CETI_ERR("Failed to create magnetometer semaphore: %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SEM_FAILED;
     }
 
     // Open an output file to write data.
-    if (imu_init_data_files() < 0)
-        return -1;
-    CETI_LOG("Successfully initialized the IMU");
+    if (imu_init_data_files() < 0) {
+        CETI_ERR("Failed to open imu data_files: %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_DATA_FILE_FAILED;
+    }
 
-    return 0;
+    if (t_result == THREAD_OK) {
+        CETI_LOG("Successfully initialized the IMU");
+    }
+
+    return t_result;
 }
 
 // Find next available filename
@@ -275,6 +311,17 @@ void imu_mag_sample_to_csv(FILE *fp, CetiImuMagSample *pSample) {
 void *imu_thread(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_imu_thread_tid = gettid();
+
+    if ((imu_quaternion == NULL) || (imu_accel_m_ss == NULL) || (imu_gyro_rad_s == NULL) || (imu_mag_ut == NULL) || (s_quat_ready == SEM_FAILED) || (s_accel_ready == SEM_FAILED) || (s_gyro_ready == SEM_FAILED) || (s_mag_ready == SEM_FAILED)) {
+        CETI_ERR("Thread started without neccesary memory resources");
+        resetIMU(); // seems nice to stop the feature reports
+        bbI2CClose(IMU_BB_I2C_SDA);
+        imu_is_connected = 0;
+        imu_close_all_files();
+        g_imu_thread_is_running = 0;
+        CETI_ERR("Thread terminated");
+        return NULL;
+    }
 
     // Set the thread CPU affinity.
     if (IMU_CPU >= 0) {

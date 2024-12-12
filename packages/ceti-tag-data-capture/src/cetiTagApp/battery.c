@@ -13,8 +13,11 @@
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 #include "utils/logging.h"
 #include "utils/memory.h"
+#include "utils/thread_error.h"
+#include "utils/timing.h"
 
 // === Private System Libraries ===
+#include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -76,6 +79,7 @@ static int charging_disabled, discharging_disabled;
  * @return int true if match, else false
  */
 int battery_verify(void) {
+    char err_str[512];
     int incorrect = 0;
     CETI_LOG("Nonvoltile RAM Settings:"); // echo it
     for (int i = 0; g_nv_expected[i].name != NULL; i++) {
@@ -84,7 +88,7 @@ int battery_verify(void) {
         // hardware access register
         WTResult result = max17320_read(g_nv_expected[i].addr, &actual);
         if (result != WT_OK) {
-            CETI_ERR("BMS device read error: %s\n", wt_strerror(result));
+            CETI_ERR("BMS device read error: %s\n", wt_strerror_r(result, err_str, sizeof(err_str)));
             return 0;
         }
 
@@ -105,15 +109,18 @@ int battery_verify(void) {
 }
 
 int init_battery() {
+    int t_result = THREAD_OK;
+    char err_str[512] = {};
+
     WTResult hw_result = max17320_init();
     if (hw_result != WT_OK) {
-        CETI_ERR("Failed to connect to MAX17320 Fuel Gauge: %s", wt_strerror(hw_result));
-        return -1;
+        CETI_ERR("Failed to connect to MAX17320 Fuel Gauge: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_HW;
     }
 
     // check if BMS nv
     if (!battery_verify()) {
-        CETI_ERR("MAX17320 nonvolatile memory was not as expected: %s", wt_strerror(hw_result));
+        CETI_ERR("MAX17320 nonvolatile memory was not as expected: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
         CETI_ERR("    Consider rewriting NV memory!!!!");
         CETI_LOG("Attempting to overlay values:");
         hw_result = max17320_clear_write_protection();
@@ -131,7 +138,7 @@ int init_battery() {
             hw_result = max17320_gauge_reset();
         }
         if (hw_result != WT_OK) {
-            CETI_ERR("Failed to overwrite MAX17320 nonvolatile memory: %s", wt_strerror(hw_result));
+            CETI_ERR("Failed to overwrite MAX17320 nonvolatile memory: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
         }
     } else {
         CETI_LOG("BMS OK!");
@@ -141,19 +148,26 @@ int init_battery() {
     CETI_LOG("Successfully initialized the battery gauge");
     if (init_data_file(battery_data_file, BATTERY_DATA_FILEPATH,
                        battery_data_file_headers, num_battery_data_file_headers,
-                       battery_data_file_notes, "init_battery()") < 0)
-        return -1;
+                       battery_data_file_notes, "init_battery()") < 0) {
+        CETI_ERR("Failed to open " BATTERY_DATA_FILEPATH ": %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_DATA_FILE_FAILED;
+    }
 
     // setup shared memory
     shm_battery = create_shared_memory_region(BATTERY_SHM_NAME, sizeof(CetiBatterySample));
+    if (shm_battery == NULL) {
+        CETI_ERR("Failed to create shared memory " BATTERY_SHM_NAME ": %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SHM_FAILED;
+    }
 
     // setup semaphore
     sem_battery_data_ready = sem_open(BATTERY_SEM_NAME, O_CREAT, 0644, 0);
     if (sem_battery_data_ready == SEM_FAILED) {
-        CETI_ERR("Failed to create semaphore");
-        return -1;
+        CETI_ERR("Failed to create semaphore " BATTERY_SEM_NAME ": %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SEM_FAILED;
     }
-    return 0;
+
+    return t_result;
 }
 
 //-----------------------------------------------------------------------------
@@ -357,7 +371,8 @@ void battery_sample_to_csv(FILE *fp, CetiBatterySample *pSample) {
     fprintf(fp, ",%s", battery_data_file_notes);
     strcpy(battery_data_file_notes, "");
     if (pSample->error != WT_OK) {
-        fprintf(fp, "ERROR(%s, %04Xh) | ", wt_strerror_device_name(pSample->error), (pSample->error & 0xFFFF));
+        char err_str[512];
+        fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pSample->error, err_str, sizeof(err_str)));
     }
     if (pSample->cell_voltage_v[0] < 0.0 || pSample->cell_voltage_v[1] < 0.0 || pSample->cell_temperature_c[0] < -80.0 || pSample->cell_temperature_c[1] < -80.0) { // it seems to return -0.01 for voltages and -5.19 for current when no sensor is connected
         CETI_WARN("readings are likely invalid");
@@ -393,6 +408,13 @@ void *battery_thread(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_battery_thread_tid = gettid();
 
+    if ((shm_battery == NULL) || (sem_battery_data_ready == SEM_FAILED)) {
+        CETI_ERR("Thread started without neccesary memory resources");
+        g_battery_thread_is_running = 0;
+        CETI_ERR("Thread terminated");
+        return NULL;
+    }
+
     // Set the thread CPU affinity.
     if (BATTERY_CPU >= 0) {
         pthread_t thread;
@@ -419,7 +441,8 @@ void *battery_thread(void *paramPtr) {
                 if (!charging_disabled) {
                     WTResult hw_result = max17320_disable_charging();
                     if (hw_result != WT_OK) {
-                        CETI_ERR("Could not disable charging FET: %s", wt_strerror(hw_result));
+                        char err_str[512];
+                        CETI_ERR("Could not disable charging FET: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
                     } else {
                         charging_disabled = 1;
                         CETI_WARN("Battery charging disabled, cell %d outside thermal limits: %.3f C", i_cell + 1, shm_battery->cell_temperature_c[i_cell]);
@@ -431,7 +454,8 @@ void *battery_thread(void *paramPtr) {
                 if (!discharging_disabled) {
                     WTResult hw_result = max17320_disable_discharging();
                     if (hw_result != WT_OK) {
-                        CETI_ERR("Could not disable discharging FET: %s", wt_strerror(hw_result));
+                        char err_str[512];
+                        CETI_ERR("Could not disable discharging FET: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
                     } else {
                         discharging_disabled = 1;
                         CETI_WARN("Battery discharging disabled, cell %d outside thermal limit: %.3f C", i_cell + 1, shm_battery->cell_temperature_c[i_cell]);
@@ -463,7 +487,11 @@ void *battery_thread(void *paramPtr) {
             usleep(polling_sleep_duration_us);
     }
     sem_close(sem_battery_data_ready);
+    sem_unlink(BATTERY_SEM_NAME);
+
     munmap(shm_battery, sizeof(CetiBatterySample));
+    shm_unlink(BATTERY_SHM_NAME);
+
     g_battery_thread_is_running = 0;
     CETI_LOG("Done!");
     return NULL;
@@ -476,13 +504,15 @@ int resetBattTempFlags(void) {
     WTResult hw_result = WT_OK;
     hw_result = max17320_enable_discharging();
     if (hw_result != WT_OK) {
-        CETI_ERR("Could not enable discharging FET: %s", wt_strerror(hw_result));
+        char err_str[512];
+        CETI_ERR("Could not enable discharging FET: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
         return hw_result;
     }
     discharging_disabled = 0;
     hw_result = max17320_enable_charging();
     if (hw_result != WT_OK) {
-        CETI_ERR("Could not enable charging FET: %s", wt_strerror(hw_result));
+        char err_str[512];
+        CETI_ERR("Could not enable charging FET: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
         return hw_result;
     }
     charging_disabled = 0;
