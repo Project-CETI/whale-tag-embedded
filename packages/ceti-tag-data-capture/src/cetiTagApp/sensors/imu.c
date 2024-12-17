@@ -63,22 +63,22 @@ static const char *imu_data_file_headers[IMU_DATA_TYPE_COUNT] = {
         ",Quat_accuracy",
     [IMU_DATA_TYPE_ACCEL] =
         "Sensor_delay_us"
-        ",Accel_x_m_ss"
-        ",Accel_y_m_ss"
-        ",Accel_z_m_ss"
-        ",Accel_accuracy",
+        ",Accel_x_raw"
+        ",Accel_y_raw"
+        ",Accel_z_raw"
+        ",Accel_status",
     [IMU_DATA_TYPE_GYRO] =
         "Sensor_delay_us"
-        ",Gyro_x_rad_s"
-        ",Gyro_y_rad_s"
-        ",Gyro_z_rad_s"
-        ",Gyro_accuracy",
+        ",Gyro_x_raw"
+        ",Gyro_y_raw"
+        ",Gyro_z_raw"
+        ",Gyro_status",
     [IMU_DATA_TYPE_MAG] =
         "Sensor_delay_us"
-        ",Mag_x_uT"
-        ",Mag_y_uT"
-        ",Mag_z_uT"
-        ",Mag_accuracy",
+        ",Mag_x_raw"
+        ",Mag_y_raw"
+        ",Mag_z_raw"
+        ",Mag_status",
 };
 static const char *imu_data_names[IMU_DATA_TYPE_COUNT] = {
     [IMU_DATA_TYPE_QUAT] = "quat",
