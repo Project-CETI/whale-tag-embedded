@@ -208,6 +208,8 @@ static const char *err_str[] = {
     [-WT_ERR_RECOVERY_OVERSIZED_COMMENT] = "comment exceeds 40 char limit",
     [-WT_ERR_RECOVERY_OVERSIZED_MESSAGE] = "message exceeds 67 char limit",
     [-WT_ERR_RECOVERY_UNDERSIZED_GPS_BUFFER] = "destination gps buffer too small",
+    [-WT_ERR_PRESSURE_INVALID_RESPONSE] = "invalid pressure sensor response",
+    [-WT_ERR_PRESSURE_BUSY] = "pressure sensor is busy",
     [-WT_ERR_BMS_WRITE_PROT_DISABLE_FAIL] = "failed to disable write protection",
 };
 
@@ -256,6 +258,45 @@ const char *wt_strerror(WTResult errnum) {
         }
     }
     return __wt_errstr;
+}
+
+char *wt_strerror_r(WTResult errnum, char *buf, size_t buflen) {
+    int device = (errnum >> 16) & 0xFFFF;
+    int error = ((int16_t)(errnum & 0xFFFF));
+
+    // construct error string
+    if (device == 0) { // no device
+        if (error > 0) {
+            // system error
+            strncpy(buf, strerror(errno), buflen - 1);
+        } else if ((error <= PI_INIT_FAILED) && (-error < sizeof(err_str) / sizeof(char *))) {
+            // device error
+            strncpy(buf, err_str[-error], buflen - 1);
+        } else {
+            snprintf(buf, buflen - 1, "unkown error # %d", error);
+        }
+    } else if ((device < sizeof(device_name) / sizeof(char *))) { // device
+        if (error > 0) {
+            // system error
+            snprintf(buf, buflen - 1, "%s : %s", device_name[device], strerror(errno));
+        } else if ((error <= PI_INIT_FAILED) && (-error < sizeof(err_str) / sizeof(char *))) {
+            // device error
+            snprintf(buf, buflen - 1, "%s : %s", device_name[device], err_str[-error]);
+        } else {
+            snprintf(buf, buflen - 1, "%s : unknown error # %d", device_name[device], error);
+        }
+    } else { // unknown edvice
+        if (error > 0) {
+            // system error
+            snprintf(buf, buflen - 1, "%s : %s", device_name[device], strerror(errno));
+        } else if ((error <= PI_INIT_FAILED) && (-error < sizeof(err_str) / sizeof(char *))) {
+            // device error
+            snprintf(buf, buflen - 1, "unknown_device # %d : %s", device, err_str[-error]);
+        } else {
+            snprintf(buf, buflen - 1, "unknown_device # %d : unkown error # %d", device, error);
+        }
+    }
+    return buf;
 }
 
 const char *wt_strerror_device_name(WTResult errnum) {

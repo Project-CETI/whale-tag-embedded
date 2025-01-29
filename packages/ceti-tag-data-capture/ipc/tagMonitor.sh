@@ -141,15 +141,14 @@ _term() {
 	echo "stopping cetiTagApp"
 	send_command "quit"
 	status=$?
-	if [ $status -ne 0 ]; then
-		handle_error $status
+	if [ $status -ne $ERR_NO_CHILD ]; then
+		# Child exists but is not responding
+		kill --TERM "$child" 2>/dev/null
+
+		## Wait for cetiTagApp to finish
+		echo "Waiting on child process $child to finish..."
+		wait "$child"
 	fi
-
-	kill --TERM "$child" 2>/dev/null
-
-	## Wait for cetiTagApp to finish
-	echo "Waiting on child process $child to finish..."
-	wait "$child"
 
 	echo "Child process $child complete"
 	echo "Good bye"
@@ -231,26 +230,6 @@ while :; do
 	if [ "$is_discharging" -gt 0 ]; then
 		echo "Batteries are discharging"
 
-		# If either cell is less than 3.20 V:
-		#    - stop data acquisition to gracefully exit the thread loops and close files
-		check1=$(echo "$v1 < 3.20" | bc)
-		check2=$(echo "$v2 < 3.20" | bc)
-
-		if [ "$check1" -gt 0 ] || [ "$check2" -gt 0 ]; then
-			echo "low battery cell detected; stopping data acquisition"
-
-			send_command "stopDataAcq"
-			status=$?
-			if [ $status -ne 0 ]; then
-				handle_error $status
-				continue
-			fi
-			echo "signaled to stop data acquisition"
-			data_acquisition_running=0
-		else
-			echo "battery is OK"
-		fi
-
 		# If either cell is less than 3.10 V:
 		#    -signal the FPGA to disable charging and discharging
 		#    -schedule Pi shutdown
@@ -264,7 +243,10 @@ while :; do
 
 			if ! send_command "powerdown"; then
 				kill -9 "$child" 2>/dev/null
+				data_acquisition_running=0
 				emergency_shutdown
+			else
+				data_acquisition_running=0
 			fi
 
 			echo u >/proc/sysrq-trigger

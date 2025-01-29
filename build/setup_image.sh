@@ -100,3 +100,13 @@ mv /usr/lib/raspberrypi-sys-mods/custom_bash_history.txt /home/pi/.bash_history
 git clone https://git.code.sf.net/p/stm32flash/code stm32flash-code
 make install -C stm32flash-code -j4
 rm -rf stm32flash-code
+
+# move location of syslogs to volatile partition to ensure logging is captured
+sed -i 's,var/log/\(.[a-zA-Z]*\)\(\.log\)\?,data/\1.log,g' /etc/rsyslog.conf
+
+# add package directories to user PATH for bash to autofill names
+# shellcheck disable=SC2016
+echo 'export PATH="$PATH:/opt/ceti-tag-data-capture/bin:/opt/ceti-tag-data-capture/ipc"' >>/home/pi/.bashrc
+# add package directories to sudoers' secure path so executables and scripts are executable
+# shellcheck disable=SC2016
+sed -i 's,secure_path="\(.*\)",secure_path="\1:/opt/ceti-tag-data-capture/bin:/opt/ceti-tag-data-capture/ipc",g' /etc/sudoers

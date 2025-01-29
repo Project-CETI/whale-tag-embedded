@@ -24,7 +24,7 @@
 
 TestState test_audio(FILE *pResultsFile) {
     char input = 0;
-    int channel_pass[3] = {0, 0, 0};
+    int channel_pass[AUDIO_CHANNELS] = {0, 0, 0};
     const double target = 0.25;
 
     CetiAudioBuffer *shm_audio;
@@ -175,7 +175,7 @@ TestState test_audio(FILE *pResultsFile) {
 
     // record results
     int all_pass = 1;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < AUDIO_CHANNELS; i++) {
         fprintf(pResultsFile, "Ch%d: %s", i, channel_pass[i] ? "PASS" : "FAIL");
         all_pass = all_pass && channel_pass[i];
     }

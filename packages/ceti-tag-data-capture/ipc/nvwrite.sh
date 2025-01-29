@@ -17,7 +17,7 @@ i2cset -y 1 0x0b 0xd0 0xa002 w # MAX17320_REG_NUVPRTTH
 i2cset -y 1 0x0b 0xd1 0x280a w # MAX17320_REG_NTPRTTH1
 i2cset -y 1 0x0b 0xd3 0x32ce w # MAX17320_REG_NIPRTTH1 #set new slow current limits for development (2A)
 i2cset -y 1 0x0b 0xd4 0x0ca0 w # MAX17320_REG_NBALTH   #disable imbalance charge term for development
-i2cset -y 1 0x0b 0xd6 0x0313 w # MAX17320_REG_NPROTMISCTH
+i2cset -y 1 0x0b 0xd6 0x0813 w # MAX17320_REG_NPROTMISCTH
 i2cset -y 1 0x0b 0xd7 0x0c08 w # MAX17320_REG_NPROTCFG
 i2cset -y 1 0x0b 0xd9 0xec00 w # MAX17320_REG_NJEITAV
 i2cset -y 1 0x0b 0xda 0xb3a0 w # MAX17320_REG_NOVPRTTH

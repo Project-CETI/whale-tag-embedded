@@ -9,11 +9,13 @@
 #include "config.h"
 #include "../recovery.h"
 #include "logging.h"
-#include "str.h"    // for str, strtoidentifier(), strtobool()
+#include "str.h" // for str, strtoidentifier(), strtobool()
+#include "timing.h"
 #include <ctype.h>  //for isspace
 #include <errno.h>  //for error detection for string conversion
 #include <stdio.h>  // for FILE
 #include <stdlib.h> // for atof, atol, etc
+#include <time.h>
 
 /**************************
  *
@@ -29,6 +31,7 @@ TagConfig g_config = {
     .release_voltage_v = CONFIG_DEFAULT_RELEASE_VOLTAGE_V,
     .critical_voltage_v = CONFIG_DEFAULT_CRITICAL_VOLTAGE_V,
     .timeout_s = CONFIG_DEFAULT_TIMEOUT_S,
+    .tod_release = {.valid = 0},
     .burn_interval_s = CONFIG_DEFAULT_BURN_INTERVAL_S,
     .recovery = {
         .enabled = CONFIG_DEFAULT_RECOVERY_ENABLED,
@@ -56,7 +59,10 @@ static ConfigError __config_parse_surface_pressure(const char *_String);
 static ConfigError __config_parse_dive_pressure(const char *_String);
 static ConfigError __config_parse_release_voltage(const char *_String);
 static ConfigError __config_parse_critical_voltage(const char *_String);
+static ConfigError __config_parse_cell_release_voltage(const char *_String);
+static ConfigError __config_parse_cell_critical_voltage(const char *_String);
 static ConfigError __config_parse_timeout(const char *_String);
+static ConfigError __config_parse_time_of_day(const char *_String);
 static ConfigError __config_parse_burn_interval_value(const char *_String);
 static ConfigError __config_parse_recovery_enable_value(const char *_String);
 static ConfigError __config_parse_recovery_callsign_value(const char *_String);
@@ -66,12 +72,20 @@ static ConfigError __config_parse_recovery_freq_value(const char *_String);
 /* method is what to do with the value*/
 // This would have more efficient lookup as a hash table
 const ConfigList config_keys[] = {
+    // ToDo: Depreciate these as they are not very verbose/descriptive
     {.key = STR_FROM("P1"), .parse = __config_parse_surface_pressure},
     {.key = STR_FROM("P2"), .parse = __config_parse_dive_pressure},
     {.key = STR_FROM("V1"), .parse = __config_parse_release_voltage},
     {.key = STR_FROM("V2"), .parse = __config_parse_critical_voltage},
     {.key = STR_FROM("T0"), .parse = __config_parse_timeout},
     {.key = STR_FROM("BT"), .parse = __config_parse_burn_interval_value},
+
+    {.key = STR_FROM("surface_pressure"), .parse = __config_parse_surface_pressure},
+    {.key = STR_FROM("dive_pressure"), .parse = __config_parse_dive_pressure},
+    {.key = STR_FROM("release_voltage"), .parse = __config_parse_cell_release_voltage},
+    {.key = STR_FROM("critical_voltage"), .parse = __config_parse_cell_critical_voltage},
+    {.key = STR_FROM("timeout_release"), .parse = __config_parse_timeout},
+    {.key = STR_FROM("burn_interval"), .parse = __config_parse_burn_interval_value},
     {.key = STR_FROM("audio_filter"), .parse = __config_parse_audio_filter_type},
     {.key = STR_FROM("audio_bitdepth"), .parse = __config_parse_audio_bitdepth},
     {.key = STR_FROM("audio_sample_rate"), .parse = __config_parse_audio_sample_rate},
@@ -79,6 +93,7 @@ const ConfigList config_keys[] = {
     {.key = STR_FROM("rec_callsign"), .parse = __config_parse_recovery_callsign_value},
     {.key = STR_FROM("rec_recipient"), .parse = __config_parse_recovery_recipient_value},
     {.key = STR_FROM("rec_freq"), .parse = __config_parse_recovery_freq_value},
+    {.key = STR_FROM("time_of_day_release"), .parse = __config_parse_time_of_day},
 };
 
 /* Private Methods ***********************************************************/
@@ -219,12 +234,62 @@ static ConfigError __config_parse_release_voltage(const char *_String) {
         return CONFIG_ERR_INVALID_VALUE;
 
     // assign value
-    g_config.release_voltage_v = parsed_value;
+    g_config.release_voltage_v = parsed_value / 2.0;
     CETI_DEBUG("release voltage set to %.2fV", parsed_value);
     return CONFIG_OK;
 }
 
 static ConfigError __config_parse_critical_voltage(const char *_String) {
+    char *end_ptr;
+    float parsed_value;
+
+    // try reading a float
+    errno = 0;
+    parsed_value = strtof(_String, &end_ptr);
+    if (parsed_value == 0.0f) {
+        if ((_String == end_ptr) || (errno == ERANGE)) {
+            return CONFIG_ERR_INVALID_VALUE;
+        }
+    }
+
+    // Check acceptable range
+    if (parsed_value > 8.4)
+        return CONFIG_ERR_INVALID_VALUE;
+    if (parsed_value < 6.2)
+        return CONFIG_ERR_INVALID_VALUE;
+
+    // assign value
+    g_config.critical_voltage_v = parsed_value / 2.0;
+    CETI_DEBUG("critical voltage set to %.2fV", parsed_value);
+    return CONFIG_OK;
+}
+
+static ConfigError __config_parse_cell_release_voltage(const char *_String) {
+    char *end_ptr;
+    float parsed_value;
+
+    // try reading a float
+    errno = 0;
+    parsed_value = strtof(_String, &end_ptr);
+    if (parsed_value == 0.0f) {
+        if ((_String == end_ptr) || (errno == ERANGE)) {
+            return CONFIG_ERR_INVALID_VALUE;
+        }
+    }
+
+    // Check acceptable range
+    if (parsed_value > 8.4)
+        return CONFIG_ERR_INVALID_VALUE;
+    if (parsed_value < 6.2)
+        return CONFIG_ERR_INVALID_VALUE;
+
+    // assign value
+    g_config.release_voltage_v = parsed_value;
+    CETI_DEBUG("release voltage set to %.2fV", parsed_value);
+    return CONFIG_OK;
+}
+
+static ConfigError __config_parse_cell_critical_voltage(const char *_String) {
     char *end_ptr;
     float parsed_value;
 
@@ -263,6 +328,17 @@ static ConfigError __config_parse_timeout(const char *_String) {
 
     g_config.timeout_s = parsed_value;
     CETI_DEBUG("time release set to %ld seconds", parsed_value);
+    return CONFIG_OK;
+}
+
+static ConfigError __config_parse_time_of_day(const char *_String) {
+    struct tm tm = {};
+    char *end_ptr = strptime(_String, "%R", &tm);
+    if (end_ptr == NULL) {
+        return CONFIG_ERR_INVALID_VALUE;
+    }
+    memcpy(&g_config.tod_release.value, &tm, sizeof(tm));
+    g_config.tod_release.valid = 1;
     return CONFIG_OK;
 }
 
@@ -436,7 +512,7 @@ int config_read(const char *filename) {
     CETI_LOG("Read the deployment parameters from %s", filename);
     ceti_config_file = fopen(filename, "r");
     if (ceti_config_file == NULL) {
-        CETI_ERR("Cannot open configuration file %s", filename);
+        CETI_WARN("Cannot open configuration file %s", filename);
         return (-1);
     }
 
@@ -465,4 +541,46 @@ int config_read(const char *filename) {
 
     fclose(ceti_config_file);
     return 0;
+}
+
+/**
+ * @brief logs final tag config to /data/folder logging deployment
+ *
+ */
+void config_log(uint64_t timestamp) {
+    // Open file data_config_timestamp.txt
+    char config_file_path[256];
+
+    snprintf(config_file_path, 255, "/data/data_config_%lu.txt", timestamp);
+    FILE *fConfig = fopen(config_file_path, "wt");
+    if (fConfig == NULL) {
+        return;
+    }
+    fprintf(fConfig, "# Deployment Timestamp: %lu\n", timestamp);
+    fprintf(fConfig, "surface_pressure = %.2f # bar\n", g_config.surface_pressure);
+    fprintf(fConfig, "dive_pressure = %.2f # bar\n", g_config.dive_pressure);
+    fprintf(fConfig, "release_voltage = %.2f # V per cell\n", g_config.release_voltage_v);
+    fprintf(fConfig, "critical_voltage = %.2f # V per cell\n", g_config.critical_voltage_v);
+    fprintf(fConfig, "timeout_release = %lu # Seconds\n", g_config.timeout_s);
+    if (g_config.tod_release.valid) {
+        fprintf(fConfig, "time_of_day_release= %02d:%02d\n", g_config.tod_release.value.tm_hour, g_config.tod_release.value.tm_min);
+    }
+    fprintf(fConfig, "BT = %lu # Seconds # burn time\n", g_config.burn_interval_s);
+    if (g_config.audio.filter_type == AUDIO_FILTER_SINC5) {
+        fprintf(fConfig, "audio_filter = sinc5\n");
+    } else {
+        fprintf(fConfig, "audio_filter = wideband\n");
+    }
+    fprintf(fConfig, "audio_bitdepth =: %d\n", (int)g_config.audio.bit_depth);
+    fprintf(fConfig, "audio_sample_rate = %d # KHz\n", (int)g_config.audio.sample_rate);
+    fprintf(fConfig, "rec_enabled = %s\n", (g_config.recovery.enabled) ? "true" : "false");
+    char cs[15];
+    callsign_to_str(&g_config.recovery.callsign, cs);
+    fprintf(fConfig, "rec_callsign = %s\n", cs);
+
+    callsign_to_str(&g_config.recovery.recipient, cs);
+    fprintf(fConfig, "rec_recipient = %s\n", cs);
+    fprintf(fConfig, "rec_freq = %.3f # MHz\n", g_config.recovery.freq_MHz);
+    fflush(fConfig);
+    fclose(fConfig);
 }

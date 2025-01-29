@@ -172,18 +172,9 @@ do_resize() {
 }
 
 sethostname() {
-	if [ -z "$NETWORK_ADAPTER_NAME" ]; then
-		NETWORK_FILES=(/sys/class/net/e*)
-		NETWORK_ADAPTER_NAME="${NETWORK_FILES[0]##*/}"
-	fi
-
-	MAC_ADDRESS="/sys/class/net/$NETWORK_ADAPTER_NAME/address"
-	if [ -f "$MAC_ADDRESS" ]; then
-		DEVICE_ID="$(<"$MAC_ADDRESS" sed s/':'//g)"
-	fi
-
 	if [ -z "$DEVICE_ID" ]; then
-		DEVICE_ID="$(</proc/cpuinfo grep Serial | sed s/'.*:\s0*'/''/)"
+		# Grab last 8 characters of serial number
+		DEVICE_ID="$(</proc/cpuinfo grep Serial | sed s/'.*\(.\{8\}$\)'/'\1'/)"
 	fi
 
 	# If we still have no UID, just give up
@@ -261,73 +252,6 @@ add_swap() {
 	sudo sh -c "echo 'vm.swappiness=1' >> /etc/sysctl.conf"
 }
 
-configure_logging() {
-	# Limit the journal size.
-	sudo sh -c "echo 'SystemMaxUse=15M' >> /etc/systemd/journald.conf"
-	sudo sh -c "echo 'RuntimeMaxUse=15M' >> /etc/systemd/journald.conf"
-	sudo sh -c "echo 'MaxLevelStore=warning' >> /etc/systemd/journald.conf"
-	sudo sh -c "echo 'MaxLevelSyslog=debug' >> /etc/systemd/journald.conf"
-
-	# Limit various log sizes and rotate old versions into the a separate folder.
-	#   The main app can periodically move this archive folder to the data partition.
-	#   (Note that rotatelog requires olddir to be on the same device as the main log.)
-	# Also disable compression to hopefully save some CPU usage.
-	sudo rm /etc/logrotate.d/rsyslog
-	sudo touch /etc/logrotate.d/rsyslog
-	sudo mkdir /var/log/old_logs
-	sudo sh -c "echo '
-/var/log/syslog
-{
-				rotate 100
-				size 5M
-				olddir /var/log/old_logs
-				missingok
-				notifempty
-				nocompress
-				copytruncate
-}
-/var/log/mail.info
-/var/log/mail.warn
-/var/log/mail.err
-/var/log/mail.log
-/var/log/daemon.log
-/var/log/kern.log
-/var/log/auth.log
-/var/log/user.log
-{
-				rotate 100
-				size 5M
-				olddir /var/log/old_logs
-				missingok
-				notifempty
-				nocompress
-				copytruncate
-}
-/var/log/lpr.log
-/var/log/cron.log
-/var/log/debug
-{
-				rotate 100
-				size 5M
-				olddir /var/log/old_logs
-				missingok
-				notifempty
-				nocompress
-				copytruncate
-}
-/var/log/messages
-{
-				rotate 100
-				size=1M
-				olddir /var/log/old_logs
-				missingok
-				notifempty
-				nocompress
-				copytruncate
-}
-' >> /etc/logrotate.d/rsyslog"
-}
-
 main() {
 	get_variables
 
@@ -358,7 +282,6 @@ main() {
 	raspi-config nonint do_ssh 0
 	add_wifi
 	add_swap
-	configure_logging
 	raspi-config nonint do_overlayfs 0
 	# Enable RTC trickle charge
 	i2cset -y 1 0x68 0x09 0xAA

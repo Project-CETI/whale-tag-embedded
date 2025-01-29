@@ -24,10 +24,12 @@
 #include "utils/str.h"    //for strtoidentifier
 #include "utils/timing.h" //for get_global_time_us(), getRtcCount()
 
+#include <errno.h>
 #include <pthread.h> // to set CPU affinity
 #include <stdint.h>
 #include <stdio.h>  // for FILE
 #include <stdlib.h> // for atof, atol, strtoul, etc
+#include <string.h>
 #include <unistd.h> // gethostname
 
 //-----------------------------------------------------------------------------
@@ -42,6 +44,7 @@ static int networking_is_enabled = 1;
 // RTC counts
 static unsigned int start_time_s = 0;
 static unsigned int burnwire_timeout_start_s = 0;
+static int64_t burnwire_time_of_day_release_s = 0;
 static uint32_t burnwire_started_time_s = 0;
 static int s_state_machine_paused = 0;
 // Output file
@@ -55,7 +58,6 @@ static const char *stateMachine_data_file_headers[] = {
 static const int num_stateMachine_data_file_headers = sizeof(stateMachine_data_file_headers) / sizeof(*stateMachine_data_file_headers);
 
 int init_stateMachine() {
-
     CETI_LOG("Successfully initialized the state machine");
     // Open an output file to write data.
     if (init_data_file(stateMachine_data_file, STATEMACHINE_DATA_FILEPATH,
@@ -197,8 +199,12 @@ int stateMachine_set_state(wt_state_t new_state) {
                 CETI_LOG("Starting dive; recording burnwire timeout start time %u", burnwire_timeout_start_s);
                 FILE *file_burnwire_timeout_start_s = NULL;
                 file_burnwire_timeout_start_s = fopen(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, "w");
-                fprintf(file_burnwire_timeout_start_s, "%u", burnwire_timeout_start_s);
-                fclose(file_burnwire_timeout_start_s);
+                if (file_burnwire_timeout_start_s != NULL) {
+                    fprintf(file_burnwire_timeout_start_s, "%u", burnwire_timeout_start_s);
+                    fclose(file_burnwire_timeout_start_s);
+                } else {
+                    CETI_WARN("Failed to create %s: %s", STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, strerror(errno));
+                }
 #endif
             }
             break;
@@ -328,6 +334,10 @@ int updateStateMachine() {
                 }
             }
             CETI_LOG("Using the following burnwire timeout start time: %u", burnwire_timeout_start_s);
+            if (g_config.tod_release.valid) {
+                burnwire_time_of_day_release_s = get_next_time_of_day_occurance_s(&g_config.tod_release.value);
+                CETI_LOG("Time of day release set to %lu", burnwire_time_of_day_release_s);
+            }
 // Turn off networking if desired.
 #if FORCE_NETWORKS_OFF_ON_START
             wifi_disable();
@@ -366,13 +376,17 @@ int updateStateMachine() {
                 CETI_LOG("TIMEOUT!!! Initializing Burn");
                 stateMachine_set_state(ST_BRN_ON);
                 break;
+            } else if (g_config.tod_release.valid && (burnwire_time_of_day_release_s < get_global_time_s())) {
+                CETI_LOG("Time of day release!!! Initializing Burn");
+                stateMachine_set_state(ST_BRN_ON);
+                break;
             }
 
 // Turn on the burnwire if the battery voltage is low.
 #if ENABLE_BATTERY_GAUGE
             if (shm_battery->error == WT_OK) {
                 s_bms_error_count = 0;
-                if ((shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
+                if ((shm_battery->cell_voltage_v[0] < g_config.release_voltage_v) || (shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
                     CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
                     stateMachine_set_state(ST_BRN_ON);
                     break;
@@ -380,12 +394,14 @@ int updateStateMachine() {
             } else {
                 // report new errors
                 if (s_bms_error_count == 0) {
-                    CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
+                    char err_str[512];
+                    CETI_ERR("BMS reading resulted in error: %s", wt_strerror_r(shm_battery->error, err_str, sizeof(err_str)));
                 }
                 s_bms_error_count++;
                 // burn if consistently in error
                 if (s_bms_error_count >= MISSION_BMS_CONSECUTIVE_ERROR_THRESHOLD) {
-                    CETI_ERR("BMS remained in error for %d samples, initiaing: %s", s_bms_error_count, wt_strerror(shm_battery->error));
+                    char err_str[512];
+                    CETI_ERR("BMS remained in error for %d samples, initiaing: %s", s_bms_error_count, wt_strerror_r(shm_battery->error, err_str, sizeof(err_str)));
                     CETI_LOG("BMS ERROR!!! Initializing Burn");
                     stateMachine_set_state(ST_BRN_ON);
                     break;
@@ -409,13 +425,17 @@ int updateStateMachine() {
                 CETI_LOG("TIMEOUT!!! Initializing Burn");
                 stateMachine_set_state(ST_BRN_ON);
                 break;
+            } else if (g_config.tod_release.valid && (burnwire_time_of_day_release_s < get_global_time_s())) {
+                CETI_LOG("Time of day release!!! Initializing Burn");
+                stateMachine_set_state(ST_BRN_ON);
+                break;
             }
 
 // Turn on the burnwire if the battery voltage is low.
 #if ENABLE_BATTERY_GAUGE
             if (shm_battery->error == WT_OK) {
                 s_bms_error_count = 0;
-                if ((shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
+                if ((shm_battery->cell_voltage_v[0] < g_config.release_voltage_v) || (shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
                     CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
                     stateMachine_set_state(ST_BRN_ON);
                     break;
@@ -423,14 +443,16 @@ int updateStateMachine() {
             } else {
                 // report new errors
                 if (s_bms_error_count == 0) {
-                    CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
+                    char err_str[512];
+                    CETI_ERR("BMS reading resulted in error: %s", wt_strerror_r(shm_battery->error, err_str, sizeof(err_str)));
                 }
 
                 s_bms_error_count++;
 
                 // burn if consistently in error
                 if (s_bms_error_count == MISSION_BMS_CONSECUTIVE_ERROR_THRESHOLD) {
-                    CETI_ERR("BMS remained in error for %d samples, initiaing: %s", s_bms_error_count, wt_strerror(shm_battery->error));
+                    char err_str[512];
+                    CETI_ERR("BMS remained in error for %d samples, initiaing: %s", s_bms_error_count, wt_strerror_r(shm_battery->error, err_str, sizeof(err_str)));
                     CETI_LOG("BMS ERROR!!! Initializing Burn");
                     stateMachine_set_state(ST_BRN_ON);
                     break;
@@ -454,14 +476,15 @@ int updateStateMachine() {
 #if ENABLE_BATTERY_GAUGE
             if (shm_battery->error == WT_OK) {
                 s_bms_error_count = 0;
-                if (shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v) {
+                if ((shm_battery->cell_voltage_v[0] < g_config.critical_voltage_v) || (shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v)) {
                     CETI_LOG("CRITICAL VOLTAGE!!! Terminating Burn Early");
                     stateMachine_set_state(ST_SHUTDOWN);
                     break;
                 }
             } else {
                 if (s_bms_error_count == 0) {
-                    CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
+                    char err_str[512];
+                    CETI_ERR("BMS reading resulted in error: %s", wt_strerror_r(shm_battery->error, err_str, sizeof(err_str)));
                 }
 
                 s_bms_error_count++;
@@ -485,14 +508,15 @@ int updateStateMachine() {
 #if ENABLE_BATTERY_GAUGE
             if (shm_battery->error == WT_OK) {
                 s_bms_error_count = 0;
-                if (shm_battery->cell_voltage_v[0] + shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v) {
+                if ((shm_battery->cell_voltage_v[0] < g_config.critical_voltage_v) || (shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v)) {
                     CETI_LOG("CRITICAL VOLTAGE!!! Terminating Retreival");
                     stateMachine_set_state(ST_SHUTDOWN);
                     break;
                 }
             } else {
                 if (s_bms_error_count == 0) {
-                    CETI_ERR("BMS reading resulted in error: %s", wt_strerror(shm_battery->error));
+                    char err_str[512];
+                    CETI_ERR("BMS reading resulted in error: %s", wt_strerror_r(shm_battery->error, err_str, sizeof(err_str)));
                 }
 
                 s_bms_error_count++;
