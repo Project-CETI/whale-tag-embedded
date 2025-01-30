@@ -24,6 +24,30 @@
 
 #define NUM_BYTES_MESSAGE 8
 
+typedef enum {
+    FPGA_LED_GREEN = 0,
+    FPGA_LED_YELLOW = 1,
+    FPGA_LED_RED = 2,
+} FpgaLedColor;
+
+typedef enum {
+    FPGA_LED_MODE_FPGA_ONLY = 0b000,
+    FPGA_LED_MODE_PI_ONLY = 0b001,
+    FPGA_LED_MODE_OR = 0b010,
+    FPGA_LED_MODE_XOR = 0b011,
+    FPGA_LED_MODE_AND = 0b100,
+} FpgaLedMode;
+
+typedef enum {
+    FPGA_LED_STATE_OFF = 0,
+    FPGA_LED_STATE_ON = 1,
+} FpgaLedState;
+
+
+
+//-----------------------------------------------------------------------------
+// Function-like Macros
+//-----------------------------------------------------------------------------
 /**
  * @brief Writes value to an ADC configuration register.
  *
@@ -67,6 +91,32 @@
  * @brief Stop FPGA audio FIFO buffer
  */
 #define wt_fpga_fifo_stop() wt_fpga_cam(5, 0, 0, 0, 0, NULL)
+
+/**
+ * @brief Sets FPGA LED control state
+ * 
+ */
+#define wt_fpga_led_set(color, mode, state) wt_fpga_cam(0x18, (color), ((((mode) & ((1 << 4)-1)) << 4) | ((state) & ((1 << 4) - 1))), 0, 0, NULL)
+
+/**
+ * @brief Captures control of all LEDs from the FPGA
+ * 
+ */
+#define wt_fpga_led_capture_all(state) { \
+    wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, (state)); \
+    wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, (state)); \
+    wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, (state)); \
+}
+
+/**
+ * @brief Releases control of all LEDs to the FPGA
+ * 
+ */
+#define wt_fpga_led_release_all() { \
+    wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_FPGA_ONLY, 0); \
+    wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_FPGA_ONLY, 0); \
+    wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_FPGA_ONLY, 0); \
+}
 
 /**
  * @brief opcode 0xF will do a register write on i2c1.

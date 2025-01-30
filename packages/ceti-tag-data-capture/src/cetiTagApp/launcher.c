@@ -327,6 +327,29 @@ int main(void) {
 //-----------------------------------------------------------------------------
 // Helper method to initialize the tag.
 //-----------------------------------------------------------------------------
+void led_signal_thread_errors(uint32_t error_bitfield) {
+    for(int i = 0; i < THREAD_ECG_LOG + 1; i++) {
+        wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+        wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+        wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+        usleep(500000);
+        wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+        if (error_bitfield & (1 << i)) {
+            //red for critical, yellow for non-critical
+            if (error_bitfield & ((1 << THREAD_BMS_ACQ) | (1 << THREAD_AUDIO_ACQ))) {
+                wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+            } else {
+                wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+            }
+        }
+        usleep(500000);
+    }
+    wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+    wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+    wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+}
+
+
 int init_tag() {
     int result = 0;
 
@@ -375,6 +398,9 @@ int init_tag() {
         CETI_ERR("%s", wt_strerror_r(fpga_result, err_str, sizeof(err_str)));
         result += -1;
     }
+    // take contol of LEDs
+    wt_fpga_led_capture_all(FPGA_LED_STATE_OFF);
+    wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
 #endif
 
 #if ENABLE_BATTERY_GAUGE
@@ -465,15 +491,22 @@ int init_tag() {
     }
 #endif
 
+    led_signal_thread_errors(1 << THREAD_BMS_ACQ);
+
+
     if (result < 0 || (s_threads_in_error)) {
         CETI_ERR("Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
+        if (s_threads_in_error != 0) {
+            led_signal_thread_errors(s_threads_in_error);
+        }
         if (!(s_threads_in_error & (1 << THREAD_GPS_ACQ))) {
             char rec_msg[68] = {};
             snprintf(rec_msg, 67, "THREAD INIT ERR: %04Xh", s_threads_in_error);
             recovery_message(rec_msg);
         }
-        return result - s_threads_in_error;
     }
 
-    return result;
+    //return LED control to FPGA
+    wt_fpga_led_release_all();
+    return result - s_threads_in_error;
 }
