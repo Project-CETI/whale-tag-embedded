@@ -14,13 +14,21 @@ Details:
 		0x01 - YELLOW
 		0x02 - RED
 
-	arg0 specifies the mode of control for the operation
+	arg0 specifies the mode of control for the operation and if the LED is on or off
 
-		0x00 - FPGA auto control (default)
-		0x01 - Pi control
-		0x02 - FPGA logically OR'd with Pi
-		0x03 - FPGA logicall  XOR'd with Pi
-		0x04 - FPGA logically AND'd with Pi
+		bits [7:4] define the mode
+		0000b - FPGA auto control (default)
+		0001b - Pi control
+		0010b - FPGA logically OR'd with Pi
+		0011b - FPGA logicall  XOR'd with Pi
+		0100b - FPGA logically AND'd with Pi
+
+		bits [3:0] define the state (on or off) of the LED as controlled by the Pi's channel
+		0000b - OFF
+		0001b - ON
+
+		For example, if arg1 is 0x00 and arg0 is 0x11 (00010001b), the green LED is under Pi control and turned ON.  More examples below in the code snippets.
+	
 
 3) The LED net naming and order was cleaned up = cosmetic only
 
