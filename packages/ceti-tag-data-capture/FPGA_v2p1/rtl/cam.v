@@ -20,8 +20,7 @@
 // 		v2.2 hardware
 
 `define VER_MAJ 8'h23    //Serial revision, for hardware v2.3
-`define VER_MIN 8'h00    //Serial revision, minor. 00 is baseline 240730 
-
+`define VER_MIN 8'h01    //Serial revision, see top.v and git for details
 
 
 module cam(
@@ -60,9 +59,12 @@ module cam(
 	input wire [7:0] i2c_rd_sns_data1,
 	
 	input wire power_down_flag,			//
-	input wire sec_tick
+	input wire sec_tick,
 
-);
+	output reg [7:0] grn_led_ctl = 8'b0,
+	output reg [7:0] yel_led_ctl = 8'b0,   
+	output reg [7:0] red_led_ctl = 8'b0       
+ );
 
 // All of this must be coordinated with the host side (Pi0) code and overall protocol defintion (High-level design doc)
 
@@ -503,6 +505,29 @@ module cam(
 										message[40:47] <= `VER_MIN;  
 										state <= 5;
 									end			
+
+								// 17:  reserved for FPGA set bit depth
+
+								18: begin	//LED control interface
+			
+								// arg1 specifies the particular LED 
+								// 	0=GREEN; 1=YELLOW; 2=RED 
+								// arg0 specifies the mode and state of the Pi-provided bit:
+								//   [7:4] = 0x00 FPGA controls the LED (default)
+								//           0x01 CAM controls the LED via CAM  
+								//           0x02 CAM OR'd with FPGA
+								//           0x03 CAM XOR'd with FPGA
+								//           0x04 CAM AND'd with FPGA
+								//   [3:1]	 Don't care, not used
+								//    [0]	 0x0 LED OFF via CAM, 0x1 LED ON via CAM
+									
+										case(arg1)
+											0: grn_led_ctl <= arg0;
+											1: yel_led_ctl <= arg0;
+											2: red_led_ctl <= arg0;
+										endcase
+										state <= 5;
+									end 
 									
 								default: state<=5; //this should just echo the original message, no action taken									
 								
