@@ -35,8 +35,8 @@
 #define FPGA_DATA (20)     // GPIO 20
 #define FPGA_CLOCK (21)    // GPIO 21
 #define AUDIO_DATA_AVAILABLE (22)
-// (23)
-// (24)
+#define IMU_BB_I2C_SDA (23)
+#define IMU_BB_I2C_SCL (24)
 #define FPGA_INIT_B (25) // GPIO 25
 #define FPGA_PROG_B (26) // GPIO 26
 #define FPGA_DONE (27)   // GPIO 27

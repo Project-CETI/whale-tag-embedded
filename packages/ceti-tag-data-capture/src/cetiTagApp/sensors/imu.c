@@ -15,6 +15,7 @@
 #include "../utils/memory.h"
 #include "../utils/thread_error.h"
 #include "../utils/timing.h" // for timestamps
+#include "../device/bno08x.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -559,6 +560,8 @@ int imu_enable_feature_report(int report_id, uint32_t report_interval_us) {
     char shtpHeader[4] = {0};
     char writeCmdBuf[28] = {0};
     char readCmdBuf[10] = {0};
+    ShtpHeader response_header = {0};
+    WTResult hw_result = WT_OK;
 
     uint16_t feature_command_length = 21;
 
@@ -601,21 +604,12 @@ int imu_enable_feature_report(int report_id, uint32_t report_interval_us) {
         return -1;
     }
 
-    // Read a response header.
-    readCmdBuf[0] = 0x04; // set address
-    readCmdBuf[1] = ADDR_IMU;
-    readCmdBuf[2] = 0x02; // start
-    readCmdBuf[3] = 0x01; // escape
-    readCmdBuf[4] = 0x06; // read
-    readCmdBuf[5] = 0x04; // length lsb
-    readCmdBuf[6] = 0x00; // length msb
-    readCmdBuf[7] = 0x03; // stop
-    readCmdBuf[8] = 0x00; // end
-    retval = bbI2CZip(IMU_BB_I2C_SDA, readCmdBuf, 9, shtpHeader, 4);
-    if (retval < 0) {
-        CETI_ERR("I2C read failed enabling report %d: %d", report_id, retval);
-        return -1;
+    hw_result = wt_bno08x_read_header(&response_header);
+    if (hw_result != WT_OK) {
+        char err_str[512];
+        CETI_ERR("I2C read failed enabling report %d: %s", report_id,  wt_strerror_r(hw_result, err_str, sizeof(err_str)));
     }
+
     CETI_LOG("Enabled report %d.  Header is 0x%02X  0x%02X  0x%02X  0x%02X",
              report_id, shtpHeader[0], shtpHeader[1], shtpHeader[2], shtpHeader[3]);
 
@@ -629,6 +623,14 @@ int imu_read_data() {
     char shtpHeader[4] = {0};
     char commandBuffer[10] = {0};
     int retval;
+    ShtpHeader response_header = {};
+    WTResult hw_result = WT_OK;
+
+
+    hw_result = wt_bno08x_read_header(&response_header);
+    if (hw_result != WT_OK) {
+        return -1;
+    }
 
     // Read a header to see how many bytes are available.
     commandBuffer[0] = 0x04; // set address
@@ -641,7 +643,8 @@ int imu_read_data() {
     commandBuffer[7] = 0x03; // stop
     commandBuffer[8] = 0x00; // end
     retval = bbI2CZip(IMU_BB_I2C_SDA, commandBuffer, 9, shtpHeader, 4);
-    numBytesAvail = fmin(256, ((shtpHeader[1] << 8) | shtpHeader[0]) & 0x7FFF); // msb is "continuation bit", not part of count
+
+    numBytesAvail = fmin(256, response_header.length); // msb is "continuation bit", not part of count
 
     if ((retval <= 0) || (numBytesAvail <= 0))
         return -1;
