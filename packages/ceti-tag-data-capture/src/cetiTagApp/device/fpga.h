@@ -96,7 +96,7 @@ typedef enum {
  * @brief Sets FPGA LED control state
  * 
  */
-#define wt_fpga_led_set(color, mode, state) wt_fpga_cam(0x18, (color), ((((mode) & ((1 << 4)-1)) << 4) | ((state) & ((1 << 4) - 1))), 0, 0, NULL)
+#define wt_fpga_led_set(color, mode, state) wt_fpga_cam(0x12, (color), ((((mode) & ((1 << 4)-1)) << 4) | ((state) & ((1 << 4) - 1))), 0, 0, NULL)
 
 /**
  * @brief Captures control of all LEDs from the FPGA

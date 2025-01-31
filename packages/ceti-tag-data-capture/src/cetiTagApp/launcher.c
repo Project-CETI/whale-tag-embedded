@@ -332,21 +332,28 @@ void led_signal_thread_errors(uint32_t error_bitfield) {
         wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
         wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
         wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
-        usleep(500000);
-        wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+        usleep(100000);
+        wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
         if (error_bitfield & (1 << i)) {
             //red for critical, yellow for non-critical
             if (error_bitfield & ((1 << THREAD_BMS_ACQ) | (1 << THREAD_AUDIO_ACQ))) {
                 wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
-            } else {
-                wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
             }
+            wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
         }
-        usleep(500000);
+        usleep(100000);
     }
-    wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
-    wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
     wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+    wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+    wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+
+    if ((error_bitfield & & ((1 << THREAD_BMS_ACQ) | (1 << THREAD_AUDIO_ACQ)))){
+        wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+    } else if (error_bitfield) {
+        wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+    } else {
+        wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+    }
 }
 
 
@@ -400,7 +407,6 @@ int init_tag() {
     }
     // take contol of LEDs
     wt_fpga_led_capture_all(FPGA_LED_STATE_OFF);
-    wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
 #endif
 
 #if ENABLE_BATTERY_GAUGE
@@ -490,9 +496,6 @@ int init_tag() {
         result += -1;
     }
 #endif
-
-    led_signal_thread_errors(1 << THREAD_BMS_ACQ);
-
 
     if (result < 0 || (s_threads_in_error)) {
         CETI_ERR("Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
