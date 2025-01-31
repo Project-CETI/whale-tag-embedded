@@ -82,8 +82,9 @@ const ConfigList config_keys[] = {
 
     {.key = STR_FROM("surface_pressure"), .parse = __config_parse_surface_pressure},
     {.key = STR_FROM("dive_pressure"), .parse = __config_parse_dive_pressure},
-    {.key = STR_FROM("release_voltage"), .parse = __config_parse_cell_release_voltage},
-    {.key = STR_FROM("critical_voltage"), .parse = __config_parse_cell_critical_voltage},
+    {.key = STR_FROM("release_voltage"), .parse = __config_parse_release_voltage},
+    {.key = STR_FROM("critical_voltage"), .parse = __config_parse_critical_voltage},
+
     {.key = STR_FROM("timeout_release"), .parse = __config_parse_timeout},
     {.key = STR_FROM("burn_interval"), .parse = __config_parse_burn_interval_value},
     {.key = STR_FROM("audio_filter"), .parse = __config_parse_audio_filter_type},
@@ -260,56 +261,7 @@ static ConfigError __config_parse_critical_voltage(const char *_String) {
 
     // assign value
     g_config.critical_voltage_v = parsed_value / 2.0;
-    CETI_DEBUG("critical voltage set to %.2fV", parsed_value);
-    return CONFIG_OK;
-}
 
-static ConfigError __config_parse_cell_release_voltage(const char *_String) {
-    char *end_ptr;
-    float parsed_value;
-
-    // try reading a float
-    errno = 0;
-    parsed_value = strtof(_String, &end_ptr);
-    if (parsed_value == 0.0f) {
-        if ((_String == end_ptr) || (errno == ERANGE)) {
-            return CONFIG_ERR_INVALID_VALUE;
-        }
-    }
-
-    // Check acceptable range
-    if (parsed_value > 8.4)
-        return CONFIG_ERR_INVALID_VALUE;
-    if (parsed_value < 6.2)
-        return CONFIG_ERR_INVALID_VALUE;
-
-    // assign value
-    g_config.release_voltage_v = parsed_value;
-    CETI_DEBUG("release voltage set to %.2fV", parsed_value);
-    return CONFIG_OK;
-}
-
-static ConfigError __config_parse_cell_critical_voltage(const char *_String) {
-    char *end_ptr;
-    float parsed_value;
-
-    // try reading a float
-    errno = 0;
-    parsed_value = strtof(_String, &end_ptr);
-    if (parsed_value == 0.0f) {
-        if ((_String == end_ptr) || (errno == ERANGE)) {
-            return CONFIG_ERR_INVALID_VALUE;
-        }
-    }
-
-    // Check acceptable range
-    if (parsed_value > 8.4)
-        return CONFIG_ERR_INVALID_VALUE;
-    if (parsed_value < 6.2)
-        return CONFIG_ERR_INVALID_VALUE;
-
-    // assign value
-    g_config.critical_voltage_v = parsed_value;
     CETI_DEBUG("critical voltage set to %.2fV", parsed_value);
     return CONFIG_OK;
 }
