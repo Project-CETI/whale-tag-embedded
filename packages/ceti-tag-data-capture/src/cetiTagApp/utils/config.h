@@ -19,8 +19,8 @@
 #define CONFIG_DEFAULT_AUDIO_FILTER_TYPE AUDIO_FILTER_WIDEBAND
 #define CONFIG_DEFAULT_SURFACE_PRESSURE_BAR (0.3) // depth_m is roughly 10*pressure_bar
 #define CONFIG_DEFAULT_DIVE_PRESSURE_BAR (0.5)    // depth_m is roughly 10*pressure_bar
-#define CONFIG_DEFAULT_RELEASE_VOLTAGE_V (6.4)
-#define CONFIG_DEFAULT_CRITICAL_VOLTAGE_V (6.2)
+#define CONFIG_DEFAULT_RELEASE_VOLTAGE_V (6.4 / 2.0)
+#define CONFIG_DEFAULT_CRITICAL_VOLTAGE_V (6.2 / 2.0)
 #define CONFIG_DEFAULT_TIMEOUT_S (4 * 24 * 60 * 60)
 #define CONFIG_DEFAULT_BURN_INTERVAL_S (5 * 60)
 #define CONFIG_DEFAULT_RECOVERY_ENABLED 0
@@ -44,6 +44,10 @@ typedef struct tag_configuration {
     float release_voltage_v;
     float critical_voltage_v;
     time_t timeout_s;
+    struct {
+        int valid;
+        struct tm value;
+    } tod_release;
     time_t burn_interval_s;
     struct {
         int enabled;
@@ -59,4 +63,6 @@ int strtobool_s(const char *_String, const char **_EndPtr);
 time_t strtotime_s(const char *_String, char **_EndPtr);
 int config_read(const char *filename);
 int config_parse_line(const char *_String);
+void config_log(uint64_t timestamp);
+
 #endif // CETI_CONFIG_H

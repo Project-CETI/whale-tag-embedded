@@ -15,11 +15,11 @@
 //-----------------------------------------------------------------------------
 
 #include <stdint.h> // for int64_t
+#include <time.h>   // for struct tm
 
 //-----------------------------------------------------------------------------
 // Configuration
 //-----------------------------------------------------------------------------
-#define ADDR_RTC 0x68
 
 //-----------------------------------------------------------------------------
 // Methods
@@ -27,12 +27,15 @@
 int init_timing();
 void updateRtcCount();
 int getRtcCount();
+void *rtc_thread(void *paramPtr);
 int64_t get_global_time_us();
 int64_t get_global_time_ms();
 int64_t get_global_time_s(void);
 int sync_global_time_init(void);
-void *rtc_thread(void *paramPtr);
-
+#ifdef UNIT_TEST
+void set_fake_time(const struct tm *tm_s);
+#endif
+int64_t get_next_time_of_day_occurance_s(const struct tm *time_of_day);
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
