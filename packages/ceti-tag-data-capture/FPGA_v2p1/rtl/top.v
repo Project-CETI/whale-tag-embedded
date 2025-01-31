@@ -11,8 +11,8 @@
 // 220816 Swap TXD and RXD in the UCF to match Recovery Board HW
 // 221102 Start work on i2c power off transmission method. Companion Debian is version 2.1-4
 // 230905 Expose FIFO Overflow (latched version)to Pi HAT GPIO_12
-// 240730 New features for v2.3 tag. i2c word write to support BMS; swap recovery RX/TX
-//
+// 240730 FPGA Ver 2300 New features for v2.3 tag. i2c word write to support BMS; swap recovery RX/TX
+// 250129 FPGA Ver 2301 Add CAM opcodes to control status LEDs
 //-----------------------------------------------------------------------------
 // Additional Information
 //
@@ -104,9 +104,9 @@ module top(
 	inout wire HAT_GPIO_23,		//Bit banged I2C SDA reserved
 	inout wire HAT_GPIO_24,		//Bit banged I2C SCL reserved
 	
-	output wire LED_1,	      //Green			
-	output wire LED_2, 	      //Yellow		 
-	output wire LED_3 	      //Red		
+	output wire LED_0,	      //Green			
+	output wire LED_1, 	      //Yellow		 
+	output wire LED_2 	      //Red
 
 );
 
@@ -144,9 +144,8 @@ assign RCVRY_RX 	 = HAT_GPIO_14;   //Connects Pi TXD to Recovery Board
 assign HAT_GPIO_6 = ECG_DRDY;
 
 //-----------------------------------------------------------------------------
-assign LED_1 = led_alive;            //GREEN
-assign LED_2 = spi_fifo_of_latched;  //RED
-assign LED_3 = spi_fifo_empty;       //AMBER
+// Overflow Notification
+
 assign HAT_GPIO_12 = spi_fifo_of_latched;  //new for SW detection of OF 230905
 
 //-----------------------------------------------------------------------------
@@ -159,7 +158,7 @@ assign IMU_MOSI = 1'b0;  			// sets i2c address to 0x4A
 assign IMU_nBOOT = 1'hz; 			// pulled up on board
 
 //-----------------------------------------------------------------------------
-// Generic Access to CAM Messages
+// Generic Access to CAM Messages 
 wire [7:0] cam_arg0;
 wire [7:0] cam_arg1;
 wire [7:0] cam_pay0;
@@ -167,6 +166,7 @@ wire [7:0] cam_pay1;
 
 //-----------------------------------------------------------------------------
 // Flow Control bit for main data acq
+
 assign HAT_GPIO_22 = acq_dv;
 
 //-----------------------------------------------------------------------------
@@ -199,6 +199,33 @@ wire [7:0] i2c_rd_sns_data1;
 wire sns_sda_out; 
 wire sns_scl_out;
 
+//-----------------------------------------------------------------------------
+// Board LED Manipulation
+//-----------------------------------------------------------------------------
+
+wire [7:0] grn_led_ctl;  //these controls provided by CAM module			
+wire [7:0] yel_led_ctl;  //see opcode 0x12 
+wire [7:0] red_led_ctl;
+
+assign LED_0 = (grn_led_ctl[7:4] == 0) ? led_alive 						 :  //FPGA controls
+					(grn_led_ctl[7:4] == 1) ? grn_led_ctl[0] 					 :  //PI controls
+					(grn_led_ctl[7:4] == 2) ? (led_alive | grn_led_ctl[0]) :	 //OR'd
+					(grn_led_ctl[7:4] == 3) ? (led_alive ^ grn_led_ctl[0]) :	 //XOR'd
+					(grn_led_ctl[7:4] == 4) ? (led_alive & grn_led_ctl[0]) :	 //AND'd
+					1'b0; 
+assign LED_1 = (yel_led_ctl[7:4] == 0) ? spi_fifo_empty 							:  //FPGA controls
+					(yel_led_ctl[7:4] == 1) ? yel_led_ctl[0] 					 		:  //PI controls
+					(yel_led_ctl[7:4] == 2) ? (spi_fifo_empty | yel_led_ctl[0]) :	//OR'd
+					(yel_led_ctl[7:4] == 3) ? (spi_fifo_empty ^ yel_led_ctl[0]) :	//XOR'd
+					(yel_led_ctl[7:4] == 4) ? (spi_fifo_empty & yel_led_ctl[0]) :	//AND'd
+					1'b0;
+assign LED_2 = (red_led_ctl[7:4] == 0) ? spi_fifo_of_latched 						  : //FPGA controls
+					(red_led_ctl[7:4] == 1) ? red_led_ctl[0] 					 			  : //PI controls
+					(red_led_ctl[7:4] == 2) ? (spi_fifo_of_latched | red_led_ctl[0]) : //OR'd
+					(red_led_ctl[7:4] == 3) ? (spi_fifo_of_latched ^ red_led_ctl[0]) : //XOR'd
+					(red_led_ctl[7:4] == 4) ? (spi_fifo_of_latched & red_led_ctl[0]) : //AND'd
+					1'b0;
+					
 //-----------------------------------------------------------------------------
 // Main Clock Buffer
 //-----------------------------------------------------------------------------
@@ -297,10 +324,13 @@ cam m_cam (
 	.start_sns_i2c		(start_sns_i2c),
 	.status_sns_i2c	(status_sns_i2c),
 	.i2c_rd_sns_data0	(i2c_rd_sns_data0),
-	.i2c_rd_sns_data1 (i2c_rd_sns_data1)
+	.i2c_rd_sns_data1 (i2c_rd_sns_data1),
+
+	.grn_led_ctl  (grn_led_ctl),
+	.yel_led_ctl  (yel_led_ctl),
+	.red_led_ctl  (red_led_ctl)
 	
 );
-
 
 //-----------------------------------------------------------------------------
 // ADC Interface for Bring Up - Getting started with the AD7768-4

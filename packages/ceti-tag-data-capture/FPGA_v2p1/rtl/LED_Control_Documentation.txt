@@ -1,0 +1,94 @@
+1/30/25  Matt Cummings
+
+This is to document a new feature added to the FPGA design that allows the main Raspberry Pi application (e.g. cetiTagApp) to control the Tag board LEDs via the CAM interface. This applies to the v2.3 hardware and the new FPGA version is 2301
+
+Details:
+
+1) A new CAM opcode 0x12 (decimal 18) is implemented for flexible and general LED control of the three status LEDs on the v2.3 Tag.
+
+2) The new opcode has two arguments:
+
+	arg1 specifies which LED the operation applies to
+
+		0x00 - GREEN
+		0x01 - YELLOW
+		0x02 - RED
+
+	arg0 specifies the mode of control for the operation and if the LED is on or off
+
+		bits [7:4] define the mode
+		0000b - FPGA auto control (default)
+		0001b - Pi control
+		0010b - FPGA logically OR'd with Pi
+		0011b - FPGA logicall  XOR'd with Pi
+		0100b - FPGA logically AND'd with Pi
+
+		bits [3:0] define the state (on or off) of the LED as controlled by the Pi's channel
+		0000b - OFF
+		0001b - ON
+
+		For example, if arg1 is 0x00 and arg0 is 0x11 (00010001b), the green LED is under Pi control and turned ON.  More examples below in the code snippets.
+	
+
+3) The LED net naming and order was cleaned up = cosmetic only
+
+4) Testing - Basic testing of each LED was conducted under Pi control (see code below).
+   More testing is needed before accepting this solution.
+
+4) Example code
+
+    wt_fpga_cam(18, 0x00, 0x11, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x01, 0x11, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x02, 0x11, 0, 0, fpgaCamResponse);
+    fprintf(g_rsp_pipe, "All LEDs ON\n");
+    sleep(1);
+
+    wt_fpga_cam(18, 0x00, 0x10, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x01, 0x10, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x02, 0x10, 0, 0, fpgaCamResponse);
+    fprintf(g_rsp_pipe, "All LEDs OFF\n");
+    sleep(1);
+
+    wt_fpga_cam(18, 0x00, 0x11, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x01, 0x10, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x02, 0x10, 0, 0, fpgaCamResponse);
+    fprintf(g_rsp_pipe, "Green ON\n");
+    sleep(1);
+
+    wt_fpga_cam(18, 0x00, 0x10, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x01, 0x10, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x02, 0x10, 0, 0, fpgaCamResponse);
+    fprintf(g_rsp_pipe, "Green OFF\n");
+    sleep(1);
+
+    wt_fpga_cam(18, 0x00, 0x10, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x01, 0x11, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x02, 0x10, 0, 0, fpgaCamResponse);
+    fprintf(g_rsp_pipe, "Yellow ON\n");
+    sleep(1);
+
+    wt_fpga_cam(18, 0x00, 0x10, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x01, 0x10, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x02, 0x10, 0, 0, fpgaCamResponse);
+    fprintf(g_rsp_pipe, "Yellow OFF\n");
+    sleep(1);
+
+    wt_fpga_cam(18, 0x00, 0x10, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x01, 0x10, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x02, 0x11, 0, 0, fpgaCamResponse);
+    fprintf(g_rsp_pipe, "Red ON\n");
+    sleep(1);
+
+    wt_fpga_cam(18, 0x00, 0x10, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x01, 0x10, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x02, 0x10, 0, 0, fpgaCamResponse);
+    fprintf(g_rsp_pipe, "Red OFF\n");
+    sleep(1);
+
+    wt_fpga_cam(18, 0x00, 0x00, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x01, 0x00, 0, 0, fpgaCamResponse);
+    wt_fpga_cam(18, 0x02, 0x00, 0, 0, fpgaCamResponse);
+    fprintf(g_rsp_pipe, "Normal FPGA Control of LEDs\n");
+    sleep(1);
+
+
