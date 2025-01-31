@@ -59,6 +59,8 @@ static ConfigError __config_parse_surface_pressure(const char *_String);
 static ConfigError __config_parse_dive_pressure(const char *_String);
 static ConfigError __config_parse_release_voltage(const char *_String);
 static ConfigError __config_parse_critical_voltage(const char *_String);
+static ConfigError __config_parse_cell_release_voltage(const char *_String);
+static ConfigError __config_parse_cell_critical_voltage(const char *_String);
 static ConfigError __config_parse_timeout(const char *_String);
 static ConfigError __config_parse_time_of_day(const char *_String);
 static ConfigError __config_parse_burn_interval_value(const char *_String);
@@ -82,6 +84,7 @@ const ConfigList config_keys[] = {
     {.key = STR_FROM("dive_pressure"), .parse = __config_parse_dive_pressure},
     {.key = STR_FROM("release_voltage"), .parse = __config_parse_release_voltage},
     {.key = STR_FROM("critical_voltage"), .parse = __config_parse_critical_voltage},
+
     {.key = STR_FROM("timeout_release"), .parse = __config_parse_timeout},
     {.key = STR_FROM("burn_interval"), .parse = __config_parse_burn_interval_value},
     {.key = STR_FROM("audio_filter"), .parse = __config_parse_audio_filter_type},
@@ -258,6 +261,7 @@ static ConfigError __config_parse_critical_voltage(const char *_String) {
 
     // assign value
     g_config.critical_voltage_v = parsed_value / 2.0;
+
     CETI_DEBUG("critical voltage set to %.2fV", parsed_value);
     return CONFIG_OK;
 }
