@@ -1,3 +1,15 @@
+ceti-tag-data-capture (2.3-1) stable; urgency=medium
+
+  * Improved Error Handling
+  * Config overlay in data partition for quick editing
+  * Time of Day Release
+  * Log syslogs directly to data folder to catch more errors
+  * Include tag metadata file with data
+  * PI LED control
+
+
+ --  CETI Project <cetiproject.org>  Thu, 15 Aug 2024 00:00:01 -0800
+
 ceti-tag-data-capture (2.3-0) stable; urgency=medium
 
   * Baseline version for the new v2.3 hardware platform
