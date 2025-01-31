@@ -7,7 +7,6 @@ ceti-tag-data-capture (2.3-1) stable; urgency=medium
   * Include tag metadata file with data
   * PI LED control
 
-
  --  CETI Project <cetiproject.org>  Fri, 31 Jan 2024 00:00:01 -0800
 
 ceti-tag-data-capture (2.3-0) stable; urgency=medium
