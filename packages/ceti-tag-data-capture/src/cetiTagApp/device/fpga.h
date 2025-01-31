@@ -43,8 +43,6 @@ typedef enum {
     FPGA_LED_STATE_ON = 1,
 } FpgaLedState;
 
-
-
 //-----------------------------------------------------------------------------
 // Function-like Macros
 //-----------------------------------------------------------------------------
@@ -94,29 +92,31 @@ typedef enum {
 
 /**
  * @brief Sets FPGA LED control state
- * 
+ *
  */
-#define wt_fpga_led_set(color, mode, state) wt_fpga_cam(0x12, (color), ((((mode) & ((1 << 4)-1)) << 4) | ((state) & ((1 << 4) - 1))), 0, 0, NULL)
+#define wt_fpga_led_set(color, mode, state) wt_fpga_cam(0x12, (color), ((((mode) & ((1 << 4) - 1)) << 4) | ((state) & ((1 << 4) - 1))), 0, 0, NULL)
 
 /**
  * @brief Captures control of all LEDs from the FPGA
- * 
+ *
  */
-#define wt_fpga_led_capture_all(state) { \
-    wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, (state)); \
-    wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, (state)); \
-    wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, (state)); \
-}
+#define wt_fpga_led_capture_all(state)                                    \
+    {                                                                     \
+        wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, (state));  \
+        wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, (state)); \
+        wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, (state));    \
+    }
 
 /**
  * @brief Releases control of all LEDs to the FPGA
- * 
+ *
  */
-#define wt_fpga_led_release_all() { \
-    wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_FPGA_ONLY, 0); \
-    wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_FPGA_ONLY, 0); \
-    wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_FPGA_ONLY, 0); \
-}
+#define wt_fpga_led_release_all()                                     \
+    {                                                                 \
+        wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_FPGA_ONLY, 0);  \
+        wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_FPGA_ONLY, 0); \
+        wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_FPGA_ONLY, 0);    \
+    }
 
 /**
  * @brief opcode 0xF will do a register write on i2c1.

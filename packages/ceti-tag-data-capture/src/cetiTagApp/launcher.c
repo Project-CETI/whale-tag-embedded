@@ -328,34 +328,37 @@ int main(void) {
 // Helper method to initialize the tag.
 //-----------------------------------------------------------------------------
 void led_signal_thread_errors(uint32_t error_bitfield) {
-    for(int i = 0; i < THREAD_ECG_LOG + 1; i++) {
+    for (int i = 0; i < THREAD_ECG_LOG + 1; i++) {
+        // turn off LEDs
         wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
         wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
         wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
         usleep(100000);
+        // Clock with Yellow
         wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
         if (error_bitfield & (1 << i)) {
-            //red for critical, yellow for non-critical
+            // red for critical, yellow for non-critical
             if (error_bitfield & ((1 << THREAD_BMS_ACQ) | (1 << THREAD_AUDIO_ACQ))) {
                 wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
             }
+            // green non-critical error
             wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
         }
-        usleep(100000);
+        usleep(250000);
     }
     wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
     wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
     wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
 
-    if ((error_bitfield & & ((1 << THREAD_BMS_ACQ) | (1 << THREAD_AUDIO_ACQ)))){
+    if ((error_bitfield & ((1 << THREAD_BMS_ACQ) | (1 << THREAD_AUDIO_ACQ)))) {
         wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
     } else if (error_bitfield) {
         wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
     } else {
         wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
     }
+    sleep(10);
 }
-
 
 int init_tag() {
     int result = 0;
@@ -509,7 +512,7 @@ int init_tag() {
         }
     }
 
-    //return LED control to FPGA
+    // return LED control to FPGA
     wt_fpga_led_release_all();
     return result - s_threads_in_error;
 }
