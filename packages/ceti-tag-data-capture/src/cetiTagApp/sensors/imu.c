@@ -9,20 +9,19 @@
 
 #include "imu.h"
 #include "../cetiTag.h"
+#include "../device/bno08x.h"
 #include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
 #include "../utils/logging.h"
 #include "../utils/memory.h"
 #include "../utils/thread_error.h"
 #include "../utils/timing.h" // for timestamps
-#include "../device/bno08x.h"
 
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
-#include <math.h> // for fmin()
-#include <math.h> // for fmin(), sqrt(), atan2(), M_PI
-#include <pigpio.h>
+#include <math.h>    // for fmin()
+#include <math.h>    // for fmin(), sqrt(), atan2(), M_PI
 #include <pthread.h> // to set CPU affinity
 #include <semaphore.h>
 #include <stdbool.h>
@@ -315,8 +314,8 @@ void *imu_thread(void *paramPtr) {
 
     if ((imu_quaternion == NULL) || (imu_accel_m_ss == NULL) || (imu_gyro_rad_s == NULL) || (imu_mag_ut == NULL) || (s_quat_ready == SEM_FAILED) || (s_accel_ready == SEM_FAILED) || (s_gyro_ready == SEM_FAILED) || (s_mag_ready == SEM_FAILED)) {
         CETI_ERR("Thread started without neccesary memory resources");
-        resetIMU(); // seems nice to stop the feature reports
-        bbI2CClose(IMU_BB_I2C_SDA);
+        wt_bno08x_hard_reset(); // seems nice to stop the feature reports
+        wt_bno08x_close();
         imu_is_connected = 0;
         imu_close_all_files();
         g_imu_thread_is_running = 0;
@@ -474,8 +473,8 @@ void *imu_thread(void *paramPtr) {
         // Note that no delay is added here to set the polling frequency,
         //  since the IMU feature reports will control the sampling rate.
     }
-    resetIMU(); // seems nice to stop the feature reports
-    bbI2CClose(IMU_BB_I2C_SDA);
+    wt_bno08x_hard_reset(); // seems nice to stop the feature reports
+    wt_bno08x_close();
     imu_is_connected = 0;
     imu_close_all_files();
 
@@ -497,33 +496,21 @@ void *imu_thread(void *paramPtr) {
 // BNO080 Interface
 //-----------------------------------------------------------------------------
 
-int resetIMU() {
-    gpioSetMode(IMU_N_RESET, PI_OUTPUT);
-    usleep(10000);
-    gpioWrite(IMU_N_RESET, PI_HIGH);
-    usleep(100000);
-    gpioWrite(IMU_N_RESET, PI_LOW); // reset the device (active low reset)
-    usleep(100000);
-    gpioWrite(IMU_N_RESET, PI_HIGH);
-    usleep(500000); // if this is about 150000 or less, the first feature report fails to start
-
-    return 0;
-}
-
 //-----------------------------------------------------------------------------
 int setupIMU(uint8_t enabled_features) {
+    char err_str[512];
+
     // Reset the IMU
-    if (imu_is_connected)
-        bbI2CClose(IMU_BB_I2C_SDA);
+    if (imu_is_connected) {
+        wt_bno08x_close();
+    }
     imu_is_connected = 0;
-    usleep(10000);
-    resetIMU();
+    wt_bno08x_hard_reset();
 
     // Open an I2C connection.
-    int retval = bbI2COpen(IMU_BB_I2C_SDA, IMU_BB_I2C_SCL, 200000);
-    if (retval < 0) {
-        CETI_ERR("Failed to connect to the IMU\n");
-        imu_is_connected = 0;
+    WTResult retval = wt_bno08x_open();
+    if (retval != WT_OK) {
+        CETI_ERR("Failed to connect to the IMU: %s\n", wt_strerror_r(retval, err_str, sizeof(err_str)));
         return -1;
     }
     imu_is_connected = 1;
@@ -556,62 +543,23 @@ int setupIMU(uint8_t enabled_features) {
 }
 
 int imu_enable_feature_report(int report_id, uint32_t report_interval_us) {
-    char setFeatureCommand[21] = {0};
-    char shtpHeader[4] = {0};
-    char writeCmdBuf[28] = {0};
-    char readCmdBuf[10] = {0};
     ShtpHeader response_header = {0};
     WTResult hw_result = WT_OK;
 
-    uint16_t feature_command_length = 21;
-
-    // Populate the SHTP header (see 2.2.1 of "Sensor Hub Transport Protocol")
-    setFeatureCommand[0] = feature_command_length & 0xFF; // Packet length LSB
-    setFeatureCommand[1] = feature_command_length >> 8;   // Packet length MSB
-    setFeatureCommand[2] = IMU_CHANNEL_CONTROL;
-    setFeatureCommand[3] = imu_sequence_numbers[IMU_CHANNEL_CONTROL]++; // sequence number for this channel
-
-    // Populate the Set Feature Command (see 6.5.4 of "SH-2 Reference Manual")
-    setFeatureCommand[4] = IMU_SHTP_REPORT_SET_FEATURE_COMMAND;
-    setFeatureCommand[5] = report_id;
-    setFeatureCommand[6] = 0; // feature flags
-    setFeatureCommand[7] = 0; // change sensitivity LSB
-    setFeatureCommand[8] = 0; // change sensitivity MSB
-    // Set the report interval in microseconds, as 4 bytes with LSB first
-    for (int interval_byte_index = 0; interval_byte_index < 4; interval_byte_index++)
-        setFeatureCommand[9 + interval_byte_index] = (report_interval_us >> (8 * interval_byte_index)) & 0xFF;
-    setFeatureCommand[13] = 0; // batch interval LSB
-    setFeatureCommand[14] = 0;
-    setFeatureCommand[15] = 0;
-    setFeatureCommand[16] = 0; // batch interval MSB
-    setFeatureCommand[17] = 0; // sensor-specific configuration word LSB
-    setFeatureCommand[18] = 0;
-    setFeatureCommand[19] = 0;
-    setFeatureCommand[20] = 0; // sensor-specific configuration word MSB
-
     // Write the command to enable the feature report.
-    writeCmdBuf[0] = 0x04; // set address
-    writeCmdBuf[1] = ADDR_IMU;
-    writeCmdBuf[2] = 0x02; // start
-    writeCmdBuf[3] = 0x07; // write
-    writeCmdBuf[4] = 0x15; // length
-    memcpy(&writeCmdBuf[5], setFeatureCommand, feature_command_length);
-    writeCmdBuf[26] = 0x03; // stop
-    writeCmdBuf[27] = 0x00; // end
-    int retval = bbI2CZip(IMU_BB_I2C_SDA, writeCmdBuf, 28, NULL, 0);
-    if (retval < 0) {
-        CETI_ERR("I2C write failed enabling report %d: %d", report_id, retval);
+    hw_result = wt_bno08x_enable_report(report_id, report_interval_us);
+    if (hw_result == WT_OK) {
+        hw_result = wt_bno08x_read_header(&response_header);
+    }
+    // report any errors
+    if (hw_result != WT_OK) {
+        char err_str[512];
+        CETI_ERR("BMS failed enabling report %d: %s", report_id, wt_strerror_r(hw_result, err_str, sizeof(err_str)));
         return -1;
     }
 
-    hw_result = wt_bno08x_read_header(&response_header);
-    if (hw_result != WT_OK) {
-        char err_str[512];
-        CETI_ERR("I2C read failed enabling report %d: %s", report_id,  wt_strerror_r(hw_result, err_str, sizeof(err_str)));
-    }
-
-    CETI_LOG("Enabled report %d.  Header is 0x%02X  0x%02X  0x%02X  0x%02X",
-             report_id, shtpHeader[0], shtpHeader[1], shtpHeader[2], shtpHeader[3]);
+    CETI_LOG("Enabled report %d.  Header is 0x%04X, 0x%02X  0x%02X",
+             report_id, response_header.length, response_header.channel, response_header.seq_num);
 
     return 0;
 }
@@ -620,42 +568,19 @@ int imu_enable_feature_report(int report_id, uint32_t report_interval_us) {
 int imu_read_data() {
     int numBytesAvail;
     char pktBuff[256] = {0};
-    char shtpHeader[4] = {0};
-    char commandBuffer[10] = {0};
-    int retval;
     ShtpHeader response_header = {};
     WTResult hw_result = WT_OK;
 
-
+    // Read a header to see how many bytes are available.
     hw_result = wt_bno08x_read_header(&response_header);
-    if (hw_result != WT_OK) {
+    numBytesAvail = fmin(sizeof(pktBuff), response_header.length); // msb is "continuation bit", not part of count
+    if ((hw_result != WT_OK) || (numBytesAvail <= 0)) {
         return -1;
     }
 
-    // Read a header to see how many bytes are available.
-    commandBuffer[0] = 0x04; // set address
-    commandBuffer[1] = ADDR_IMU;
-    commandBuffer[2] = 0x02; // start
-    commandBuffer[3] = 0x01; // escape
-    commandBuffer[4] = 0x06; // read
-    commandBuffer[5] = 0x04; // #bytes lsb (read a 4-byte header)
-    commandBuffer[6] = 0x00; // #bytes msb
-    commandBuffer[7] = 0x03; // stop
-    commandBuffer[8] = 0x00; // end
-    retval = bbI2CZip(IMU_BB_I2C_SDA, commandBuffer, 9, shtpHeader, 4);
-
-    numBytesAvail = fmin(256, response_header.length); // msb is "continuation bit", not part of count
-
-    if ((retval <= 0) || (numBytesAvail <= 0))
-        return -1;
-
     // Adjust the read command for the amount of data available.
-    commandBuffer[5] = numBytesAvail & 0xff;        // LSB
-    commandBuffer[6] = (numBytesAvail >> 8) & 0xff; // MSB
-    // Read the data.
-    retval = bbI2CZip(IMU_BB_I2C_SDA, commandBuffer, 9, pktBuff, numBytesAvail);
-    // Parse the data.
-    if ((retval <= 0) || pktBuff[2] != IMU_CHANNEL_REPORTS) { // make sure we have the right channel
+    hw_result = wt_bno08x_read(pktBuff, numBytesAvail);
+    if ((hw_result != WT_OK) || pktBuff[2] != IMU_CHANNEL_REPORTS) { // make sure we have the right channel
         return -1;
     }
 
@@ -663,13 +588,6 @@ int imu_read_data() {
     int rtc_count = getRtcCount();
     uint8_t report_id = pktBuff[9];
     int32_t timestamp_delay_us = (int32_t)(((uint32_t)pktBuff[8] << (8 * 3)) | ((uint32_t)pktBuff[7] << (8 * 2)) | ((uint32_t)pktBuff[6] << (8 * 1)) | ((uint32_t)pktBuff[5] << (8 * 0)));
-    // uint8_t sequence_number = pktBuff[10];
-    // CETI_LOG("IMU REPORT %d  seq %3d  timestamp_delay_us %ld\n",
-    //   report_id, sequence_number, (int32_t)timestamp_delay_us);
-    // for (int i = 0; i < 4; i++)
-    //   CETI_LOG("    H%2d: %d\n", i, shtpHeader[i]);
-    // for (int i = 0; i < numBytesAvail; i++)
-    //   CETI_LOG("    D%2d: %d\n", i, pktBuff[i]);
 
     // Parse the data in the report.
     uint8_t status = pktBuff[11] & 0x03; // Get status bits
