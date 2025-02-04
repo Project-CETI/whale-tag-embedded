@@ -55,15 +55,16 @@ WTResult wt_bno08x_open(void) {
 
 WTResult wt_bno08x_read(void *buffer, size_t buffer_len) {
     // starts at index 3 so memcpy can be more efficient
-    uint8_t header[8] = {
+    uint8_t header[] = {
         [0] = 0x04,                                 // set addr
         [1] = IMU_I2C_DEV_ADDR,                     // imu addr
         [2] = 0x02,                                 // start
-        [3] = 0x06,                                 // read
-        [4] = (((uint16_t)buffer_len) & 0xFF),      // length lsb
-        [5] = (((uint16_t)buffer_len >> 8) & 0xFF), // length msb
-        [6] = 0x03,                                 // stop
-        [7] = 0x00,                                 // end
+        [3] = 0x01,                                 // escape
+        [4] = 0x06,                                 // read
+        [5] = (((uint16_t)buffer_len) & 0xFF),      // length lsb
+        [6] = (((uint16_t)buffer_len >> 8) & 0xFF), // length msb
+        [7] = 0x03,                                 // stop
+        [8] = 0x00,                                 // end
     };
 
     PI_TRY(WT_DEV_IMU, bbI2CZip(IMU_BB_I2C_SDA, (char *)header, sizeof(header), buffer, buffer_len));
@@ -87,7 +88,7 @@ void wt_bno08x_hard_reset(void) {
 
 WTResult wt_bno08x_write(void *buffer, size_t buffer_len) {
     // starts at index 3 so memcpy can be more efficient
-    uint8_t header[5] = {
+    uint8_t header[] = {
         [0] = 0x04,             // set addr
         [1] = IMU_I2C_DEV_ADDR, // imu addr
         [2] = 0x02,             // start
@@ -95,7 +96,7 @@ WTResult wt_bno08x_write(void *buffer, size_t buffer_len) {
         [4] = buffer_len,       // length
     };
 
-    const uint8_t tail[2] = {
+    const uint8_t tail[] = {
         [0] = 0x03, // stop
         [1] = 0x00  // end
     };
@@ -107,7 +108,7 @@ WTResult wt_bno08x_write(void *buffer, size_t buffer_len) {
 }
 
 WTResult wt_bno08x_write_shtp_packet(ShtpChannel channel, void *pPacket, size_t packet_len) {
-    uint8_t i2c_header[5] = {
+    uint8_t i2c_header[] = {
         [0] = 0x04,                            // set addr
         [1] = IMU_I2C_DEV_ADDR,                // imu addr
         [2] = 0x02,                            // start
@@ -122,7 +123,7 @@ WTResult wt_bno08x_write_shtp_packet(ShtpChannel channel, void *pPacket, size_t 
         .seq_num = shtp_channel_seq_num[channel]++,
     };
 
-    const uint8_t i2c_tail[2] = {
+    const uint8_t i2c_tail[] = {
         [0] = 0x03, // stop
         [1] = 0x00, // end
     };
@@ -140,7 +141,7 @@ WTResult wt_set_system_orientation(double w, double x, double y, double z) {
     int32_t y_fp = (int32_t)(y * 2.0e30);
     int32_t z_fp = (int32_t)(z * 2.0e30);
 
-    uint8_t frs_w_data_request[20] = {
+    uint8_t frs_w_data_request[] = {
         [0] = 0xF6, // report_ID
         // [1] = reserved
         [2] = 0x3E,                 // offset LSB
@@ -163,7 +164,7 @@ WTResult wt_set_system_orientation(double w, double x, double y, double z) {
         [19] = ((w_fp >> 24) & 0xFF), // w MSB
     };
 
-    const uint8_t frs_w_request[6] = {
+    const uint8_t frs_w_request[] = {
         [0] = 0xF7, // report_ID
         // [1] = reserved
         [2] = sizeof(frs_w_data_request) & 0xFF,        // length LSB
