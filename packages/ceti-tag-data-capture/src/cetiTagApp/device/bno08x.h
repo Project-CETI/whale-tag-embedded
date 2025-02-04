@@ -33,7 +33,7 @@ typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))
 WTResult wt_bno08x_close(void);
 WTResult wt_bno08x_enable_report(uint16_t report_id, uint32_t report_interval_us);
 WTResult wt_bno08x_open(void);
-void wt_bno08x_hard_reset(void);
+void wt_bno08x_reset_hard(void);
 WTResult wt_bno08x_read(void *buffer, size_t buffer_len);
 WTResult wt_bno08x_read_header(ShtpHeader *pHeader);
 WTResult wt_bno08x_write(void *buffer, size_t buffer_len);

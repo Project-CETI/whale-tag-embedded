@@ -12,6 +12,7 @@
 #include "i2c.h"
 
 #include <pigpio.h>
+#include <string.h>
 
 #define IMU_OPEN_TIMEOUT 20000
 
@@ -75,7 +76,7 @@ WTResult wt_bno08x_read_header(ShtpHeader *pHeader) {
     return wt_bno08x_read(pHeader, sizeof(ShtpHeader));
 }
 
-void wt_bno08x_hard_reset(void) {
+void wt_bno08x_reset_hard(void) {
     gpioSetMode(IMU_N_RESET, PI_OUTPUT);
     usleep(10000);
     gpioWrite(IMU_N_RESET, PI_HIGH);
@@ -86,6 +87,12 @@ void wt_bno08x_hard_reset(void) {
     usleep(500000); // if this is about 150000 or less, the first feature report fails to start
 }
 
+WTResult wt_bno08x_reset_soft(void) {
+    uint8_t reset_cmd = 1;
+    return wt_bno08x_write_shtp_packet(SHTP_CH_EXE, &reset_cmd, 1);
+    // ToDo: check when reset complete
+}
+
 WTResult wt_bno08x_write(void *buffer, size_t buffer_len) {
     // starts at index 3 so memcpy can be more efficient
     uint8_t i2c_packet[256 + 7] = {
@@ -94,18 +101,12 @@ WTResult wt_bno08x_write(void *buffer, size_t buffer_len) {
         [2] = 0x02,             // start
         [3] = 0x07,             // write
         [4] = buffer_len,       // length
-        // cpy buffer bits as packet
-        [5 + buffer_len] = 0x03, // stop
-        [6 + buffer_len] = 0x00  // end
     };
     memcpy(&i2c_packet[5], buffer, buffer_len);
+    i2c_packet[5 + buffer_len] = 0x03,    // stop
+        i2c_packet[6 + buffer_len] = 0x00 // end
 
-    const uint8_t tail[] = {
-        [0] = 0x03, // stop
-        [1] = 0x00  // end
-    };
-
-    PI_TRY(WT_DEV_IMU, bbI2CZip(IMU_BB_I2C_SDA, (void *)i2c_packet, buffer_len + 7, NULL, 0));
+        PI_TRY(WT_DEV_IMU, bbI2CZip(IMU_BB_I2C_SDA, (void *)i2c_packet, buffer_len + 7, NULL, 0));
     return WT_OK;
 }
 
@@ -117,7 +118,7 @@ WTResult wt_bno08x_write_shtp_packet(ShtpChannel channel, void *pPacket, size_t 
         .seq_num = shtp_channel_seq_num[channel]++,
     };
 
-    uint8_t shtp_packet[256] = {};    
+    uint8_t shtp_packet[256] = {};
     memcpy(&shtp_packet[0], &shtp_header, sizeof(ShtpHeader));
     memcpy(&shtp_packet[4], pPacket, packet_len);
 
@@ -163,7 +164,6 @@ WTResult wt_set_system_orientation(double w, double x, double y, double z) {
     };
 
     // read values to ensure write needs to occurs
-
 
     WT_TRY(wt_bno08x_write_shtp_packet(SHTP_CH_CONTROL, (void *)frs_w_request, sizeof(frs_w_request)));
     WT_TRY(wt_bno08x_write_shtp_packet(SHTP_CH_CONTROL, (void *)frs_w_data_request, sizeof(frs_w_data_request)));

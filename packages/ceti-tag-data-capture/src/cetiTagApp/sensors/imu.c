@@ -314,7 +314,7 @@ void *imu_thread(void *paramPtr) {
 
     if ((imu_quaternion == NULL) || (imu_accel_m_ss == NULL) || (imu_gyro_rad_s == NULL) || (imu_mag_ut == NULL) || (s_quat_ready == SEM_FAILED) || (s_accel_ready == SEM_FAILED) || (s_gyro_ready == SEM_FAILED) || (s_mag_ready == SEM_FAILED)) {
         CETI_ERR("Thread started without neccesary memory resources");
-        wt_bno08x_hard_reset(); // seems nice to stop the feature reports
+        wt_bno08x_reset_hard(); // seems nice to stop the feature reports
         wt_bno08x_close();
         imu_is_connected = 0;
         imu_close_all_files();
@@ -473,7 +473,7 @@ void *imu_thread(void *paramPtr) {
         // Note that no delay is added here to set the polling frequency,
         //  since the IMU feature reports will control the sampling rate.
     }
-    wt_bno08x_hard_reset(); // seems nice to stop the feature reports
+    wt_bno08x_reset_hard(); // seems nice to stop the feature reports
     wt_bno08x_close();
     imu_is_connected = 0;
     imu_close_all_files();
@@ -505,7 +505,7 @@ int setupIMU(uint8_t enabled_features) {
         wt_bno08x_close();
     }
     imu_is_connected = 0;
-    wt_bno08x_hard_reset();
+    wt_bno08x_reset_hard();
 
     // Open an I2C connection.
     WTResult retval = wt_bno08x_open();
