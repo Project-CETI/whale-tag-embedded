@@ -88,34 +88,28 @@ void wt_bno08x_hard_reset(void) {
 
 WTResult wt_bno08x_write(void *buffer, size_t buffer_len) {
     // starts at index 3 so memcpy can be more efficient
-    uint8_t header[] = {
+    uint8_t i2c_packet[256 + 7] = {
         [0] = 0x04,             // set addr
         [1] = IMU_I2C_DEV_ADDR, // imu addr
         [2] = 0x02,             // start
         [3] = 0x07,             // write
         [4] = buffer_len,       // length
+        // cpy buffer bits as packet
+        [5 + buffer_len] = 0x03, // stop
+        [6 + buffer_len] = 0x00  // end
     };
+    memcpy(&i2c_packet[5], buffer, buffer_len);
 
     const uint8_t tail[] = {
         [0] = 0x03, // stop
         [1] = 0x00  // end
     };
 
-    PI_TRY(WT_DEV_IMU, bbI2CZip(IMU_BB_I2C_SDA, (void *)header, sizeof(header), NULL, 0));
-    PI_TRY(WT_DEV_IMU, bbI2CZip(IMU_BB_I2C_SDA, buffer, buffer_len, NULL, 0));
-    PI_TRY(WT_DEV_IMU, bbI2CZip(IMU_BB_I2C_SDA, (void *)tail, sizeof(tail), NULL, 0));
+    PI_TRY(WT_DEV_IMU, bbI2CZip(IMU_BB_I2C_SDA, (void *)i2c_packet, buffer_len + 7, NULL, 0));
     return WT_OK;
 }
 
 WTResult wt_bno08x_write_shtp_packet(ShtpChannel channel, void *pPacket, size_t packet_len) {
-    uint8_t i2c_header[] = {
-        [0] = 0x04,                            // set addr
-        [1] = IMU_I2C_DEV_ADDR,                // imu addr
-        [2] = 0x02,                            // start
-        [3] = 0x07,                            // write
-        [4] = sizeof(ShtpHeader) + packet_len, // length
-    };
-
     // Populate the SHTP header (see 2.2.1 of "Sensor Hub Transport Protocol")
     ShtpHeader shtp_header = {
         .length = sizeof(ShtpHeader) + packet_len,
@@ -123,16 +117,11 @@ WTResult wt_bno08x_write_shtp_packet(ShtpChannel channel, void *pPacket, size_t 
         .seq_num = shtp_channel_seq_num[channel]++,
     };
 
-    const uint8_t i2c_tail[] = {
-        [0] = 0x03, // stop
-        [1] = 0x00, // end
-    };
+    uint8_t shtp_packet[256] = {};    
+    memcpy(&shtp_packet[0], &shtp_header, sizeof(ShtpHeader));
+    memcpy(&shtp_packet[4], pPacket, packet_len);
 
-    PI_TRY(WT_DEV_IMU, bbI2CZip(IMU_BB_I2C_SDA, (void *)i2c_header, sizeof(i2c_header), NULL, 0));
-    PI_TRY(WT_DEV_IMU, bbI2CZip(IMU_BB_I2C_SDA, (void *)&shtp_header, sizeof(ShtpHeader), NULL, 0));
-    PI_TRY(WT_DEV_IMU, bbI2CZip(IMU_BB_I2C_SDA, pPacket, packet_len, NULL, 0));
-    PI_TRY(WT_DEV_IMU, bbI2CZip(IMU_BB_I2C_SDA, (void *)i2c_tail, sizeof(i2c_tail), NULL, 0));
-    return WT_OK;
+    return wt_bno08x_write(shtp_packet, packet_len + sizeof(ShtpHeader));
 }
 
 WTResult wt_set_system_orientation(double w, double x, double y, double z) {
