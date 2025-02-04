@@ -103,8 +103,8 @@ WTResult wt_bno08x_write(void *buffer, size_t buffer_len) {
         [4] = buffer_len,       // length
     };
     memcpy(&i2c_packet[5], buffer, buffer_len);
-    i2c_packet[5 + buffer_len] = 0x03,    // stop
-        i2c_packet[6 + buffer_len] = 0x00 // end
+    i2c_packet[5 + buffer_len] = 0x03; // stop
+    i2c_packet[6 + buffer_len] = 0x00; // end
 
         PI_TRY(WT_DEV_IMU, bbI2CZip(IMU_BB_I2C_SDA, (void *)i2c_packet, buffer_len + 7, NULL, 0));
     return WT_OK;
