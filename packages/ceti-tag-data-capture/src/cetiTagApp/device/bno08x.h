@@ -24,11 +24,36 @@ typedef enum {
 
 #define SHTP_CH_COUNT (6)
 
+#define BNO08X_FRS_ID_SYSTEM_ORIENTATION (0x2D41)
+#define BNO08X_FRS_ID_MAGNETOMETER_ORIENTATION (0x2D4C)
+#define BNO08X_FRS_ID_SERIAL_NUMBER (0x4B4B)
+
 typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))) {
     uint16_t length;
     uint8_t channel;
     uint8_t seq_num;
 } ShtpHeader;
+
+typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))) {
+    ShtpHeader header;
+    union {
+        uint8_t report_id;
+        struct {
+            uint8_t report_id;
+            uint8_t status;
+            uint16_t offset;
+        } frs_write_response;
+        struct {
+            uint8_t report_id;
+            uint8_t length_status;
+            uint16_t offset;
+            uint8_t data[];
+            uint16_t frs_type;
+        } frs_read_response;
+    } report;
+    
+} ShtpReport;
+
 
 WTResult wt_bno08x_close(void);
 WTResult wt_bno08x_enable_report(uint16_t report_id, uint32_t report_interval_us);
@@ -36,6 +61,7 @@ WTResult wt_bno08x_open(void);
 void wt_bno08x_reset_hard(void);
 WTResult wt_bno08x_read(void *buffer, size_t buffer_len);
 WTResult wt_bno08x_read_header(ShtpHeader *pHeader);
+WTResult wt_bno08x_set_system_orientation(double w, double x, double y, double z);
 WTResult wt_bno08x_write(void *buffer, size_t buffer_len);
 WTResult wt_bno08x_write_shtp_packet(ShtpChannel channel, void *pPacket, size_t packet_len);
 

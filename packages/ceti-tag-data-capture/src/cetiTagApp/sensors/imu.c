@@ -87,7 +87,6 @@ static const char *imu_data_names[IMU_DATA_TYPE_COUNT] = {
     [IMU_DATA_TYPE_MAG] = "mag",
 };
 static int imu_is_connected = 0;
-static uint8_t imu_sequence_numbers[6] = {0}; // Each of the 6 channels has a sequence number (a message counter)
 static bool imu_restarted_log[IMU_DATA_TYPE_COUNT] = {true, true, true, true};
 static bool imu_new_log[IMU_DATA_TYPE_COUNT] = {true, true, true, true};
 
@@ -506,7 +505,9 @@ int setupIMU(uint8_t enabled_features) {
     }
     imu_is_connected = 0;
     wt_bno08x_reset_hard();
-
+#if IMU_REORIENTATION_ENABLE != 0
+    wt_bno08x_set_system_orientation(IMU_REORITENTATION_W, IMU_REORITENTATION_X, IMU_REORITENTATION_Y, IMU_REORITENTATION_Z);
+#endif
     // Open an I2C connection.
     WTResult retval = wt_bno08x_open();
     if (retval != WT_OK) {
@@ -515,10 +516,6 @@ int setupIMU(uint8_t enabled_features) {
     }
     imu_is_connected = 1;
     CETI_LOG("IMU connection opened\n");
-
-    // Reset the message counters for each channel.
-    for (int channel_index = 0; channel_index < sizeof(imu_sequence_numbers) / sizeof(uint8_t); channel_index++)
-        imu_sequence_numbers[channel_index] = 0;
 
     // Enable desired feature reports.
     if (enabled_features & IMU_QUAT_ENABLED) {
@@ -568,18 +565,10 @@ int imu_enable_feature_report(int report_id, uint32_t report_interval_us) {
 int imu_read_data() {
     int numBytesAvail;
     char pktBuff[256] = {0};
-    ShtpHeader response_header = {};
     WTResult hw_result = WT_OK;
 
-    // Read a header to see how many bytes are available.
-    hw_result = wt_bno08x_read_header(&response_header);
-    numBytesAvail = fmin(sizeof(pktBuff), response_header.length); // msb is "continuation bit", not part of count
-    if ((hw_result != WT_OK) || (numBytesAvail <= 0)) {
-        return -1;
-    }
-
-    // Adjust the read command for the amount of data available.
-    hw_result = wt_bno08x_read(pktBuff, numBytesAvail);
+    // Read available data.
+    hw_result = wt_bno08x_read_shtp_packet(pktBuff, numBytesAvail);
     if ((hw_result != WT_OK) || pktBuff[2] != IMU_CHANNEL_REPORTS) { // make sure we have the right channel
         return -1;
     }

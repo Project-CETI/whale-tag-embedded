@@ -27,12 +27,11 @@
 // reduce delays in the loop)
 #define IMU_DATA_FILE_FLUSH_PERIOD_US 1000000
 
-#define BUS_IMU 0x00 // IMU is only device on i2c0
-#define ADDR_IMU 0x4A
-#define IMU_N_RESET 4
-// Bitbang IMU I2C
-#define IMU_BB_I2C_SDA 23
-#define IMU_BB_I2C_SCL 24
+#define IMU_REORIENTATION_ENABLE (0)
+#define IMU_REORITENTATION_W (0.0)
+#define IMU_REORITENTATION_X (-sqrt(2.0)/2.0)
+#define IMU_REORITENTATION_Y (-sqrt(2.0)/2.0)
+#define IMU_REORITENTATION_Z (0)
 
 // Registers
 #define IMU_CHANNEL_COMMAND 0

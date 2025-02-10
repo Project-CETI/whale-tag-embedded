@@ -76,6 +76,17 @@ WTResult wt_bno08x_read_header(ShtpHeader *pHeader) {
     return wt_bno08x_read(pHeader, sizeof(ShtpHeader));
 }
 
+WTResult wt_bno08x_read_shtp_packet(void *pPacket, size_t packet_len) {
+    ShtpHeader header = {};
+    WT_TRY(wt_bno08x_read_header(&header));
+    let num_bytes = (header->length < packet_len) ? header->length : packet_len;
+    WT_TRY(wt_bno08x_read(pPacket, num_bytes));
+    return WT_OK;
+}
+
+// ToDo: implement FRS read
+
+
 void wt_bno08x_reset_hard(void) {
     gpioSetMode(IMU_N_RESET, PI_OUTPUT);
     usleep(10000);
@@ -106,7 +117,7 @@ WTResult wt_bno08x_write(void *buffer, size_t buffer_len) {
     i2c_packet[5 + buffer_len] = 0x03; // stop
     i2c_packet[6 + buffer_len] = 0x00; // end
 
-        PI_TRY(WT_DEV_IMU, bbI2CZip(IMU_BB_I2C_SDA, (void *)i2c_packet, buffer_len + 7, NULL, 0));
+    PI_TRY(WT_DEV_IMU, bbI2CZip(IMU_BB_I2C_SDA, (void *)i2c_packet, buffer_len + 7, NULL, 0));
     return WT_OK;
 }
 
@@ -125,47 +136,51 @@ WTResult wt_bno08x_write_shtp_packet(ShtpChannel channel, void *pPacket, size_t 
     return wt_bno08x_write(shtp_packet, packet_len + sizeof(ShtpHeader));
 }
 
-WTResult wt_set_system_orientation(double w, double x, double y, double z) {
+WTResult wt_bno08x_frs_write(uint16_t offset, void * data, size_t data_size) {
+    const uint8_t frs_w_request[] = {
+        [0] = 0xF7, // report_ID
+        // [1] = reserved
+        [2] = data_size & 0xFF,        // length LSB
+        [3] = (data_size >> 8) & 0xFF, // length MSB
+        [4] = offset & 0xFF,           // offset LSB
+        [5] = (offset >> 8) & 0xFF,    // offset MSB
+    };
+    uint8_t frs_w_data_request[256] = {
+        [0] = 0xF6, // report_ID
+        // [1] = reserved
+        [2] = offset & 0xFF,        // offset LSB
+        [3] = (offset >> 8) & 0xFF, // offset MSB
+    };
+    memcpy(&frs_w_data_request[4], data, data_size);
+
+    WT_TRY(wt_bno08x_write_shtp_packet(SHTP_CH_CONTROL, (void *)frs_w_request, sizeof(frs_w_request)));
+    WT_TRY(wt_bno08x_write_shtp_packet(SHTP_CH_CONTROL, (void *)frs_w_data_request, sizeof(frs_w_data_request)));
+}
+
+WTResult wt_bno08x_set_system_orientation(double w, double x, double y, double z) {
     int32_t w_fp = (int32_t)(w * 2.0e30);
     int32_t x_fp = (int32_t)(x * 2.0e30);
     int32_t y_fp = (int32_t)(y * 2.0e30);
     int32_t z_fp = (int32_t)(z * 2.0e30);
 
-    uint8_t frs_w_data_request[] = {
-        [0] = 0xF6, // report_ID
-        // [1] = reserved
-        [2] = 0x3E,                 // offset LSB
-        [3] = 0x2D,                 // offset MSB
-        [4] = ((x_fp >> 0) & 0xFF), // x LSB
-        [5] = ((x_fp >> 8) & 0xFF),
-        [6] = ((x_fp >> 16) & 0xFF),
-        [7] = ((x_fp >> 24) & 0xFF), // x MSB
-        [8] = ((y_fp >> 0) & 0xFF),  // y LSB
-        [9] = ((y_fp >> 8) & 0xFF),
-        [10] = ((y_fp >> 16) & 0xFF),
-        [11] = ((y_fp >> 24) & 0xFF), // y MSB
-        [12] = ((z_fp >> 0) & 0xFF),  // z LSB
-        [13] = ((z_fp >> 8) & 0xFF),
-        [14] = ((z_fp >> 16) & 0xFF),
-        [15] = ((z_fp >> 24) & 0xFF), // z MSB
-        [16] = ((w_fp >> 0) & 0xFF),  // w LSB
-        [17] = ((w_fp >> 8) & 0xFF),
-        [18] = ((w_fp >> 16) & 0xFF),
-        [19] = ((w_fp >> 24) & 0xFF), // w MSB
+    uint8_t unit_quaternion[] = {
+        [0] = ((x_fp >> 0) & 0xFF), // x LSB
+        [1] = ((x_fp >> 8) & 0xFF),
+        [2] = ((x_fp >> 16) & 0xFF),
+        [3] = ((x_fp >> 24) & 0xFF), // x MSB
+        [4] = ((y_fp >> 0) & 0xFF),  // y LSB
+        [5] = ((y_fp >> 8) & 0xFF),
+        [6] = ((y_fp >> 16) & 0xFF),
+        [7] = ((y_fp >> 24) & 0xFF), // y MSB
+        [8] = ((z_fp >> 0) & 0xFF),  // z LSB
+        [9] = ((z_fp >> 8) & 0xFF),
+        [10] = ((z_fp >> 16) & 0xFF),
+        [11] = ((z_fp >> 24) & 0xFF), // z MSB
+        [12] = ((w_fp >> 0) & 0xFF),  // w LSB
+        [13] = ((w_fp >> 8) & 0xFF),
+        [14] = ((w_fp >> 16) & 0xFF),
+        [15] = ((w_fp >> 24) & 0xFF), // w MSB
     };
 
-    const uint8_t frs_w_request[] = {
-        [0] = 0xF7, // report_ID
-        // [1] = reserved
-        [2] = sizeof(frs_w_data_request) & 0xFF,        // length LSB
-        [3] = (sizeof(frs_w_data_request) >> 8) & 0xFF, // length MSB
-        [4] = 0x3E,                                     // offset LSB
-        [5] = 0x2D,                                     // offset MSB
-    };
-
-    // read values to ensure write needs to occurs
-
-    WT_TRY(wt_bno08x_write_shtp_packet(SHTP_CH_CONTROL, (void *)frs_w_request, sizeof(frs_w_request)));
-    WT_TRY(wt_bno08x_write_shtp_packet(SHTP_CH_CONTROL, (void *)frs_w_data_request, sizeof(frs_w_data_request)));
-    return WT_OK;
+    return wt_bno08x_frs_write(BNO08X_FRS_ID_SYSTEM_ORIENTATION, unit_quaternion, sizeof(unit_quaternion));
 }

@@ -10,7 +10,7 @@ int imuCmd_reset(const char *args) {
 }
 
 const CommandDescription imu_subcommand_list[] = {
-    {.name = STR_FROM("reset"), .description = "Reset the IMU", .parse = audioCmd_start},
+    {.name = STR_FROM("reset"), .description = "Reset the IMU", .parse = imuCmd_reset},
 };
 
 const size_t imu_subcommand_list_size = sizeof(imu_subcommand_list) / sizeof(*imu_subcommand_list);
