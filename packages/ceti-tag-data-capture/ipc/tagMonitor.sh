@@ -162,6 +162,9 @@ mount /boot -o remount,ro
 
 ./tagWake.sh
 
+# Touch grass/logs.
+touch /data/{auth,daemon,debug,kern,messages,syslog,user}.log
+
 # Launch the main recording application in the background.
 /opt/ceti-tag-data-capture/bin/cetiTagApp &
 child=$!
