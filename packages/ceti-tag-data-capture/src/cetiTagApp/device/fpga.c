@@ -12,6 +12,7 @@
 
 // Private system libraries
 #include <pigpio.h>
+#include <pthread.h>
 #include <stdio.h>  // for FILE
 #include <stdlib.h> // for malloc()
 #include <string.h> // for memcpy()
@@ -20,6 +21,8 @@
 #define NUM_BYTES_MESSAGE 8
 #define FPGA_BITSTREAM_SIZE_BYTES (243048 * 2) // See Xilinx Configuration User Guide UG332
 #define FPGA_BITSTREAM_CONFIG_FILE_SIZE_BYTES (149516)
+
+static pthread_mutex_t s_fpga_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /*****************************************************************************
  * Device Code
@@ -127,11 +130,6 @@ void wt_fpga_cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
     gpioSetMode(FPGA_CAM_DIN, PI_INPUT);
     gpioSetMode(FPGA_CAM_SCK, PI_OUTPUT);
 
-    // Initialize the GPIO lines
-    gpioWrite(FPGA_CAM_RESET, 1);
-    gpioWrite(FPGA_CAM_SCK, 0);
-    gpioWrite(FPGA_CAM_DOUT, 0);
-
     // Send a CAM packet Pi -> FPGA
     send_packet[0] = 0x02;         // STX
     send_packet[1] = (char)opcode; // Opcode
@@ -141,6 +139,12 @@ void wt_fpga_cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
     send_packet[5] = (char)pld1;   // Payload1
     send_packet[6] = 0x00;         // Checksum
     send_packet[7] = 0x03;         // ETX
+
+    pthread_mutex_lock(&s_fpga_mutex);
+    // Initialize the GPIO lines
+    gpioWrite(FPGA_CAM_RESET, 1);
+    gpioWrite(FPGA_CAM_SCK, 0);
+    gpioWrite(FPGA_CAM_DOUT, 0);
 
     for (j = 0; j < NUM_BYTES_MESSAGE; j++) {
         data_byte = send_packet[j];
@@ -175,6 +179,8 @@ void wt_fpga_cam(unsigned int opcode, unsigned int arg0, unsigned int arg1,
 
         recv_packet[j] = data_byte;
     }
+    pthread_mutex_unlock(&s_fpga_mutex);
+
     if (pResponse != NULL) {
         memcpy(pResponse, recv_packet, NUM_BYTES_MESSAGE);
     }

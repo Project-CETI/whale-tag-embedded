@@ -472,6 +472,9 @@ int updateStateMachine() {
 
         // Releasing via the burnwire
         case (ST_BRN_ON):
+            // FLASH LEDS
+            burnwire_update_leds();
+
 // Shutdown if the battery is too low.
 #if ENABLE_BATTERY_GAUGE
             if (shm_battery->error == WT_OK) {
