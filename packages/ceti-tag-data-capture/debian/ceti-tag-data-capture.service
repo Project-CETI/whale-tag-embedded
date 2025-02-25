@@ -5,7 +5,7 @@ After=network.target local-fs.target getty.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/ceti-tag-data-capture/ipc
-ExecStartPre=/bin/systemctl restart rsyslog # guarentees syslog has valid file/inode for logging
+ExecStartPre=systemctl restart rsyslog # guarentees syslog has valid file/inode for logging
 ExecStart=/opt/ceti-tag-data-capture/ipc/tagMonitor.sh
 Restart=always
 RestartSec=60
