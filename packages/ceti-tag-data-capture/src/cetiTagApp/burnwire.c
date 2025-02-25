@@ -65,7 +65,7 @@ void burnwire_update_leds(void) {
         default:
             wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
             wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
-            s_burnwire_led_state = 2;
+            s_burnwire_led_state = 0;
             break;
     }
 }
