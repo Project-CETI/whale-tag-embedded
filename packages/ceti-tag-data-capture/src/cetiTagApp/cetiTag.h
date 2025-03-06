@@ -68,7 +68,7 @@
 // and divisible by 24-bit 4 channel = 12
 #define AUDIO_LCM_BYTES (147456)
 
-#define AUDIO_CHANNELS (4)
+#define AUDIO_CHANNELS (3)
 // multiple of AUDIO_LCM_BYTES closest to 75 seconds @ 16-bit, 96kSPS, (14401536)
 #define AUDIO_BUFFER_SIZE_BYTES_PER_CHANNEL (14401536)
 #define AUDIO_BUFFER_SIZE_BYTES (AUDIO_CHANNELS * AUDIO_BUFFER_SIZE_BYTES_PER_CHANNEL)
