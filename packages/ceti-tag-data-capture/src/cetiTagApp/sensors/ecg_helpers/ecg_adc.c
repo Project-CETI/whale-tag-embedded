@@ -359,19 +359,19 @@ int ecg_adc_read_data(int *exit_flag, long long timeout_us) {
     return 0;
 }
 
-int32_t ecg_adc_raw_read_data(void) {
+WTResult ecg_adc_raw_read_data(int32_t *reading) {
     // Read the data!
     uint8_t result_bytes[3] = {0};
-    i2cWriteByte(ecg_adc_i2c_device, ECG_ADC_CMD_RREG);
-    i2cReadDevice(ecg_adc_i2c_device, (char *)result_bytes, 3);
-#if ECG_ADC_DEBUG_PRINTOUTS
-    printf(" \t\t %d %d %d  \t\t ", result_bytes[0], result_bytes[1], result_bytes[2]);
-#endif
+    PI_TRY(WT_DEV_ECG_ADC, i2cWriteByte(ecg_adc_i2c_device, ECG_ADC_CMD_RREG));
+    PI_TRY(WT_DEV_ECG_ADC, i2cReadDevice(ecg_adc_i2c_device, (char *)result_bytes, 3));
 
     // Parse the data bytes into a single long number.
     int32_t result_data = (((int32_t)result_bytes[0]) << 24) | (((int32_t)result_bytes[1]) << 16) | (((int32_t)result_bytes[2]) << 8);
     result_data >>= 8; // convert to 24-bit value in 32-bit storage
-    return result_data;
+    if (reading != NULL) {
+        *reading = result_data;
+    }
+    return WT_OK;
 }
 
 // Read a single-ended measurement from the desired channel.

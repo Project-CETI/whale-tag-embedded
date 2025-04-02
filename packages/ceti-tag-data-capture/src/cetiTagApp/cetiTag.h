@@ -127,24 +127,20 @@ typedef struct {
 
 // === ECG ===
 typedef struct {
+    uint64_t sys_time_us;
+    uint64_t sample_index;
+    int32_t error;
+    uint32_t rtc_time_s;
+    int32_t ecg_reading;
+    uint16_t leadsOff_reading_n;
+    uint16_t leadsOff_reading_p;
+} CetiEcgSample;
+
+typedef struct {
     int page;   // which buffer will be populated with new incoming data
     int sample; // which sample will be populated with new incoming data
     int lod_enabled;
-    /* ToDo: Leaving this as seperate buffers to maintain existing code
-     * structure, but the way memory is accessed (all field from a single
-     * sample accessed at the same time and not all values of a single field
-     * accessed at once), it may make more sense to encapsulate in a
-     * CetiEcgSample struct so the 4kB TLB page for this mapped memory doesn't
-     * result in a cache miss on every field access. Will need to be
-     * benchmarked.
-     * - MSH
-     */
-    long long sys_time_us[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
-    int rtc_time_s[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
-    long ecg_readings[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
-    int leadsOff_readings_p[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
-    int leadsOff_readings_n[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
-    long long sample_indexes[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
+    CetiEcgSample data[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
 } CetiEcgBuffer;
 
 // === IMU ===
