@@ -11,6 +11,7 @@
 
 #include "../device/rtc.h"
 #include "../launcher.h" // for g_exit, the state machine data filepath, to get an initial RTC timestamp if needed
+#include "../systemMonitor.h"
 #include "logging.h"
 
 #include <pthread.h> // to set CPU affinity
@@ -31,8 +32,12 @@ int init_timing() {
 #if ENABLE_RTC
     // Test whether the RTC is available.
     updateRtcCount();
+
+    sync_global_time_init();
+
     if (latest_rtc_error != WT_OK) {
-        CETI_ERR("Failed to fetch a valid RTC count: %s", wt_strerror(latest_rtc_error));
+        char err_str[512];
+        CETI_ERR("Failed to fetch a valid RTC count: %s", wt_strerror_r(latest_rtc_error, err_str, sizeof(err_str)));
         latest_rtc_count = -1;
         last_rtc_update_time_us = -1;
         return (-1);
@@ -52,6 +57,7 @@ WTResult getRtcStatus(void) { return latest_rtc_error; }
 
 void updateRtcCount() {
     uint32_t count_s = 0;
+
     latest_rtc_error = rtc_get_count(&count_s);
     if (latest_rtc_error == WT_OK) {
         latest_rtc_count = (int)count_s;
@@ -157,7 +163,8 @@ int sync_global_time_init(void) {
 
         WTResult hw_result = rtc_set_count((uint32_t)current_timeval.tv_sec);
         if (hw_result != WT_OK) {
-            CETI_ERR("Could not syncronize RTC: %s", wt_strerror(hw_result));
+            char err_str[512];
+            CETI_ERR("Could not syncronize RTC: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
         }
         CETI_LOG("RTC synchronized to system clock: %ld)", current_timeval.tv_sec);
     } else {
@@ -168,7 +175,8 @@ int sync_global_time_init(void) {
         CETI_LOG("Synchronizing system clock to RTC)");
         struct timeval current_timeval = {.tv_sec = getRtcCount()};
         if (latest_rtc_error != WT_OK) {
-            CETI_ERR("Could not read time from RTC: %s", wt_strerror(latest_rtc_error));
+            char err_str[512];
+            CETI_ERR("Could not read time from RTC: %s", wt_strerror_r(latest_rtc_error, err_str, sizeof(err_str)));
             /* ToDo: how do we handle this error? Maybe update to last recorded time in a given file?*/
         }
         settimeofday(&current_timeval, NULL);

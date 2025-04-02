@@ -26,6 +26,7 @@
 // Methods
 //-----------------------------------------------------------------------------
 int init_burnwire();
+void burnwire_update_leds(void);
 int burnwireOn(void);
 int burnwireOff(void);
 

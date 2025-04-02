@@ -82,6 +82,7 @@ const ConfigList config_keys[] = {
     {.key = STR_FROM("dive_pressure"), .parse = __config_parse_dive_pressure},
     {.key = STR_FROM("release_voltage"), .parse = __config_parse_release_voltage},
     {.key = STR_FROM("critical_voltage"), .parse = __config_parse_critical_voltage},
+
     {.key = STR_FROM("timeout_release"), .parse = __config_parse_timeout},
     {.key = STR_FROM("burn_interval"), .parse = __config_parse_burn_interval_value},
     {.key = STR_FROM("audio_filter"), .parse = __config_parse_audio_filter_type},
@@ -232,7 +233,7 @@ static ConfigError __config_parse_release_voltage(const char *_String) {
         return CONFIG_ERR_INVALID_VALUE;
 
     // assign value
-    g_config.release_voltage_v = parsed_value;
+    g_config.release_voltage_v = parsed_value / 2.0;
     CETI_DEBUG("release voltage set to %.2fV", parsed_value);
     return CONFIG_OK;
 }
@@ -257,7 +258,8 @@ static ConfigError __config_parse_critical_voltage(const char *_String) {
         return CONFIG_ERR_INVALID_VALUE;
 
     // assign value
-    g_config.critical_voltage_v = parsed_value;
+    g_config.critical_voltage_v = parsed_value / 2.0;
+
     CETI_DEBUG("critical voltage set to %.2fV", parsed_value);
     return CONFIG_OK;
 }
@@ -460,7 +462,7 @@ int config_read(const char *filename) {
     CETI_LOG("Read the deployment parameters from %s", filename);
     ceti_config_file = fopen(filename, "r");
     if (ceti_config_file == NULL) {
-        CETI_ERR("Cannot open configuration file %s", filename);
+        CETI_WARN("Cannot open configuration file %s", filename);
         return (-1);
     }
 
@@ -495,10 +497,10 @@ int config_read(const char *filename) {
  * @brief logs final tag config to /data/folder logging deployment
  *
  */
-void config_log(void) {
+void config_log(uint64_t timestamp) {
     // Open file data_config_timestamp.txt
     char config_file_path[256];
-    uint64_t timestamp = get_global_time_us();
+
     snprintf(config_file_path, 255, "/data/data_config_%lu.txt", timestamp);
     FILE *fConfig = fopen(config_file_path, "wt");
     if (fConfig == NULL) {
@@ -507,8 +509,8 @@ void config_log(void) {
     fprintf(fConfig, "# Deployment Timestamp: %lu\n", timestamp);
     fprintf(fConfig, "surface_pressure = %.2f # bar\n", g_config.surface_pressure);
     fprintf(fConfig, "dive_pressure = %.2f # bar\n", g_config.dive_pressure);
-    fprintf(fConfig, "release_voltage = %.2f # V\n", g_config.release_voltage_v);
-    fprintf(fConfig, "critical_voltage = %.2f # V\n", g_config.critical_voltage_v);
+    fprintf(fConfig, "release_voltage = %.2f # V per cell\n", g_config.release_voltage_v);
+    fprintf(fConfig, "critical_voltage = %.2f # V per cell\n", g_config.critical_voltage_v);
     fprintf(fConfig, "timeout_release = %lu # Seconds\n", g_config.timeout_s);
     if (g_config.tod_release.valid) {
         fprintf(fConfig, "time_of_day_release= %02d:%02d\n", g_config.tod_release.value.tm_hour, g_config.tod_release.value.tm_min);

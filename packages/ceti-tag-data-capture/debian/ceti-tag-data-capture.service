@@ -5,6 +5,7 @@ After=network.target local-fs.target getty.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/ceti-tag-data-capture/ipc
+ExecStartPre=systemctl restart rsyslog
 ExecStart=/opt/ceti-tag-data-capture/ipc/tagMonitor.sh
 Restart=always
 RestartSec=60

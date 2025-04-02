@@ -8,7 +8,37 @@
 //-----------------------------------------------------------------------------
 
 #include "launcher.h"
+
+#include "battery.h"
+#include "burnwire.h"
+#include "device/fpga.h"
+#include "recovery.h"
+#include "sensors/audio.h"
+#include "sensors/light.h"
+#include "sensors/pressure_temperature.h"
+#include "state_machine.h"
+#include "systemMonitor.h"
 #include "utils/config.h"
+#include "utils/logging.h"
+#include "utils/meta.h"
+#include "utils/thread_error.h"
+#include "utils/timing.h"
+
+/* Headers that include hardware dependent libraries can't be unit tested.
+ * i.e. exclude any header with <pigpio.h> included in it.
+ * (MSH)
+ */
+#ifndef UNIT_TEST
+#include "commands.h"
+#include "sensors/ecg.h"
+#include "sensors/ecg_helpers/ecg_lod.h"
+#include "sensors/imu.h"
+
+#include <pigpio.h>
+#endif // UNIT_TEST
+
+#include <signal.h>
+#include <stdint.h>
 
 //-----------------------------------------------------------------------------
 // Initialize global variables
@@ -17,6 +47,8 @@ int g_exit = 0;
 int g_stopAcquisition = 0;
 int g_stopLogging = 0;
 char g_process_path[256] = "/opt/ceti-tag-data-capture/bin";
+
+static uint32_t s_threads_in_error = 0;
 
 void sig_handler(int signum) {
     CETI_LOG("Received termination request.");
@@ -97,8 +129,12 @@ int main(void) {
 #endif
     // Ambient light
 #if ENABLE_LIGHT_SENSOR
+    if (s_threads_in_error & (1 << THREAD_ALS_ACQ)) {
+        CETI_WARN("Failed to initialize light acquisition thread. Thread created to log errors.");
+    }
     pthread_create(&thread_ids[num_threads], NULL, &light_thread, NULL);
     threads_running[num_threads] = &g_light_thread_is_running;
+    CETI_DEBUG("Thread created: Light Acquisition");
 #ifdef DEBUG
     strcpy(thread_name[num_threads], "light");
 #endif
@@ -106,8 +142,12 @@ int main(void) {
 #endif
     // Water pressure and temperature
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
+    if (s_threads_in_error & (1 << THREAD_PRESSURE_ACQ)) {
+        CETI_WARN("Failed to initialize pressure acquisition thread. Thread created to log errors");
+    }
     pthread_create(&thread_ids[num_threads], NULL, &pressureTemperature_thread, NULL);
     threads_running[num_threads] = &g_pressureTemperature_thread_is_running;
+    CETI_DEBUG("Thread created: Pressure Acquisition");
 #ifdef DEBUG
     strcpy(thread_name[num_threads], "pressure");
 #endif
@@ -125,12 +165,16 @@ int main(void) {
     // Recovery board (GPS).
 #if ENABLE_RECOVERY
     if (g_config.recovery.enabled) {
-        pthread_create(&thread_ids[num_threads], NULL, &recovery_rx_thread, NULL);
-        threads_running[num_threads] = &g_recovery_rx_thread_is_running;
+        if (!(s_threads_in_error & THREAD_GPS_ACQ)) {
+            pthread_create(&thread_ids[num_threads], NULL, &recovery_rx_thread, NULL);
+            threads_running[num_threads] = &g_recovery_rx_thread_is_running;
 #ifdef DEBUG
-        strcpy(thread_name[num_threads], "recovery");
+            strcpy(thread_name[num_threads], "recovery");
 #endif
-        num_threads++;
+            num_threads++;
+        } else {
+            recovery_off();
+        }
     }
 #endif
     // ECG
@@ -245,12 +289,6 @@ int main(void) {
             logcount--;
         }
 #endif
-
-        // Check if the data partition is full.
-        if (!g_stopAcquisition && get_dataPartition_free_kb() < MIN_DATA_PARTITION_FREE_KB) {
-            CETI_LOG("*** DATA PARTITION IS FULL. Stopping all threads that acquire data.");
-            g_stopAcquisition = 1;
-        }
     }
     g_stopAcquisition = 1;
     CETI_LOG("-------------------------------------------------");
@@ -289,6 +327,39 @@ int main(void) {
 //-----------------------------------------------------------------------------
 // Helper method to initialize the tag.
 //-----------------------------------------------------------------------------
+void led_signal_thread_errors(uint32_t error_bitfield) {
+    for (int i = 0; i < THREAD_ECG_LOG + 1; i++) {
+        // turn off LEDs
+        wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+        wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+        wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+        usleep(100000);
+        // Clock with Yellow
+        wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+        if (error_bitfield & (1 << i)) {
+            // red for critical, yellow for non-critical
+            if (error_bitfield & ((1 << THREAD_BMS_ACQ) | (1 << THREAD_AUDIO_ACQ))) {
+                wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+            }
+            // green non-critical error
+            wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+        }
+        usleep(250000);
+    }
+    wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+    wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+    wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+
+    if ((error_bitfield & ((1 << THREAD_BMS_ACQ) | (1 << THREAD_AUDIO_ACQ)))) {
+        wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+    } else if (error_bitfield) {
+        wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+    } else {
+        wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+    }
+    sleep(10);
+}
+
 int init_tag() {
     int result = 0;
 
@@ -301,11 +372,12 @@ int init_tag() {
     CETI_LOG("Reading current settings from %s", CETI_CONFIG_OVERWRITE_FILE);
     config_read(CETI_CONFIG_OVERWRITE_FILE);
 
-    // Read config overlay from /data
-    config_read("/data/ceti-config.txt");
-
     // Log used config used this deployment
-    config_log();
+
+    uint64_t start_timestamp = get_global_time_us();
+    // Log tag metadata and runtime config
+    config_log(start_timestamp);
+    meta_log(start_timestamp);
 
     // Tag-wide initialization.
     if (gpioInitialise() < 0) {
@@ -314,9 +386,12 @@ int init_tag() {
     } else {
         CETI_LOG("Successfully initialized pigpio");
     }
-    result += init_timing() == 0 ? 0 : -1;
-    result += init_commands() == 0 ? 0 : -1;
-    result += init_stateMachine() == 0 ? 0 : -1;
+    if (init_timing() != 0) {
+        result += -1;
+    }
+    if (init_stateMachine() != 0) {
+        result += -1;
+    }
 
 #if ENABLE_FPGA
     char fpga_bitstream_path[512];
@@ -329,60 +404,115 @@ int init_tag() {
     // strncat(fpga_bitstream_path, FPGA_BITSTREAM, sizeof(fpga_bitstream_path) - 1);
     WTResult fpga_result = wt_fpga_init(fpga_bitstream_path);
     if (fpga_result != WT_OK) {
-        CETI_ERR("%s", wt_strerror(fpga_result));
+        char err_str[512];
+        CETI_ERR("%s", wt_strerror_r(fpga_result, err_str, sizeof(err_str)));
+        result += -1;
+    }
+    // take contol of LEDs
+    wt_fpga_led_capture_all(FPGA_LED_STATE_OFF);
+#endif
+
+#if ENABLE_BATTERY_GAUGE
+    int bms_error = init_battery();
+    if (bms_error != 0) {
+        if (bms_error & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)) {
+            s_threads_in_error |= (1 << THREAD_BMS_ACQ);
+        } else {
+            result += -1; // non-critical error
+        }
+    }
+#endif
+
+#if ENABLE_BURNWIRE
+    if (init_burnwire() != 0) {
         result += -1;
     }
 #endif
 
-#if ENABLE_BATTERY_GAUGE
-    result += init_battery() == 0 ? 0 : -1;
-#endif
-
-#if ENABLE_BURNWIRE
-    result += init_burnwire() == 0 ? 0 : -1;
-#endif
-
 #if ENABLE_AUDIO
-    result += audio_thread_init() == 0 ? 0 : -1;
+    int audio_result = audio_thread_init();
+    if (audio_result != THREAD_OK) {
+        if (audio_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)) {
+            s_threads_in_error |= (1 << THREAD_AUDIO_ACQ);
+        }
+        result += -1;
+    }
 #endif
 
 #if ENABLE_LIGHT_SENSOR
-    result += init_light() == 0 ? 0 : -1;
+    int light_result = init_light();
+    if (light_result != THREAD_OK) {
+        if (light_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)) {
+            s_threads_in_error |= (1 << THREAD_ALS_ACQ);
+        }
+        result += -1;
+    }
 #endif
 
 #if ENABLE_IMU
-    result += init_imu() == 0 ? 0 : -1;
+    int imu_result = init_imu();
+    if (imu_result != THREAD_OK) {
+        if (imu_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)) {
+            s_threads_in_error |= (1 << THREAD_IMU_ACQ);
+        }
+        result += -1;
+    }
 #endif
 
 #if ENABLE_RECOVERY
     if (g_config.recovery.enabled) {
-        result += recovery_thread_init(&g_config) == 0 ? 0 : -1;
-    } else {
+        int recovery_result = recovery_thread_init(&g_config);
+        if (recovery_result != THREAD_OK) {
+            if (recovery_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED | THREAD_ERR_HW)) {
+                s_threads_in_error |= (1 << THREAD_GPS_ACQ);
+            }
+            result += -1;
+        }
+    }
+    if (!g_config.recovery.enabled || (s_threads_in_error & (1 << THREAD_GPS_ACQ))) {
         recovery_off();
     }
 #endif
 
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
-    result += init_pressureTemperature() == 0 ? 0 : -1;
+    int pressure_result = init_pressureTemperature();
+    if (pressure_result != THREAD_OK) {
+        if (pressure_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)) {
+            s_threads_in_error |= (1 << THREAD_PRESSURE_ACQ);
+        }
+        result += -1;
+    }
 #endif
 
 #if ENABLE_ECG
-#if ENABLE_ECG_LOD
-    result += ecg_lod_init() == 0 ? 0 : -1;
-#endif
-    result += init_ecg() == 0 ? 0 : -1;
+    int ecg_result = init_ecg();
+    if (ecg_result != THREAD_OK) {
+        if (pressure_result & (THREAD_ERR_SEM_FAILED | THREAD_ERR_SHM_FAILED)) {
+            s_threads_in_error |= (1 << THREAD_ECG_ACQ);
+        }
+        result += -1;
+    }
 #endif
 
 #if ENABLE_SYSTEMMONITOR
-    result += init_systemMonitor() == 0 ? 0 : -1;
+    if (init_systemMonitor() != 0) {
+        result += -1;
+    }
 #endif
 
-    result += sync_global_time_init();
-
-    if (result < 0) {
+    if (result < 0 || (s_threads_in_error)) {
         CETI_ERR("Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
-        return result;
+        if (s_threads_in_error != 0) {
+            led_signal_thread_errors(s_threads_in_error);
+        }
+        if (!(s_threads_in_error & (1 << THREAD_GPS_ACQ))) {
+            char rec_msg[68] = {};
+            snprintf(rec_msg, 67, "THREAD INIT ERR: %04Xh", s_threads_in_error);
+            recovery_message(rec_msg);
+        }
     }
 
-    return result;
+    // return LED control to FPGA
+    wt_fpga_led_release_all();
+    return result - s_threads_in_error;
 }

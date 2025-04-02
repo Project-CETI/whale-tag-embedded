@@ -7,10 +7,12 @@
 //-----------------------------------------------------------------------------
 
 #include "burnwire.h"
+#include "device/fpga.h" // for LED control
 #include "device/iox.h"
 
 #include "utils/logging.h"
-#include <pigpio.h>
+
+static int s_burnwire_led_state = 0; // 0 = red, 1 = yellow, 2 = green
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
@@ -33,15 +35,11 @@ static WTResult __burnwire_init(void) {
 int init_burnwire() {
     WTResult hal_result = __burnwire_init();
     if (hal_result != WT_OK) {
-        CETI_ERR("Failed to initialize the burnwire : %s", wt_strerror(hal_result));
+        char err_str[512];
+        CETI_ERR("Failed to initialize the burnwire : %s", wt_strerror_r(hal_result, err_str, sizeof(err_str)));
         return -1;
     }
 
-    hal_result = __burnwire_off();
-    if (hal_result < 0) {
-        CETI_ERR("Failed to turn off the burnwire: %s", wt_strerror(hal_result));
-        return (-1);
-    }
     CETI_LOG("Successfully initialized the burnwire");
     return 0;
 }
@@ -49,20 +47,52 @@ int init_burnwire() {
 //-----------------------------------------------------------------------------
 // Burnwire interface
 //-----------------------------------------------------------------------------
+void burnwire_update_leds(void) {
+    switch (s_burnwire_led_state) {
+        case 0:
+            wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+            wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+            s_burnwire_led_state = 1;
+            break;
+
+        case 1:
+            wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+            wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+            s_burnwire_led_state = 2;
+            break;
+
+        case 2:
+        default:
+            wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+            wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+            s_burnwire_led_state = 0;
+            break;
+    }
+}
 
 int burnwireOn(void) {
+    // add LED Control
+    wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+    wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+    wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+    s_burnwire_led_state = 0;
+
     WTResult hal_result = __burnwire_on();
     if (hal_result < 0) {
-        CETI_ERR("Failed to turn on the burnwire: %s", wt_strerror(hal_result));
+        char err_str[512];
+        CETI_ERR("Failed to turn on the burnwire: %s", wt_strerror_r(hal_result, err_str, sizeof(err_str)));
         return (-1);
     }
     return 0;
 }
 
 int burnwireOff(void) {
+    wt_fpga_led_release_all();
+
     WTResult hal_result = __burnwire_off();
     if (hal_result < 0) {
-        CETI_ERR("Failed to turn off the burnwire: %s", wt_strerror(hal_result));
+        char err_str[512];
+        CETI_ERR("Failed to turn off the burnwire: %s", wt_strerror_r(hal_result, err_str, sizeof(err_str)));
         return (-1);
     }
     return 0;

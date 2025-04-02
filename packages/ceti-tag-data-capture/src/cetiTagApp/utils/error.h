@@ -11,6 +11,7 @@
 #define __LIB_WHALE_TAG_ERROR_H__
 
 #include <stdint.h>
+#include <unistd.h>
 
 typedef enum wt_device_id_e {
     WT_DEV_NONE = 0,
@@ -74,6 +75,10 @@ typedef enum wt_device_id_e {
 #define WT_ERR_RECOVERY_OVERSIZED_MESSAGE (WT_ERR_RECOVERY_START - 4)
 #define WT_ERR_RECOVERY_UNDERSIZED_GPS_BUFFER (WT_ERR_RECOVERY_START - 5)
 
+#define WT_ERR_PRESSURE_START (WT_ERR_RECOVERY_START - 6)
+#define WT_ERR_PRESSURE_INVALID_RESPONSE (WT_ERR_PRESSURE_START - 0)
+#define WT_ERR_PRESSURE_BUSY (WT_ERR_PRESSURE_START - 1)
+
 /**
  * @brief WTResult is a 32-bit error code the 16 upper bits are the device id
  *      number, and the 16 lower bits are the error code. Error codes are taken
@@ -85,10 +90,19 @@ typedef uint32_t WTResult;
  * @brief Returns a pointer to an error description string based on the errno. Note consectuive calls to
  *      `wt_strerror` will modify the contents inside the returned string pointer.
  *
- * @param errno
+ * @param errnum
  * @return const char*
  */
-const char *wt_strerror(WTResult errno);
+const char *wt_strerror(WTResult errnum);
+
+/**
+ * @brief Thread safe version of wt_strerror. Returns a pointer to an error description string based on the errno. Note consectuive calls to
+ *      `wt_strerror` will modify the contents inside the returned string pointer.
+ *
+ * @param errnum
+ * @return const char*
+ */
+char *wt_strerror_r(WTResult errnum, char *buf, size_t buflen);
 
 /**
  * @brief Returns a pointer to an error device name string based on the errno.

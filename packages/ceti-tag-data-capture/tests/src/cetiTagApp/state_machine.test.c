@@ -131,8 +131,8 @@ void test__updateStateMachine_ST_RECORD_DIVING_lowPressure_okBattery_okTime(void
     for (int i = 0; i < FUZZY_COUNT; i++) {
         stateMachine_set_state(ST_RECORD_DIVING);
         fake_pressure_sample.pressure_bar = ((double)rand() / (double)RAND_MAX * 2.0 * g_config.surface_pressure - g_config.surface_pressure);
-        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v / 2.0) + g_config.release_voltage_v / 2.0);
-        fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v / 2.0) + g_config.release_voltage_v / 2.0);
+        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v) + g_config.release_voltage_v);
+        fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v) + g_config.release_voltage_v);
         updateStateMachine();
         TEST_ASSERT_EQUAL(ST_RECORD_SURFACE, stateMachine_get_state());
     }
@@ -143,8 +143,8 @@ void test__updateStateMachine_ST_RECORD_DIVING_highPressure_okBattery_okTime(voi
     for (int i = 0; i < FUZZY_COUNT; i++) {
         stateMachine_set_state(ST_RECORD_DIVING);
         fake_pressure_sample.pressure_bar = ((double)rand() / (double)RAND_MAX * 1000.0 + g_config.surface_pressure + 0.00000001);
-        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v / 2.0) + g_config.release_voltage_v / 2.0);
-        fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v / 2.0) + g_config.release_voltage_v / 2.0);
+        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v) + g_config.release_voltage_v);
+        fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v) + g_config.release_voltage_v);
         updateStateMachine();
         TEST_ASSERT_EQUAL(ST_RECORD_DIVING, stateMachine_get_state());
     }
@@ -154,8 +154,8 @@ void test__updateStateMachine_ST_RECORD_DIVING_lowBattery_okTime(void) {
     for (int i = 0; i < FUZZY_COUNT; i++) {
         stateMachine_set_state(ST_RECORD_DIVING);
         fake_pressure_sample.pressure_bar = ((double)rand() / (double)RAND_MAX * 4.0 * g_config.surface_pressure - g_config.surface_pressure);
-        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (g_config.release_voltage_v / 2.0));
-        fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (g_config.release_voltage_v / 2.0));
+        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (g_config.release_voltage_v));
+        fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (g_config.release_voltage_v));
         updateStateMachine();
         TEST_ASSERT_EQUAL(ST_BRN_ON, stateMachine_get_state());
     }
@@ -164,8 +164,8 @@ void test__updateStateMachine_ST_RECORD_DIVING_lowBattery_okTime(void) {
 void test__updateStateMachine_ST_RECORD_DIVING_errBattery_okTime(void) {
     stateMachine_set_state(ST_RECORD_DIVING);
     fake_pressure_sample.pressure_bar = ((double)rand() / (double)RAND_MAX * 1000.0 + g_config.dive_pressure + 0.00000001);
-    fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v / 2.0) + g_config.release_voltage_v / 2.0);
-    fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v / 2.0) + g_config.release_voltage_v / 2.0);
+    fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v) + g_config.release_voltage_v);
+    fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v) + g_config.release_voltage_v);
     updateStateMachine();
     // test that consecutive count resets
     fake_battery_sample.error = WT_RESULT(WT_DEV_BMS, WT_ERR_BMS_WRITE_PROT_DISABLE_FAIL);
@@ -212,8 +212,8 @@ void test__updateStateMachine_ST_RECORD_SURFACE_lowPressure_okBattery_okTime(voi
     for (int i = 0; i < FUZZY_COUNT; i++) {
         stateMachine_set_state(ST_RECORD_SURFACE);
         fake_pressure_sample.pressure_bar = ((double)rand() / (double)RAND_MAX * 2.0 * g_config.dive_pressure - g_config.dive_pressure);
-        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v / 2.0) + g_config.release_voltage_v / 2.0);
-        fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v / 2.0) + g_config.release_voltage_v / 2.0);
+        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v) + g_config.release_voltage_v);
+        fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v) + g_config.release_voltage_v);
         updateStateMachine();
         TEST_ASSERT_EQUAL(ST_RECORD_SURFACE, stateMachine_get_state());
     }
@@ -223,8 +223,8 @@ void test__updateStateMachine_ST_RECORD_SURFACE_highPressure_okBattery_okTime(vo
     for (int i = 0; i < FUZZY_COUNT; i++) {
         stateMachine_set_state(ST_RECORD_SURFACE);
         fake_pressure_sample.pressure_bar = ((double)rand() / (double)RAND_MAX * 1000.0 + g_config.dive_pressure + 0.00000001);
-        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v / 2.0) + g_config.release_voltage_v / 2.0);
-        fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v / 2.0) + g_config.release_voltage_v / 2.0);
+        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v) + g_config.release_voltage_v);
+        fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v) + g_config.release_voltage_v);
         updateStateMachine();
         TEST_ASSERT_EQUAL(ST_RECORD_DIVING, stateMachine_get_state());
     }
@@ -234,8 +234,8 @@ void test__updateStateMachine_ST_RECORD_SURFACE_lowBattery_okTime(void) {
     for (int i = 0; i < FUZZY_COUNT; i++) {
         stateMachine_set_state(ST_RECORD_SURFACE);
         fake_pressure_sample.pressure_bar = ((double)rand() / (double)RAND_MAX * 4.0 * g_config.dive_pressure - g_config.dive_pressure);
-        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (g_config.release_voltage_v / 2.0));
-        fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (g_config.release_voltage_v / 2.0));
+        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (g_config.release_voltage_v));
+        fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (g_config.release_voltage_v));
         updateStateMachine();
         TEST_ASSERT_EQUAL(ST_BRN_ON, stateMachine_get_state());
     }
@@ -244,8 +244,8 @@ void test__updateStateMachine_ST_RECORD_SURFACE_lowBattery_okTime(void) {
 void test__updateStateMachine_ST_RECORD_SURFACE_errBattery_okTime(void) {
     stateMachine_set_state(ST_RECORD_SURFACE);
     fake_pressure_sample.pressure_bar = ((double)rand() / (double)RAND_MAX * 2.0 * g_config.dive_pressure - g_config.dive_pressure);
-    fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v / 2.0) + g_config.release_voltage_v / 2.0);
-    fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v / 2.0) + g_config.release_voltage_v / 2.0);
+    fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v) + g_config.release_voltage_v);
+    fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.release_voltage_v) + g_config.release_voltage_v);
     updateStateMachine();
     // test that consecutive count resets
     fake_battery_sample.error = WT_RESULT(WT_DEV_BMS, WT_ERR_BMS_WRITE_PROT_DISABLE_FAIL);
@@ -328,8 +328,8 @@ void test__updateStateMachine_ST_BRN_ON_errBattery(void) {
 void test__updateStateMachine_ST_RETRIEVE_okBattery(void) {
     for (int i = 0; i < FUZZY_COUNT; i++) {
         stateMachine_set_state(ST_RETRIEVE);
-        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.critical_voltage_v / 2.0) + g_config.critical_voltage_v / 2.0);
-        fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.critical_voltage_v / 2.0) + g_config.critical_voltage_v / 2.0);
+        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.critical_voltage_v) + g_config.critical_voltage_v);
+        fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (4.2 - g_config.critical_voltage_v) + g_config.critical_voltage_v);
         updateStateMachine();
         TEST_ASSERT_EQUAL(ST_RETRIEVE, stateMachine_get_state());
     }
@@ -338,8 +338,8 @@ void test__updateStateMachine_ST_RETRIEVE_okBattery(void) {
 void test__updateStateMachine_ST_RETRIEVE_criticalBattery(void) {
     for (int i = 0; i < FUZZY_COUNT; i++) {
         stateMachine_set_state(ST_RETRIEVE);
-        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * g_config.critical_voltage_v / 2.0);
-        fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * g_config.critical_voltage_v / 2.0);
+        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * g_config.critical_voltage_v);
+        fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * g_config.critical_voltage_v);
         updateStateMachine();
         TEST_ASSERT_EQUAL(ST_SHUTDOWN, stateMachine_get_state());
     }

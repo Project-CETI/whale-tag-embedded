@@ -9,7 +9,9 @@
 #include "ecg.h"
 
 #include "../utils/memory.h"
+#include "../utils/thread_error.h"
 
+#include <errno.h>
 #include <fcntl.h>
 #include <semaphore.h>
 #include <sys/mman.h>
@@ -39,39 +41,50 @@ static sem_t *sem_ecg_sample;  // semaphore for other processes to sync with new
 static sem_t *sem_ecg_page;    // semaphore for other processes to sync with new pages becoming available
 
 int init_ecg() {
+    char err_str[512];
+    int t_result = THREAD_OK;
     // Initialize the GPIO expander and the ADC.
-    init_ecg_electronics();
+    if (init_ecg_electronics() < 0) {
+        CETI_ERR("Unknown hardware error");
+        t_result |= THREAD_ERR_HW;
+    }
 
     // Create shared memory
     shm_ecg = create_shared_memory_region(ECG_SHM_NAME, sizeof(CetiEcgBuffer));
     if (shm_ecg == NULL) {
-        CETI_ERR("Failed to create shared memory for ecg data buffer");
-        return -1;
+        CETI_ERR("Failed to create shared memory region: %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SHM_FAILED;
     }
 
     // setup semaphore
     sem_ecg_sample = sem_open(ECG_SAMPLE_SEM_NAME, O_CREAT, 0644, 0);
     if (sem_ecg_sample == SEM_FAILED) {
-        CETI_ERR("Failed to create sample semaphore");
-        return -1;
+        CETI_ERR("Failed to create block ready semaphore: %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SEM_FAILED;
     }
 
     sem_ecg_page = sem_open(ECG_PAGE_SEM_NAME, O_CREAT, 0644, 0);
     if (sem_ecg_page == SEM_FAILED) {
-        CETI_ERR("Failed to create page semaphore");
-        return -1;
+        CETI_ERR("Failed to create block ready semaphore: %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_SEM_FAILED;
     }
 
     shm_ecg->lod_enabled = ENABLE_ECG_LOD;
 
     // Open an output file to write data.
-    if (init_ecg_data_file(1) < 0)
-        return -1;
+    if (init_ecg_data_file(1) < 0) {
+        CETI_ERR("Failed to open/create an output data file: " AUDIO_STATUS_FILEPATH ": %s", strerror_r(errno, err_str, sizeof(err_str)));
+        t_result |= THREAD_ERR_DATA_FILE_FAILED;
+    }
 
-    return 0;
+    return t_result;
 }
 
 int init_ecg_electronics() {
+#if ENABLE_ECG_LOD
+    ecg_lod_init();
+#endif
+
     // Set up and configure the ADC.
     if (ecg_adc_setup(ECG_I2C_BUS) < 0)
         return -1;
@@ -121,6 +134,23 @@ int init_ecg_data_file(int restarted_program) {
 void *ecg_thread_getData(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_ecg_thread_getData_tid = gettid();
+
+    if ((shm_ecg == NULL) || (sem_ecg_page == SEM_FAILED) || (sem_ecg_sample == SEM_FAILED)) {
+        CETI_ERR("Thread started without neccesary memory resources");
+        // Clean up.
+        ecg_adc_cleanup();
+        munmap(shm_ecg, sizeof(CetiEcgBuffer));
+        sem_close(sem_ecg_sample);
+        sem_close(sem_ecg_page);
+
+        shm_unlink(ECG_SHM_NAME);
+        sem_unlink(ECG_SAMPLE_SEM_NAME);
+        sem_unlink(ECG_PAGE_SEM_NAME);
+
+        g_ecg_thread_getData_is_running = 0;
+        CETI_LOG("Terminated!");
+        return NULL;
+    }
 
     // Set the thread CPU affinity.
     if (ECG_GETDATA_CPU >= 0) {
@@ -275,6 +305,10 @@ void *ecg_thread_getData(void *paramPtr) {
     munmap(shm_ecg, sizeof(CetiEcgBuffer));
     sem_close(sem_ecg_sample);
     sem_close(sem_ecg_page);
+
+    shm_unlink(ECG_SHM_NAME);
+    sem_unlink(ECG_SAMPLE_SEM_NAME);
+    sem_unlink(ECG_PAGE_SEM_NAME);
 
     g_ecg_thread_getData_is_running = 0;
     CETI_LOG("Done!");

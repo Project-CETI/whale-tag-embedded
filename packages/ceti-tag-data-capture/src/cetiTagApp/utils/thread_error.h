@@ -29,30 +29,12 @@ typedef enum {
     THREAD_ECG_LOG = 14,
 } ThreadKind;
 
-typedef enum {
-    THREAD_ERR_FAILED_FILE_CREATE = 1,
-    THREAD_ERR_FAILED_SHM_CREATE = 2,
-    THREAD_ERR_FAILED_SEM_CREATE = 3,
-} ThreadErrorKind;
+#define THREAD_OK 0
+#define THREAD_ERR_SHM_FAILED (1 << 0)
+#define THREAD_ERR_SEM_FAILED (1 << 1)
+#define THREAD_ERR_DATA_FILE_FAILED (1 << 2)
+#define THREAD_ERR_HW (1 << 3)
 
-/* ThreadError is actually a struct defined as such
-{
-    uint8_t thread_id;
-    uint8_t device_id;
-    uint16_t error_code;
-}
-
-The convinient thing here is that errors as a number can be easily compared
-and passed. This is also compatible with the device error type `WTResult`
-found in `utils/error.h` as the thread ID can simply be concatenated to the
-value as the MSB.
-*/
-typedef uint32_t ThreadError;
-
-#define THREAD_OK (0)
-#define THREAD_ERR(thread, error) (((thread & 0xFF) << 24) | ((uint32_t)error & 0x00FFFFFF))
-#define THREAD_ERR_GET_THREAD(thread_error) ((thread_error >> 24) & 0xFF)
-#define THREAD_ERR_GET_DEVICE(thread_error) ((thread_error >> 16) & 0xFF)
-#define THREAD_ERR_GET_ERROR(thread_error) (thread_error & 0xFFFF)
+void update_thread_device_status(ThreadKind thread_id, WTResult device_status, const char *thread_name);
 
 #endif

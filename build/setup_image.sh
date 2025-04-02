@@ -102,7 +102,7 @@ make install -C stm32flash-code -j4
 rm -rf stm32flash-code
 
 # move location of syslogs to volatile partition to ensure logging is captured
-sed -i 's,var/log,data/logs,g' /etc/rsyslog.conf
+sed -i 's,var/log/\(.[a-zA-Z]*\)\(\.log\)\?,data/\1.log,g' /etc/rsyslog.conf
 
 # add package directories to user PATH for bash to autofill names
 # shellcheck disable=SC2016

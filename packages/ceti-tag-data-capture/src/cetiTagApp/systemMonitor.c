@@ -7,6 +7,17 @@
 
 #include "systemMonitor.h"
 
+#include "launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
+#include "utils/logging.h"
+#include "utils/timing.h"
+
+#include <pthread.h> // to set CPU affinity
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/sysinfo.h>
+#include <sys/types.h>
+
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------

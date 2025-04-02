@@ -22,14 +22,12 @@ void *create_shared_memory_region(const char *name, size_t size) {
     // open/create ipc file
     int shm_fd = shm_open(name, O_CREAT | O_RDWR, 0644);
     if (shm_fd < 0) {
-        perror("shm_open");
         CETI_ERR("Failed to open/create shared memory");
         return NULL;
     }
 
     // size to sample size
     if (ftruncate(shm_fd, size)) {
-        perror("shm_fd");
         CETI_ERR("Failed to resize shared memory");
         return NULL;
     }
@@ -37,7 +35,6 @@ void *create_shared_memory_region(const char *name, size_t size) {
     // memory map address
     address = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (address == MAP_FAILED) {
-        perror("mmap");
         CETI_ERR("Failed to map shared memory");
         return NULL;
     }
