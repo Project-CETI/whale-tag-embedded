@@ -24,7 +24,6 @@
 #include <string.h>
 #include <unistd.h>
 
-
 // How often data is written to the to IMU log files
 #define IMU_LOGGING_INTERVAL_US (1000000)
 
@@ -36,7 +35,6 @@
 #define IMU_MAX_FILEPATH_LENGTH 100
 
 static CetiImuReportBuffer *imu_report_buffer;
-
 
 int g_imu_log_thread_is_running = 0;
 
@@ -107,7 +105,6 @@ int imu_init_data_files(void) {
         init_data_file_success |= init_data_file(imu_data_file[i_type], imu_data_filepath[i_type],
                                                  &imu_data_file_headers[i_type], 1,
                                                  NULL, "imu_init_data_files()");
-                                                 
     }
 
     for (int i = 0; i < IMU_DATA_TYPE_COUNT; i++) {
@@ -148,7 +145,7 @@ void imu_log_report_to_quat_csv(FILE *fp, CetiImuReport *pReport) {
         char err_str[512];
         fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pReport->error, err_str, sizeof(err_str)));
         fprintf(fp, ", , , , , , \n");
-    } else{
+    } else {
         // Write the sensor reading delay.
         fprintf(fp, ",%d", (pReport->reading_delay + pReport->report.delay) * 100);
         // Write accelerometer data
@@ -179,7 +176,7 @@ void imu_log_report_to_accel_csv(FILE *fp, CetiImuReport *pReport) {
         char err_str[512];
         fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pReport->error, err_str, sizeof(err_str)));
         fprintf(fp, ", , , , , \n");
-    } else{
+    } else {
         // Write the sensor reading delay.
         fprintf(fp, ",%d", pReport->reading_delay + pReport->report.delay * 100);
         // Write accelerometer data
@@ -209,7 +206,7 @@ void imu_log_report_to_gyro_csv(FILE *fp, CetiImuReport *pReport) {
         char err_str[512];
         fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pReport->error, err_str, sizeof(err_str)));
         fprintf(fp, ", , , , , \n");
-    } else{
+    } else {
         // Write the sensor reading delay.
         fprintf(fp, ",%d", pReport->reading_delay + pReport->report.delay * 100);
         // Write accelerometer data
@@ -239,7 +236,7 @@ void imu_log_report_to_mag_csv(FILE *fp, CetiImuReport *pReport) {
         char err_str[512];
         fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pReport->error, err_str, sizeof(err_str)));
         fprintf(fp, ", , , , , \n");
-    } else{
+    } else {
         // Write the sensor reading delay.
         fprintf(fp, ",%d", pReport->reading_delay + pReport->report.delay * 100);
         // Write accelerometer data
@@ -267,7 +264,7 @@ void *imu_log_thread(void *paramPtr) {
             CETI_ERR("Failed to set affinity to CPU %d", IMU_CPU);
     }
 
-    //open shared memory object
+    // open shared memory object
     imu_report_buffer = shm_open_read(IMU_REPORT_BUFFER_SHM_NAME, sizeof(CetiImuReportBuffer));
     if (imu_report_buffer == NULL) {
         char err_str[512];
@@ -276,7 +273,7 @@ void *imu_log_thread(void *paramPtr) {
     }
 
     static uint32_t processing_page = 0;
-    
+
     // open imu logging files
     while (imu_init_data_files()) {
         char error_str[512];
@@ -285,11 +282,12 @@ void *imu_log_thread(void *paramPtr) {
         usleep(IMU_LOGGING_INTERVAL_US);
     }
     g_imu_log_thread_is_running = 1;
-    
+    CETI_LOG("Imu logging thread started Ok!");
+
     // begin logging
-    while(!g_stopAcquisition) {
+    while (!g_stopAcquisition) {
         int64_t log_time_us = get_global_time_us();
-        if(g_stopLogging) {
+        if (g_stopLogging) {
             usleep(IMU_LOGGING_INTERVAL_US);
             continue;
         }
@@ -297,12 +295,12 @@ void *imu_log_thread(void *paramPtr) {
         // check that data is ready to be written
         if (imu_report_buffer->page == processing_page) {
             // buffer not full wait a bit longer
-            usleep(IMU_LOGGING_INTERVAL_US/10);
+            usleep(IMU_LOGGING_INTERVAL_US / 10);
             continue;
         }
 
         // write all logged raw samples
-        for( int i = 0; i < IMU_REPORT_BUFFER_SIZE; i++){
+        for (int i = 0; i < IMU_REPORT_BUFFER_SIZE; i++) {
             CetiImuReport *i_report = &imu_report_buffer->reports[processing_page][i];
             if ((i_report->report.report_id == IMU_SENSOR_REPORTID_ROTATION_VECTOR) || (i_report->error != WT_OK)) {
                 imu_log_report_to_quat_csv(imu_data_file[IMU_DATA_TYPE_QUAT], i_report);
@@ -312,14 +310,12 @@ void *imu_log_thread(void *paramPtr) {
             }
             if ((i_report->report.report_id == IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED) || (i_report->error != WT_OK)) {
                 imu_log_report_to_gyro_csv(imu_data_file[IMU_DATA_TYPE_GYRO], i_report);
-            } 
+            }
             if ((i_report->report.report_id == IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED) || (i_report->error != WT_OK)) {
                 imu_log_report_to_mag_csv(imu_data_file[IMU_DATA_TYPE_MAG], i_report);
             }
         }
         processing_page ^= 1;
-
-
 
         // Create new files if files are getting too large.
         size_t imu_data_file_size_b = 0;
@@ -342,8 +338,7 @@ void *imu_log_thread(void *paramPtr) {
             }
         }
 
-        
-        //sleep
+        // sleep
         int64_t elapsed_time_us = (get_global_time_us() - log_time_us);
         int64_t remaining_time_us = IMU_LOGGING_INTERVAL_US - elapsed_time_us;
         if (remaining_time_us >= 0) {

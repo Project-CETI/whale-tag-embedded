@@ -12,4 +12,4 @@
 int imu_init_data_files(void);
 void *imu_log_thread(void *paramPtr);
 
-#endif //IMU_LOG_H
+#endif // IMU_LOG_H

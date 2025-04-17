@@ -19,7 +19,7 @@ typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))
     uint8_t seq_num;
 } ShtpHeader;
 
-typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))){
+typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))) {
     uint8_t report_id;
     uint8_t sequence_number;
     uint8_t status;
@@ -50,7 +50,7 @@ typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))
     } data;
 } ShtpSensorReport;
 
-typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))){
+typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))) {
     uint8_t report_id;
     uint32_t delay;
 } ShtpTimebaseReport;
@@ -60,6 +60,5 @@ WTResult bno086_close(void);
 WTResult bno086_read_header(ShtpHeader *header);
 WTResult bno086_read_reports(uint8_t *pBuffer, size_t len);
 WTResult bno086_write(const uint8_t *pBuffer, size_t len);
-
 
 #endif // __CETI_WHALE_TAG_HAL_BNO086__
