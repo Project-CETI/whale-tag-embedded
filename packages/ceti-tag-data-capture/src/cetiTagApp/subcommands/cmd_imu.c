@@ -1,9 +1,10 @@
 #include "../commands_internal.h"
+#include "../device/bno086.h"
 #include "../sensors/imu.h"
 
 int imuCmd_reset(const char *args) {
-    resetIMU();
-    setupIMU(IMU_ALL_ENABLED);
+    bno086_close();
+    bno086_open();
     fprintf(g_rsp_pipe, "IMU Resetted and setup\n");
     return 0;
 }
