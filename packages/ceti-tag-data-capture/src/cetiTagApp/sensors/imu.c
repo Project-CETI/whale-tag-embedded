@@ -281,7 +281,9 @@ int imu_read_data() {
         if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
             imu_report_buffer->sample = 0;
             imu_report_buffer->page ^= 1;
+            sem_post(s_imu_page_ready);
         }
+        sem_post(s_imu_report_ready);
         return -1;
     }
 
@@ -314,7 +316,9 @@ int imu_read_data() {
                 if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
                     imu_report_buffer->sample = 0;
                     imu_report_buffer->page ^= 1;
+                    sem_post(s_imu_page_ready);
                 }
+                sem_post(s_imu_report_ready);
                 read_offset += 10;
                 break;
             }
@@ -331,7 +335,9 @@ int imu_read_data() {
                 if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
                     imu_report_buffer->sample = 0;
                     imu_report_buffer->page ^= 1;
+                    sem_post(s_imu_page_ready);
                 }
+                sem_post(s_imu_report_ready);
                 read_offset += 10;
                 break;
             }
@@ -348,7 +354,9 @@ int imu_read_data() {
                 if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
                     imu_report_buffer->sample = 0;
                     imu_report_buffer->page ^= 1;
+                    sem_post(s_imu_page_ready);
                 }
+                sem_post(s_imu_report_ready);
                 read_offset += 10;
                 break;
             }
@@ -365,7 +373,9 @@ int imu_read_data() {
                 if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
                     imu_report_buffer->sample = 0;
                     imu_report_buffer->page ^= 1;
+                    sem_post(s_imu_page_ready);
                 }
+                sem_post(s_imu_report_ready);
                 read_offset += 14;
                 break;
             }
