@@ -153,9 +153,9 @@ typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))
     uint8_t sequence_number;
     uint8_t status;
     uint8_t delay;
-    uint16_t x;
-    uint16_t y;
-    uint16_t z;
+    int16_t x;
+    int16_t y;
+    int16_t z;
 } CetiImuXYZReport;
 
 typedef CetiImuXYZReport CetiImuAccelReport;
@@ -167,11 +167,11 @@ typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))
     uint8_t sequence_number;
     uint8_t status;
     uint8_t delay;
-    uint16_t i;
-    uint16_t j;
-    uint16_t k;
-    uint16_t real;
-    uint16_t accuracy;
+    int16_t i;
+    int16_t j;
+    int16_t k;
+    int16_t real;
+    int16_t accuracy;
 } CetiImuQuatReport;
 
 typedef union {

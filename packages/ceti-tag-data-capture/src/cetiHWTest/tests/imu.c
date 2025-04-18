@@ -179,7 +179,7 @@ TestState test_imu(FILE *pResultsFile) {
     fprintf(pResultsFile, "[%s]: pitch\n", pitch_pass ? "PASS" : "FAIL");
     fprintf(pResultsFile, "[%s]: yaw\n", yaw_pass ? "PASS" : "FAIL");
 
-    sem_close(sem_page_ready);
+    sem_close(sem_report_ready);
     munmap(report_buffer, sizeof(CetiImuReportBuffer));
 
     return (input == 27)                           ? TEST_STATE_TERMINATE
