@@ -72,16 +72,17 @@ TestState test_imu(FILE *pResultsFile) {
     printf("Instructions: rotate the tag to meet each green target position below\n\n");
     do {
         // wait for imu sample buffer to fill (~1 second)
-        sem_wait(sem_page_ready);
-
+        sem_wait(sem_report_ready);
+        uint32_t r_page = report_buffer->page;
+        uint32_t r_sample = report_buffer->sample;
         // get latest quat
         // reverse iterate over completed page to first quaternion
         CetiImuQuatReport *latest_quat_report = NULL;
-        uint32_t read_page = (report_buffer->page ^ 1);
-        for (int i = (IMU_REPORT_BUFFER_SIZE - 1); i >= 0; i--) {
-            CetiImuSensorReport *i_report = &report_buffer->reports[read_page][i].report;
+        for (int i = (r_page * IMU_REPORT_BUFFER_SIZE + r_sample - 1); i >= 0; i--) {
+            CetiImuSensorReport *reports = &report_buffer->reports[0][0];
+            CetiImuQuatReport *i_report = &reports[read_page][i].report.quat;
             if (i_report->report_id == 0x05) {
-                latest_quat_report = &i_report->quat;
+                latest_quat_report = i_report;
                 break;
             }
         }
