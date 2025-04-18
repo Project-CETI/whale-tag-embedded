@@ -62,7 +62,7 @@ TestState test_imu(FILE *pResultsFile) {
         return TEST_STATE_FAILED;
     }
     sem_report_ready = sem_open(IMU_REPORT_SEM_NAME, O_RDWR, 0444, 0);
-    if (sem_page_ready == SEM_FAILED) {
+    if (sem_report_ready == SEM_FAILED) {
         perror("sem_open");
         munmap(report_buffer, sizeof(CetiImuReportBuffer));
         return TEST_STATE_FAILED;
