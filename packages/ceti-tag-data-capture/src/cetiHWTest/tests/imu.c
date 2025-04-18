@@ -52,7 +52,7 @@ TestState test_imu(FILE *pResultsFile) {
     int test_index = 0;
 
     CetiImuReportBuffer *report_buffer;
-    sem_t *sem_page_ready;
+    sem_t *sem_report_ready;
 
     // === open quaternion shared memory ===
     report_buffer = shm_open_read(IMU_REPORT_BUFFER_SHM_NAME, sizeof(CetiImuReportBuffer));
