@@ -13,26 +13,13 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
+#include "../cetiTag.h"
+#include "../device/bno086.h"
 #include <stdint.h>
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
-// Seems to log about 1GiB every 33 hours when nominally streaming quaternion
-// at 20 Hz and accel/gyro/mag at 50 Hz Note that 2GB is the file size maximum
-// for 32-bit systems
-#define IMU_MAX_FILE_SIZE_MB 1024
-
-// How often to close/reopen the data file (avoid doing it at every sample to
-// reduce delays in the loop)
-#define IMU_DATA_FILE_FLUSH_PERIOD_US 1000000
-
-#define BUS_IMU 0x00 // IMU is only device on i2c0
-#define ADDR_IMU 0x4A
-#define IMU_N_RESET 4
-// Bitbang IMU I2C
-#define IMU_BB_I2C_SDA 23
-#define IMU_BB_I2C_SCL 24
 
 // Registers
 #define IMU_CHANNEL_COMMAND 0
@@ -112,17 +99,24 @@
 #define IMU_MAG_ENABLED (1 << IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED)
 #define IMU_ALL_ENABLED (IMU_QUAT_ENABLED | IMU_ACCEL_ENABLED | IMU_GYRO_ENABLED | IMU_MAG_ENABLED)
 
+typedef enum imu_data_type_e {
+    IMU_DATA_TYPE_QUAT,
+    IMU_DATA_TYPE_ACCEL,
+    IMU_DATA_TYPE_GYRO,
+    IMU_DATA_TYPE_MAG,
+    IMU_DATA_TYPE_COUNT,
+} IMUDataType;
+
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
 extern int g_imu_thread_is_running;
+extern int g_imu_log_thread_is_running;
 
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
 int init_imu();
-int imu_init_data_files(void);
-int resetIMU();
 int setupIMU(uint8_t enabled_features);
 int imu_enable_feature_report(int report_id, uint32_t report_interval_us);
 int imu_read_data();

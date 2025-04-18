@@ -44,6 +44,7 @@ int g_audio_thread_writeData_tid = -1;
 int g_ecg_thread_getData_tid = -1;
 int g_ecg_thread_writeData_tid = -1;
 int g_imu_thread_tid = -1;
+int g_imu_thread_writeData_tid = -1;
 int g_light_thread_tid = -1;
 int g_pressureTemperature_thread_tid = -1;
 int g_battery_thread_tid = -1;
