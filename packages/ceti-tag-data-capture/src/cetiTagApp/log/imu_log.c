@@ -219,7 +219,7 @@ void imu_log_report_to_gyro_csv(FILE *fp, CetiImuReport *pReport) {
         fprintf(fp, ", , , , , \n");
     } else {
         // Write the sensor reading delay.
-        fprintf(fp, ",%d", pReport->(reading_delay + pReport->report.delay) * 100);
+        fprintf(fp, ",%d", (pReport->reading_delay + pReport->report.delay) * 100);
         // Write accelerometer data
         fprintf(fp, ",%d", pReport->report.gyro.x);
         fprintf(fp, ",%d", pReport->report.gyro.y);

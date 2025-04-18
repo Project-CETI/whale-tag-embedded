@@ -78,9 +78,9 @@ TestState test_imu(FILE *pResultsFile) {
         // get latest quat
         // reverse iterate over completed page to first quaternion
         CetiImuQuatReport *latest_quat_report = NULL;
+        CetiImuSensorReport *reports = &report_buffer->reports[0][0];
         for (int i = (r_page * IMU_REPORT_BUFFER_SIZE + r_sample - 1); i >= 0; i--) {
-            CetiImuSensorReport *reports = &report_buffer->reports[0][0];
-            CetiImuQuatReport *i_report = &reports[read_page][i].report.quat;
+            CetiImuQuatReport *i_report = &reports[i].report.quat;
             if (i_report->report_id == 0x05) {
                 latest_quat_report = i_report;
                 break;
