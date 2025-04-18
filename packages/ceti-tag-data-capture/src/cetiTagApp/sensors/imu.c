@@ -160,28 +160,21 @@ void *imu_thread(void *paramPtr) {
 
     while (!g_stopAcquisition) {
         int64_t wake_time_us = get_global_time_us();
-        if (!imu_is_connected) {
-            // If there was an error, try to reset the IMU.
-            // Ignore the initial few seconds though, since sometimes it takes a little bit to get in sync.
-            if (get_global_time_us() - start_global_time_us > 10000000) {
-                CETI_ERR("Unable to connect to IMU");
-                usleep(5000000);
-                setupIMU(IMU_ALL_ENABLED);
-                start_global_time_us = get_global_time_us();
-            }
-            continue; // restart loop
+
+        // sleep a bit and try again if read is unsucessful
+        // ToDo: return ACTUAL errors and try recovering hardware
+        if (imu_read_data() != 0) {
+            usleep(IMU_9DOF_SAMPLE_PERIOD_US / 10);
+            continue;
         }
 
-        imu_read_data();
-
+        // It's ok to sleep as sensor reports will just get
+        // concatenated by the sensor hardware.
         int64_t elapsed_time = get_global_time_us() - wake_time_us;
         int64_t remaining_time = IMU_9DOF_SAMPLE_PERIOD_US - elapsed_time;
         if (remaining_time > 0) {
             usleep(remaining_time);
         }
-
-        // Note that no delay is added here to set the polling frequency,
-        //  since the IMU feature reports will control the sampling rate.
     }
     bno086_open(); // seems nice to stop the feature reports
     bno086_close();
