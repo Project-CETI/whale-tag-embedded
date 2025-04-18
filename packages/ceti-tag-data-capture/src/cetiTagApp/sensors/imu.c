@@ -266,6 +266,10 @@ int imu_read_data() {
     CetiImuReport *i_buffer = &imu_report_buffer->reports[imu_report_buffer->page][imu_report_buffer->sample];
     retval = bno086_read_header(&shtpHeader);
     numBytesAvail = fmin(256, (shtpHeader.length & 0x7FFF)); // msb is "continuation bit", not part of count
+    if (numBytesAvail == 0) {
+        return -1;
+    }
+
     if (retval == WT_OK) {
         retval = bno086_read_reports(pktBuff, numBytesAvail);
     }
@@ -286,7 +290,7 @@ int imu_read_data() {
         sem_post(s_imu_report_ready);
         return -1;
     }
-
+    int bytes_read = retval;
     // Parse the data.
     size_t read_offset = 0;
     ShtpHeader *report_header = (ShtpHeader *)&pktBuff[read_offset];
@@ -294,7 +298,7 @@ int imu_read_data() {
         return -1;
     }
     read_offset += sizeof(ShtpHeader);
-    while (read_offset != report_header->length) {
+    while (read_offset != bytes_read) {
         i_buffer = &imu_report_buffer->reports[imu_report_buffer->page][imu_report_buffer->sample];
         uint8_t report_id = pktBuff[read_offset];
         switch (report_id) {
@@ -310,8 +314,6 @@ int imu_read_data() {
                 i_buffer->reading_delay = timestamp_delay;
                 i_buffer->error = retval;
                 memcpy(&i_buffer->report, &pktBuff[read_offset], sizeof(CetiImuAccelReport));
-                // memcpy(imu_accel_m_ss, i_buffer, sizeof(CetiImuAccelSample));
-                // sem_post(s_accel_ready);
                 imu_report_buffer->sample++;
                 if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
                     imu_report_buffer->sample = 0;
@@ -329,8 +331,6 @@ int imu_read_data() {
                 i_buffer->reading_delay = timestamp_delay;
                 i_buffer->error = retval;
                 memcpy(&i_buffer->report, &pktBuff[read_offset], sizeof(CetiImuGyroReport));
-                // memcpy(imu_gyro_rad_s, i_buffer, sizeof(CetiImuGyroSample));
-                // sem_post(s_gyro_ready);
                 imu_report_buffer->sample++;
                 if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
                     imu_report_buffer->sample = 0;
@@ -348,8 +348,6 @@ int imu_read_data() {
                 i_buffer->reading_delay = timestamp_delay;
                 i_buffer->error = retval;
                 memcpy(&i_buffer->report, &pktBuff[read_offset], sizeof(CetiImuMagReport));
-                // memcpy(imu_mag_ut, i_buffer, sizeof(CetiImuMagSample));
-                // sem_post(s_mag_ready);
                 imu_report_buffer->sample++;
                 if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
                     imu_report_buffer->sample = 0;
@@ -367,8 +365,6 @@ int imu_read_data() {
                 i_buffer->reading_delay = timestamp_delay;
                 i_buffer->error = retval;
                 memcpy(&i_buffer->report, &pktBuff[read_offset], sizeof(CetiImuQuatReport));
-                // memcpy(imu_quaternion, i_buffer, sizeof(CetiImuQuatSample));
-                // sem_post(s_quat_ready);
                 imu_report_buffer->sample++;
                 if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
                     imu_report_buffer->sample = 0;
@@ -381,7 +377,7 @@ int imu_read_data() {
             }
 
             default: {
-                read_offset = report_header->length;
+                read_offset = bytes_read;
                 break;
             }
         }
