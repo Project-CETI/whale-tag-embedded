@@ -21,7 +21,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
-#include <math.h> // for fmin()
 #include <math.h> // for fmin(), sqrt(), atan2(), M_PI
 #include <pigpio.h>
 #include <pthread.h> // to set CPU affinity

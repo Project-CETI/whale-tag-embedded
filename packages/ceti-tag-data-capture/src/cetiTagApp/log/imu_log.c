@@ -12,6 +12,7 @@
 #include "../launcher.h"
 #include "../sensors/imu.h"
 #include "../systemMonitor.h"
+#include "../utils/error.h"
 #include "../utils/logging.h"
 #include "../utils/memory.h"
 #include "../utils/timing.h"
@@ -83,6 +84,16 @@ static const char *imu_data_names[IMU_DATA_TYPE_COUNT] = {
     [IMU_DATA_TYPE_MAG] = "mag",
 };
 
+// close all imu data files
+void imu_close_all_files(void) {
+    for (int i = 0; i < IMU_DATA_TYPE_COUNT; i++) {
+        if (imu_data_file[i] != NULL) {
+            fclose(imu_data_file[i]);
+            imu_data_file[i] = NULL;
+        }
+    }
+}
+
 // Find next available filename
 int imu_init_data_files(void) {
     // Append a number to the filename base until one is found that doesn't exist yet.
@@ -114,17 +125,17 @@ int imu_init_data_files(void) {
     for (int i = 0; i < IMU_DATA_TYPE_COUNT; i++) {
         imu_restarted_log[i] = true;
     }
-    return init_data_file_success;
-}
 
-// close all imu data files
-void imu_close_all_files(void) {
-    for (int i = 0; i < IMU_DATA_TYPE_COUNT; i++) {
-        if (imu_data_file[i] != NULL) {
-            fclose(imu_data_file[i]);
-            imu_data_file[i] = NULL;
+    // Open the files
+    for (int i_type = 0; i_type < IMU_DATA_TYPE_COUNT; i_type++) {
+        imu_data_file[i_type] = fopen(imu_data_filepath[i_type], "at");
+        if (imu_data_file[i_type] == NULL) {
+            imu_close_all_files();
+            return -1;
         }
     }
+
+    return init_data_file_success;
 }
 
 void imu_log_report_to_quat_csv(FILE *fp, CetiImuReport *pReport) {
