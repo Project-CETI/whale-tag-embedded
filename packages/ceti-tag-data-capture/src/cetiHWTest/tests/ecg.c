@@ -68,7 +68,7 @@ TestState test_ecg(FILE *pResultsFile) {
         sem_wait(sem_ecg_sample_ready);
 
         // update continuity test
-        int lead_state = ((shm_ecg->leadsOff_readings_p[shm_ecg->page][shm_ecg->sample] != 0) << 1) | ((shm_ecg->leadsOff_readings_n[shm_ecg->page][shm_ecg->sample] != 0) << 0);
+        int lead_state = ((shm_ecg->data[shm_ecg->page][shm_ecg->sample].leadsOff_reading_p != 0) << 1) | ((shm_ecg->data[shm_ecg->page][shm_ecg->sample].leadsOff_reading_n != 0) << 0);
 
         if (lead_state == previous_lead_state) {
             previous_state_count++;
