@@ -61,7 +61,7 @@ TestState test_imu(FILE *pResultsFile) {
         perror("shm_open_read");
         return TEST_STATE_FAILED;
     }
-    sem_page_ready = sem_open(IMU_PAGE_SEM_NAME, O_RDWR, 0444, 0);
+    sem_report_ready = sem_open(IMU_REPORT_SEM_NAME, O_RDWR, 0444, 0);
     if (sem_page_ready == SEM_FAILED) {
         perror("sem_open");
         munmap(report_buffer, sizeof(CetiImuReportBuffer));
@@ -78,7 +78,7 @@ TestState test_imu(FILE *pResultsFile) {
         // get latest quat
         // reverse iterate over completed page to first quaternion
         CetiImuQuatReport *latest_quat_report = NULL;
-        CetiImuSensorReport *reports = &report_buffer->reports[0][0];
+        CetiImuReport *reports = &report_buffer->reports[0][0];
         for (int i = (r_page * IMU_REPORT_BUFFER_SIZE + r_sample - 1); i >= 0; i--) {
             CetiImuQuatReport *i_report = &reports[i].report.quat;
             if (i_report->report_id == 0x05) {
