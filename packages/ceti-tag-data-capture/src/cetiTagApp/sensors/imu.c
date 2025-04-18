@@ -159,6 +159,7 @@ void *imu_thread(void *paramPtr) {
     g_imu_thread_is_running = 1;
 
     while (!g_stopAcquisition) {
+        int64_t wake_time_us = get_global_time_us();
         if (!imu_is_connected) {
             // If there was an error, try to reset the IMU.
             // Ignore the initial few seconds though, since sometimes it takes a little bit to get in sync.
@@ -172,6 +173,12 @@ void *imu_thread(void *paramPtr) {
         }
 
         imu_read_data();
+
+        int64_t elapsed_time = get_global_time_us() - wake_time_us;
+        int64_t remaining_time = IMU_9DOF_SAMPLE_PERIOD_US - elapsed_time;
+        if (remaining_time > 0) {
+            usleep(remaining_time);
+        }
 
         // Note that no delay is added here to set the polling frequency,
         //  since the IMU feature reports will control the sampling rate.
