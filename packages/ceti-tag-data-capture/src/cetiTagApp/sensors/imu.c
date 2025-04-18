@@ -263,18 +263,17 @@ int imu_read_data() {
     long long global_time_us = get_global_time_us();
     int rtc_count = getRtcCount();
     int32_t timestamp_delay = 0;
-    CetiImuReport *i_buffer = &imu_report_buffer->reports[imu_report_buffer->page][imu_report_buffer->sample];
     retval = bno086_read_header(&shtpHeader);
-    numBytesAvail = fmin(256, (shtpHeader.length & 0x7FFF)); // msb is "continuation bit", not part of count
-    if (numBytesAvail == 0) {
-        return -1;
-    }
-
     if (retval == WT_OK) {
+        numBytesAvail = fmin(256, (shtpHeader.length & 0x7FFF)); // msb is "continuation bit", not part of count
+        if (numBytesAvail == 0) {
+            return -1;
+        }
         retval = bno086_read_reports(pktBuff, numBytesAvail);
     }
 
     // check that no errors occured
+    CetiImuReport *i_buffer = &imu_report_buffer->reports[imu_report_buffer->page][imu_report_buffer->sample];
     if ((retval != WT_OK)) { // make sure we have the right channel
         // log error for all imu reports
         i_buffer->sys_time_us = global_time_us;
@@ -290,15 +289,15 @@ int imu_read_data() {
         sem_post(s_imu_report_ready);
         return -1;
     }
-    int bytes_read = retval;
     // Parse the data.
     size_t read_offset = 0;
     ShtpHeader *report_header = (ShtpHeader *)&pktBuff[read_offset];
+    int bytes_read = report_header->length & 0x7FFF;
     if (report_header->channel != IMU_CHANNEL_REPORTS) {
         return -1;
     }
     read_offset += sizeof(ShtpHeader);
-    while (read_offset != bytes_read) {
+    while (read_offset < bytes_read) {
         i_buffer = &imu_report_buffer->reports[imu_report_buffer->page][imu_report_buffer->sample];
         uint8_t report_id = pktBuff[read_offset];
         switch (report_id) {
