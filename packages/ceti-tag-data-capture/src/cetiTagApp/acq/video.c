@@ -20,6 +20,12 @@
 #include <unistd.h>
 
 #define VIDEO_FILE_LENGTH_MS 300000
+
+// 480x640p90, 1280x720p60, 1920x1080p30
+#define VIDEO_WIDTH 1920
+#define VIDEO_HEIGHT 1080
+#define VIDEO_FRAMERATE 30
+
 #define xstr(s) stringify(s)
 #define stringify(s) #s
 
@@ -39,7 +45,10 @@ void *video_thread(void *paramPtr) {
             "libcamera-vid",
             "-t", xstr(VIDEO_FILE_LENGTH_MS),
             "--inline",
-            "-v", "=0",
+            "-v", "0",
+            "--width", xstr(VIDEO_WIDTH),
+            "--height", xstr(VIDEO_HEIGHT),
+            "--framerate", xstr(VIDEO_FRAMERATE),
             "-o", video_filename,
             NULL};
         execvp("libcamera-vid", argv);
