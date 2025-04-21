@@ -1,6 +1,8 @@
 #Change target to build substeps in Docker
 TARGET ?= $(TARGET_IMG)
 
+ROOT_EXPANSION_SIZE := +1G
+
 SHELL := /bin/bash
 MAKEFILE_DIR := $(shell realpath $(dir $(lastword $(MAKEFILE_LIST))))
 DOCKER_IMAGE ?= sdcard-builder
@@ -119,7 +121,7 @@ $(RASPIOS_IMG): | $(IMG_DIR)
 # Setup raspberry pi environment
 $(ENV_IMG): $(RASPIOS_IMG) $(patsubst %.sh, %.timestamp, $(ENV_SETUP)) $(OVERLAY_FILES) $(RPI_TOOL_TS)
 	cp -f $(RASPIOS_IMG) $@.tmp
-	$(RPI_EXPAND) --size +512M --image "$@.tmp"
+	$(RPI_EXPAND) --size $(ROOT_EXPANSION_SIZE) --image "$@.tmp"
 	$(RPI_APPEND) --size 128M --filesystem ext4 --label cetiData --image "$@.tmp"
 	$(RPI_RUN) --image "$@.tmp" \
 		--bind "$(OVERLAY_DIR):/overlay" \

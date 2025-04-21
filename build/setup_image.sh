@@ -19,16 +19,17 @@ time apt install "${APT_NONINTERACTIVE}" --fix-broken --fix-missing --no-upgrade
 	avahi-utils \
 	bc \
 	build-essential \
-	libpigpio-dev \
-	pigpio \
 	devscripts \
 	dkms \
 	dnsmasq \
 	flac \
+	libcamera-apps \
 	libflac-dev \
 	libi2c-dev \
+	libpigpio-dev \
 	i2c-tools \
 	netcat \
+	pigpio \
 	zlib1g-dev
 
 apt "${APT_NONINTERACTIVE}" autoremove
