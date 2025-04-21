@@ -52,6 +52,7 @@ int g_command_thread_tid = -1;
 int g_rtc_thread_tid = -1;
 int g_ecg_lod_thread_tid = -1;
 int g_stateMachine_thread_tid = -1;
+int g_video_thread_tid = -1;
 // Writing data to a log file.
 static FILE *systemMonitor_data_file = NULL;
 static char systemMonitor_data_file_notes[256] = "";

@@ -9,6 +9,7 @@
 
 #include "launcher.h"
 
+#include "acq/video.h"
 #include "battery.h"
 #include "burnwire.h"
 #include "device/fpga.h"
@@ -236,6 +237,13 @@ int main(void) {
     audio_write_thread_index = num_threads;
     num_threads++;
 #endif
+#endif
+
+#if ENABLE_VIDEO
+    pthread_create(&thread_ids[num_threads], NULL, &video_thread, NULL);
+    threads_running[num_threads] = &g_video_thread_is_running;
+    // audio_write_thread_index = num_threads;
+    num_threads++;
 #endif
 
     usleep(100000);

@@ -27,6 +27,7 @@
 #define ENABLE_SYSTEMMONITOR 1
 #define ENABLE_BURNWIRE 1
 #define ENABLE_RUNTIME_AUDIO 0
+#define ENABLE_VIDEO 1
 
 //-----------------------------------------------------------------------------
 // State Change Configurations
