@@ -52,26 +52,38 @@ static FILE *imu_data_file[IMU_DATA_TYPE_COUNT] = {
 // These all compile to single continuous strings, aka why no comma between quotes.
 static const char *imu_data_file_headers[IMU_DATA_TYPE_COUNT] = {
     [IMU_DATA_TYPE_QUAT] =
-        "Sensor_delay_us"
+        "Capture_Timestamp_us"
+        ",Read_Timestamp_us"
+        ",RTC Count"
+        ",Notes"
         ",Quat_i"
         ",Quat_j"
         ",Quat_k"
         ",Quat_Re"
         ",Quat_accuracy",
     [IMU_DATA_TYPE_ACCEL] =
-        "Sensor_delay_us"
+        "Capture_Timestamp_us"
+        ",Read_Timestamp_us"
+        ",RTC Count"
+        ",Notes"
         ",Accel_x_raw"
         ",Accel_y_raw"
         ",Accel_z_raw"
         ",Accel_status",
     [IMU_DATA_TYPE_GYRO] =
-        "Sensor_delay_us"
+        "Capture_Timestamp_us"
+        ",Read_Timestamp_us"
+        ",RTC Count"
+        ",Notes"
         ",Gyro_x_raw"
         ",Gyro_y_raw"
         ",Gyro_z_raw"
         ",Gyro_status",
     [IMU_DATA_TYPE_MAG] =
-        "Sensor_delay_us"
+        "Capture_Timestamp_us"
+        ",Read_Timestamp_us"
+        ",RTC Count"
+        ",Notes"
         ",Mag_x_raw"
         ",Mag_y_raw"
         ",Mag_z_raw"
@@ -110,36 +122,32 @@ int imu_init_data_files(void) {
         data_file_postfix_count++;
     } while (data_file_exists);
 
-    int init_data_file_success = 0;
     for (int i_type = 0; i_type < IMU_DATA_TYPE_COUNT; i_type++) {
         // Open the new files
-        init_data_file_success |= init_data_file(imu_data_file[i_type], imu_data_filepath[i_type],
-                                                 &imu_data_file_headers[i_type], 1,
-                                                 NULL, "imu_init_data_files()");
+        imu_data_file[i_type] = fopen(imu_data_filepath[i_type], "at");
+        if (imu_data_file[i_type] == NULL) {
+            CETI_LOG("Failed to open/create an output data file: %s", imu_data_filepath[i_type]);
+            imu_close_all_files();
+            return -1;
+        }
+
+        // Write headers
+        fprintf(imu_data_file[i_type], "%s", &imu_data_file_headers[i_type]);
+        fprintf(imu_data_file[i_type], "\n");
+        CETI_LOG("Created a new output data file: %s", imu_data_filepath[i_type]);
     }
 
     for (int i = 0; i < IMU_DATA_TYPE_COUNT; i++) {
         imu_new_log[i] = true;
-    }
-
-    for (int i = 0; i < IMU_DATA_TYPE_COUNT; i++) {
         imu_restarted_log[i] = true;
     }
 
-    // Open the files
-    for (int i_type = 0; i_type < IMU_DATA_TYPE_COUNT; i_type++) {
-        imu_data_file[i_type] = fopen(imu_data_filepath[i_type], "at");
-        if (imu_data_file[i_type] == NULL) {
-            imu_close_all_files();
-            return -1;
-        }
-    }
-
-    return init_data_file_success;
+    return 0;
 }
 
 void imu_log_report_to_quat_csv(FILE *fp, CetiImuReport *pReport) {
-    fprintf(fp, "%ld", pReport->sys_time_us);
+    fprintf(fp, "%ld", pReport->sys_time_us - (((uint64_t)pReport->reading_delay - (uint64_t)pReport->report.delay) * 100));
+    fprintf(fp, ",%ld", pReport->sys_time_us);
     fprintf(fp, ",%d", pReport->rtc_time_s);
 
     // Write any notes, then clear them so they are only written once.
@@ -158,7 +166,7 @@ void imu_log_report_to_quat_csv(FILE *fp, CetiImuReport *pReport) {
         fprintf(fp, ", , , , , , \n");
     } else {
         // Write the sensor reading delay.
-        fprintf(fp, ",%d", (pReport->reading_delay - pReport->report.delay) * 100);
+        fprintf(fp, ",%d", pReport->sys_time_us - (((uint64_t)pReport->reading_delay - (uint64_t)pReport->report.delay) * 100));
         // Write accelerometer data
         fprintf(fp, ",%d", pReport->report.quat.i);
         fprintf(fp, ",%d", pReport->report.quat.j);
@@ -170,7 +178,8 @@ void imu_log_report_to_quat_csv(FILE *fp, CetiImuReport *pReport) {
 }
 
 void imu_log_report_to_accel_csv(FILE *fp, CetiImuReport *pReport) {
-    fprintf(fp, "%ld", pReport->sys_time_us);
+    fprintf(fp, "%ld", pReport->sys_time_us - (((uint64_t)pReport->reading_delay - (uint64_t)pReport->report.delay) * 100));
+    fprintf(fp, ",%ld", pReport->sys_time_us);
     fprintf(fp, ",%d", pReport->rtc_time_s);
 
     // Write any notes, then clear them so they are only written once.
@@ -189,7 +198,7 @@ void imu_log_report_to_accel_csv(FILE *fp, CetiImuReport *pReport) {
         fprintf(fp, ", , , , , \n");
     } else {
         // Write the sensor reading delay.
-        fprintf(fp, ",%d", (pReport->reading_delay - pReport->report.delay) * 100);
+        fprintf(fp, ",%d", pReport->sys_time_us - (((uint64_t)pReport->reading_delay - (uint64_t)pReport->report.delay) * 100));
         // Write accelerometer data
         fprintf(fp, ",%d", pReport->report.accel.x);
         fprintf(fp, ",%d", pReport->report.accel.y);
@@ -200,7 +209,8 @@ void imu_log_report_to_accel_csv(FILE *fp, CetiImuReport *pReport) {
 }
 
 void imu_log_report_to_gyro_csv(FILE *fp, CetiImuReport *pReport) {
-    fprintf(fp, "%ld", pReport->sys_time_us);
+    fprintf(fp, "%ld", pReport->sys_time_us - (((uint64_t)pReport->reading_delay - (uint64_t)pReport->report.delay) * 100));
+    fprintf(fp, ",%ld", pReport->sys_time_us);
     fprintf(fp, ",%d", pReport->rtc_time_s);
 
     // Write any notes, then clear them so they are only written once.
@@ -218,8 +228,6 @@ void imu_log_report_to_gyro_csv(FILE *fp, CetiImuReport *pReport) {
         fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pReport->error, err_str, sizeof(err_str)));
         fprintf(fp, ", , , , , \n");
     } else {
-        // Write the sensor reading delay.
-        fprintf(fp, ",%d", (pReport->reading_delay - pReport->report.delay) * 100);
         // Write accelerometer data
         fprintf(fp, ",%d", pReport->report.gyro.x);
         fprintf(fp, ",%d", pReport->report.gyro.y);
@@ -230,7 +238,8 @@ void imu_log_report_to_gyro_csv(FILE *fp, CetiImuReport *pReport) {
 }
 
 void imu_log_report_to_mag_csv(FILE *fp, CetiImuReport *pReport) {
-    fprintf(fp, "%ld", pReport->sys_time_us);
+    fprintf(fp, "%ld", pReport->sys_time_us - (((uint64_t)pReport->reading_delay - (uint64_t)pReport->report.delay) * 100));
+    fprintf(fp, ",%ld", pReport->sys_time_us);
     fprintf(fp, ",%d", pReport->rtc_time_s);
 
     // Write any notes, then clear them so they are only written once.
@@ -248,8 +257,6 @@ void imu_log_report_to_mag_csv(FILE *fp, CetiImuReport *pReport) {
         fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pReport->error, err_str, sizeof(err_str)));
         fprintf(fp, ", , , , , \n");
     } else {
-        // Write the sensor reading delay.
-        fprintf(fp, ",%d", (pReport->reading_delay - pReport->report.delay) * 100);
         // Write accelerometer data
         fprintf(fp, ",%d", pReport->report.mag.x);
         fprintf(fp, ",%d", pReport->report.mag.y);
