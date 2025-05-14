@@ -132,7 +132,7 @@ int imu_init_data_files(void) {
         }
 
         // Write headers
-        fprintf(imu_data_file[i_type], "%s", &imu_data_file_headers[i_type]);
+        fprintf(imu_data_file[i_type], "%s", imu_data_file_headers[i_type]);
         fprintf(imu_data_file[i_type], "\n");
         CETI_LOG("Created a new output data file: %s", imu_data_filepath[i_type]);
     }
