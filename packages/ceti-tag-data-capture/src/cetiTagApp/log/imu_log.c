@@ -165,8 +165,6 @@ void imu_log_report_to_quat_csv(FILE *fp, CetiImuReport *pReport) {
         fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pReport->error, err_str, sizeof(err_str)));
         fprintf(fp, ", , , , , , \n");
     } else {
-        // Write the sensor reading delay.
-        fprintf(fp, ",%d", pReport->sys_time_us - (((uint64_t)pReport->reading_delay - (uint64_t)pReport->report.delay) * 100));
         // Write accelerometer data
         fprintf(fp, ",%d", pReport->report.quat.i);
         fprintf(fp, ",%d", pReport->report.quat.j);
@@ -197,8 +195,6 @@ void imu_log_report_to_accel_csv(FILE *fp, CetiImuReport *pReport) {
         fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pReport->error, err_str, sizeof(err_str)));
         fprintf(fp, ", , , , , \n");
     } else {
-        // Write the sensor reading delay.
-        fprintf(fp, ",%d", pReport->sys_time_us - (((uint64_t)pReport->reading_delay - (uint64_t)pReport->report.delay) * 100));
         // Write accelerometer data
         fprintf(fp, ",%d", pReport->report.accel.x);
         fprintf(fp, ",%d", pReport->report.accel.y);
