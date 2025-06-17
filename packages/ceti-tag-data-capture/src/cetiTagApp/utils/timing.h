@@ -35,6 +35,8 @@ int sync_global_time_init(void);
 #ifdef UNIT_TEST
 void set_fake_time(const struct tm *tm_s);
 #endif
+int timing_syncronize_to_ntp(void);
+int timing_has_syncronized_to_ntp(void);
 int64_t get_next_time_of_day_occurance_s(const struct tm *time_of_day);
 //-----------------------------------------------------------------------------
 // Global variables

@@ -373,7 +373,7 @@ int updateStateMachine() {
 
             // Turn on the burnwire if the timeout has passed since the deployment started.
             if ((get_global_time_s() - burnwire_timeout_start_s) > g_config.timeout_s) {
-                CETI_LOG("TIMEOUT!!! Initializing Burn");
+                CETI_LOG("TIMEOUT!!! Initializing Burn (%d - %d > %d)", get_global_time_s(), burnwire_timeout_start_s, g_config.timeout_s);
                 stateMachine_set_state(ST_BRN_ON);
                 break;
             } else if (g_config.tod_release.valid && (burnwire_time_of_day_release_s < get_global_time_s())) {
@@ -422,7 +422,7 @@ int updateStateMachine() {
         case (ST_RECORD_SURFACE):
             // Turn on the burnwire if the timeout has passed since the deployment started.
             if (get_global_time_s() - burnwire_timeout_start_s > g_config.timeout_s) {
-                CETI_LOG("TIMEOUT!!! Initializing Burn");
+                CETI_LOG("TIMEOUT!!! Initializing Burn (%d - %d > %d)", get_global_time_s(), burnwire_timeout_start_s, g_config.timeout_s);
                 stateMachine_set_state(ST_BRN_ON);
                 break;
             } else if (g_config.tod_release.valid && (burnwire_time_of_day_release_s < get_global_time_s())) {
@@ -468,6 +468,10 @@ int updateStateMachine() {
             }
 #endif
 
+            // Resyncronize clock if networking still up and time has never synced
+            if (networking_is_enabled && !timing_has_syncronized_to_ntp()) {
+                timing_syncronize_to_ntp();
+            }
             break;
 
         // Releasing via the burnwire
