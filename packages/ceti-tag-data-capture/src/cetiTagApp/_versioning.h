@@ -18,6 +18,7 @@
 //  2.2.1   11/8/23    Adding battery temperature monitoring
 //  2.3.0   05/31/24   Changes for V2_3 hardware, new branch, preliminary work
 //  2.3.1   01/31/25   Improved Error Handling, directly stored syslogs, time of day release, metadata
+//  2.3.2   06/20/22   Improve IMU reliability, improve ecg efficiency, faster startup time, improve ntp sync reliability
 
 #ifndef CETI_VERSIONING_H
 #define CETI_VERSIONING_H
