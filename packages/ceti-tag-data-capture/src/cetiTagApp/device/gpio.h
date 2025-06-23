@@ -16,6 +16,7 @@
 // FIFO margins may need to be tuned depending on latencies and how this program
 // is constructed. The margins are set in the FPGA Verilog code, not here.
 
+#define IMU_N_RESET 4
 #define FPGA_CAM_RESET (5) // GPIO 5
 // (6)
 // (7)
@@ -35,8 +36,8 @@
 #define FPGA_DATA (20)     // GPIO 20
 #define FPGA_CLOCK (21)    // GPIO 21
 #define AUDIO_DATA_AVAILABLE (22)
-// (23)
-// (24)
+#define IMU_BB_I2C_SDA (23) //
+#define IMU_BB_I2C_SCL (24)
 #define FPGA_INIT_B (25) // GPIO 25
 #define FPGA_PROG_B (26) // GPIO 26
 #define FPGA_DONE (27)   // GPIO 27

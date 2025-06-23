@@ -7,7 +7,7 @@
 #  - changed power down method for new BMS device
 #  - modified battery cutoff thresholds to be consistent with new BMS
 
-#handle SIGTERM from systemctl
+#handle SIGTERM and SIGINT from systemctl
 
 # Get the location of this script, since will want to
 #  use the pipes in that directory rather than the calling directory.
@@ -155,6 +155,7 @@ _term() {
 	exit 0
 }
 
+trap _term SIGINT
 trap _term SIGTERM
 
 # # remount rootfs readonly

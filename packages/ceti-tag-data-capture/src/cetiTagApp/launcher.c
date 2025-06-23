@@ -12,6 +12,7 @@
 #include "battery.h"
 #include "burnwire.h"
 #include "device/fpga.h"
+#include "log/imu_log.h"
 #include "recovery.h"
 #include "sensors/audio.h"
 #include "sensors/light.h"
@@ -124,6 +125,13 @@ int main(void) {
     threads_running[num_threads] = &g_imu_thread_is_running;
 #ifdef DEBUG
     strcpy(thread_name[num_threads], "imu");
+#endif
+    num_threads++;
+
+    pthread_create(&thread_ids[num_threads], NULL, &imu_log_thread, NULL);
+    threads_running[num_threads] = &g_imu_log_thread_is_running;
+#ifdef DEBUG
+    strcpy(thread_name[num_threads], "imu_thread");
 #endif
     num_threads++;
 #endif

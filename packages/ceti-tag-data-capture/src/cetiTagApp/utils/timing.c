@@ -24,6 +24,7 @@
 
 // Global/static variables
 int g_rtc_thread_is_running = 0;
+static int timing_has_synced = 0; // system has perform ntp syncronization
 static int latest_rtc_count = -1;
 static int latest_rtc_error = WT_OK;
 static int64_t last_rtc_update_time_us = -1;
@@ -152,22 +153,37 @@ int64_t get_global_time_s(void) {
     return (int64_t)(current_timeval.tv_sec);
 }
 
-int sync_global_time_init(void) {
+int timing_has_syncronized_to_ntp(void) {
+    return timing_has_synced;
+}
+
+int timing_syncronize_to_ntp(void) {
     struct timex timex_info = {.modes = 0};
     int ntp_result = ntp_adjtime(&timex_info);
     int ntp_synchronized = (ntp_result >= 0) && (ntp_result != TIME_ERROR);
 
-    if (ntp_synchronized) {
-        struct timeval current_timeval;
-        gettimeofday(&current_timeval, NULL);
+    if (!ntp_synchronized) {
+        // could not syncronize to RTC
+        return -1;
+    }
+    struct timeval current_timeval;
+    gettimeofday(&current_timeval, NULL);
 
-        WTResult hw_result = rtc_set_count((uint32_t)current_timeval.tv_sec);
-        if (hw_result != WT_OK) {
-            char err_str[512];
-            CETI_ERR("Could not syncronize RTC: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
-        }
-        CETI_LOG("RTC synchronized to system clock: %ld)", current_timeval.tv_sec);
-    } else {
+    WTResult hw_result = rtc_set_count((uint32_t)current_timeval.tv_sec);
+    if (hw_result != WT_OK) {
+        char err_str[512];
+        CETI_ERR("Could not syncronize RTC: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
+        return -2;
+    }
+    timing_has_synced = 1;
+    CETI_LOG("RTC synchronized to system clock: %ld)", current_timeval.tv_sec);
+    return 0;
+}
+
+int sync_global_time_init(void) {
+    int ntp_synchronized_error = timing_syncronize_to_ntp();
+
+    if (ntp_synchronized_error == 0) {
         /* ToDo: GPS clock syncronization
          * MSH - This would require GPS lock on recovery board at this point in code
          */

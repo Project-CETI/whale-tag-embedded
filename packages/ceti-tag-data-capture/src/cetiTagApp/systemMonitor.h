@@ -53,6 +53,7 @@ extern int g_audio_thread_writeData_tid;
 extern int g_ecg_thread_getData_tid;
 extern int g_ecg_thread_writeData_tid;
 extern int g_imu_thread_tid;
+extern int g_imu_thread_writeData_tid;
 extern int g_light_thread_tid;
 extern int g_pressureTemperature_thread_tid;
 extern int g_battery_thread_tid;
