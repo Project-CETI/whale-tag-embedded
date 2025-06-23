@@ -59,8 +59,6 @@ static ConfigError __config_parse_surface_pressure(const char *_String);
 static ConfigError __config_parse_dive_pressure(const char *_String);
 static ConfigError __config_parse_release_voltage(const char *_String);
 static ConfigError __config_parse_critical_voltage(const char *_String);
-static ConfigError __config_parse_cell_release_voltage(const char *_String);
-static ConfigError __config_parse_cell_critical_voltage(const char *_String);
 static ConfigError __config_parse_timeout(const char *_String);
 static ConfigError __config_parse_time_of_day(const char *_String);
 static ConfigError __config_parse_burn_interval_value(const char *_String);

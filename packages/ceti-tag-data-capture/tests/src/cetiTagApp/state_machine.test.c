@@ -95,6 +95,14 @@ int getRtcCount() {
     return get_global_time_us() / 1000;
 }
 
+int timing_syncronize_to_ntp(void) {
+    return 0;
+}
+
+int timing_has_syncronized_to_ntp(void) {
+    return 1;
+}
+
 /******************************************* TESTS *******************************************/
 #define FUZZY_COUNT 10000
 

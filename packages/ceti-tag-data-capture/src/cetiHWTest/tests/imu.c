@@ -24,7 +24,7 @@ typedef struct { // euler angles
     double yaw;
 } EulerAngles_f64;
 
-static void __quat_to_euler(EulerAngles_f64 *e, const CetiImuQuatSample *q) {
+static void __quat_to_euler(EulerAngles_f64 *e, const CetiImuQuatReport *q) {
     double re = ((double)q->real) / (1 << 14);
     double i = ((double)q->i) / (1 << 14);
     double j = ((double)q->j) / (1 << 14);
@@ -51,79 +51,49 @@ TestState test_imu(FILE *pResultsFile) {
     int yaw_pass = 0;
     int test_index = 0;
 
-    CetiImuQuatSample *shm_quat;
-    CetiImuQuatSample *shm_accel;
-    CetiImuQuatSample *shm_gyro;
-    CetiImuQuatSample *shm_mag;
-    sem_t *sem_quat_ready;
-    sem_t *sem_accel_ready;
-    sem_t *sem_gyro_ready;
-    sem_t *sem_mag_ready;
+    CetiImuReportBuffer *report_buffer;
+    sem_t *sem_report_ready;
 
     // === open quaternion shared memory ===
-    shm_quat = shm_open_read(IMU_QUAT_SHM_NAME, sizeof(CetiImuQuatSample));
-    if (shm_quat == NULL) {
+    report_buffer = shm_open_read(IMU_REPORT_BUFFER_SHM_NAME, sizeof(CetiImuReportBuffer));
+    if (report_buffer == NULL) {
         fprintf(pResultsFile, "[FAIL]: IMU: Failed to open rotation sensor shared memory\n");
         perror("shm_open_read");
         return TEST_STATE_FAILED;
     }
-    sem_quat_ready = sem_open(IMU_QUAT_SEM_NAME, O_RDWR, 0444, 0);
-    if (sem_quat_ready == SEM_FAILED) {
+    sem_report_ready = sem_open(IMU_REPORT_SEM_NAME, O_RDWR, 0444, 0);
+    if (sem_report_ready == SEM_FAILED) {
         perror("sem_open");
-        munmap(shm_quat, sizeof(CetiImuQuatSample));
-        return TEST_STATE_FAILED;
-    }
-
-    shm_accel = shm_open_read(IMU_ACCEL_SHM_NAME, sizeof(CetiImuAccelSample));
-    if (shm_accel == NULL) {
-        fprintf(pResultsFile, "[FAIL]: IMU: Failed to open acceleration shared memory\n");
-        perror("shm_open_read");
-        return TEST_STATE_FAILED;
-    }
-    sem_accel_ready = sem_open(IMU_ACCEL_SEM_NAME, O_RDWR, 0444, 0);
-    if (sem_accel_ready == SEM_FAILED) {
-        perror("sem_open");
-        munmap(shm_accel, sizeof(CetiImuAccelSample));
-        return TEST_STATE_FAILED;
-    }
-
-    shm_gyro = shm_open_read(IMU_GYRO_SHM_NAME, sizeof(CetiImuGyroSample));
-    if (shm_gyro == NULL) {
-        fprintf(pResultsFile, "[FAIL]: IMU: Failed to open gyro shared memory\n");
-        perror("shm_open_read");
-        return TEST_STATE_FAILED;
-    }
-    sem_gyro_ready = sem_open(IMU_GYRO_SEM_NAME, O_RDWR, 0444, 0);
-    if (sem_gyro_ready == SEM_FAILED) {
-        perror("sem_open");
-        munmap(shm_gyro, sizeof(CetiImuGyroSample));
-        return TEST_STATE_FAILED;
-    }
-
-    shm_mag = shm_open_read(IMU_MAG_SHM_NAME, sizeof(CetiImuMagSample));
-    if (shm_mag == NULL) {
-        fprintf(pResultsFile, "[FAIL]: IMU: Failed to open magnetometer shared memory\n");
-        perror("shm_open_read");
-        return TEST_STATE_FAILED;
-    }
-
-    sem_mag_ready = sem_open(IMU_MAG_SEM_NAME, O_RDWR, 0444, 0);
-    if (sem_mag_ready == SEM_FAILED) {
-        perror("sem_open");
-        munmap(shm_mag, sizeof(CetiImuMagSample));
+        munmap(report_buffer, sizeof(CetiImuReportBuffer));
         return TEST_STATE_FAILED;
     }
 
     // get start angle
     printf("Instructions: rotate the tag to meet each green target position below\n\n");
-
     do {
-        // wait for rotation sample
-        sem_wait(sem_quat_ready);
+        // wait for imu sample buffer to fill (~1 second)
+        sem_wait(sem_report_ready);
+        uint32_t r_page = report_buffer->page;
+        uint32_t r_sample = report_buffer->sample;
+        // get latest quat
+        // reverse iterate over completed page to first quaternion
+        CetiImuQuatReport *latest_quat_report = NULL;
+        CetiImuReport *reports = &report_buffer->reports[0][0];
+        for (int i = (r_page * IMU_REPORT_BUFFER_SIZE + r_sample - 1); i >= 0; i--) {
+            CetiImuQuatReport *i_report = &reports[i].report.quat;
+            if (i_report->report_id == 0x05) {
+                latest_quat_report = i_report;
+                break;
+            }
+        }
+
+        if (latest_quat_report == NULL) {
+            continue;
+        }
 
         // update test
         EulerAngles_f64 euler_angles;
-        __quat_to_euler(&euler_angles, shm_quat);
+        __quat_to_euler(&euler_angles, latest_quat_report);
 
         euler_angles.yaw *= -1.0;
 
@@ -136,13 +106,7 @@ TestState test_imu(FILE *pResultsFile) {
 
         // Accuracy:
         printf("\e[8;1;Accuracy:");
-        printf("\e[9;1H%-8s%d", "Quat", shm_quat->accuracy);
-        sem_wait(sem_accel_ready);
-        printf("\e[10;1H%-8s%d", "Accel", shm_accel->accuracy);
-        sem_wait(sem_gyro_ready);
-        printf("\e[11;1H%-8s%d", "Gryo", shm_gyro->accuracy);
-        sem_wait(sem_mag_ready);
-        printf("\e[12;1H%-8s%d", "Mag", shm_mag->accuracy);
+        printf("\e[9;1H%-8s%d", "Quat", latest_quat_report->accuracy);
 
         // draw reading position
         if (euler_angles.pitch > 0) {
@@ -215,8 +179,8 @@ TestState test_imu(FILE *pResultsFile) {
     fprintf(pResultsFile, "[%s]: pitch\n", pitch_pass ? "PASS" : "FAIL");
     fprintf(pResultsFile, "[%s]: yaw\n", yaw_pass ? "PASS" : "FAIL");
 
-    sem_close(sem_quat_ready);
-    munmap(shm_quat, sizeof(CetiImuQuatSample));
+    sem_close(sem_report_ready);
+    munmap(report_buffer, sizeof(CetiImuReportBuffer));
 
     return (input == 27)                           ? TEST_STATE_TERMINATE
            : (roll_pass && pitch_pass && yaw_pass) ? TEST_STATE_PASSED
