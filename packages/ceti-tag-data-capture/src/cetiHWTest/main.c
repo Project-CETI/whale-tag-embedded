@@ -14,6 +14,9 @@
 char g_process_path[256] = "/opt/ceti-tag-data-capture/bin";
 
 #define TEST_RESULT_FILE_BASE "test_result"
+#define COMMAND_PIPE_PATH "../ipc/cetiCommand"
+#define RESPONSE_PIPE_PATH "../ipc/cetiResponse"
+#define PIPE_RESPONSE_TIMEOUT 5
 
 typedef struct hardware_test_t {
     char *name;
@@ -61,6 +64,70 @@ HardwareTest g_test_list[] = {
 #define TEST_COUNT (sizeof(g_test_list) / sizeof(g_test_list[0]))
 
 FILE *results_file;
+
+/**
+ * Send a command to cetiTagApp via IPC pipe
+ * Returns 0 on success, -1 on failure
+ */
+static int send_ceti_command(const char *command) {
+    char command_pipe_path[512];
+    char response_pipe_path[512];
+    FILE *cmd_pipe = NULL;
+    FILE *rsp_pipe = NULL;
+    int result = -1;
+    
+    // Build full paths
+    snprintf(command_pipe_path, sizeof(command_pipe_path), "%s/%s", g_process_path, COMMAND_PIPE_PATH);
+    snprintf(response_pipe_path, sizeof(response_pipe_path), "%s/%s", g_process_path, RESPONSE_PIPE_PATH);
+    
+    // Send command
+    cmd_pipe = fopen(command_pipe_path, "w");
+    if (cmd_pipe == NULL) {
+        fprintf(stderr, "Failed to open command pipe: %s\n", command_pipe_path);
+        return -1;
+    }
+    
+    if (fprintf(cmd_pipe, "%s\n", command) < 0) {
+        fprintf(stderr, "Failed to write command to pipe\n");
+        fclose(cmd_pipe);
+        return -1;
+    }
+    fclose(cmd_pipe);
+    
+    // Read response with timeout
+    rsp_pipe = fopen(response_pipe_path, "r");
+    if (rsp_pipe == NULL) {
+        fprintf(stderr, "Failed to open response pipe: %s\n", response_pipe_path);
+        return -1;
+    }
+    
+    char response[256];
+    if (fgets(response, sizeof(response), rsp_pipe) != NULL) {
+        printf("Command response: %s", response);
+        result = 0;
+    } else {
+        fprintf(stderr, "Failed to read response from pipe\n");
+    }
+    fclose(rsp_pipe);
+    
+    return result;
+}
+
+/**
+ * Pause the cetiTagApp mission state machine
+ */
+static int pause_mission(void) {
+    printf("Pausing mission state machine...\n");
+    return send_ceti_command("mission pause");
+}
+
+/**
+ * Resume the cetiTagApp mission state machine
+ */
+static int resume_mission(void) {
+    printf("Resuming mission state machine...\n");
+    return send_ceti_command("mission resume");
+}
 
 /************************************
  * main
@@ -121,6 +188,12 @@ int main(void) {
     if (input == 27)
         return 0;
 
+    // Pause mission state machine before starting hardware tests
+    if (pause_mission() != 0) {
+        fprintf(stderr, "Warning: Failed to pause mission state machine\n");
+        fprintf(results_file, "WARNING: Failed to pause mission state machine\n");
+    }
+
     // Cycle through tests
     int passed_tests = 0;
     for (int i = 0; i < TEST_COUNT; i++) {
@@ -154,6 +227,12 @@ int main(void) {
         }
     }
     printf(CLEAR_SCREEN);
+
+    // Resume mission state machine after completing all tests
+    if (resume_mission() != 0) {
+        fprintf(stderr, "Warning: Failed to resume mission state machine\n");
+        fprintf(results_file, "WARNING: Failed to resume mission state machine\n");
+    }
 
     fprintf(results_file, "/********************************************************/\n");
     fprintf(results_file, " RESULTS: (%d/%ld) PASSED\n", passed_tests, TEST_COUNT);
