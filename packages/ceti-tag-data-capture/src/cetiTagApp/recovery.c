@@ -37,6 +37,12 @@
 #define RECOVERY_WDT_ENABLED 0
 #define RECOVERY_WDT_TRIGGER_TIME_MIN 10
 
+// Recovery error handling constants
+#define RECOVERY_CONSECUTIVE_ERROR_THRESHOLD 3
+#define RECOVERY_MAX_RECOVERY_ATTEMPTS 2
+#define RECOVERY_ERROR_SLEEP_MS 1000
+#define RECOVERY_RESTART_SLEEP_MS 2000
+
 /* TYPE DEFINITIONS **********************************************************/
 typedef enum recovery_commands_e {
     /* Set recovery state*/
@@ -146,6 +152,19 @@ struct {
     } recipient;
     uint8_t pong;
 } recovery_board = {};
+
+// Recovery error handling state
+static struct {
+    int consecutive_error_count;
+    int recovery_attempt_count;
+    uint64_t last_error_time_us;
+    bool degraded_mode;
+} s_recovery_error_state = {0};
+
+// Forward declaration for recovery functions
+static WTResult __recovery_attempt_hardware_recovery(void);
+static void __recovery_enter_degraded_mode(void);
+static void __recovery_reset_error_state(void);
 
 static CetiRecoverySample *shm_nmea_sentence;
 static sem_t *sem_nmea_sentence_ready;
@@ -306,6 +325,8 @@ static bool __ping(void) {
     }
     return 0;
 }
+
+
 
 /**
  * @brief Initializes pi hardware to be able to control the recovery board
@@ -624,6 +645,91 @@ int recovery_off(void) {
     return 0;
 }
 
+/**
+ * @brief Reset recovery error handling state after successful operation
+ */
+static void __recovery_reset_error_state(void) {
+    s_recovery_error_state.consecutive_error_count = 0;
+    s_recovery_error_state.recovery_attempt_count = 0;
+    s_recovery_error_state.degraded_mode = false;
+}
+
+/**
+ * @brief Enter degraded mode when recovery attempts have been exhausted
+ */
+static void __recovery_enter_degraded_mode(void) {
+    CETI_WARN("Recovery board entering degraded mode after %d consecutive errors", 
+              s_recovery_error_state.consecutive_error_count);
+    s_recovery_error_state.degraded_mode = true;
+    
+    // Send system notification about recovery board degradation
+    char rec_msg[68] = {};
+    snprintf(rec_msg, 67, "RECOVERY DEGRADED: %d ERRORS", s_recovery_error_state.consecutive_error_count);
+    // Note: Can't use recovery_message() here as recovery board is non-functional
+    CETI_ERR("%s", rec_msg);
+}
+
+/**
+ * @brief Attempt hardware recovery of the recovery board
+ *
+ * @return WTResult WT_OK on success, error code on failure
+ */
+static WTResult __recovery_attempt_hardware_recovery(void) {
+    CETI_LOG("Attempting recovery board hardware recovery (attempt %d/%d)", 
+             s_recovery_error_state.recovery_attempt_count + 1, RECOVERY_MAX_RECOVERY_ATTEMPTS);
+    
+    // Wait before attempting recovery to allow transient errors to clear
+    usleep(RECOVERY_ERROR_SLEEP_MS * 1000);
+    
+    // Attempt 1: Try a simple restart
+    if (s_recovery_error_state.recovery_attempt_count == 0) {
+        CETI_LOG("Recovery attempt 1: Board restart");
+        WTResult restart_result = wt_recovery_restart();
+        if (restart_result != WT_OK) {
+            char err_str[512];
+            CETI_ERR("Recovery board restart failed: %s", wt_strerror_r(restart_result, err_str, sizeof(err_str)));
+            return restart_result;
+        }
+        
+        // Wait for board to fully boot
+        usleep(RECOVERY_RESTART_SLEEP_MS * 1000);
+        
+        // Test connection with ping
+        if (__ping()) {
+            CETI_LOG("Recovery board restart successful");
+            return WT_OK;
+        } else {
+            CETI_WARN("Recovery board restart completed but ping failed");
+            return WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT);
+        }
+    }
+    
+    // Attempt 2: Try full reinitialization
+    if (s_recovery_error_state.recovery_attempt_count == 1) {
+        CETI_LOG("Recovery attempt 2: Full reinitialization");
+        
+        // Close current serial connection
+        if (recovery_fd >= 0) {
+            serClose(recovery_fd);
+            recovery_fd = -1;
+        }
+        
+        // Re-run full initialization sequence
+        WTResult init_result = wt_recovery_init();
+        if (init_result == WT_OK) {
+            CETI_LOG("Recovery board reinitialization successful");
+            return WT_OK;
+        } else {
+            char err_str[512];
+            CETI_ERR("Recovery board reinitialization failed: %s", wt_strerror_r(init_result, err_str, sizeof(err_str)));
+            return init_result;
+        }
+    }
+    
+    // All recovery attempts exhausted
+    return WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT);
+}
+
 //-----------------------------------------------------------------------------
 // Main thread
 //-----------------------------------------------------------------------------
@@ -713,11 +819,61 @@ void *recovery_rx_thread(void *paramPtr) {
         WTResult result = __recovery_get_packet(&pkt, __recovery_rx_thread_should_exit);
         if (result == WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT))
             break;             // normal termination condition reacted
-        if (result != WT_OK) { // actual error occured
+        if (result != WT_OK) { // actual error occurred
             char err_str[512];
-            CETI_ERR("%s", wt_strerror_r(result, err_str, sizeof(err_str))); // print error
-            // TODO actually handle error.
+            CETI_ERR("Recovery board communication error: %s", wt_strerror_r(result, err_str, sizeof(err_str)));
+            
+            // Track error timing and increment consecutive error count
+            s_recovery_error_state.last_error_time_us = get_global_time_us();
+            s_recovery_error_state.consecutive_error_count++;
+            
+            CETI_WARN("Recovery board consecutive error count: %d/%d", 
+                      s_recovery_error_state.consecutive_error_count, 
+                      RECOVERY_CONSECUTIVE_ERROR_THRESHOLD);
+            
+            // Check if we've exceeded the error threshold
+            if (s_recovery_error_state.consecutive_error_count >= RECOVERY_CONSECUTIVE_ERROR_THRESHOLD) {
+                // Only attempt recovery if we haven't exhausted our attempts
+                if (s_recovery_error_state.recovery_attempt_count < RECOVERY_MAX_RECOVERY_ATTEMPTS) {
+                    CETI_WARN("Recovery board error threshold exceeded, attempting hardware recovery");
+                    s_recovery_error_state.recovery_attempt_count++;
+                    
+                    // Attempt hardware recovery
+                    WTResult recovery_result = __recovery_attempt_hardware_recovery();
+                    if (recovery_result == WT_OK) {
+                        CETI_LOG("Recovery board hardware recovery successful");
+                        __recovery_reset_error_state();
+                        continue; // Resume normal operation
+                    } else {
+                        CETI_ERR("Recovery board hardware recovery failed");
+                        // Continue to check if we should enter degraded mode
+                    }
+                }
+                
+                // If we've exhausted recovery attempts, enter degraded mode
+                if (s_recovery_error_state.recovery_attempt_count >= RECOVERY_MAX_RECOVERY_ATTEMPTS) {
+                    if (!s_recovery_error_state.degraded_mode) {
+                        __recovery_enter_degraded_mode();
+                    }
+                    
+                    // In degraded mode, reduce error logging frequency to avoid spam
+                    if ((s_recovery_error_state.consecutive_error_count % 10) == 0) {
+                        CETI_WARN("Recovery board still in degraded mode (%d errors)", 
+                                  s_recovery_error_state.consecutive_error_count);
+                    }
+                }
+            }
+            
+            // Brief delay before continuing to avoid overwhelming the system
+            usleep(100000); // 100ms
             continue;
+        }
+
+        // Successful packet reception - reset error state if we were in error
+        if (s_recovery_error_state.consecutive_error_count > 0) {
+            CETI_LOG("Recovery board communication restored after %d errors", 
+                     s_recovery_error_state.consecutive_error_count);
+            __recovery_reset_error_state();
         }
 
         // handle return packet based on type
