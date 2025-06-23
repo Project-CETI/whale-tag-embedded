@@ -27,4 +27,7 @@
 #define PRESSURE_I2C_DEV_ADDR (0x40)
 #define RTC_I2C_DEV_ADDR (0x68)
 
+// Bit bang bus
+#define IMU_I2C_DEV_ADDR (0x4A)
+
 #endif // __CETI_WHALE_TAG_HAL_I2C_H__

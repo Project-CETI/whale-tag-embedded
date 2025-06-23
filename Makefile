@@ -90,7 +90,7 @@ build: $(DOCKER_IMAGE)
 			useradd -m -e "" -s /bin/bash --gid $(shell id -g) --uid $(shell id -u) $(shell id -u -n); \
 			passwd -d $(shell id -u -n); \
 			echo "$(shell id -u -n) ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers; \
-			sudo -E -u $(shell id -u -n) $(MAKE) $(TARGET)'
+			sudo -E -u $(shell id -u -n) make $(TARGET)'
 
 clean:
 	rm -f $(DOS2UNIX_TIMESTAMPS) $(RPI_TOOL_TS)

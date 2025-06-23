@@ -27,14 +27,9 @@
 #define ECG_PAGE_SEM_NAME "/ecg_page_sem"
 
 // === IMU ===
-#define IMU_QUAT_SHM_NAME "/imu_quat_shm"
-#define IMU_QUAT_SEM_NAME "/imu_quat_sample_sem"
-#define IMU_ACCEL_SHM_NAME "/imu_accel_shm"
-#define IMU_ACCEL_SEM_NAME "/imu_accel_sample_sem"
-#define IMU_GYRO_SHM_NAME "/imu_gyro_shm"
-#define IMU_GYRO_SEM_NAME "/imu_gyro_sample_sem"
-#define IMU_MAG_SHM_NAME "/imu_mag_shm"
-#define IMU_MAG_SEM_NAME "/imu_mag_sample_sem"
+#define IMU_REPORT_BUFFER_SHM_NAME "/imu_report_buffer_shm"
+#define IMU_REPORT_SEM_NAME "/imu_report_sem"
+#define IMU_PAGE_SEM_NAME "/imu_page_sem"
 
 // === LIGHT ===
 #define LIGHT_SHM_NAME "/light_shm"
@@ -68,7 +63,7 @@
 // and divisible by 24-bit 4 channel = 12
 #define AUDIO_LCM_BYTES (147456)
 
-#define AUDIO_CHANNELS (4)
+#define AUDIO_CHANNELS (3)
 // multiple of AUDIO_LCM_BYTES closest to 75 seconds @ 16-bit, 96kSPS, (14401536)
 #define AUDIO_BUFFER_SIZE_BYTES_PER_CHANNEL (14401536)
 #define AUDIO_BUFFER_SIZE_BYTES (AUDIO_CHANNELS * AUDIO_BUFFER_SIZE_BYTES_PER_CHANNEL)
@@ -88,8 +83,13 @@
 #define ECG_PAGE_FILL_PERIOD_US (ECG_SAMPLING_PERIOD_US * ECG_BUFFER_LENGTH)
 
 // === IMU ===
+#define IMU_BUFFER_FLUSH_INTERVAL_US (1000000)
+
 #define IMU_QUATERNION_SAMPLE_PERIOD_US 50000 // rate for the computed orientation
 #define IMU_9DOF_SAMPLE_PERIOD_US 20000       // rate for the accelerometer/gyroscope/magnetometer
+
+#define IMU_REPORT_BUFFER_SIZE ( \
+    (IMU_BUFFER_FLUSH_INTERVAL_US / IMU_QUATERNION_SAMPLE_PERIOD_US) + (IMU_BUFFER_FLUSH_INTERVAL_US / IMU_9DOF_SAMPLE_PERIOD_US) + (IMU_BUFFER_FLUSH_INTERVAL_US / IMU_9DOF_SAMPLE_PERIOD_US) + (IMU_BUFFER_FLUSH_INTERVAL_US / IMU_9DOF_SAMPLE_PERIOD_US))
 
 // === LIGHT ===
 #define LIGHT_SAMPLING_PERIOD_US 1000000
@@ -127,67 +127,79 @@ typedef struct {
 
 // === ECG ===
 typedef struct {
+    uint64_t sys_time_us;
+    uint64_t sample_index;
+    int32_t error;
+    uint32_t rtc_time_s;
+    int32_t ecg_reading;
+    uint16_t leadsOff_reading_n;
+    uint16_t leadsOff_reading_p;
+} CetiEcgSample;
+
+typedef struct {
     int page;   // which buffer will be populated with new incoming data
     int sample; // which sample will be populated with new incoming data
     int lod_enabled;
-    /* ToDo: Leaving this as seperate buffers to maintain existing code
-     * structure, but the way memory is accessed (all field from a single
-     * sample accessed at the same time and not all values of a single field
-     * accessed at once), it may make more sense to encapsulate in a
-     * CetiEcgSample struct so the 4kB TLB page for this mapped memory doesn't
-     * result in a cache miss on every field access. Will need to be
-     * benchmarked.
-     * - MSH
-     */
-    long long sys_time_us[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
-    int rtc_time_s[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
-    long ecg_readings[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
-    int leadsOff_readings_p[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
-    int leadsOff_readings_n[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
-    long long sample_indexes[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
+    CetiEcgSample data[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH];
 } CetiEcgBuffer;
 
 // === IMU ===
-typedef struct {
-    int64_t sys_time_us;
-    int64_t reading_delay_us;
-    int rtc_time_s;
+typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))) {
+    uint8_t report_id;
+    uint8_t sequence_number;
+    uint8_t status;
+    uint8_t delay;
+    int16_t x;
+    int16_t y;
+    int16_t z;
+} CetiImuXYZReport;
+
+typedef CetiImuXYZReport CetiImuAccelReport;
+typedef CetiImuXYZReport CetiImuGyroReport;
+typedef CetiImuXYZReport CetiImuMagReport;
+
+typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))) {
+    uint8_t report_id;
+    uint8_t sequence_number;
+    uint8_t status;
+    uint8_t delay;
     int16_t i;
     int16_t j;
     int16_t k;
     int16_t real;
     int16_t accuracy;
-} CetiImuQuatSample;
+} CetiImuQuatReport;
+
+typedef union {
+    struct {
+        uint8_t report_id;
+        uint8_t sequence_number;
+        uint8_t status;
+        uint8_t delay;
+    };
+    CetiImuQuatReport quat;
+    CetiImuAccelReport accel;
+    CetiImuGyroReport gyro;
+    CetiImuMagReport mag;
+} CetiImuSensorReport;
+
+// ToDo: make this storage struct publically accessible to other processes via
+// shared memory objects. Currently this is handled by having the latest instance
+// of data copied to `imu_quaternion`, `imu_accel_m_ss`, `imu_gyro_rad_s`, and
+// `imu_mag_ut` but those additional copies and posts are kind of wasteful
+typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))) {
+    int64_t sys_time_us;
+    uint32_t rtc_time_s;
+    uint32_t reading_delay; // units 100 uS
+    int32_t error;
+    CetiImuSensorReport report;
+} CetiImuReport;
 
 typedef struct {
-    int64_t sys_time_us;
-    int64_t reading_delay_us;
-    int rtc_time_s;
-    int16_t x;
-    int16_t y;
-    int16_t z;
-    int16_t accuracy;
-} CetiImuAccelSample;
-
-typedef struct {
-    int64_t sys_time_us;
-    int64_t reading_delay_us;
-    int rtc_time_s;
-    int16_t x;
-    int16_t y;
-    int16_t z;
-    int16_t accuracy;
-} CetiImuGyroSample;
-
-typedef struct {
-    int64_t sys_time_us;
-    int64_t reading_delay_us;
-    int rtc_time_s;
-    int16_t x;
-    int16_t y;
-    int16_t z;
-    int16_t accuracy;
-} CetiImuMagSample;
+    uint32_t page;
+    uint32_t sample;
+    CetiImuReport reports[2][IMU_REPORT_BUFFER_SIZE];
+} CetiImuReportBuffer;
 
 // === LIGHT ===
 typedef struct {

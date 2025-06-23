@@ -751,7 +751,7 @@ void audio_createNewFlacFile() {
     }
 
     // filename is the time in ms at the start of audio recording
-    snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%ld.flac", (int64_t)(s_file_start_time.tv_sec * 1000LL) - (int64_t)(s_file_start_time.tv_usec) / 1000);
+    snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%ld.flac", (int64_t)(s_file_start_time.tv_sec * 1000LL) + (int64_t)(s_file_start_time.tv_usec) / 1000);
     audio_acqDataFileLength = 0;
 
     /* allocate the encoder */
@@ -869,7 +869,7 @@ void audio_createNewRawFile() {
     }
 
     // filename is the time in ms at the start of audio recording
-    snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%lu.raw", (uint64_t)(s_file_start_time.tv_sec * 1000LL) - (uint64_t)(s_file_start_time.tv_usec) / 1000);
+    snprintf(audio_acqDataFileName, AUDIO_DATA_FILENAME_LEN, "/data/%lu.raw", (uint64_t)(s_file_start_time.tv_sec * 1000LL) + (uint64_t)(s_file_start_time.tv_usec) / 1000);
     acqData = fopen(audio_acqDataFileName, "wb");
     audio_acqDataFileLength = 0;
     if (!acqData) {

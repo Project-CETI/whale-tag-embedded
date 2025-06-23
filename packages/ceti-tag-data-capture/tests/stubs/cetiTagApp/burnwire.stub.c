@@ -7,3 +7,7 @@ WTResult burnwireOff(void) {
 WTResult burnwireOn(void) {
     return WT_OK;
 }
+
+void burnwire_update_leds(void) {
+    return;
+}
