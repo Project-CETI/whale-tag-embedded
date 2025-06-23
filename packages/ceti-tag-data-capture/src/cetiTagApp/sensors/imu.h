@@ -119,6 +119,6 @@ extern int g_imu_log_thread_is_running;
 int init_imu();
 int setupIMU(uint8_t enabled_features);
 int imu_enable_feature_report(int report_id, uint32_t report_interval_us);
-int imu_read_data();
+WTResult imu_read_data();
 void *imu_thread(void *paramPtr);
 #endif // IMU_H

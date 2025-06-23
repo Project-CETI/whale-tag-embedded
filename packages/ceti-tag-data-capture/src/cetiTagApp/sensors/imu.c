@@ -31,8 +31,15 @@
 #include <sys/mman.h>
 #include <unistd.h> // for usleep()
 
+// IMU error handling constants
+#define IMU_CONSECUTIVE_ERROR_THRESHOLD 5
+#define IMU_MAX_RECOVERY_ATTEMPTS 3
+#define IMU_ERROR_SLEEP_MS 500
+#define IMU_RECOVERY_TIMEOUT_MS 2000
+#define IMU_DEGRADED_MODE_LOG_INTERVAL 50
+
 //-----------------------------------------------------------------------------
-// Initialization
+// Global/static variables
 //-----------------------------------------------------------------------------
 int g_imu_thread_is_running = 0;
 
@@ -44,6 +51,20 @@ static CetiImuReportBuffer *imu_report_buffer;
 // semaphore to indicate that shared memory has bee updated
 static sem_t *s_imu_report_ready;
 static sem_t *s_imu_page_ready;
+
+// IMU error handling state
+static struct {
+    int consecutive_error_count;
+    int recovery_attempt_count;
+    uint64_t last_error_time_us;
+    bool degraded_mode;
+    WTResult last_error_code;
+} s_imu_error_state = {0};
+
+// Forward declaration for recovery functions
+static WTResult __imu_attempt_hardware_recovery(void);
+static void __imu_enter_degraded_mode(void);
+static void __imu_reset_error_state(void);
 
 //-----------------------------------------------------------------------------
 // Acquisition
@@ -161,11 +182,64 @@ void *imu_thread(void *paramPtr) {
     while (!g_stopAcquisition) {
         int64_t wake_time_us = get_global_time_us();
 
-        // sleep a bit and try again if read is unsucessful
-        // ToDo: return ACTUAL errors and try recovering hardware
-        if (imu_read_data() != 0) {
-            usleep(IMU_9DOF_SAMPLE_PERIOD_US / 10);
+        // Read IMU data with enhanced error handling and recovery
+        WTResult read_result = imu_read_data();
+        if (read_result != WT_OK) {
+            char err_str[512];
+            CETI_ERR("IMU read error: %s", wt_strerror_r(read_result, err_str, sizeof(err_str)));
+            
+            // Track error timing and increment consecutive error count
+            s_imu_error_state.last_error_time_us = get_global_time_us();
+            s_imu_error_state.consecutive_error_count++;
+            s_imu_error_state.last_error_code = read_result;
+            
+            CETI_WARN("IMU consecutive error count: %d/%d", 
+                      s_imu_error_state.consecutive_error_count, 
+                      IMU_CONSECUTIVE_ERROR_THRESHOLD);
+            
+            // Check if we've exceeded the error threshold
+            if (s_imu_error_state.consecutive_error_count >= IMU_CONSECUTIVE_ERROR_THRESHOLD) {
+                // Only attempt recovery if we haven't exhausted our attempts
+                if (s_imu_error_state.recovery_attempt_count < IMU_MAX_RECOVERY_ATTEMPTS) {
+                    CETI_WARN("IMU error threshold exceeded, attempting hardware recovery");
+                    s_imu_error_state.recovery_attempt_count++;
+                    
+                    // Attempt hardware recovery
+                    WTResult recovery_result = __imu_attempt_hardware_recovery();
+                    if (recovery_result == WT_OK) {
+                        CETI_LOG("IMU hardware recovery successful");
+                        __imu_reset_error_state();
+                        continue; // Resume normal operation
+                    } else {
+                        CETI_ERR("IMU hardware recovery failed");
+                        // Continue to check if we should enter degraded mode
+                    }
+                }
+                
+                // If we've exhausted recovery attempts, enter degraded mode
+                if (s_imu_error_state.recovery_attempt_count >= IMU_MAX_RECOVERY_ATTEMPTS) {
+                    if (!s_imu_error_state.degraded_mode) {
+                        __imu_enter_degraded_mode();
+                    }
+                    
+                    // In degraded mode, reduce error logging frequency to avoid spam
+                    if ((s_imu_error_state.consecutive_error_count % IMU_DEGRADED_MODE_LOG_INTERVAL) == 0) {
+                        CETI_WARN("IMU still in degraded mode (%d errors)", 
+                                  s_imu_error_state.consecutive_error_count);
+                    }
+                }
+            }
+            
+            // Brief delay before continuing to avoid overwhelming the system
+            usleep(IMU_ERROR_SLEEP_MS * 1000);
             continue;
+        }
+        
+        // Successful data read - reset error state if we were in error
+        if (s_imu_error_state.consecutive_error_count > 0) {
+            CETI_LOG("IMU communication restored after %d errors", 
+                     s_imu_error_state.consecutive_error_count);
+            __imu_reset_error_state();
         }
 
         // It's ok to sleep as sensor reports will just get
@@ -252,11 +326,11 @@ int imu_enable_feature_report(int report_id, uint32_t report_interval_us) {
 
 //-----------------------------------------------------------------------------
 
-int imu_read_data() {
+WTResult imu_read_data() {
     int numBytesAvail;
     uint8_t pktBuff[256] = {0};
     ShtpHeader shtpHeader = {0};
-    int retval;
+    WTResult retval;
 
     // Read a header to see how many bytes are available.
     long long global_time_us = get_global_time_us();
@@ -266,7 +340,7 @@ int imu_read_data() {
     if (retval == WT_OK) {
         numBytesAvail = fmin(256, (shtpHeader.length & 0x7FFF)); // msb is "continuation bit", not part of count
         if (numBytesAvail == 0) {
-            return -1;
+            return WT_RESULT(WT_DEV_IMU, WT_ERR_NO_DATA);
         }
         retval = bno086_read_reports(pktBuff, numBytesAvail);
     }
@@ -286,14 +360,14 @@ int imu_read_data() {
             sem_post(s_imu_page_ready);
         }
         sem_post(s_imu_report_ready);
-        return -1;
+        return retval;
     }
     // Parse the data.
     size_t read_offset = 0;
     ShtpHeader *report_header = (ShtpHeader *)&pktBuff[read_offset];
     int bytes_read = report_header->length & 0x7FFF;
     if (report_header->channel != IMU_CHANNEL_REPORTS) {
-        return -1;
+        return WT_RESULT(WT_DEV_IMU, WT_ERR_INVALID_CHANNEL);
     }
     read_offset += sizeof(ShtpHeader);
     while (read_offset < bytes_read) {
@@ -381,5 +455,117 @@ int imu_read_data() {
         }
     }
 
-    return (int)0;
+    return WT_OK;
+}
+
+/**
+ * @brief Reset IMU error handling state after successful operation
+ */
+static void __imu_reset_error_state(void) {
+    s_imu_error_state.consecutive_error_count = 0;
+    s_imu_error_state.recovery_attempt_count = 0;
+    s_imu_error_state.degraded_mode = false;
+    s_imu_error_state.last_error_code = WT_OK;
+}
+
+/**
+ * @brief Enter degraded mode when recovery attempts have been exhausted
+ */
+static void __imu_enter_degraded_mode(void) {
+    CETI_WARN("IMU entering degraded mode after %d consecutive errors", 
+              s_imu_error_state.consecutive_error_count);
+    s_imu_error_state.degraded_mode = true;
+    
+    // Send system notification about IMU degradation
+    char err_str[512];
+    CETI_ERR("IMU DEGRADED: %d ERRORS - Last error: %s", 
+             s_imu_error_state.consecutive_error_count,
+             wt_strerror_r(s_imu_error_state.last_error_code, err_str, sizeof(err_str)));
+}
+
+/**
+ * @brief Attempt hardware recovery of the IMU
+ *
+ * @return WTResult WT_OK on success, error code on failure
+ */
+static WTResult __imu_attempt_hardware_recovery(void) {
+    CETI_LOG("Attempting IMU hardware recovery (attempt %d/%d)", 
+             s_imu_error_state.recovery_attempt_count, IMU_MAX_RECOVERY_ATTEMPTS);
+    
+    // Wait before attempting recovery to allow transient errors to clear
+    usleep(IMU_ERROR_SLEEP_MS * 1000);
+    
+    // Attempt 1: Try I2C bus reset
+    if (s_imu_error_state.recovery_attempt_count == 1) {
+        CETI_LOG("IMU recovery attempt 1: I2C bus reset");
+        
+        // Close and reopen I2C connection
+        if (imu_is_connected) {
+            bno086_close();
+            imu_is_connected = 0;
+        }
+        
+        // Brief delay to allow hardware to settle
+        usleep(100000); // 100ms
+        
+        // Reopen I2C connection
+        WTResult open_result = bno086_open();
+        if (open_result == WT_OK) {
+            imu_is_connected = 1;
+            
+            // Reset sequence numbers
+            for (int i = 0; i < sizeof(imu_sequence_numbers); i++) {
+                imu_sequence_numbers[i] = 0;
+            }
+            
+            CETI_LOG("IMU I2C bus reset successful");
+            return WT_OK;
+        } else {
+            char err_str[512];
+            CETI_ERR("IMU I2C bus reset failed: %s", wt_strerror_r(open_result, err_str, sizeof(err_str)));
+            return open_result;
+        }
+    }
+    
+    // Attempt 2: Try full sensor reinitialization
+    if (s_imu_error_state.recovery_attempt_count == 2) {
+        CETI_LOG("IMU recovery attempt 2: Full sensor reinitialization");
+        
+        // Attempt complete reinitialization
+        int setup_result = setupIMU(IMU_ALL_ENABLED);
+        if (setup_result == 0) {
+            CETI_LOG("IMU full reinitialization successful");
+            return WT_OK;
+        } else {
+            CETI_ERR("IMU full reinitialization failed");
+            return WT_RESULT(WT_DEV_IMU, WT_ERR_INIT_FAILED);
+        }
+    }
+    
+    // Attempt 3: Hardware reset (if available - future enhancement)
+    if (s_imu_error_state.recovery_attempt_count == 3) {
+        CETI_LOG("IMU recovery attempt 3: Hardware reset");
+        
+        // Close current connection
+        if (imu_is_connected) {
+            bno086_close();
+            imu_is_connected = 0;
+        }
+        
+        // Extended delay for hardware reset
+        usleep(IMU_RECOVERY_TIMEOUT_MS * 1000);
+        
+        // Try complete reinitialization after reset
+        int setup_result = setupIMU(IMU_ALL_ENABLED);
+        if (setup_result == 0) {
+            CETI_LOG("IMU hardware reset successful");
+            return WT_OK;
+        } else {
+            CETI_ERR("IMU hardware reset failed");
+            return WT_RESULT(WT_DEV_IMU, WT_ERR_HW_RESET_FAILED);
+        }
+    }
+    
+    // All recovery attempts exhausted
+    return WT_RESULT(WT_DEV_IMU, WT_ERR_RECOVERY_FAILED);
 }
