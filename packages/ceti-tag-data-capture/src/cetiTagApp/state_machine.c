@@ -443,7 +443,7 @@ int updateStateMachine() {
             if (networking_is_enabled && !timing_has_syncronized_to_ntp()) {
                 int ntp_sync_result = timing_syncronize_to_ntp();
                 // update burn time if previous burn time was generated via the RTC (not file or NTP)
-                if ((ntp_sync_result == 0) && (burnwire_start_source_s == BSS_RTC)) {
+                if (timing_has_syncronized_to_ntp() && (burnwire_start_source_s == BSS_RTC)) {
                     burnwire_start_source_s = BSS_NTP;
                     burnwire_timeout_start_s = get_global_time_s();
                     CETI_LOG("Updating burnwire timeout start time %u", burnwire_timeout_start_s);
