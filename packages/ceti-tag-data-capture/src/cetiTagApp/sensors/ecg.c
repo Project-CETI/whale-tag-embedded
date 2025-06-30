@@ -383,6 +383,7 @@ void *ecg_thread_writeData(void *paramPtr) {
                     fprintf(ecg_data_file, "%lu", current_sample->sys_time_us);
                     fprintf(ecg_data_file, ",%u", current_sample->rtc_time_s);
                     // Write any notes.
+                    fprintf(ecg_data_file, ",");
                     if (ecg_restarted[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
                         fprintf(ecg_data_file, "Restarted! | ");
                     }
