@@ -158,10 +158,7 @@ static sem_t *sem_nmea_sentence_ready;
  * @return WTResult
  */
 WTResult wt_recovery_off(void) {
-    WT_TRY(iox_write_pin(IOX_GPIO_3V3_RF_EN, 0));
-    serClose(recovery_fd);
-    recovery_fd = PI_INIT_FAILED;
-    return WT_OK;
+    return iox_write_pin(IOX_GPIO_3V3_RF_EN, 0);
 }
 
 /**
@@ -170,15 +167,7 @@ WTResult wt_recovery_off(void) {
  * @return WTResult
  */
 WTResult wt_recovery_on(void) {
-    WT_TRY(iox_write_pin(IOX_GPIO_3V3_RF_EN, 1));
-    
-    // let board boot
-    usleep(500000);
-
-    // Open serial communication
-    if (recovery_fd < 0) {
-        recovery_fd = PI_TRY(WT_DEV_RECOVERY, serOpen("/dev/serial0", 115200, 0), wt_recovery_off());
-    }
+    return iox_write_pin(IOX_GPIO_3V3_RF_EN, 1);
     return WT_OK;
 }
 
@@ -339,6 +328,11 @@ WTResult wt_recovery_init(void) {
     usleep(5000);
     WT_TRY(wt_recovery_on());
 
+    // let board boot
+    usleep(500000);
+
+    // Open serial communication
+    recovery_fd = PI_TRY(WT_DEV_RECOVERY, serOpen("/dev/serial0", 115200, 0), wt_recovery_off());
 
     // test connection
     if (!__ping()) {
