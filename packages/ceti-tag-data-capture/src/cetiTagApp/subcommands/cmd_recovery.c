@@ -22,22 +22,22 @@ static int __recoveryCmd_on(const char *args) {
 }
 
 static int __recoveryCmd_sleep(const char *args) {
-        if (recovery_sleep() != 0) {
+    if (recovery_sleep() != 0) {
         fprintf(g_rsp_pipe, "Failed to put recovery board to sleep\n");
         return -1;
     }
     fprintf(g_rsp_pipe, "Recovery board is asleep\n");
     return 0;
-} 
+}
 
 static int __recoveryCmd_wake(const char *args) {
-        if (recovery_wake() != 0) {
+    if (recovery_wake() != 0) {
         fprintf(g_rsp_pipe, "Failed to wake recovery board\n");
         return -1;
     }
     fprintf(g_rsp_pipe, "Recovery board is awake\n");
     return 0;
-} 
+}
 
 static int __recoveryCmd_ping(const char *args) {
     // ping recovery board
