@@ -12,8 +12,8 @@
 #
 # Depth in meters is approximately 10*pressure_bar
 #
-P1=0.3
-P2=0.5
+surface_pressure=0.3
+dive_pressure=0.5
 
 #------------------------------------------------------------------------------
 # Battery Thresholds per cell
@@ -23,8 +23,8 @@ P2=0.5
 # release_voltage - battery is low, time to release from the whale!
 # critical_voltage - battery is critical, time to put the system to sleep
 # Units are volts
-release_voltage=3.2
-critical_voltage=3.1
+release_voltage=6.6
+critical_voltage=6.200001
 
 #------------------------------------------------------------------------------
 # Deployment Timeout
@@ -33,7 +33,7 @@ critical_voltage=3.1
 # The battery thresholds take precedence
 # Default units are minutes, 
 # (d/D = days, h/H = hours, m/M = minutes, s/S = seconds)
-T0=4d
+timeout_release=4d
 
 #------------------------------------------------------------------------------
 # Time of Day Release Time
@@ -50,7 +50,7 @@ T0=4d
 # Default units are minutes, use integers only
 # (d/D = days, h/H = hours, m/M = minutes, s/S = seconds)
 #------------------------------------------------------------------------------
-BT=20m
+burn_interval=20m
 
 #------------------------------------------------------------------------------
 # Audio Filter Type

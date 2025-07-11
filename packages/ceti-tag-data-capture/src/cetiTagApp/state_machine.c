@@ -42,7 +42,15 @@
 static int presentState = ST_CONFIG;
 static int networking_is_enabled = 1;
 // RTC counts
+typedef enum {
+    BSS_NONE,
+    BSS_FILE,
+    BSS_RTC,
+    BSS_NTP,
+} BurnStartSource;
+
 static unsigned int start_time_s = 0;
+static BurnStartSource burnwire_start_source_s = BSS_NONE;
 static unsigned int burnwire_timeout_start_s = 0;
 static int64_t burnwire_time_of_day_release_s = 0;
 static uint32_t burnwire_started_time_s = 0;
@@ -196,6 +204,11 @@ int stateMachine_set_state(wt_state_t new_state) {
             if (access(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, F_OK) == -1) {
 #ifndef UNIT_TEST
                 burnwire_timeout_start_s = get_global_time_s();
+                if (timing_has_syncronized_to_ntp()) {
+                    burnwire_start_source_s = BSS_NTP;
+                } else {
+                    burnwire_start_source_s = BSS_RTC;
+                }
                 CETI_LOG("Starting dive; recording burnwire timeout start time %u", burnwire_timeout_start_s);
                 FILE *file_burnwire_timeout_start_s = NULL;
                 file_burnwire_timeout_start_s = fopen(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, "w");
@@ -320,6 +333,11 @@ int updateStateMachine() {
             // Note that the target time will be at first dive to ensure it's a real deployment,
             // but will use current time for now in case there is never a dive.
             burnwire_timeout_start_s = get_global_time_s(); // default to the current time
+            if (timing_has_syncronized_to_ntp()) {
+                burnwire_start_source_s = BSS_NTP;
+            } else {
+                burnwire_start_source_s = BSS_RTC;
+            }
             FILE *file_burnwire_timeout_start_s = NULL;
             char line[512];
             file_burnwire_timeout_start_s = fopen(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, "r");
@@ -331,6 +349,7 @@ int updateStateMachine() {
                     unsigned int loaded_start_time_s = strtoul(line, NULL, 10);
                     if (loaded_start_time_s != 0) // will be 0 if the conversion to integer failed
                         burnwire_timeout_start_s = loaded_start_time_s;
+                    burnwire_start_source_s = BSS_FILE;
                 }
             }
             CETI_LOG("Using the following burnwire timeout start time: %u", burnwire_timeout_start_s);
@@ -373,7 +392,7 @@ int updateStateMachine() {
 
             // Turn on the burnwire if the timeout has passed since the deployment started.
             if ((get_global_time_s() - burnwire_timeout_start_s) > g_config.timeout_s) {
-                CETI_LOG("TIMEOUT!!! Initializing Burn");
+                CETI_LOG("TIMEOUT!!! Initializing Burn (%d - %d > %d)", get_global_time_s(), burnwire_timeout_start_s, g_config.timeout_s);
                 stateMachine_set_state(ST_BRN_ON);
                 break;
             } else if (g_config.tod_release.valid && (burnwire_time_of_day_release_s < get_global_time_s())) {
@@ -420,9 +439,20 @@ int updateStateMachine() {
 
         // Recording while at surface, trying to get a GPS fix
         case (ST_RECORD_SURFACE):
+            // Resyncronize clock if networking still up and time has never synced
+            if (networking_is_enabled && !timing_has_syncronized_to_ntp()) {
+                int ntp_sync_result = timing_syncronize_to_ntp();
+                // update burn time if previous burn time was generated via the RTC (not file or NTP)
+                if (timing_has_syncronized_to_ntp() && (burnwire_start_source_s == BSS_RTC)) {
+                    burnwire_start_source_s = BSS_NTP;
+                    burnwire_timeout_start_s = get_global_time_s();
+                    CETI_LOG("Updating burnwire timeout start time %u", burnwire_timeout_start_s);
+                }
+            }
+
             // Turn on the burnwire if the timeout has passed since the deployment started.
             if (get_global_time_s() - burnwire_timeout_start_s > g_config.timeout_s) {
-                CETI_LOG("TIMEOUT!!! Initializing Burn");
+                CETI_LOG("TIMEOUT!!! Initializing Burn (%d - %d > %d)", get_global_time_s(), burnwire_timeout_start_s, g_config.timeout_s);
                 stateMachine_set_state(ST_BRN_ON);
                 break;
             } else if (g_config.tod_release.valid && (burnwire_time_of_day_release_s < get_global_time_s())) {
@@ -467,11 +497,13 @@ int updateStateMachine() {
                 break;
             }
 #endif
-
             break;
 
         // Releasing via the burnwire
         case (ST_BRN_ON):
+            // FLASH LEDS
+            burnwire_update_leds();
+
 // Shutdown if the battery is too low.
 #if ENABLE_BATTERY_GAUGE
             if (shm_battery->error == WT_OK) {

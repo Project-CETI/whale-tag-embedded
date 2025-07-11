@@ -21,6 +21,24 @@ static int __recoveryCmd_on(const char *args) {
     return 0;
 }
 
+static int __recoveryCmd_sleep(const char *args) {
+    if (recovery_sleep() != 0) {
+        fprintf(g_rsp_pipe, "Failed to put recovery board to sleep\n");
+        return -1;
+    }
+    fprintf(g_rsp_pipe, "Recovery board is asleep\n");
+    return 0;
+}
+
+static int __recoveryCmd_wake(const char *args) {
+    if (recovery_wake() != 0) {
+        fprintf(g_rsp_pipe, "Failed to wake recovery board\n");
+        return -1;
+    }
+    fprintf(g_rsp_pipe, "Recovery board is awake\n");
+    return 0;
+}
+
 static int __recoveryCmd_ping(const char *args) {
     // ping recovery board
     if (recovery_ping() == 0) {
@@ -107,6 +125,8 @@ static int __recoveryCmd_set_recipient(const char *args) {
 const CommandDescription recovery_subcommand_list[] = {
     {.name = STR_FROM("off"), .description = "Turn off recovery board", .parse = __recoveryCmd_off},
     {.name = STR_FROM("on"), .description = "Turn on  recovery board", .parse = __recoveryCmd_on},
+    {.name = STR_FROM("sleep"), .description = "Put recovery board to sleep", .parse = __recoveryCmd_sleep},
+    {.name = STR_FROM("wake"), .description = "Wake the recovery board", .parse = __recoveryCmd_wake},
     {.name = STR_FROM("ping"), .description = "Ping the recovery board to verify serial connection", .parse = __recoveryCmd_ping},
     {.name = STR_FROM("message"), .description = "Send a direct message via APRS.", .parse = __recoveryCmd_sendMessage},
     {.name = STR_FROM("setFrequency"), .description = "Sets APRS frequency in MHz", .parse = __recoveryCmd_set_frequency},

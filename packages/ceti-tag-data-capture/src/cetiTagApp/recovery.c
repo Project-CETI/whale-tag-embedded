@@ -168,6 +168,7 @@ WTResult wt_recovery_off(void) {
  */
 WTResult wt_recovery_on(void) {
     return iox_write_pin(IOX_GPIO_3V3_RF_EN, 1);
+    return WT_OK;
 }
 
 /* STATIC
