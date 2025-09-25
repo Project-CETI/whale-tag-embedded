@@ -21,8 +21,7 @@ int meta_log(uint64_t timestamp) {
     do {
         if (filename_postfix_count == 0) {
             snprintf(meta_file_path, 255, "/data/data_tag_info_%lu.yaml", timestamp);
-        }
-        else {
+        } else {
             snprintf(meta_file_path, 255, "/data/data_tag_info_%lu_%02d.yaml", timestamp, filename_postfix_count);
         }
         filename_exists = (access(meta_file_path, F_OK) != -1);

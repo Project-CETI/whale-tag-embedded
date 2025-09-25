@@ -1,5 +1,5 @@
-#include "../utils/power.h"
 #include "../commands_internal.h"
+#include "../utils/power.h"
 
 int networkCmd_off(const char *args) {
     // ToDo: error checking

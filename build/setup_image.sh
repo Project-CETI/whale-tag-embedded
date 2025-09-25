@@ -12,7 +12,6 @@ APT_NONINTERACTIVE="-y"
 export DEBIAN_FRONTEND="noninteractive"
 export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=yes
 
-
 rm /var/lib/dpkg/info/libc-bin.*
 apt clean
 apt update

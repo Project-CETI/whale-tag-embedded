@@ -375,9 +375,7 @@ int updateStateMachine() {
         // Recording while sumberged
         case (ST_RECORD_DIVING):
             // Turn off networking if the grace period has passed.
-            if (networking_is_enabled() && !networking_ssh_session_active()  
-                && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN))
-            ) {
+            if (networking_is_enabled() && !networking_ssh_session_active() && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN))) {
                 networking_disable();
             }
 
@@ -398,8 +396,7 @@ int updateStateMachine() {
                 s_bms_error_count = 0;
                 if ((shm_battery->cell_voltage_v[0] < g_config.release_voltage_v) || (shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
                     battery_low_voltage_count++;
-                }
-                else {
+                } else {
                     battery_low_voltage_count = 0;
                 }
                 if (battery_low_voltage_count >= BATTERY_LOW_VOLTAGE_CONSECUTIVE_THRESHOLD) {
@@ -453,9 +450,7 @@ int updateStateMachine() {
             }
 
             // Turn off networking if the grace period has passed and no ssh session is active
-            if (networking_is_enabled() && !networking_ssh_session_active() 
-                && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN))
-            ) {
+            if (networking_is_enabled() && !networking_ssh_session_active() && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN))) {
                 networking_disable();
             }
 
@@ -476,8 +471,7 @@ int updateStateMachine() {
                 s_bms_error_count = 0;
                 if ((shm_battery->cell_voltage_v[0] < g_config.release_voltage_v) || (shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
                     battery_low_voltage_count++;
-                }
-                else {
+                } else {
                     battery_low_voltage_count = 0;
                 }
                 if (battery_low_voltage_count >= BATTERY_LOW_VOLTAGE_CONSECUTIVE_THRESHOLD) {
@@ -525,8 +519,7 @@ int updateStateMachine() {
                 s_bms_error_count = 0;
                 if ((shm_battery->cell_voltage_v[0] < g_config.critical_voltage_v) || (shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v)) {
                     battery_critical_voltage_count++;
-                }
-                else {
+                } else {
                     battery_critical_voltage_count = 0;
                 }
                 if (battery_critical_voltage_count >= BATTERY_CRITICAL_VOLTAGE_CONSECUTIVE_THRESHOLD) {
@@ -563,8 +556,7 @@ int updateStateMachine() {
                 s_bms_error_count = 0;
                 if ((shm_battery->cell_voltage_v[0] < g_config.critical_voltage_v) || (shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v)) {
                     battery_critical_voltage_count++;
-                }
-                else {
+                } else {
                     battery_critical_voltage_count = 0;
                 }
                 if (battery_critical_voltage_count >= BATTERY_CRITICAL_VOLTAGE_CONSECUTIVE_THRESHOLD) {
@@ -583,7 +575,7 @@ int updateStateMachine() {
             }
 
             // MSH: ToDo: check if at surface for > 30 minutes
-                // Shutdown on whale 
+            // Shutdown on whale
 #endif
 
             break;

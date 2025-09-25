@@ -53,7 +53,6 @@ static int handle_mission_command(const char *args);
 static int handle_recovery_command(const char *args);
 static int handle_network_command(const char *args);
 
-
 static const CommandDescription command_list[] = {
     {.name = STR_FROM("quit"), .description = "Stop the app", .parse = __command_quit}, // special command must be first
     {.name = STR_FROM("dbg"), .description = "Run debug routine", .parse = __command_dbg},

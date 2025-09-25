@@ -163,7 +163,6 @@ int networking_ssh_session_active(void) {
     return 0;
 }
 
-
 int networking_is_enabled(void) {
     return s_networking_enabled;
 }
