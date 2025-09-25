@@ -146,14 +146,13 @@ int networking_ssh_session_active(void) {
     char buffer[256];
 
     // List logged-in users via who
-    fp = popen("who", "r");
+    fp = popen("ss | grep ssh", "r");
     if (fp == NULL) {
         return 0;
     }
 
     while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-        // Check if the line contains "pts" (pseudo-terminal for SSH)
-        if (strstr(buffer, "pts") != NULL) {
+        if (strstr(buffer, ":ssh") != NULL) {
             pclose(fp);
             return 1;
         }
