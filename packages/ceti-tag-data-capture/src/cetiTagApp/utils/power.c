@@ -174,4 +174,5 @@ void networking_disable(void) {
     eth0_disable();
     // usb_kill();
     s_networking_enabled = 0;
+    CETI_LOG("Networking Disabled");
 }
