@@ -17,8 +17,6 @@
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
-#define FORCE_NETWORKS_OFF_ON_START 0 // turn off networks regardless of dive status
-
 typedef enum {         // Tag operational states for deployment sequencing
     ST_CONFIG = 0,     // get the deployment parameters from config file
     ST_START,          // turn on the audio recorder, illuminate ready LED
@@ -36,7 +34,7 @@ static const char state_str[][MAX_STATE_STRING_LEN] = {
     "CONFIG", "START", "DEPLOY", "RECORD_DIVING", "RECORD_SURFACE",
     "BRN_ON", "RETRIEVE", "SHUTDOWN", "UNKNOWN"};
 
-#define WIFI_GRACE_PERIOD_MIN 10
+#define WIFI_GRACE_PERIOD_MIN 3
 #define MISSION_BMS_CONSECUTIVE_ERROR_THRESHOLD 5
 #define BATTERY_LOW_VOLTAGE_CONSECUTIVE_THRESHOLD 10
 #define BATTERY_CRITICAL_VOLTAGE_CONSECUTIVE_THRESHOLD 10

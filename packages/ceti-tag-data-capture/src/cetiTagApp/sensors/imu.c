@@ -155,7 +155,6 @@ void *imu_thread(void *paramPtr) {
 
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically acquire data");
-    long long start_global_time_us = get_global_time_us();
     g_imu_thread_is_running = 1;
 
     while (!g_stopAcquisition) {

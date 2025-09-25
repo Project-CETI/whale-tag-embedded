@@ -98,7 +98,7 @@ clean:
 	rm -rf $(OUT_DIR)
 
 deep_clean: clean docker-image-remove
-	$(foreach dir, $(DIR), rm -rf $(dir);)
+	$(foreach dir, $(DIRS), rm -rf $(dir);)
 	$(foreach package, $(PACKAGES), $(MAKE) clean -C $(PACKAGE_DIR)/$(package);)
 
 test:

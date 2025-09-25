@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 #define META_FILE_PATH "/opt/ceti-tag-data-capture/config/tag-info.yaml"
@@ -66,11 +67,15 @@ int meta_log(uint64_t timestamp) {
 
     close(fd_src);
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdate-time"
     // Append a firmware line
-    char firmware_line[128];
+    char firmware_line[127];
     snprintf(firmware_line, sizeof(firmware_line),
              "firmware_version: \"%s\"\nfirmware_build_date: \"%s %s\"\n",
              CETI_VERSION, __DATE__, __TIME__);
+#pragma GCC diagnostic pop
+
     if (last_char != '\n') {
         char tmp[128];
         snprintf(tmp, sizeof(tmp), "\n%s", firmware_line);

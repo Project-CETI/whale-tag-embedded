@@ -246,7 +246,8 @@ void *ecg_thread_getData(void *paramPtr) {
         if (adc_status != WT_OK) {
             should_reinitialize = 1;
             char err_str[512];
-            CETI_DEBUG("ADC encountered an ERROR(%s)", wt_strerror_r(adc_status, err_str, sizeof(err_str)));
+            wt_strerror_r(adc_status, err_str, sizeof(err_str));
+            CETI_DEBUG("ADC encountered an ERROR(%s)", err_str);
         }
 
         if (current_ecg_sample->ecg_reading == 0) {

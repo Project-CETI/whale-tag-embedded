@@ -138,3 +138,41 @@ void activity_led_enable(void) {
         close(led_brightness_file);
     }
 }
+
+static int s_networking_enabled = 1;
+
+int networking_ssh_session_active(void) {
+    FILE *fp;
+    char buffer[256];
+
+    // List logged-in users via who
+    fp = popen("who", "r");
+    if (fp == NULL) {
+        return 0;
+    }
+
+    while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+        // Check if the line contains "pts" (pseudo-terminal for SSH)
+        if (strstr(buffer, "pts") != NULL) {
+            pclose(fp);
+            return 1;
+        }
+    }
+
+    pclose(fp);
+    return 0;
+}
+
+
+int networking_is_enabled(void) {
+    return s_networking_enabled;
+}
+
+void networking_disable(void) {
+    wifi_disable();
+    wifi_kill();
+    bluetooth_kill();
+    eth0_disable();
+    // usb_kill();
+    s_networking_enabled = 0;
+}
