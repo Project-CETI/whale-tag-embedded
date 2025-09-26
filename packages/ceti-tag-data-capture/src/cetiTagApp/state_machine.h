@@ -24,7 +24,7 @@ typedef enum {         // Tag operational states for deployment sequencing
     ST_RECORD_DIVING,  // recording while underwater
     ST_RECORD_SURFACE, // recording while surfaced - trying for a GPS fix
     ST_BRN_ON,         // burnwire is on, may or may not be at the surface when in this state
-    ST_RETRIEVE,       // burnwire timed out, likely at surface, monitor GPS and transmit coord if enough battery
+    ST_RETRIEVE,       // burnwire timed out, monitor GPS and transmit coord if enough battery
     ST_SHUTDOWN,       // battery critical, put system in minimum power mode
     ST_UNKNOWN
 } wt_state_t;
@@ -35,6 +35,7 @@ static const char state_str[][MAX_STATE_STRING_LEN] = {
     "BRN_ON", "RETRIEVE", "SHUTDOWN", "UNKNOWN"};
 
 #define WIFI_GRACE_PERIOD_MIN 3
+#define APRS_ON_WHALE 0
 #define MISSION_BMS_CONSECUTIVE_ERROR_THRESHOLD 5
 #define BATTERY_LOW_VOLTAGE_CONSECUTIVE_THRESHOLD 10
 #define BATTERY_CRITICAL_VOLTAGE_CONSECUTIVE_THRESHOLD 10

@@ -223,6 +223,16 @@ int stateMachine_set_state(wt_state_t new_state) {
             break;
 
         case ST_RECORD_SURFACE:
+#if APRS_ON_WHALE
+#if ENABLE_RECOVERY
+            if (g_config.recovery.enabled) {
+                recovery_wake();
+            }
+#endif // ENABLE_RECOVERY
+#endif // APRS_ON_WHALE
+            break;
+
+        case ST_BRN_ON:
 #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
                 recovery_wake();
