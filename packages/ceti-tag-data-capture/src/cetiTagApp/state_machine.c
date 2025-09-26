@@ -233,15 +233,6 @@ int stateMachine_set_state(wt_state_t new_state) {
             break;
 
         case ST_BRN_ON:
-#if ENABLE_RECOVERY
-            if (g_config.recovery.enabled) {
-                recovery_wake();
-            }
-#endif // ENABLE_RECOVERY
-
-            break;
-
-        case ST_BRN_ON:
 // Turn on the burnwire and record the start time.
 #if ENABLE_BURNWIRE
             burnwireOn();
