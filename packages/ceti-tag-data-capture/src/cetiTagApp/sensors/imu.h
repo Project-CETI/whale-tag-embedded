@@ -107,6 +107,12 @@ typedef enum imu_data_type_e {
     IMU_DATA_TYPE_COUNT,
 } IMUDataType;
 
+typedef struct { // euler angles
+    double roll;
+    double pitch;
+    double yaw;
+} EulerAngles_f64;
+
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
@@ -121,4 +127,6 @@ int setupIMU(uint8_t enabled_features);
 int imu_enable_feature_report(int report_id, uint32_t report_interval_us);
 int imu_read_data();
 void *imu_thread(void *paramPtr);
+int imu_get_latest_rotation_quat(CeitImuQuatReport *dst);
+int imu_get_latest_rotation_euler(EulerAngles_f64 *dst);
 #endif // IMU_H

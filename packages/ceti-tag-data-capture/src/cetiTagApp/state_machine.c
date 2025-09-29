@@ -65,6 +65,48 @@ static const char *stateMachine_data_file_headers[] = {
 };
 static const int num_stateMachine_data_file_headers = sizeof(stateMachine_data_file_headers) / sizeof(*stateMachine_data_file_headers);
 
+static int __at_depth(void) {
+    return ((g_pressure->error == WT_OK) && (g_pressure->pressure_bar > g_config.dive_pressure));
+}
+
+static int __at_surface(void) {
+    return (g_pressure->error != WT_OK) || (g_pressure->pressure_bar < g_config.surface_pressure);
+}
+ 
+/// convert latest imu quat sample to euler angle and see if within upright range
+static int __oriented_upright(void) {
+    EulerAngles_f64   latest_euler;
+    if (imu_get_latest_rotation_euler(&latest_euler) != 0 ) {
+        return 0;
+    }
+    
+    // see if pitch == ~-90 and roll == ~0
+    return  (
+        ((-90.0 - 30.0) <= latest_euler.pitch) &&  (latest_euler.pitch < (-90.0 + 30.0)) 
+        && (-30.0 <= latest_euler.roll) && (latest_euler.roll < 30.0)
+    );
+    
+}
+
+static int float_start_detected = 0;
+static void __reset_float_detection(void){
+    float_start_detected = 0;
+}
+
+static int __is_floating(void) {
+    static int float_start_time_s = 0;
+    if(!float_start_detected) {
+        float_start_time_s = get_global_time_s();
+        float_start_detected = 1;
+    }
+
+    if(__at_depth() || !__oriented_upright()) {
+        __reset_float_detection();
+    }
+ 
+    return (now() - float_start_time_s > MIN_TO_SEC(30));
+}
+
 int init_stateMachine() {
     CETI_LOG("Successfully initialized the state machine");
     // Open an output file to write data.
@@ -369,7 +411,7 @@ int updateStateMachine() {
 
 // Transition to the appropriate recording state.
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
-            if ((g_pressure->error == WT_OK) && (g_pressure->pressure_bar > g_config.dive_pressure)) {
+            if ( __at_depth()) {
                 stateMachine_set_state(ST_RECORD_DIVING);
             } else {
                 stateMachine_set_state(ST_RECORD_SURFACE);
@@ -438,7 +480,7 @@ int updateStateMachine() {
 
 // Transition state if at the surface.
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
-            if ((g_pressure->error != WT_OK) || (g_pressure->pressure_bar < g_config.surface_pressure)) {
+            if (__at_surface()) {
                 stateMachine_set_state(ST_RECORD_SURFACE); // came to surface
                 break;
             }
@@ -511,7 +553,7 @@ int updateStateMachine() {
 
 // Transition state if diving.
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
-            if ((g_pressure->error == WT_OK) && (g_pressure->pressure_bar > g_config.dive_pressure)) {
+            if ( __at_depth()) {
                 stateMachine_set_state(ST_RECORD_DIVING); // back down...
                 break;
             }
@@ -584,6 +626,12 @@ int updateStateMachine() {
 
                 s_bms_error_count++;
                 /* MSH: If BMS communication error better to remain in retrieve mode and allow BMS hardware to handle shutdown */
+                if( __is_floating() ) {
+                    // disable ecg thread
+                    // disable light thread
+                    // disable audio
+                    // disable LEDs
+                }
             }
 #endif
 
