@@ -406,18 +406,24 @@ static void __quat_to_euler(EulerAngles_f64 *e, const CetiImuQuatReport *q) {
     e->yaw = atan2(siny_cosp, cosy_cosp);
 }
 
-CeitImuQuatReport *__imu_get_latest_rotation_quat_ptr(void){
+static CetiImuQuatReport *__imu_get_latest_rotation_quat_ptr(void){
+    if (imu_report_buffer == NULL) {
+        return NULL;
+    }
+    //find latest imu report in buffer
+    uint32_t r_page = imu_report_buffer->page;
+    uint32_t r_sample = imu_report_buffer->sample;
     CetiImuReport *reports = &imu_report_buffer->reports[0][0];
     for (int i = (r_page * IMU_REPORT_BUFFER_SIZE + r_sample - 1); i >= 0; i--) {
         CetiImuQuatReport *i_report = &reports[i].report.quat;
         if (i_report->report_id == IMU_SENSOR_REPORTID_ROTATION_VECTOR) {
-            return  i_report;
+            return i_report;
         }
     }
     return NULL;
 }
 
-int imu_get_latest_rotation_quat(CeitImuQuatReport *dst){
+int imu_get_latest_rotation_quat(CetiImuQuatReport *dst){
     if (dst == NULL){
         return -1; //invalid destination pointer
     }

@@ -15,6 +15,7 @@
 #include "burnwire.h"
 #include "launcher.h" // for g_exit, g_stopAcquisition, g_stopLogging sampling rate, data filepath, and CPU affinity
 #include "recovery.h"
+#include "sensors/imu.h" // for recovery float detection
 #include "sensors/pressure_temperature.h"
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 
@@ -94,7 +95,8 @@ static void __reset_float_detection(void){
 }
 
 static int __is_floating(void) {
-    static int float_start_time_s = 0;
+#if ENABLE_PRESSURETEMPERATURE_SENSOR && ENABLE_IMU
+    static uint32_t float_start_time_s = 0;
     if(!float_start_detected) {
         float_start_time_s = get_global_time_s();
         float_start_detected = 1;
@@ -104,7 +106,11 @@ static int __is_floating(void) {
         __reset_float_detection();
     }
  
-    return (now() - float_start_time_s > MIN_TO_SEC(30));
+    return (get_global_time_s() - float_start_time_s > MIN_TO_SEC(30));
+#else 
+    return 0;
+#endif // ENABLE_PRESSURE_TEMPERATURE_SENSOR && ENABLE_IMU
+
 }
 
 int init_stateMachine() {
@@ -234,6 +240,7 @@ int stateMachine_set_state(wt_state_t new_state) {
     switch (new_state) {
 
         case ST_RECORD_DIVING:
+            __reset_float_detection();
             activity_led_disable();
 #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
@@ -549,6 +556,20 @@ int updateStateMachine() {
                 break;
             }
 #endif
+
+#if !APRS_ON_WHALE
+#if ENABLE_RECOVERY 
+            // enable recovery in case we're likely off the whale 
+            // will turn back off once whale dives if it did not actually release
+            if( __is_floating() ) {
+                CETI_LOG("Tag is likely floating at the surface. Enabling APRS until next dive");
+                if (g_config.recovery.enabled) {
+                    recovery_wake();
+                }
+            }
+#endif // ENABLE_RECOVERY
+#endif // !APRS_ON_WHALE
+
             break;
 
         // Releasing via the burnwire
@@ -616,6 +637,7 @@ int updateStateMachine() {
                 s_bms_error_count++;
                 /* MSH: If BMS communication error better to remain in retrieve mode and allow BMS hardware to handle shutdown */
                 if( __is_floating() ) {
+                    CETI_LOG("Floating at surface detected. Disabling high data-rate sensors for additional energy saving.");
                     // disable ecg thread
                     // disable light thread
                     // disable audio
@@ -623,8 +645,6 @@ int updateStateMachine() {
                 }
             }
 
-            // MSH: ToDo: check if at surface for > 30 minutes
-            // Shutdown on whale
 #endif
 
             break;
