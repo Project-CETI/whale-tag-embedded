@@ -12,24 +12,25 @@ APT_NONINTERACTIVE="-y"
 export DEBIAN_FRONTEND="noninteractive"
 export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=yes
 
+rm /var/lib/dpkg/info/libc-bin.*
+apt clean
 apt update
+apt install "${APT_NONINTERACTIVE}" --fix-broken --fix-missing --no-upgrade \
+	libc-bin
 
 time apt install "${APT_NONINTERACTIVE}" --fix-broken --fix-missing --no-upgrade \
-	alsa-utils \
 	avahi-utils \
 	bc \
 	build-essential \
-	libpigpio-dev \
-	pigpio \
 	devscripts \
 	dkms \
 	dnsmasq \
 	flac \
+	i2c-tools \
 	libflac-dev \
 	libi2c-dev \
-	i2c-tools \
-	netcat \
-	zlib1g-dev
+	libpigpio-dev \
+	pigpio
 
 apt "${APT_NONINTERACTIVE}" autoremove
 

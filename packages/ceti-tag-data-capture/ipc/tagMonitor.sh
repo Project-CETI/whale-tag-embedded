@@ -245,7 +245,7 @@ while :; do
 		else
 			critical_voltage_shutdown_counter=0
 		fi
-		if (( critical_voltage_shutdown_counter >= 2 )); then
+		if ((critical_voltage_shutdown_counter >= 2)); then
 			echo "low battery cell detected; powering down the Pi now!"
 			echo s >/proc/sysrq-trigger
 
@@ -260,7 +260,7 @@ while :; do
 			echo u >/proc/sysrq-trigger
 			shutdown -P +1
 			break
-		elif (( critical_voltage_shutdown_counter >= 1 )); then
+		elif ((critical_voltage_shutdown_counter >= 1)); then
 			echo "low battery cell detected; will wait to confirm with another sample"
 		else
 			echo "battery is OK"

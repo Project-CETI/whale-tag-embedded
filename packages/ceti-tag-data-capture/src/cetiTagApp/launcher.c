@@ -525,6 +525,9 @@ int init_tag() {
             char rec_msg[68] = {};
             snprintf(rec_msg, 67, "THREAD INIT ERR: %04Xh", s_threads_in_error);
             recovery_message(rec_msg);
+#if !APRS_ON_WHALE
+            recovery_sleep();
+#endif
         }
     }
 

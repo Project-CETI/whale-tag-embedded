@@ -507,9 +507,8 @@ void config_log(uint64_t timestamp) {
     int filename_exists = 0;
     do {
         if (filename_postfix_count == 0) {
-            snprintf(config_file_path, 255, "/data/data_config_%lu.txt", timestamp, filename_postfix_count);
-        }
-        else {
+            snprintf(config_file_path, 255, "/data/data_config_%lu.txt", timestamp);
+        } else {
             snprintf(config_file_path, 255, "/data/data_config_%lu_%02d.txt", timestamp, filename_postfix_count);
         }
         filename_exists = (access(config_file_path, F_OK) != -1);

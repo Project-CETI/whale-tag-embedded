@@ -246,7 +246,8 @@ void *ecg_thread_getData(void *paramPtr) {
         if (adc_status != WT_OK) {
             should_reinitialize = 1;
             char err_str[512];
-            CETI_DEBUG("ADC encountered an ERROR(%s)", wt_strerror_r(adc_status, err_str, sizeof(err_str)));
+            wt_strerror_r(adc_status, err_str, sizeof(err_str));
+            CETI_DEBUG("ADC encountered an ERROR(%s)", err_str);
         }
 
         if (current_ecg_sample->ecg_reading == 0) {
@@ -270,7 +271,7 @@ void *ecg_thread_getData(void *paramPtr) {
 
         // Update state.
         first_sample = 0;
-        
+
         // If the ADC or the GPIO expander had an error,
         //  wait a bit and then try to reconnect to them.
         if (should_reinitialize && !g_stopAcquisition) {
@@ -294,11 +295,11 @@ void *ecg_thread_getData(void *paramPtr) {
             sem_post(sem_ecg_page);
         }
         sem_post(sem_ecg_sample);
-        
+
         // Note: The below sleep was commented since it seems to be associated with periodically varying
         //       sampling rates and with artifacts in the ECG spectrogram.  This will be futher investigated,
         //       but for now it is removed to improve signal integrity.
-        // Note: Sleeping for 75% of the sample interval seems to reduce utilization of this CPU core from 
+        // Note: Sleeping for 75% of the sample interval seems to reduce utilization of this CPU core from
         //       approximately 85% to 9%, and seems to reduce overall power consumption by approximately 10%.
         // // sleep duration shortened to 75% of sample interval to ensure ADC config still dictates sampling interval
         // int64_t elapsed_time = (get_global_time_us() - prev_ecg_adc_latest_reading_global_time_us);

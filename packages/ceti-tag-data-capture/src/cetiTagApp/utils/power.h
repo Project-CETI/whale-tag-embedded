@@ -29,4 +29,8 @@ void bluetooth_kill(void);
 void activity_led_disable(void);
 void activity_led_enable(void);
 
+int networking_ssh_session_active(void);
+int networking_is_enabled(void);
+void networking_disable(void);
+
 #endif

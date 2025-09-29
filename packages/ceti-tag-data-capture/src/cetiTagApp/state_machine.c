@@ -40,7 +40,7 @@
 //-----------------------------------------------------------------------------
 
 static int presentState = ST_CONFIG;
-static int networking_is_enabled = 1;
+
 // RTC counts
 typedef enum {
     BSS_NONE,
@@ -265,12 +265,13 @@ int stateMachine_set_state(wt_state_t new_state) {
             break;
 
         case ST_RECORD_SURFACE:
+#if APRS_ON_WHALE
 #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
                 recovery_wake();
             }
 #endif // ENABLE_RECOVERY
-
+#endif // APRS_ON_WHALE
             break;
 
         case ST_BRN_ON:
@@ -401,13 +402,6 @@ int updateStateMachine() {
                 burnwire_time_of_day_release_s = get_next_time_of_day_occurance_s(&g_config.tod_release.value);
                 CETI_LOG("Time of day release set to %lu", burnwire_time_of_day_release_s);
             }
-// Turn off networking if desired.
-#if FORCE_NETWORKS_OFF_ON_START
-            wifi_disable();
-            wifi_kill();
-            bluetooth_kill();
-            eth0_disable();
-#endif
 
 // Transition to the appropriate recording state.
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
@@ -424,19 +418,13 @@ int updateStateMachine() {
         // Recording while sumberged
         case (ST_RECORD_DIVING):
             // Turn off networking if the grace period has passed.
-            if (networking_is_enabled && (get_global_time_s() - start_time_s > (WIFI_GRACE_PERIOD_MIN * 60))) {
-                wifi_disable();
-                wifi_kill();
-                bluetooth_kill();
-                eth0_disable();
-                // usb_kill();
-                activity_led_disable();
-                networking_is_enabled = 0;
+            if (networking_is_enabled() && !networking_ssh_session_active() && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN))) {
+                networking_disable();
             }
 
             // Turn on the burnwire if the timeout has passed since the deployment started.
             if ((get_global_time_s() - burnwire_timeout_start_s) > g_config.timeout_s) {
-                CETI_LOG("TIMEOUT!!! Initializing Burn (%d - %d > %d)", get_global_time_s(), burnwire_timeout_start_s, g_config.timeout_s);
+                CETI_LOG("TIMEOUT!!! Initializing Burn (%ld - %d > %ld)", get_global_time_s(), burnwire_timeout_start_s, g_config.timeout_s);
                 stateMachine_set_state(ST_BRN_ON);
                 break;
             } else if (g_config.tod_release.valid && (burnwire_time_of_day_release_s < get_global_time_s())) {
@@ -451,8 +439,7 @@ int updateStateMachine() {
                 s_bms_error_count = 0;
                 if ((shm_battery->cell_voltage_v[0] < g_config.release_voltage_v) || (shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
                     battery_low_voltage_count++;
-                }
-                else {
+                } else {
                     battery_low_voltage_count = 0;
                 }
                 if (battery_low_voltage_count >= BATTERY_LOW_VOLTAGE_CONSECUTIVE_THRESHOLD) {
@@ -490,8 +477,8 @@ int updateStateMachine() {
         // Recording while at surface, trying to get a GPS fix
         case (ST_RECORD_SURFACE):
             // Resyncronize clock if networking still up and time has never synced
-            if (networking_is_enabled && !timing_has_syncronized_to_ntp()) {
-                int ntp_sync_result = timing_syncronize_to_ntp();
+            if (networking_is_enabled() && !timing_has_syncronized_to_ntp()) {
+                timing_syncronize_to_ntp();
                 // update burn time if previous burn time was generated via the RTC (not file or NTP)
                 if (timing_has_syncronized_to_ntp() && (burnwire_start_source_s == BSS_RTC)) {
                     burnwire_start_source_s = BSS_NTP;
@@ -505,9 +492,14 @@ int updateStateMachine() {
                 }
             }
 
+            // Turn off networking if the grace period has passed and no ssh session is active
+            if (networking_is_enabled() && !networking_ssh_session_active() && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN))) {
+                networking_disable();
+            }
+
             // Turn on the burnwire if the timeout has passed since the deployment started.
             if (get_global_time_s() - burnwire_timeout_start_s > g_config.timeout_s) {
-                CETI_LOG("TIMEOUT!!! Initializing Burn (%d - %d > %d)", get_global_time_s(), burnwire_timeout_start_s, g_config.timeout_s);
+                CETI_LOG("TIMEOUT!!! Initializing Burn (%ld - %d > %ld)", get_global_time_s(), burnwire_timeout_start_s, g_config.timeout_s);
                 stateMachine_set_state(ST_BRN_ON);
                 break;
             } else if (g_config.tod_release.valid && (burnwire_time_of_day_release_s < get_global_time_s())) {
@@ -522,8 +514,7 @@ int updateStateMachine() {
                 s_bms_error_count = 0;
                 if ((shm_battery->cell_voltage_v[0] < g_config.release_voltage_v) || (shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
                     battery_low_voltage_count++;
-                }
-                else {
+                } else {
                     battery_low_voltage_count = 0;
                 }
                 if (battery_low_voltage_count >= BATTERY_LOW_VOLTAGE_CONSECUTIVE_THRESHOLD) {
@@ -571,8 +562,7 @@ int updateStateMachine() {
                 s_bms_error_count = 0;
                 if ((shm_battery->cell_voltage_v[0] < g_config.critical_voltage_v) || (shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v)) {
                     battery_critical_voltage_count++;
-                }
-                else {
+                } else {
                     battery_critical_voltage_count = 0;
                 }
                 if (battery_critical_voltage_count >= BATTERY_CRITICAL_VOLTAGE_CONSECUTIVE_THRESHOLD) {
@@ -609,8 +599,7 @@ int updateStateMachine() {
                 s_bms_error_count = 0;
                 if ((shm_battery->cell_voltage_v[0] < g_config.critical_voltage_v) || (shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v)) {
                     battery_critical_voltage_count++;
-                }
-                else {
+                } else {
                     battery_critical_voltage_count = 0;
                 }
                 if (battery_critical_voltage_count >= BATTERY_CRITICAL_VOLTAGE_CONSECUTIVE_THRESHOLD) {
@@ -633,6 +622,9 @@ int updateStateMachine() {
                     // disable LEDs
                 }
             }
+
+            // MSH: ToDo: check if at surface for > 30 minutes
+            // Shutdown on whale
 #endif
 
             break;

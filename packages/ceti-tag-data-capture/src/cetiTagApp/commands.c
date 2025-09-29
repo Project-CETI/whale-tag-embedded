@@ -31,7 +31,7 @@
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
-#define ENABLE_LEGACY_COMMANDS 1
+#define ENABLE_LEGACY_COMMANDS 0
 
 //-----------------------------------------------------------------------------
 // Private type definitions
@@ -51,6 +51,7 @@ static int handle_imu_command(const char *args);
 static int handle_fpga_command(const char *args);
 static int handle_mission_command(const char *args);
 static int handle_recovery_command(const char *args);
+static int handle_network_command(const char *args);
 
 static const CommandDescription command_list[] = {
     {.name = STR_FROM("quit"), .description = "Stop the app", .parse = __command_quit}, // special command must be first
@@ -111,6 +112,8 @@ static const CommandDescription command_list[] = {
 #if ENABLE_RECOVERY
     {.name = STR_FROM("recovery"), .description = "Send subcommand for recovery board", .parse = handle_recovery_command},
 #endif
+
+    {.name = STR_FROM("network"), .description = "Send subcommand for networking hardware", .parse = handle_network_command},
 };
 
 //-----------------------------------------------------------------------------
@@ -262,6 +265,10 @@ static int handle_mission_command(const char *args) {
 
 static int handle_recovery_command(const char *args) {
     return __handle_subcommand("recovery", args, recovery_subcommand_list, recovery_subcommand_list_size);
+}
+
+static int handle_network_command(const char *args) {
+    return __handle_subcommand("network", args, network_subcommand_list, network_subcommand_list_size);
 }
 
 int handle_command(void) {
