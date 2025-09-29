@@ -214,7 +214,7 @@ static int __handle_subcommand(const char *subcmd, const char *args, const Comma
         size_t subcommand_len = (subcommand_end - subcommand);
         for (int i = 0; i < subsub_size; i++) {
             if ((subsub_list[i].name.len == subcommand_len) && (memcmp(subcommand, subsub_list[i].name.ptr, subcommand_len) == 0)) {
-                CETI_LOG("Received `%s %s", subcmd, subsub_list[i].name.ptr);
+                CETI_DEBUG("Received `%s %s`", subcmd, subsub_list[i].name.ptr);
                 if (subsub_list[i].parse != NULL) {
                     return subsub_list[i].parse(subcommand_end);
                 } else {
@@ -282,7 +282,7 @@ int handle_command(void) {
         for (int i = 0; i < sizeof(command_list) / sizeof(*command_list); i++) {
             if ((command_list[i].name.len == command_len) && (memcmp(command, command_list[i].name.ptr, command_len) == 0)) {
                 g_rsp_pipe = fopen(rsp_pipe_path, "w");
-                CETI_LOG("Received Recovery command: %s", command_list[i].name.ptr);
+                CETI_LOG("Received command: %s", g_command);
                 if (command_list[i].parse != NULL) {
                     int return_val = command_list[i].parse(command_end);
                     fclose(g_rsp_pipe);
