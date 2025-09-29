@@ -73,44 +73,40 @@ static int __at_depth(void) {
 static int __at_surface(void) {
     return (g_pressure->error != WT_OK) || (g_pressure->pressure_bar < g_config.surface_pressure);
 }
- 
+
 /// convert latest imu quat sample to euler angle and see if within upright range
 static int __oriented_upright(void) {
-    EulerAngles_f64   latest_euler;
-    if (imu_get_latest_rotation_euler(&latest_euler) != 0 ) {
+    EulerAngles_f64 latest_euler;
+    if (imu_get_latest_rotation_euler(&latest_euler) != 0) {
         return 0;
     }
-    
+
     // see if pitch == ~-90 and roll == ~0
-    return  (
-        ((-90.0 - 30.0) <= latest_euler.pitch) &&  (latest_euler.pitch < (-90.0 + 30.0)) 
-        && (-30.0 <= latest_euler.roll) && (latest_euler.roll < 30.0)
-    );
-    
+    return (
+        ((-90.0 - 30.0) <= latest_euler.pitch) && (latest_euler.pitch < (-90.0 + 30.0)) && (-30.0 <= latest_euler.roll) && (latest_euler.roll < 30.0));
 }
 
 static int float_start_detected = 0;
-static void __reset_float_detection(void){
+static void __reset_float_detection(void) {
     float_start_detected = 0;
 }
 
 static int __is_floating(void) {
 #if ENABLE_PRESSURETEMPERATURE_SENSOR && ENABLE_IMU
     static uint32_t float_start_time_s = 0;
-    if(!float_start_detected) {
+    if (!float_start_detected) {
         float_start_time_s = get_global_time_s();
         float_start_detected = 1;
     }
 
-    if(__at_depth() || !__oriented_upright()) {
+    if (__at_depth() || !__oriented_upright()) {
         __reset_float_detection();
     }
- 
+
     return (get_global_time_s() - float_start_time_s > MIN_TO_SEC(30));
-#else 
+#else
     return 0;
 #endif // ENABLE_PRESSURE_TEMPERATURE_SENSOR && ENABLE_IMU
-
 }
 
 int init_stateMachine() {
@@ -412,7 +408,7 @@ int updateStateMachine() {
 
 // Transition to the appropriate recording state.
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
-            if ( __at_depth()) {
+            if (__at_depth()) {
                 stateMachine_set_state(ST_RECORD_DIVING);
             } else {
                 stateMachine_set_state(ST_RECORD_SURFACE);
@@ -551,17 +547,17 @@ int updateStateMachine() {
 
 // Transition state if diving.
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
-            if ( __at_depth()) {
+            if (__at_depth()) {
                 stateMachine_set_state(ST_RECORD_DIVING); // back down...
                 break;
             }
 #endif
 
 #if !APRS_ON_WHALE
-#if ENABLE_RECOVERY 
-            // enable recovery in case we're likely off the whale 
+#if ENABLE_RECOVERY
+            // enable recovery in case we're likely off the whale
             // will turn back off once whale dives if it did not actually release
-            if( __is_floating() ) {
+            if (__is_floating()) {
                 CETI_LOG("Tag is likely floating at the surface. Enabling APRS until next dive");
                 if (g_config.recovery.enabled) {
                     recovery_wake();
@@ -636,7 +632,7 @@ int updateStateMachine() {
 
                 s_bms_error_count++;
                 /* MSH: If BMS communication error better to remain in retrieve mode and allow BMS hardware to handle shutdown */
-                if( __is_floating() ) {
+                if (__is_floating()) {
                     CETI_LOG("Floating at surface detected. Disabling high data-rate sensors for additional energy saving.");
                     // disable ecg thread
                     // disable light thread
