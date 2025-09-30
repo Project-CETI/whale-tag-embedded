@@ -109,6 +109,9 @@ struct {
 
 static int audio_writing_to_status_file = 0;
 
+static void __audio_check_for_overflow(int location_index);
+static void __init_audio_buffers();
+
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
@@ -119,7 +122,7 @@ int g_audio_thread_writeData_is_running = 0;
 // Static variables
 static bool s_audio_initialized = 0;
 
-WTResult wt_audio_init(void) {
+static WTResult wt_audio_init(void) {
     WT_TRY(iox_init());
     // Initialize 5v enable as ouput and drive high.
     WT_TRY(iox_set_mode(IOX_GPIO_5V_EN, IOX_MODE_OUTPUT));
@@ -134,16 +137,16 @@ WTResult wt_audio_init(void) {
     return WT_OK;
 }
 
-int wt_audio_read_data_ready(void) {
+static int wt_audio_read_data_ready(void) {
     return gpioRead(AUDIO_DATA_AVAILABLE);
 }
 
-int wt_audio_read_overflow(void) {
+static int wt_audio_read_overflow(void) {
     return gpioRead(AUDIO_OVERFLOW_GPIO);
 }
 
 //  Acquisition Hardware Setup and Control Utility Functions
-void init_audio_buffers() {
+static void __init_audio_buffers() {
     shm_audio->block = 0;
     shm_audio->page = 0;
     audio_buffer_toWrite = 0;
@@ -472,7 +475,7 @@ void *audio_thread_spi(void *paramPtr) {
         CETI_WARN("Failed to set priority");
 
     // Check if the audio is already overflowed.
-    audio_check_for_overflow(0);
+    __audio_check_for_overflow(0);
 
     // Main loop to acquire audio data.
     g_audio_thread_spi_is_running = 1;
@@ -507,7 +510,7 @@ void *audio_thread_spi(void *paramPtr) {
 #endif
 
         // Read a block of data if an overflow has not occurred.
-        audio_check_for_overflow(2);
+        __audio_check_for_overflow(2);
         if (g_audio_overflow_detected) {
             break;
         }
@@ -530,14 +533,15 @@ void *audio_thread_spi(void *paramPtr) {
         // signal new data for other processes working with live streamed data
         sem_post(sem_audio_block);
 
+
+        // only perform checks/sleep if we have time to
+        // Check if the FPGA buffer overflowed.
+        __audio_check_for_overflow(3);
+
         // don't wait if more data is ready
         if (wt_audio_read_data_ready()) {
             continue;
         }
-
-        // only perform checks/sleep if we have time to
-        // Check if the FPGA buffer overflowed.
-        audio_check_for_overflow(3);
 
         // wait until expected next interrupt
         time_t elapsed_time = get_global_time_us() - (int64_t)(current_timeval.tv_sec * 1000000LL) - (int64_t)(current_timeval.tv_usec);
@@ -883,7 +887,7 @@ void audio_createNewRawFile() {
 //-----------------------------------------------------------------------------
 // Various helpers
 //-----------------------------------------------------------------------------
-void audio_check_for_overflow(int location_index) {
+static void __audio_check_for_overflow(int location_index) {
 #if AUDIO_OVERFLOW_GPIO >= 0
     g_audio_overflow_detected = g_audio_overflow_detected || wt_audio_read_overflow();
     g_audio_status.overflow = g_audio_overflow_detected;
