@@ -531,7 +531,7 @@ void *audio_thread_spi(void *paramPtr) {
         sem_post(sem_audio_block);
 
         // don't wait if more data is ready
-        if (!wt_audio_read_data_ready()) {
+        if (wt_audio_read_data_ready()) {
             continue;
         }
 

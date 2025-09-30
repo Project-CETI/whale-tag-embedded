@@ -135,7 +135,7 @@ const char *wt_strerror_device_name(WTResult errnum);
  */
 #define PI_TRY(dev, body, ...) ({        \
     int result = (body);                 \
-    if (result < 0) {                    \
+    if (__builtin_expect((result < 0), 0)) {                    \
         __VA_OPT__((__VA_ARGS__);)       \
         return WT_RESULT((dev), result); \
     }                                    \
