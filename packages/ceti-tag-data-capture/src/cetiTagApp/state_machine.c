@@ -97,19 +97,20 @@ static void __reset_float_detection(void) {
 static int __is_floating(uint32_t duration_s) {
 #if ENABLE_PRESSURETEMPERATURE_SENSOR && ENABLE_IMU
     static uint32_t float_start_time_s = 0;
-    if (!float_start_detected) {
-        float_start_time_s = get_global_time_s();
-        float_start_detected = 1;
+    
+    if (!__at_depth() && __oriented_upright()) {
+        if (!float_start_detected) {
+            float_start_time_s = get_global_time_s();
+            float_start_detected = 1;
+        }
+        return (get_global_time_s() - float_start_time_s > duration_s);
     }
 
-    if (__at_depth() || !__oriented_upright()) {
+    if (float_start_detected) {
         __reset_float_detection();
     }
-
-    return (get_global_time_s() - float_start_time_s > duration_s);
-#else
-    return 0;
 #endif // ENABLE_PRESSURE_TEMPERATURE_SENSOR && ENABLE_IMU
+    return 0;
 }
 
 int init_stateMachine() {
