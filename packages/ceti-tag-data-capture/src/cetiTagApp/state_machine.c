@@ -26,6 +26,7 @@
 #include "utils/timing.h" //for get_global_time_us(), getRtcCount()
 
 #include <errno.h>
+#include <math.h> // for M_PI
 #include <pthread.h> // to set CPU affinity
 #include <stdint.h>
 #include <stdio.h>  // for FILE
@@ -83,7 +84,9 @@ static int __oriented_upright(void) {
 
     // see if pitch == ~-90 and roll == ~0
     return (
-        ((-90.0 - 30.0) <= latest_euler.pitch) && (latest_euler.pitch < (-90.0 + 30.0)) && (-30.0 <= latest_euler.roll) && (latest_euler.roll < 30.0));
+        (((-90.0 - 30.0) * M_PI / 180.0) <=  latest_euler.pitch) && ( latest_euler.pitch < (-90.0 + 30.0) * M_PI / 180.0) 
+        && (-30.0 * M_PI / 180.0 <= latest_euler.roll) && (latest_euler.roll < 30.0 * M_PI / 180.0)
+    );
 }
 
 static int float_start_detected = 0;
@@ -91,7 +94,7 @@ static void __reset_float_detection(void) {
     float_start_detected = 0;
 }
 
-static int __is_floating(void) {
+static int __is_floating(uint32_t duration_s) {
 #if ENABLE_PRESSURETEMPERATURE_SENSOR && ENABLE_IMU
     static uint32_t float_start_time_s = 0;
     if (!float_start_detected) {
@@ -103,7 +106,7 @@ static int __is_floating(void) {
         __reset_float_detection();
     }
 
-    return (get_global_time_s() - float_start_time_s > MIN_TO_SEC(30));
+    return (get_global_time_s() - float_start_time_s > duration_s);
 #else
     return 0;
 #endif // ENABLE_PRESSURE_TEMPERATURE_SENSOR && ENABLE_IMU
@@ -557,7 +560,7 @@ int updateStateMachine() {
 #if ENABLE_RECOVERY
             // enable recovery in case we're likely off the whale
             // will turn back off once whale dives if it did not actually release
-            if (__is_floating()) {
+            if (__is_floating(MIN_TO_SEC(60))) {
                 CETI_LOG("Tag is likely floating at the surface. Enabling APRS until next dive");
                 if (g_config.recovery.enabled) {
                     recovery_wake();
@@ -632,7 +635,7 @@ int updateStateMachine() {
 
                 s_bms_error_count++;
                 /* MSH: If BMS communication error better to remain in retrieve mode and allow BMS hardware to handle shutdown */
-                if (__is_floating()) {
+                if (__is_floating(25)) {
                     CETI_LOG("Floating at surface detected. Disabling high data-rate sensors for additional energy saving.");
                     // disable ecg thread
                     // disable light thread
