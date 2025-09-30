@@ -294,7 +294,7 @@ int reset_audio_fifo(void) {
 
 int start_audio_acq(void) {
     CETI_LOG("Starting audio acquisition");
-    init_audio_buffers();
+    __init_audio_buffers();
 #if ENABLE_AUDIO_FLAC
     audio_createNewFlacFile();
 #else
@@ -446,7 +446,7 @@ void *audio_thread_spi(void *paramPtr) {
         return NULL;
     }
 
-    init_audio_buffers();
+    __init_audio_buffers();
     int spi_fd = spiOpen(SPI_CE, SPI_CLK_RATE, 1);
 
     if (spi_fd < 0) {
