@@ -26,7 +26,7 @@
 #include "utils/timing.h" //for get_global_time_us(), getRtcCount()
 
 #include <errno.h>
-#include <math.h> // for M_PI
+#include <math.h>    // for M_PI
 #include <pthread.h> // to set CPU affinity
 #include <stdint.h>
 #include <stdio.h>  // for FILE
@@ -89,9 +89,7 @@ static int __oriented_upright(void) {
 
     // see if pitch == ~-90 and roll == ~0
     return (
-        (((-90.0 - 30.0) * M_PI / 180.0) <=  latest_euler.pitch) && ( latest_euler.pitch < (-90.0 + 30.0) * M_PI / 180.0) 
-        && (-30.0 * M_PI / 180.0 <= latest_euler.roll) && (latest_euler.roll < 30.0 * M_PI / 180.0)
-    );
+        (((-90.0 - 30.0) * M_PI / 180.0) <= latest_euler.pitch) && (latest_euler.pitch < (-90.0 + 30.0) * M_PI / 180.0) && (-30.0 * M_PI / 180.0 <= latest_euler.roll) && (latest_euler.roll < 30.0 * M_PI / 180.0));
 }
 
 static int float_start_detected = 0;
@@ -119,14 +117,13 @@ static int __is_floating(int32_t duration_s) {
 }
 #endif // FLOAT_DETECTION
 
-
 static int __is_charging(void) {
 #if ENABLE_BATTERY_GAUGE
     if (shm_battery->error != WT_OK) {
         return 1; // keeps wifi on if BMS is failing to communicate
     }
 
-    return (shm_battery->current_mA > 0.0);        
+    return (shm_battery->current_mA > 0.0);
 #else
     return 0;
 #endif // ENABLE_BATTERY_GAUGE
@@ -238,9 +235,10 @@ int stateMachine_set_state(wt_state_t new_state) {
             break;
 
         case ST_RECORD_SURFACE:
+#if FLOAT_DETECTION
             s_float_triggered = 0;
+#endif // FLOAT_DETECTION
             break;
-
 
         case ST_BRN_ON:
 #if ENABLE_BURNWIRE
@@ -254,8 +252,6 @@ int stateMachine_set_state(wt_state_t new_state) {
                 recovery_sleep();
             }
 #endif // ENABLE_RECOVERY
-            g_lowPowerAcquisition = 0;
-
             break;
 
         default:
@@ -266,7 +262,9 @@ int stateMachine_set_state(wt_state_t new_state) {
     switch (new_state) {
 
         case ST_RECORD_DIVING:
+#if FLOAT_DETECTION
             __reset_float_detection();
+#endif // FLOAT_DETECTION
             activity_led_disable();
 #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
@@ -451,10 +449,7 @@ int updateStateMachine() {
         // Recording while sumberged
         case (ST_RECORD_DIVING):
             // Turn off networking if the grace period has passed.
-            if (networking_is_enabled() && !networking_ssh_session_active() 
-                && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN)) 
-                && !__is_charging()
-            ) {
+            if (networking_is_enabled() && !networking_ssh_session_active() && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN)) && !__is_charging()) {
                 networking_disable();
             }
 
@@ -529,10 +524,7 @@ int updateStateMachine() {
             }
 
             // Turn off networking if the grace period has passed and no ssh session is active
-            if (networking_is_enabled() && !networking_ssh_session_active() 
-                && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN))
-                && !__is_charging()
-            ) {
+            if (networking_is_enabled() && !networking_ssh_session_active() && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN)) && !__is_charging()) {
                 networking_disable();
             }
 
@@ -591,11 +583,11 @@ int updateStateMachine() {
 
 #if FLOAT_DETECTION
 #if !APRS_ON_WHALE
-// enable recovery in case we're likely off the whale
-// will turn back off once whale dives if it did not actually release
-if (__is_floating(MIN_TO_SEC(60))) {
-    if (!s_float_triggered) {
-        CETI_LOG("Tag is likely floating at the surface. Enabling APRS until next dive");
+            // enable recovery in case we're likely off the whale
+            // will turn back off once whale dives if it did not actually release
+            if (__is_floating(MIN_TO_SEC(60))) {
+                if (!s_float_triggered) {
+                    CETI_LOG("Tag is likely floating at the surface. Enabling APRS until next dive");
 #if ENABLE_RECOVERY
                     if (g_config.recovery.enabled) {
                         recovery_wake();
@@ -616,7 +608,6 @@ if (__is_floating(MIN_TO_SEC(60))) {
             }
 #endif // !APRS_ON_WHALE
 #endif // FLOAT_DETECTION
-
 
             break;
 
@@ -695,7 +686,6 @@ if (__is_floating(MIN_TO_SEC(60))) {
                 }
 #endif // FLOAT_DETECTION
             }
-
 
 #endif
 

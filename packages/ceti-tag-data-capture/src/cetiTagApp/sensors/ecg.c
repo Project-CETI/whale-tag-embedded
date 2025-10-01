@@ -312,8 +312,8 @@ void *ecg_thread_getData(void *paramPtr) {
         int64_t elapsed_time = (get_global_time_us() - prev_ecg_adc_latest_reading_global_time_us);
         if ((ECG_SAMPLING_PERIOD_US * 75 / 100 - elapsed_time) > 0) {
             usleep(ECG_SAMPLING_PERIOD_US * 75 / 100 - elapsed_time);
-        } 
-#endif //SLEEPY_ECG
+        }
+#endif // SLEEPY_ECG
     }
     // Print the duration and the sampling rate.
     long long duration_ms = get_global_time_ms() - start_time_ms;

@@ -533,7 +533,6 @@ void *audio_thread_spi(void *paramPtr) {
         // signal new data for other processes working with live streamed data
         sem_post(sem_audio_block);
 
-
         // only perform checks/sleep if we have time to
         // Check if the FPGA buffer overflowed.
         __audio_check_for_overflow(3);
@@ -646,8 +645,8 @@ void *audio_thread_writeFlac(void *paramPtr) {
         // Write the buffer to a file.
 #if ENABLE_RUNTIME_AUDIO
         if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24) {
-#else 
-        if(CONFIG_DEFAULT_AUDIO_BIT_DEPTH == AUDIO_BIT_DEPTH_24) {
+#else
+        if (CONFIG_DEFAULT_AUDIO_BIT_DEPTH == AUDIO_BIT_DEPTH_24) {
 #endif
             for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE24; i_sample++) {
                 for (size_t i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++) {
@@ -693,8 +692,8 @@ void *audio_thread_writeFlac(void *paramPtr) {
         int bytes_to_flush = (shm_audio->block * SPI_BLOCK_SIZE);
 #if ENABLE_RUNTIME_AUDIO
         if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24) {
-#else 
-        if(CONFIG_DEFAULT_AUDIO_BIT_DEPTH == AUDIO_BIT_DEPTH_24) {
+#else
+        if (CONFIG_DEFAULT_AUDIO_BIT_DEPTH == AUDIO_BIT_DEPTH_24) {
 #endif
             int samples_to_flush = bytes_to_flush / (AUDIO_CHANNELS * 3);
             CETI_LOG("Flushing partial %d sample buffer.", samples_to_flush);

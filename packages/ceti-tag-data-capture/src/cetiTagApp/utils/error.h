@@ -133,13 +133,13 @@ const char *wt_strerror_device_name(WTResult errnum);
  * On failure, `__VA_OPT__` instuctions are performed prior
  * to a `WtResult` associated with `dev` and error being returned by the calling function.
  */
-#define PI_TRY(dev, body, ...) ({        \
-    int result = (body);                 \
-    if (__builtin_expect((result < 0), 0)) {                    \
-        __VA_OPT__((__VA_ARGS__);)       \
-        return WT_RESULT((dev), result); \
-    }                                    \
-    result;                              \
+#define PI_TRY(dev, body, ...) ({            \
+    int result = (body);                     \
+    if (__builtin_expect((result < 0), 0)) { \
+        __VA_OPT__((__VA_ARGS__);)           \
+        return WT_RESULT((dev), result);     \
+    }                                        \
+    result;                                  \
 })
 
 #endif // __LIB_WHALE_TAG_ERROR_H__
