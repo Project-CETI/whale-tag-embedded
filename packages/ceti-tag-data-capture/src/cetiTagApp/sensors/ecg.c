@@ -16,6 +16,8 @@
 #include <semaphore.h>
 #include <sys/mman.h>
 
+#define SLEEPY_ECG 0
+
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
@@ -282,6 +284,7 @@ void *ecg_thread_getData(void *paramPtr) {
             consecutive_zero_ecg_count = 0;
             first_sample = 1;
             should_reinitialize = 0;
+            continue;
         }
 
         // Advance the buffer index.
@@ -302,10 +305,15 @@ void *ecg_thread_getData(void *paramPtr) {
         // Note: Sleeping for 75% of the sample interval seems to reduce utilization of this CPU core from
         //       approximately 85% to 9%, and seems to reduce overall power consumption by approximately 10%.
         // // sleep duration shortened to 75% of sample interval to ensure ADC config still dictates sampling interval
-        // int64_t elapsed_time = (get_global_time_us() - prev_ecg_adc_latest_reading_global_time_us);
-        // if ((ECG_SAMPLING_PERIOD_US * 75 / 100 - elapsed_time) > 0) {
-        //     usleep(ECG_SAMPLING_PERIOD_US * 75 / 100 - elapsed_time);
-        // }
+#if SLEEPY_ECG
+        if (ecg_adc_read_data_ready()) {
+            continue;
+        }
+        int64_t elapsed_time = (get_global_time_us() - prev_ecg_adc_latest_reading_global_time_us);
+        if ((ECG_SAMPLING_PERIOD_US * 75 / 100 - elapsed_time) > 0) {
+            usleep(ECG_SAMPLING_PERIOD_US * 75 / 100 - elapsed_time);
+        } 
+#endif //SLEEPY_ECG
     }
     // Print the duration and the sampling rate.
     long long duration_ms = get_global_time_ms() - start_time_ms;
