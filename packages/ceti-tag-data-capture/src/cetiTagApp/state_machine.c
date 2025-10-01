@@ -57,6 +57,10 @@ static unsigned int burnwire_timeout_start_s = 0;
 static int64_t burnwire_time_of_day_release_s = 0;
 static uint32_t burnwire_started_time_s = 0;
 static int s_state_machine_paused = 0;
+#if FLOAT_DETECTION
+static int s_float_triggered = 0;
+#endif // FLOAT_DETECTION
+
 // Output file
 int g_stateMachine_thread_is_running = 0;
 static FILE *stateMachine_data_file = NULL;
@@ -75,6 +79,7 @@ static int __at_surface(void) {
     return (g_pressure->error != WT_OK) || (g_pressure->pressure_bar < g_config.surface_pressure);
 }
 
+#if FLOAT_DETECTION
 /// convert latest imu quat sample to euler angle and see if within upright range
 static int __oriented_upright(void) {
     EulerAngles_f64 latest_euler;
@@ -94,10 +99,10 @@ static void __reset_float_detection(void) {
     float_start_detected = 0;
 }
 
-static int __is_floating(uint32_t duration_s) {
+static int __is_floating(int32_t duration_s) {
 #if ENABLE_PRESSURETEMPERATURE_SENSOR && ENABLE_IMU
     static uint32_t float_start_time_s = 0;
-    
+
     if (!__at_depth() && __oriented_upright()) {
         if (!float_start_detected) {
             float_start_time_s = get_global_time_s();
@@ -112,6 +117,8 @@ static int __is_floating(uint32_t duration_s) {
 #endif // ENABLE_PRESSURE_TEMPERATURE_SENSOR && ENABLE_IMU
     return 0;
 }
+#endif // FLOAT_DETECTION
+
 
 static int __is_charging(void) {
 #if ENABLE_BATTERY_GAUGE
@@ -230,6 +237,11 @@ int stateMachine_set_state(wt_state_t new_state) {
             activity_led_enable();
             break;
 
+        case ST_RECORD_SURFACE:
+            s_float_triggered = 0;
+            break;
+
+
         case ST_BRN_ON:
 #if ENABLE_BURNWIRE
             burnwireOff();
@@ -242,6 +254,8 @@ int stateMachine_set_state(wt_state_t new_state) {
                 recovery_sleep();
             }
 #endif // ENABLE_RECOVERY
+            g_lowPowerAcquisition = 0;
+
             break;
 
         default:
@@ -575,18 +589,34 @@ int updateStateMachine() {
             }
 #endif
 
+#if FLOAT_DETECTION
 #if !APRS_ON_WHALE
+// enable recovery in case we're likely off the whale
+// will turn back off once whale dives if it did not actually release
+if (__is_floating(MIN_TO_SEC(60))) {
+    if (!s_float_triggered) {
+        CETI_LOG("Tag is likely floating at the surface. Enabling APRS until next dive");
 #if ENABLE_RECOVERY
-            // enable recovery in case we're likely off the whale
-            // will turn back off once whale dives if it did not actually release
-            if (__is_floating(MIN_TO_SEC(60))) {
-                CETI_LOG("Tag is likely floating at the surface. Enabling APRS until next dive");
-                if (g_config.recovery.enabled) {
-                    recovery_wake();
+                    if (g_config.recovery.enabled) {
+                        recovery_wake();
+                    }
+#endif // ENABLE_RECOVERY
+                    s_float_triggered = 1;
+                }
+            } else {
+                if (s_float_triggered) {
+                    CETI_LOG("Tag is exited floating position. APRS disabled");
+#if ENABLE_RECOVERY
+                    if (g_config.recovery.enabled) {
+                        recovery_sleep();
+                    }
+#endif // ENABLE_RECOVERY
+                    s_float_triggered = 0;
                 }
             }
-#endif // ENABLE_RECOVERY
 #endif // !APRS_ON_WHALE
+#endif // FLOAT_DETECTION
+
 
             break;
 
@@ -654,14 +684,18 @@ int updateStateMachine() {
 
                 s_bms_error_count++;
                 /* MSH: If BMS communication error better to remain in retrieve mode and allow BMS hardware to handle shutdown */
+#if FLOAT_DETECTION
                 if (__is_floating(25)) {
-                    CETI_LOG("Floating at surface detected. Disabling high data-rate sensors for additional energy saving.");
-                    // disable ecg thread
-                    // disable light thread
-                    // disable audio
-                    // disable LEDs
+                    if (!s_float_triggered) {
+                        CETI_LOG("Floating at surface detected. Disabling high data-rate sensors for additional energy saving.");
+                        // ToDo: disable power hungry threads to conserve power for recovery
+                        // disable LEDs
+                        s_float_triggered = 1;
+                    }
                 }
+#endif // FLOAT_DETECTION
             }
+
 
 #endif
 
