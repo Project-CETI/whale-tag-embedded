@@ -113,6 +113,18 @@ static int __is_floating(uint32_t duration_s) {
     return 0;
 }
 
+static int __is_charging(void) {
+#if ENABLE_BATTERY_GAUGE
+    if (shm_battery->error != WT_OK) {
+        return 1; // keeps wifi on if BMS is failing to communicate
+    }
+
+    return (shm_battery->current_mA > 0.0);        
+#else
+    return 0;
+#endif // ENABLE_BATTERY_GAUGE
+}
+
 int init_stateMachine() {
     CETI_LOG("Successfully initialized the state machine");
     // Open an output file to write data.
@@ -425,7 +437,10 @@ int updateStateMachine() {
         // Recording while sumberged
         case (ST_RECORD_DIVING):
             // Turn off networking if the grace period has passed.
-            if (networking_is_enabled() && !networking_ssh_session_active() && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN))) {
+            if (networking_is_enabled() && !networking_ssh_session_active() 
+                && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN)) 
+                && !__is_charging()
+            ) {
                 networking_disable();
             }
 
@@ -500,7 +515,10 @@ int updateStateMachine() {
             }
 
             // Turn off networking if the grace period has passed and no ssh session is active
-            if (networking_is_enabled() && !networking_ssh_session_active() && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN))) {
+            if (networking_is_enabled() && !networking_ssh_session_active() 
+                && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN))
+                && !__is_charging()
+            ) {
                 networking_disable();
             }
 
