@@ -554,10 +554,11 @@ void *audio_thread_spi(void *paramPtr) {
     spiClose(spi_fd);
 
     // Log that the thread is stopping.
-    if (g_audio_overflow_detected && !g_stopAcquisition)
+    if (g_audio_overflow_detected && !g_stopAcquisition) {
         CETI_LOG("*** Audio overflow detected at location %d", g_audio_status.overflow_location);
-    else
+    } else {
         CETI_LOG("Done!");
+    }
 
     // Wait for the write-data thread to finish as well.
     while (g_audio_thread_writeData_is_running)
@@ -643,7 +644,11 @@ void *audio_thread_writeFlac(void *paramPtr) {
         audio_status_record();
 
         // Write the buffer to a file.
+#if ENABLE_RUNTIME_AUDIO
         if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24) {
+#else 
+        if(CONFIG_DEFAULT_AUDIO_BIT_DEPTH == AUDIO_BIT_DEPTH_24) {
+#endif
             for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE24; i_sample++) {
                 for (size_t i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++) {
                     uint8_t *i_ptr = shm_audio->data[audio_buffer_toWrite].sample24[i_sample][i_channel];
@@ -655,9 +660,9 @@ void *audio_thread_writeFlac(void *paramPtr) {
         } else {
             for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE16; i_sample++) {
                 for (size_t i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++) {
-                    uint8_t *i_ptr = shm_audio->data[audio_buffer_toWrite].sample16[i_sample][i_channel];
-                    FLAC__int32 value = ((FLAC__int32)i_ptr[0] << 24) | ((FLAC__int32)i_ptr[1] << 16);
-                    buff[i_sample][i_channel] = value / (1 << 16);
+                    uint16_t usigned_val = be16toh(*(uint16_t *)shm_audio->data[audio_buffer_toWrite].sample16[i_sample][i_channel]);
+                    int16_t signed_val = *(int16_t *)(&usigned_val);
+                    buff[i_sample][i_channel] = (FLAC__int32)signed_val;
                 }
             }
             FLAC__stream_encoder_process_interleaved(flac_encoder, &buff[0][0], AUDIO_BUFFER_SIZE_SAMPLE16);
@@ -686,7 +691,11 @@ void *audio_thread_writeFlac(void *paramPtr) {
         }
 
         int bytes_to_flush = (shm_audio->block * SPI_BLOCK_SIZE);
+#if ENABLE_RUNTIME_AUDIO
         if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24) {
+#else 
+        if(CONFIG_DEFAULT_AUDIO_BIT_DEPTH == AUDIO_BIT_DEPTH_24) {
+#endif
             int samples_to_flush = bytes_to_flush / (AUDIO_CHANNELS * 3);
             CETI_LOG("Flushing partial %d sample buffer.", samples_to_flush);
             for (size_t i_sample = 0; i_sample < samples_to_flush; i_sample++) {
@@ -703,8 +712,9 @@ void *audio_thread_writeFlac(void *paramPtr) {
             for (size_t i_sample = 0; i_sample < samples_to_flush; i_sample++) {
                 for (size_t i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++) {
                     uint8_t *i_ptr = shm_audio->data[shm_audio->page].sample16[i_sample][i_channel];
-                    FLAC__int32 value = ((FLAC__int32)i_ptr[0] << 24) | ((FLAC__int32)i_ptr[1] << 16);
-                    buff[i_sample][i_channel] = value / (1 << 16);
+                    uint16_t usigned_val = be16toh(*(uint16_t *)i_ptr);
+                    int16_t signed_val = *(int16_t *)(&usigned_val);
+                    buff[i_sample][i_channel] = (FLAC__int32)signed_val;
                 }
             }
             CETI_DEBUG("All samples moved to flac buffer");
