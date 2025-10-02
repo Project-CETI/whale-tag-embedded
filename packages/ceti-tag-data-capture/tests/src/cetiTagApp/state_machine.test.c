@@ -9,6 +9,8 @@
 #include "cetiTagApp/utils/config.h"
 #include "cetiTagApp/utils/error.h"
 
+extern void reset_voltage_counters(void);
+
 /* dependencies */
 CetiPressureSample fake_pressure_sample = {};
 CetiBatterySample fake_battery_sample = {};
@@ -160,11 +162,14 @@ void test__updateStateMachine_ST_RECORD_DIVING_highPressure_okBattery_okTime(voi
 
 void test__updateStateMachine_ST_RECORD_DIVING_lowBattery_okTime(void) {
     for (int i = 0; i < FUZZY_COUNT; i++) {
+        reset_voltage_counters();
         stateMachine_set_state(ST_RECORD_DIVING);
         fake_pressure_sample.pressure_bar = ((double)rand() / (double)RAND_MAX * 4.0 * g_config.surface_pressure - g_config.surface_pressure);
-        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (g_config.release_voltage_v));
+        fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * +(g_config.release_voltage_v));
         fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (g_config.release_voltage_v));
-        updateStateMachine();
+        for (int j = 0; j < BATTERY_LOW_VOLTAGE_CONSECUTIVE_THRESHOLD; j++) {
+            updateStateMachine();
+        }
         TEST_ASSERT_EQUAL(ST_BRN_ON, stateMachine_get_state());
     }
 }
@@ -241,10 +246,13 @@ void test__updateStateMachine_ST_RECORD_SURFACE_highPressure_okBattery_okTime(vo
 void test__updateStateMachine_ST_RECORD_SURFACE_lowBattery_okTime(void) {
     for (int i = 0; i < FUZZY_COUNT; i++) {
         stateMachine_set_state(ST_RECORD_SURFACE);
+        reset_voltage_counters();
         fake_pressure_sample.pressure_bar = ((double)rand() / (double)RAND_MAX * 4.0 * g_config.dive_pressure - g_config.dive_pressure);
         fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * (g_config.release_voltage_v));
         fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * (g_config.release_voltage_v));
-        updateStateMachine();
+        for (int j = 0; j < BATTERY_LOW_VOLTAGE_CONSECUTIVE_THRESHOLD; j++) {
+            updateStateMachine();
+        }
         TEST_ASSERT_EQUAL(ST_BRN_ON, stateMachine_get_state());
     }
 }
@@ -314,9 +322,12 @@ void test__updateStateMachine_ST_BRN_ON_timeup_okBattery(void) {
 void test__updateStateMachine_ST_BRN_ON_criticalBattery(void) {
     g_config.burn_interval_s = 2;
     stateMachine_set_state(ST_BRN_ON);
+    reset_voltage_counters();
     fake_battery_sample.cell_voltage_v[0] = 3.05;
     fake_battery_sample.cell_voltage_v[1] = 3.05;
-    updateStateMachine();
+    for (int i = 0; i < BATTERY_CRITICAL_VOLTAGE_CONSECUTIVE_THRESHOLD; i++) {
+        updateStateMachine();
+    }
     TEST_ASSERT_EQUAL(ST_SHUTDOWN, stateMachine_get_state());
 }
 
@@ -346,9 +357,13 @@ void test__updateStateMachine_ST_RETRIEVE_okBattery(void) {
 void test__updateStateMachine_ST_RETRIEVE_criticalBattery(void) {
     for (int i = 0; i < FUZZY_COUNT; i++) {
         stateMachine_set_state(ST_RETRIEVE);
+        reset_voltage_counters();
         fake_battery_sample.cell_voltage_v[0] = ((double)rand() / (double)RAND_MAX * g_config.critical_voltage_v);
         fake_battery_sample.cell_voltage_v[1] = ((double)rand() / (double)RAND_MAX * g_config.critical_voltage_v);
         updateStateMachine();
+        for (int i = 0; i < BATTERY_CRITICAL_VOLTAGE_CONSECUTIVE_THRESHOLD; i++) {
+            updateStateMachine();
+        }
         TEST_ASSERT_EQUAL(ST_SHUTDOWN, stateMachine_get_state());
     }
 }

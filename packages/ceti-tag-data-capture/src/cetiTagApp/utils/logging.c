@@ -44,7 +44,7 @@ int init_data_file(const char *data_filepath,
     // it's creation. Check if the file is empty, and add the header if it is empty (MSH)
     fseek(data_file, 0, SEEK_END);
     int size = ftell(data_file);
-    if(size == 0) {
+    if (size == 0) {
         char header[500] =
             "Timestamp [us]"
             ",RTC Count"

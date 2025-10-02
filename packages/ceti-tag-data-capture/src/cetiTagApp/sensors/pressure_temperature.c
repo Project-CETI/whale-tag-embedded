@@ -114,7 +114,7 @@ int init_pressureTemperature(void) {
         // it's creation. Check if the file is empty, and add the header if it is empty (MSH)
         fseek(data_file, 0, SEEK_END);
         int size = ftell(data_file);
-        if(size == 0) {
+        if (size == 0) {
             fprintf(data_file, PRESSURE_CSV_HEADER "\n");
         }
         fclose(data_file); // Close the file.

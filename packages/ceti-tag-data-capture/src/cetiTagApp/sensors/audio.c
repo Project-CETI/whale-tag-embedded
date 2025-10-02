@@ -417,7 +417,7 @@ int audio_thread_init(void) {
         // it's creation. Check if the file is empty, and add the header if it is empty (MSH)
         fseek(audio_status_file, 0, SEEK_END);
         int size = ftell(audio_status_file);
-        if(size == 0) {
+        if (size == 0) {
             fprintf(audio_status_file, AUDIO_STATUS_CSV_HEADER "\n");
         }
         fclose(audio_status_file); // Close the file.
@@ -646,7 +646,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
 
         // Write the buffer to a file.
 #if ENABLE_RUNTIME_AUDIO
-        if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24) 
+        if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24)
 #else
         if (CONFIG_DEFAULT_AUDIO_BIT_DEPTH == AUDIO_BIT_DEPTH_24)
 #endif
@@ -694,9 +694,9 @@ void *audio_thread_writeFlac(void *paramPtr) {
 
         int bytes_to_flush = (shm_audio->block * SPI_BLOCK_SIZE);
 #if ENABLE_RUNTIME_AUDIO
-        if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24) 
+        if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24)
 #else
-        if (CONFIG_DEFAULT_AUDIO_BIT_DEPTH == AUDIO_BIT_DEPTH_24) 
+        if (CONFIG_DEFAULT_AUDIO_BIT_DEPTH == AUDIO_BIT_DEPTH_24)
 #endif
         {
             int samples_to_flush = bytes_to_flush / (AUDIO_CHANNELS * 3);

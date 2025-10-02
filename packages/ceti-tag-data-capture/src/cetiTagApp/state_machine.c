@@ -360,11 +360,16 @@ void stateMachine_pause(void) {
 void stateMachine_resume(void) {
     s_state_machine_paused = 0;
 }
+static int battery_low_voltage_count = 0;
+static int battery_critical_voltage_count = 0;
+
+void reset_voltage_counters(void) {
+    battery_low_voltage_count = 0;
+    battery_critical_voltage_count = 0;
+}
 
 int updateStateMachine() {
     static int s_bms_error_count = 0;
-    static int battery_low_voltage_count = 0;
-    static int battery_critical_voltage_count = 0;
 
     // Deployment sequencer FSM
     switch (presentState) {
