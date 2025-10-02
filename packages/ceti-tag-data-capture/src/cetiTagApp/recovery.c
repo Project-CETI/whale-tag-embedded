@@ -595,6 +595,18 @@ int recovery_sleep(void) {
     return 0;
 }
 
+int recovery_gps_only(void) {
+    RecPktHeader start_pkt = REC_EMPTY_PKT(REC_CMD_COLLECT_ONLY);
+    WTResult tx_result = __recovery_write(&start_pkt, sizeof(start_pkt));
+    if (tx_result != WT_OK) {
+        char err_str[512];
+        CETI_ERR("Failed to put board to gps only: %s", wt_strerror_r(tx_result, err_str, sizeof(err_str)));
+        return -1;
+    }
+    s_recovery_board_model.state = REC_STATE_APRS;
+    return 0;
+}
+
 /**
  * @brief Applys power to recovery board.
  *

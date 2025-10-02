@@ -296,13 +296,15 @@ int stateMachine_set_state(wt_state_t new_state) {
             break;
 
         case ST_RECORD_SURFACE:
-#if APRS_ON_WHALE
 #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
+#if APRS_ON_WHALE
                 recovery_wake();
+#else
+                recovery_gps_only();
+#endif // APRS_ON_WHALE
             }
 #endif // ENABLE_RECOVERY
-#endif // APRS_ON_WHALE
             break;
 
         case ST_BRN_ON:
@@ -605,7 +607,7 @@ int updateStateMachine() {
                     CETI_LOG("Tag is exited floating position. APRS disabled");
 #if ENABLE_RECOVERY
                     if (g_config.recovery.enabled) {
-                        recovery_sleep();
+                        recovery_gps_only();
                     }
 #endif // ENABLE_RECOVERY
                     s_float_triggered = 0;

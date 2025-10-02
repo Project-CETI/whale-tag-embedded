@@ -48,6 +48,7 @@ int recovery_set_comment(const char *message);
 int recovery_set_critical_voltage(float voltage);
 int recovery_message(const char *message);
 int recovery_wake(void);
+int recovery_gps_only(void);
 int recovery_sleep(void);
 int recovery_on(void);
 int recovery_off(void);
