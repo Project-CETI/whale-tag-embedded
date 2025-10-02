@@ -664,7 +664,7 @@ int recovery_thread_init(TagConfig *pConfig) {
     }
 
     // Open an output file to write data.
-    if (init_data_file(recovery_data_file, RECOVERY_DATA_FILEPATH,
+    if (init_data_file(RECOVERY_DATA_FILEPATH,
                        recovery_data_file_headers, num_recovery_data_file_headers,
                        recovery_data_file_notes, "init_data_file()") < 0) {
         CETI_LOG("Failed to initialize recovery board thread");

@@ -146,7 +146,7 @@ int init_battery() {
 
     // Open an output file to write data.
     CETI_LOG("Successfully initialized the battery gauge");
-    if (init_data_file(battery_data_file, BATTERY_DATA_FILEPATH,
+    if (init_data_file(BATTERY_DATA_FILEPATH,
                        battery_data_file_headers, num_battery_data_file_headers,
                        battery_data_file_notes, "init_battery()") < 0) {
         CETI_ERR("Failed to open " BATTERY_DATA_FILEPATH ": %s", strerror_r(errno, err_str, sizeof(err_str)));

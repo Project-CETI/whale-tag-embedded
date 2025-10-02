@@ -124,7 +124,7 @@ int init_ecg_data_file(int restarted_program) {
     } while (data_file_exists);
 
     // Open the new file.
-    int init_data_file_success = init_data_file(ecg_data_file, ecg_data_filepath,
+    int init_data_file_success = init_data_file(ecg_data_filepath,
                                                 ecg_data_file_headers, num_ecg_data_file_headers,
                                                 NULL,
                                                 "init_ecg_data_file()");

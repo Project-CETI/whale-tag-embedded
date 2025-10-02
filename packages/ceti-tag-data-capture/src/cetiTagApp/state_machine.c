@@ -132,7 +132,7 @@ static int __is_charging(void) {
 int init_stateMachine() {
     CETI_LOG("Successfully initialized the state machine");
     // Open an output file to write data.
-    if (init_data_file(stateMachine_data_file, STATEMACHINE_DATA_FILEPATH,
+    if (init_data_file(STATEMACHINE_DATA_FILEPATH,
                        stateMachine_data_file_headers, num_stateMachine_data_file_headers,
                        stateMachine_data_file_notes, "init_stateMachine()") < 0)
         return -1;

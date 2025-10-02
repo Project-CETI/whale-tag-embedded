@@ -56,7 +56,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <sys/time.h>
+#include <sys/time.h
 #include <unistd.h>
 
 #if !ENABLE_FPGA
@@ -408,14 +408,16 @@ int audio_thread_init(void) {
     }
 
     // Open an output file to write data.
-    int data_file_exists = (access(AUDIO_STATUS_FILEPATH, F_OK) != -1);
     audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
     if (audio_status_file == NULL) {
         CETI_ERR("Failed to open/create an output data file: " AUDIO_STATUS_FILEPATH ": %s", strerror_r(errno, err_str, sizeof(err_str)));
         thread_result |= THREAD_ERR_DATA_FILE_FAILED;
     } else {
-        // Write headers if the file didn't already exist.
-        if (!data_file_exists) {
+        // There is a chance the file may be empty if a restart occured during
+        // it's creation. Check if the file is empty, and add the header if it is empty (MSH)
+        fseek(audio_status_file, 0, SEEK_END);
+        int size = ftell(audio_status_file);
+        if(size == 0) {
             fprintf(audio_status_file, AUDIO_STATUS_CSV_HEADER "\n");
         }
         fclose(audio_status_file); // Close the file.
@@ -644,10 +646,11 @@ void *audio_thread_writeFlac(void *paramPtr) {
 
         // Write the buffer to a file.
 #if ENABLE_RUNTIME_AUDIO
-        if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24) {
+        if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24) 
 #else
-        if (CONFIG_DEFAULT_AUDIO_BIT_DEPTH == AUDIO_BIT_DEPTH_24) {
+        if (CONFIG_DEFAULT_AUDIO_BIT_DEPTH == AUDIO_BIT_DEPTH_24)
 #endif
+        {
             for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE24; i_sample++) {
                 for (size_t i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++) {
                     uint8_t *i_ptr = shm_audio->data[audio_buffer_toWrite].sample24[i_sample][i_channel];
@@ -691,10 +694,11 @@ void *audio_thread_writeFlac(void *paramPtr) {
 
         int bytes_to_flush = (shm_audio->block * SPI_BLOCK_SIZE);
 #if ENABLE_RUNTIME_AUDIO
-        if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24) {
+        if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24) 
 #else
-        if (CONFIG_DEFAULT_AUDIO_BIT_DEPTH == AUDIO_BIT_DEPTH_24) {
+        if (CONFIG_DEFAULT_AUDIO_BIT_DEPTH == AUDIO_BIT_DEPTH_24) 
 #endif
+        {
             int samples_to_flush = bytes_to_flush / (AUDIO_CHANNELS * 3);
             CETI_LOG("Flushing partial %d sample buffer.", samples_to_flush);
             for (size_t i_sample = 0; i_sample < samples_to_flush; i_sample++) {

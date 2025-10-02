@@ -75,14 +75,16 @@ int init_light() {
     }
 
     // Open an output file to write data.
-    int data_file_exists = (access(LIGHT_DATA_FILEPATH, F_OK) != -1);
     FILE *data_file = fopen(LIGHT_DATA_FILEPATH, "at");
     if (data_file == NULL) {
         CETI_ERR("Failed to open/create an output data file: " LIGHT_DATA_FILEPATH ": %s", strerror(errno));
         t_result |= THREAD_ERR_DATA_FILE_FAILED;
     } else {
-        // Write headers if the file didn't already exist.
-        if (!data_file_exists) {
+        // There is a chance the file may be empty if a restart occured during
+        // it's creation. Check if the file is empty, and add the header if it is empty (MSH)
+        fseek(data_file, 0, SEEK_END);
+        int size = ftell(data_file);
+        if (size == 0) {
             fprintf(data_file, LIGHT_CSV_HEADER "\n");
         }
         fclose(data_file); // Close the file.

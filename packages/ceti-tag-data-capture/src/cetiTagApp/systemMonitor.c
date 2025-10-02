@@ -103,7 +103,7 @@ int init_systemMonitor() {
     cetiApp_pid = getpid();
 
     // Open an output file to write data.
-    if (init_data_file(systemMonitor_data_file, SYSTEMMONITOR_DATA_FILEPATH,
+    if (init_data_file(SYSTEMMONITOR_DATA_FILEPATH,
                        systemMonitor_data_file_headers, num_systemMonitor_data_file_headers,
                        systemMonitor_data_file_notes, "init_systemMonitor()") < 0)
         return -1;
