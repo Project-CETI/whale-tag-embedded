@@ -59,8 +59,6 @@ static unsigned int burnwire_timeout_start_s = 0;
 static int64_t burnwire_time_of_day_release_s = 0;
 static uint32_t burnwire_started_time_s = 0;
 static int s_state_machine_paused = 0;
-#if FLOAT_DETECTION
-#endif // FLOAT_DETECTION
 
 // Output file
 int g_stateMachine_thread_is_running = 0;
