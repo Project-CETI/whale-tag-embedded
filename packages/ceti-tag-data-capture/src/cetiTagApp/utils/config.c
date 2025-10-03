@@ -35,6 +35,7 @@ TagConfig g_config = {
     .burn_interval_s = CONFIG_DEFAULT_BURN_INTERVAL_S,
     .recovery = {
         .enabled = CONFIG_DEFAULT_RECOVERY_ENABLED,
+        .tx_on_whale = CONFIG_DEFAULT_RECOVERY_TX_ON_WHALE,
         .freq_MHz = CONFIG_DEFAULT_RECOVERY_FREQUENCY_MHZ,
         .callsign = {
             .callsign = CONFIG_DEFAULT_RECOVERY_CALLSIGN,
@@ -63,6 +64,7 @@ static ConfigError __config_parse_timeout(const char *_String);
 static ConfigError __config_parse_time_of_day(const char *_String);
 static ConfigError __config_parse_burn_interval_value(const char *_String);
 static ConfigError __config_parse_recovery_enable_value(const char *_String);
+static ConfigError __config_parse_recovery_tx_on_whale_value(const char *_String);
 static ConfigError __config_parse_recovery_callsign_value(const char *_String);
 static ConfigError __config_parse_recovery_recipient_value(const char *_String);
 static ConfigError __config_parse_recovery_freq_value(const char *_String);
@@ -89,6 +91,7 @@ const ConfigList config_keys[] = {
     {.key = STR_FROM("audio_bitdepth"), .parse = __config_parse_audio_bitdepth},
     {.key = STR_FROM("audio_sample_rate"), .parse = __config_parse_audio_sample_rate},
     {.key = STR_FROM("rec_enabled"), .parse = __config_parse_recovery_enable_value},
+    {.key = STR_FROM("rec_tx_on_whale"), .parse = __config_parse_recovery_tx_on_whale_value},
     {.key = STR_FROM("rec_callsign"), .parse = __config_parse_recovery_callsign_value},
     {.key = STR_FROM("rec_recipient"), .parse = __config_parse_recovery_recipient_value},
     {.key = STR_FROM("rec_freq"), .parse = __config_parse_recovery_freq_value},
@@ -319,6 +322,12 @@ static ConfigError __config_parse_recovery_enable_value(const char *_String) {
         CETI_DEBUG("recovery board disabled");
     }
 #endif
+    return CONFIG_OK;
+}
+
+
+static ConfigError __config_parse_recovery_tx_on_whale_value(const char *_String) {
+    g_config.recovery.tx_on_whale = strtobool(_String, NULL);
     return CONFIG_OK;
 }
 

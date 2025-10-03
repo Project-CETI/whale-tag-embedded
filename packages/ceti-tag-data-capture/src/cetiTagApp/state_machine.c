@@ -41,7 +41,8 @@
 // Global/static variables
 //-----------------------------------------------------------------------------
 
-static int presentState = ST_CONFIG;
+
+typedef double f64;
 
 // RTC counts
 typedef enum {
@@ -51,6 +52,7 @@ typedef enum {
     BSS_NTP,
 } BurnStartSource;
 
+static int presentState = ST_CONFIG;
 static unsigned int start_time_s = 0;
 static BurnStartSource burnwire_start_source_s = BSS_NONE;
 static unsigned int burnwire_timeout_start_s = 0;
@@ -58,7 +60,6 @@ static int64_t burnwire_time_of_day_release_s = 0;
 static uint32_t burnwire_started_time_s = 0;
 static int s_state_machine_paused = 0;
 #if FLOAT_DETECTION
-static int s_float_triggered = 0;
 #endif // FLOAT_DETECTION
 
 // Output file
@@ -79,25 +80,63 @@ static int __at_surface(void) {
     return (g_pressure->error != WT_OK) || (g_pressure->pressure_bar < g_config.surface_pressure);
 }
 
+//-----------------------------------------------------------------------------
+// FLOAT_DETECTION
+//-----------------------------------------------------------------------------
 #if FLOAT_DETECTION
-/// convert latest imu quat sample to euler angle and see if within upright range
+#define FLOAT_DETECT_SMOOTHING_COUNT    10
+#define FLOAT_DETECT_TARGET_PITCH_DEG   (-85.0) //pitch imperically found to not be -90.0 probably due to suction cups (MSH)
+#define FLOAT_DETECT_TARGET_ROLL_DEG    (0.0)
+#define FLOAT_DETECT_ANGLE_RANGE_DEG    (10.0)
+#define FLOAT_DETECT_HOLD_TIME          MIN_TO_SEC(20)
+#define FLOAT_DETECT_SMOOTHING_COUNT    10
+
+static int s_float_triggered = 0;
+static f64 imu_d_pitch_norm_deg [FLOAT_DETECT_SMOOTHING_COUNT] = {};
+static f64 imu_d_roll_norm_deg [FLOAT_DETECT_SMOOTHING_COUNT] = {};
+static int imu_buffer_offset = 0;
+static f64 imu_abs_d_pitch_sum_deg = 0.0;
+static f64 imu_abs_d_roll_sum_deg = 0.0;
+
 static int __oriented_upright(void) {
     EulerAngles_f64 latest_euler;
     if (imu_get_latest_rotation_euler(&latest_euler) != 0) {
         return 0;
     }
 
-    // see if pitch == ~-90 and roll == ~0
-    return (
-        (((-90.0 - 30.0) * M_PI / 180.0) <= latest_euler.pitch) && (latest_euler.pitch < (-90.0 + 30.0) * M_PI / 180.0) && (-30.0 * M_PI / 180.0 <= latest_euler.roll) && (latest_euler.roll < 30.0 * M_PI / 180.0));
+    f64 d_pitch_norm = fabs(FLOAT_DETECT_TARGET_PITCH_DEG - (latest_euler.pitch * M_PI / 180.0));
+    f64 d_roll_norm =  fabs(FLOAT_DETECT_TARGET_ROLL_DEG - (latest_euler.roll * M_PI / 180.0));
+
+    imu_abs_d_pitch_sum_deg -= imu_d_pitch_norm_deg[imu_buffer_offset];
+    imu_abs_d_roll_sum_deg -= imu_d_roll_norm_deg[imu_buffer_offset];
+
+    imu_d_pitch_norm_deg[imu_buffer_offset] = d_pitch_norm;
+    imu_d_roll_norm_deg[imu_buffer_offset] = d_roll_norm;
+    
+    imu_abs_d_pitch_sum_deg += imu_d_pitch_norm_deg[imu_buffer_offset];
+    imu_abs_d_roll_sum_deg += imu_d_roll_norm_deg[imu_buffer_offset];
+
+    imu_buffer_offset = (imu_buffer_offset + 1) % FLOAT_DETECT_SMOOTHING_COUNT;
+
+    f64 p_error_average = imu_abs_d_pitch_sum_deg/FLOAT_DETECT_SMOOTHING_COUNT;
+    f64 r_error_average = imu_abs_d_pitch_sum_deg/FLOAT_DETECT_SMOOTHING_COUNT;
+
+    return ((p_error_average < 10.0) && (r_error_average < 10.0));
 }
 
 static int float_start_detected = 0;
 static void __reset_float_detection(void) {
     float_start_detected = 0;
+
+    // reset buffer
+    bzero(imu_d_pitch_norm_deg, sizeof(imu_d_pitch_norm_deg));
+    bzero(imu_d_roll_norm_deg, sizeof(imu_d_roll_norm_deg));
+    imu_buffer_offset = 0;
+    imu_abs_d_pitch_sum_deg = 0.0f;
+    imu_abs_d_roll_sum_deg = 0.0f;
 }
 
-static int __is_floating(int32_t duration_s) {
+static int __is_floating(void) {
 #if ENABLE_PRESSURETEMPERATURE_SENSOR && ENABLE_IMU
     static uint32_t float_start_time_s = 0;
 
@@ -106,7 +145,7 @@ static int __is_floating(int32_t duration_s) {
             float_start_time_s = get_global_time_s();
             float_start_detected = 1;
         }
-        return (get_global_time_s() - float_start_time_s > duration_s);
+        return (get_global_time_s() - float_start_time_s > FLOAT_DETECT_HOLD_TIME);
     }
 
     if (float_start_detected) {
@@ -298,11 +337,11 @@ int stateMachine_set_state(wt_state_t new_state) {
         case ST_RECORD_SURFACE:
 #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
-#if APRS_ON_WHALE
-                recovery_wake();
-#else
-                recovery_gps_only();
-#endif // APRS_ON_WHALE
+                if (g_config.recovery.tx_on_whale) {
+                    recovery_wake();
+                } else {
+                    recovery_gps_only();
+                }
             }
 #endif // ENABLE_RECOVERY
             break;
@@ -589,31 +628,31 @@ int updateStateMachine() {
 #endif
 
 #if FLOAT_DETECTION
-#if !APRS_ON_WHALE
-            // enable recovery in case we're likely off the whale
-            // will turn back off once whale dives if it did not actually release
-            if (__is_floating(MIN_TO_SEC(60))) {
-                if (!s_float_triggered) {
-                    CETI_LOG("Tag is likely floating at the surface. Enabling APRS until next dive");
+            if (!g_config.recovery.tx_on_whale) {
+                // enable recovery in case we're likely off the whale
+                // will turn back off once whale dives if it did not actually release
+                if (__is_floating()) {
+                    if (!s_float_triggered) {
+                        CETI_LOG("Tag is likely floating at the surface. Enabling APRS until next dive");
 #if ENABLE_RECOVERY
-                    if (g_config.recovery.enabled) {
-                        recovery_wake();
-                    }
+                        if (g_config.recovery.enabled) {
+                            recovery_wake();
+                        }
 #endif // ENABLE_RECOVERY
-                    s_float_triggered = 1;
-                }
-            } else {
-                if (s_float_triggered) {
-                    CETI_LOG("Tag is exited floating position. APRS disabled");
+                        s_float_triggered = 1;
+                    }
+                } else {
+                    if (s_float_triggered) {
+                        CETI_LOG("Tag is exited floating position. APRS disabled");
 #if ENABLE_RECOVERY
-                    if (g_config.recovery.enabled) {
-                        recovery_gps_only();
-                    }
+                        if (g_config.recovery.enabled) {
+                            recovery_gps_only();
+                        }
 #endif // ENABLE_RECOVERY
-                    s_float_triggered = 0;
-                }
+                            s_float_triggered = 0;
+                        }
+                    }
             }
-#endif // !APRS_ON_WHALE
 #endif // FLOAT_DETECTION
 
             break;
@@ -683,7 +722,7 @@ int updateStateMachine() {
                 s_bms_error_count++;
                 /* MSH: If BMS communication error better to remain in retrieve mode and allow BMS hardware to handle shutdown */
 #if FLOAT_DETECTION
-                if (__is_floating(25)) {
+                if (__is_floating()) {
                     if (!s_float_triggered) {
                         CETI_LOG("Floating at surface detected. Disabling high data-rate sensors for additional energy saving.");
                         // ToDo: disable power hungry threads to conserve power for recovery
