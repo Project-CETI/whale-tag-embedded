@@ -36,6 +36,7 @@ TagConfig g_config = {
     .burn_interval_s = CONFIG_DEFAULT_BURN_INTERVAL_S,
     .recovery = {
         .enabled = CONFIG_DEFAULT_RECOVERY_ENABLED,
+        .on_whale = CONFIG_DEFAULT_APRS_ON_WHALE,
         .freq_MHz = CONFIG_DEFAULT_RECOVERY_FREQUENCY_MHZ,
         .callsign = {
             .callsign = CONFIG_DEFAULT_RECOVERY_CALLSIGN,
@@ -65,6 +66,7 @@ static ConfigError __config_parse_timeout(const char *_String);
 static ConfigError __config_parse_time_of_day(const char *_String);
 static ConfigError __config_parse_burn_interval_value(const char *_String);
 static ConfigError __config_parse_recovery_enable_value(const char *_String);
+static ConfigError __config_parse_aprs_on_whale_value(const char *_String);
 static ConfigError __config_parse_recovery_callsign_value(const char *_String);
 static ConfigError __config_parse_recovery_recipient_value(const char *_String);
 static ConfigError __config_parse_recovery_freq_value(const char *_String);
@@ -92,6 +94,7 @@ const ConfigList config_keys[] = {
     {.key = STR_FROM("audio_bitdepth"), .parse = __config_parse_audio_bitdepth},
     {.key = STR_FROM("audio_sample_rate"), .parse = __config_parse_audio_sample_rate},
     {.key = STR_FROM("rec_enabled"), .parse = __config_parse_recovery_enable_value},
+    {.key = STR_FROM("aprs_on_whale"), .parse = __config_parse_aprs_on_whale_value},
     {.key = STR_FROM("rec_callsign"), .parse = __config_parse_recovery_callsign_value},
     {.key = STR_FROM("rec_recipient"), .parse = __config_parse_recovery_recipient_value},
     {.key = STR_FROM("rec_freq"), .parse = __config_parse_recovery_freq_value},
@@ -343,6 +346,18 @@ static ConfigError __config_parse_recovery_enable_value(const char *_String) {
     return CONFIG_OK;
 }
 
+static ConfigError __config_parse_aprs_on_whale_value(const char *_String) {
+    g_config.recovery.on_whale = strtobool(_String, NULL);
+#ifdef DEBUG
+    if (g_config.recovery.on_whale) {
+        CETI_DEBUG("APRS on whale enabled");
+    } else {
+        CETI_DEBUG("APRS on whale disabled");
+    }
+#endif
+    return CONFIG_OK;
+}
+
 static ConfigError __config_parse_recovery_callsign_value(const char *_String) {
     int result = callsign_try_from_str(&g_config.recovery.callsign, _String, NULL);
     if (result != 0) {
@@ -546,6 +561,7 @@ void config_log(uint64_t timestamp) {
     fprintf(fConfig, "audio_bitdepth =: %d\n", (int)g_config.audio.bit_depth);
     fprintf(fConfig, "audio_sample_rate = %d # KHz\n", (int)g_config.audio.sample_rate);
     fprintf(fConfig, "rec_enabled = %s\n", (g_config.recovery.enabled) ? "true" : "false");
+    fprintf(fConfig, "aprs_on_whale = %s\n", (g_config.recovery.on_whale) ? "true" : "false");
     char cs[15];
     callsign_to_str(&g_config.recovery.callsign, cs);
     fprintf(fConfig, "rec_callsign = %s\n", cs);

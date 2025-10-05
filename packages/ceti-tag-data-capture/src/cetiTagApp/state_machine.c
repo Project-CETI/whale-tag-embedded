@@ -253,8 +253,10 @@ int stateMachine_set_state(wt_state_t new_state) {
 
         case ST_RECORD_SURFACE:
 #if ENABLE_RECOVERY
-            if (g_config.recovery.enabled) {
+            if (g_config.recovery.enabled && g_config.recovery.on_whale) {
                 recovery_wake();
+            } else if (g_config.recovery.enabled && !g_config.recovery.on_whale) {
+                recovery_sleep();
             }
 #endif // ENABLE_RECOVERY
 

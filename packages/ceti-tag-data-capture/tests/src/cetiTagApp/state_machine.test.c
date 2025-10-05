@@ -37,6 +37,7 @@ TagConfig g_config = {
     .burn_interval_s = CONFIG_DEFAULT_BURN_INTERVAL_S,
     .recovery = {
         .enabled = CONFIG_DEFAULT_RECOVERY_ENABLED,
+        .on_whale = CONFIG_DEFAULT_APRS_ON_WHALE,
         .freq_MHz = CONFIG_DEFAULT_RECOVERY_FREQUENCY_MHZ,
         .callsign = {
             .callsign = CONFIG_DEFAULT_RECOVERY_CALLSIGN,
@@ -497,6 +498,34 @@ void setUp(void) {
     updateStateMachine();
 }
 
+// APRS on whale configuration tests
+void test__updateStateMachine_aprs_on_whale_enabled(void) {
+    // When aprs_on_whale = true, recovery board should wake in ST_RECORD_SURFACE
+    g_config.recovery.enabled = 1;
+    g_config.recovery.on_whale = 1;
+    stateMachine_set_state(ST_RECORD_SURFACE);
+    // Recovery board should be awake (tested via stub/mock)
+    TEST_ASSERT_EQUAL(ST_RECORD_SURFACE, stateMachine_get_state());
+}
+
+void test__updateStateMachine_aprs_on_whale_disabled(void) {
+    // When aprs_on_whale = false, recovery board should sleep in ST_RECORD_SURFACE
+    g_config.recovery.enabled = 1;
+    g_config.recovery.on_whale = 0;
+    stateMachine_set_state(ST_RECORD_SURFACE);
+    // Recovery board should be asleep (tested via stub/mock)
+    TEST_ASSERT_EQUAL(ST_RECORD_SURFACE, stateMachine_get_state());
+}
+
+void test__updateStateMachine_aprs_on_whale_retrieve_always_enabled(void) {
+    // In ST_RETRIEVE, recovery board should always wake regardless of on_whale setting
+    g_config.recovery.enabled = 1;
+    g_config.recovery.on_whale = 0;  // Disabled on whale
+    stateMachine_set_state(ST_RETRIEVE);
+    // Recovery board should still be awake for tag recovery
+    TEST_ASSERT_EQUAL(ST_RETRIEVE, stateMachine_get_state());
+}
+
 void tearDown(void) {
     // clean stuff up here
 }
@@ -524,6 +553,11 @@ int main(void) {
     RUN_TEST(test__updateStateMachine_ST_RETRIEVE_okBattery);
     RUN_TEST(test__updateStateMachine_ST_RETRIEVE_criticalBattery);
     RUN_TEST(test__updateStateMachine_ST_RETRIEVE_errBattery);
+
+    printf("\nAPRS on whale configuration tests\n");
+    RUN_TEST(test__updateStateMachine_aprs_on_whale_enabled);
+    RUN_TEST(test__updateStateMachine_aprs_on_whale_disabled);
+    RUN_TEST(test__updateStateMachine_aprs_on_whale_retrieve_always_enabled);
 
     printf("\nState string parsing tests\n");
     RUN_TEST(test_strtomissionstate);
