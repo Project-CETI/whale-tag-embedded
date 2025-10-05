@@ -29,6 +29,7 @@ TagConfig g_config = {
     },
     .surface_pressure = CONFIG_DEFAULT_SURFACE_PRESSURE_BAR, // depth_m is roughly 10*pressure_bar
     .dive_pressure = CONFIG_DEFAULT_DIVE_PRESSURE_BAR,       // depth_m is roughly 10*pressure_bar
+    .burn_depth_threshold_bar = CONFIG_DEFAULT_BURN_DEPTH_THRESHOLD_BAR,
     .release_voltage_v = CONFIG_DEFAULT_RELEASE_VOLTAGE_V,
     .critical_voltage_v = CONFIG_DEFAULT_CRITICAL_VOLTAGE_V,
     .timeout_s = CONFIG_DEFAULT_TIMEOUT_S,
@@ -303,11 +304,18 @@ void test__updateStateMachine_ST_BRN_ON_noTimeup_okBattery(void) {
 
 void test__updateStateMachine_ST_BRN_ON_timeup_okBattery(void) {
     g_config.burn_interval_s = 2;
+    g_config.burn_depth_threshold_bar = 0.4; // 4m depth
     stateMachine_set_state(ST_BRN_ON);
     fake_battery_sample.cell_voltage_v[0] = 4.2;
     fake_battery_sample.cell_voltage_v[1] = 4.2;
-    sleep(g_config.burn_interval_s + 1);
-    updateStateMachine();
+    fake_pressure_sample.error = WT_OK;
+    fake_pressure_sample.pressure_bar = 0.5; // Underwater (5m)
+
+    // Need to accumulate active burn time while underwater
+    for (int i = 0; i < g_config.burn_interval_s + 1; i++) {
+        sleep(1);
+        updateStateMachine();
+    }
     TEST_ASSERT_EQUAL(ST_RETRIEVE, stateMachine_get_state());
 }
 
@@ -362,6 +370,86 @@ void test__updateStateMachine_ST_RETRIEVE_errBattery(void) {
     fake_battery_sample.cell_voltage_v[1] = 3.05;
     updateStateMachine();
 
+    TEST_ASSERT_EQUAL(ST_RETRIEVE, stateMachine_get_state());
+}
+
+// Depth-aware burnwire tests
+void test__updateStateMachine_ST_BRN_ON_depthAware_underwater(void) {
+    g_config.burn_interval_s = 5;
+    g_config.burn_depth_threshold_bar = 0.4; // 4m depth
+    stateMachine_set_state(ST_BRN_ON);
+    fake_battery_sample.cell_voltage_v[0] = 4.2;
+    fake_battery_sample.cell_voltage_v[1] = 4.2;
+    fake_pressure_sample.error = WT_OK;
+    fake_pressure_sample.pressure_bar = 0.5; // Underwater (5m)
+
+    // Should accumulate active burn time when underwater
+    for (int i = 0; i < g_config.burn_interval_s + 1; i++) {
+        sleep(1);
+        updateStateMachine();
+    }
+    TEST_ASSERT_EQUAL(ST_RETRIEVE, stateMachine_get_state());
+}
+
+void test__updateStateMachine_ST_BRN_ON_depthAware_surface(void) {
+    g_config.burn_interval_s = 3;
+    g_config.burn_depth_threshold_bar = 0.4; // 4m depth
+    stateMachine_set_state(ST_BRN_ON);
+    fake_battery_sample.cell_voltage_v[0] = 4.2;
+    fake_battery_sample.cell_voltage_v[1] = 4.2;
+    fake_pressure_sample.error = WT_OK;
+    fake_pressure_sample.pressure_bar = 0.05; // At surface (<4m)
+
+    // Should NOT accumulate active burn time when at surface
+    sleep(g_config.burn_interval_s + 1);
+    updateStateMachine();
+    TEST_ASSERT_EQUAL(ST_BRN_ON, stateMachine_get_state()); // Still burning
+}
+
+void test__updateStateMachine_ST_BRN_ON_depthAware_surfaceAndDive(void) {
+    g_config.burn_interval_s = 10;
+    g_config.burn_depth_threshold_bar = 0.4; // 4m depth
+    stateMachine_set_state(ST_BRN_ON);
+    fake_battery_sample.cell_voltage_v[0] = 4.2;
+    fake_battery_sample.cell_voltage_v[1] = 4.2;
+    fake_pressure_sample.error = WT_OK;
+
+    // Simulate whale breathing pattern: dive, surface, dive
+    // 5 seconds underwater
+    fake_pressure_sample.pressure_bar = 0.5; // Underwater
+    for (int i = 0; i < 5; i++) {
+        sleep(1);
+        updateStateMachine();
+    }
+    TEST_ASSERT_EQUAL(ST_BRN_ON, stateMachine_get_state());
+
+    // 2 seconds at surface (shouldn't count)
+    fake_pressure_sample.pressure_bar = 0.05; // Surface
+    for (int i = 0; i < 2; i++) {
+        sleep(1);
+        updateStateMachine();
+    }
+    TEST_ASSERT_EQUAL(ST_BRN_ON, stateMachine_get_state());
+
+    // 5 more seconds underwater (total 10 active seconds)
+    fake_pressure_sample.pressure_bar = 0.5; // Underwater
+    for (int i = 0; i < 5; i++) {
+        sleep(1);
+        updateStateMachine();
+    }
+    TEST_ASSERT_EQUAL(ST_RETRIEVE, stateMachine_get_state()); // Burn complete
+}
+
+void test__updateStateMachine_ST_BRN_ON_depthAware_sensorError_fallback(void) {
+    g_config.burn_interval_s = 2;
+    stateMachine_set_state(ST_BRN_ON);
+    fake_battery_sample.cell_voltage_v[0] = 4.2;
+    fake_battery_sample.cell_voltage_v[1] = 4.2;
+    fake_pressure_sample.error = WT_RESULT(WT_DEV_PRESSURE, 1); // Generic error
+
+    // Should fallback to calendar time when sensor fails
+    sleep(g_config.burn_interval_s + 1);
+    updateStateMachine();
     TEST_ASSERT_EQUAL(ST_RETRIEVE, stateMachine_get_state());
 }
 

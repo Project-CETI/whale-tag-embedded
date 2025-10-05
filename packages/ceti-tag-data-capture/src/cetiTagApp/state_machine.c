@@ -54,6 +54,9 @@ static BurnStartSource burnwire_start_source_s = BSS_NONE;
 static unsigned int burnwire_timeout_start_s = 0;
 static int64_t burnwire_time_of_day_release_s = 0;
 static uint32_t burnwire_started_time_s = 0;
+static uint32_t burnwire_active_time_s = 0;
+static uint32_t burnwire_calendar_start_s = 0;
+static int burnwire_was_underwater = 0;
 static int s_state_machine_paused = 0;
 // Output file
 int g_stateMachine_thread_is_running = 0;
@@ -64,6 +67,32 @@ static const char *stateMachine_data_file_headers[] = {
     "Next State",
 };
 static const int num_stateMachine_data_file_headers = sizeof(stateMachine_data_file_headers) / sizeof(*stateMachine_data_file_headers);
+
+// Helper function to log burnwire events with depth data
+static void log_burnwire_event(const char *event, uint32_t active_time_s, uint32_t calendar_elapsed_s, float pressure_bar, int underwater) {
+    FILE *fp = fopen(STATEMACHINE_BURNWIRE_EVENTS_FILEPATH, "a");
+    if (fp == NULL) {
+        return;
+    }
+
+    // Write header if file is new/empty
+    fseek(fp, 0, SEEK_END);
+    if (ftell(fp) == 0) {
+        fprintf(fp, "SysTime_us,RtcTime_s,Notes,ActiveBurn_s,CalendarElapsed_s,Pressure_bar,Underwater,Event\n");
+    }
+
+    // Follow standard format: sys_time_us, rtc_time_s, notes, then data columns
+    fprintf(fp, "%ld", get_global_time_us());
+    fprintf(fp, ",%d", getRtcCount());
+    fprintf(fp, ",");  // Empty notes column
+    fprintf(fp, ",%u", active_time_s);
+    fprintf(fp, ",%u", calendar_elapsed_s);
+    fprintf(fp, ",%.3f", pressure_bar);
+    fprintf(fp, ",%d", underwater);
+    fprintf(fp, ",%s", event);
+    fprintf(fp, "\n");
+    fclose(fp);
+}
 
 int init_stateMachine() {
     CETI_LOG("Successfully initialized the state machine");
@@ -234,12 +263,23 @@ int stateMachine_set_state(wt_state_t new_state) {
         case ST_BRN_ON:
 // Turn on the burnwire and record the start time.
 #if ENABLE_BURNWIRE
-            burnwireOn();
             burnwire_started_time_s = get_global_time_s();
+            burnwire_active_time_s = 0;
+            burnwire_calendar_start_s = burnwire_started_time_s;
+            burnwire_was_underwater = 0;
+            // Don't turn on burnwire yet - wait until underwater
 #endif // ENABLE_BURNWIRE
 
             // Clear the persistent burnwire timeout start time if one exists.
             remove(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH);
+
+#if ENABLE_BURNWIRE && ENABLE_PRESSURETEMPERATURE_SENSOR
+            // Log burn start event
+            if (g_pressure->error == WT_OK) {
+                log_burnwire_event("burn_start", 0, 0, g_pressure->pressure_bar,
+                                   g_pressure->pressure_bar > g_config.burn_depth_threshold_bar);
+            }
+#endif
             break;
 
         case ST_RETRIEVE:
@@ -524,14 +564,73 @@ int updateStateMachine() {
             }
 #endif
 
-// switch state once the burn is complete
+// Depth-aware burnwire control
 #if ENABLE_BURNWIRE
+#if ENABLE_PRESSURETEMPERATURE_SENSOR
+            // Check pressure sensor health
+            if (g_pressure->error == WT_OK) {
+                // Depth-aware burn: only count active time when underwater
+                int is_underwater = (g_pressure->pressure_bar > g_config.burn_depth_threshold_bar);
+
+                // Handle depth state transitions
+                if (is_underwater && !burnwire_was_underwater) {
+                    burnwireOn();
+                    CETI_LOG("Burnwire ON - submerged (%.2f bar)", g_pressure->pressure_bar);
+                    log_burnwire_event("submerged", burnwire_active_time_s,
+                                       get_global_time_s() - burnwire_calendar_start_s,
+                                       g_pressure->pressure_bar, 1);
+                } else if (!is_underwater && burnwire_was_underwater) {
+                    burnwireOff();
+                    CETI_LOG("Burnwire OFF - surfaced (%.2f bar)", g_pressure->pressure_bar);
+                    log_burnwire_event("surfaced", burnwire_active_time_s,
+                                       get_global_time_s() - burnwire_calendar_start_s,
+                                       g_pressure->pressure_bar, 0);
+                }
+
+                // Accumulate active burn time only when underwater
+                if (is_underwater) {
+                    burnwire_active_time_s++;
+                }
+
+                burnwire_was_underwater = is_underwater;
+
+                // Exit when active burn time complete
+                if (burnwire_active_time_s >= g_config.burn_interval_s) {
+                    CETI_LOG("Burn complete - active time: %u s, calendar time: %ld s",
+                             burnwire_active_time_s, get_global_time_s() - burnwire_calendar_start_s);
+                    log_burnwire_event("burn_complete", burnwire_active_time_s,
+                                       get_global_time_s() - burnwire_calendar_start_s,
+                                       g_pressure->pressure_bar, is_underwater);
+                    stateMachine_set_state(ST_RETRIEVE);
+                }
+            } else {
+                // Pressure sensor failed - fallback to calendar time
+                static int sensor_error_logged = 0;
+                if (!sensor_error_logged) {
+                    log_burnwire_event("sensor_error", burnwire_active_time_s,
+                                       get_global_time_s() - burnwire_calendar_start_s,
+                                       0.0, 0);
+                    sensor_error_logged = 1;
+                }
+
+                if (get_global_time_s() - burnwire_started_time_s > g_config.burn_interval_s) {
+                    CETI_LOG("Burn complete (sensor error fallback) - calendar time: %ld s",
+                             get_global_time_s() - burnwire_calendar_start_s);
+                    log_burnwire_event("burn_complete_fallback", 0,
+                                       get_global_time_s() - burnwire_calendar_start_s,
+                                       0.0, 0);
+                    stateMachine_set_state(ST_RETRIEVE);
+                }
+            }
+#else
+            // No pressure sensor - use calendar time
             if (get_global_time_s() - burnwire_started_time_s > g_config.burn_interval_s) {
                 stateMachine_set_state(ST_RETRIEVE);
             }
+#endif // ENABLE_PRESSURETEMPERATURE_SENSOR
 #else
             stateMachine_set_state(ST_RETRIEVE);
-#endif
+#endif // ENABLE_BURNWIRE
 
             break;
 

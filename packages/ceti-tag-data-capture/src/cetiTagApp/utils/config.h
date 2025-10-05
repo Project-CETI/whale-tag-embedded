@@ -19,6 +19,7 @@
 #define CONFIG_DEFAULT_AUDIO_FILTER_TYPE AUDIO_FILTER_WIDEBAND
 #define CONFIG_DEFAULT_SURFACE_PRESSURE_BAR (0.3) // depth_m is roughly 10*pressure_bar
 #define CONFIG_DEFAULT_DIVE_PRESSURE_BAR (0.5)    // depth_m is roughly 10*pressure_bar
+#define CONFIG_DEFAULT_BURN_DEPTH_THRESHOLD_BAR (0.4) // 4m depth for reliable submersion
 #define CONFIG_DEFAULT_RELEASE_VOLTAGE_V (6.4 / 2.0)
 #define CONFIG_DEFAULT_CRITICAL_VOLTAGE_V (6.2 / 2.0)
 #define CONFIG_DEFAULT_TIMEOUT_S (4 * 24 * 60 * 60)
@@ -41,6 +42,7 @@ typedef struct tag_configuration {
     AudioConfig audio;
     float surface_pressure;
     float dive_pressure;
+    float burn_depth_threshold_bar;
     float release_voltage_v;
     float critical_voltage_v;
     time_t timeout_s;

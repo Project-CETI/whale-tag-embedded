@@ -67,6 +67,7 @@
 #define RECOVERY_DATA_FILEPATH "/data/data_gps.csv"
 #define STATEMACHINE_DATA_FILEPATH "/data/data_state.csv"
 #define STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH "/data/burnwire_timeout_start_time_s.csv"
+#define STATEMACHINE_BURNWIRE_EVENTS_FILEPATH "/data/data_burnwire.csv"
 #define SYSTEMMONITOR_DATA_FILEPATH "/data/data_systemMonitor.csv"
 
 #define CETI_CONFIG_FILE "../config/ceti-config.txt"              // This is non-volatile config file's relative path
