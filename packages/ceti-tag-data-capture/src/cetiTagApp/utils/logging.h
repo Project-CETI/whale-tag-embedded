@@ -24,7 +24,8 @@ extern void init_logging();
 #define CETI_DEBUG(...) CETI_LOG(__VA_ARGS__)
 #else
 #define CETI_DEBUG(...) \
-    {}
+    {                   \
+    }
 #endif
 #define CETI_logMsg(...) syslog(LOG_DEBUG, __VA_ARGS__)
 

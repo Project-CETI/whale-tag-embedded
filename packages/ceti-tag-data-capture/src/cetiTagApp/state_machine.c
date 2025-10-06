@@ -41,7 +41,6 @@
 // Global/static variables
 //-----------------------------------------------------------------------------
 
-
 typedef double f64;
 
 // RTC counts
@@ -82,16 +81,16 @@ static int __at_surface(void) {
 // FLOAT_DETECTION
 //-----------------------------------------------------------------------------
 #if FLOAT_DETECTION
-#define FLOAT_DETECT_SMOOTHING_COUNT    10
-#define FLOAT_DETECT_TARGET_PITCH_DEG   (-85.0) //pitch imperically found to not be -90.0 probably due to suction cups (MSH)
-#define FLOAT_DETECT_TARGET_ROLL_DEG    (0.0)
-#define FLOAT_DETECT_ANGLE_RANGE_DEG    (10.0)
-#define FLOAT_DETECT_HOLD_TIME          MIN_TO_SEC(20)
-#define FLOAT_DETECT_SMOOTHING_COUNT    10
+#define FLOAT_DETECT_SMOOTHING_COUNT 10
+#define FLOAT_DETECT_TARGET_PITCH_DEG (-85.0) // pitch imperically found to not be -90.0 probably due to suction cups (MSH)
+#define FLOAT_DETECT_TARGET_ROLL_DEG (0.0)
+#define FLOAT_DETECT_ANGLE_RANGE_DEG (10.0)
+#define FLOAT_DETECT_HOLD_TIME MIN_TO_SEC(20)
+#define FLOAT_DETECT_SMOOTHING_COUNT 10
 
 static int s_float_triggered = 0;
-static f64 imu_d_pitch_norm_deg [FLOAT_DETECT_SMOOTHING_COUNT] = {};
-static f64 imu_d_roll_norm_deg [FLOAT_DETECT_SMOOTHING_COUNT] = {};
+static f64 imu_d_pitch_norm_deg[FLOAT_DETECT_SMOOTHING_COUNT] = {};
+static f64 imu_d_roll_norm_deg[FLOAT_DETECT_SMOOTHING_COUNT] = {};
 static int imu_buffer_offset = 0;
 static f64 imu_abs_d_pitch_sum_deg = 0.0;
 static f64 imu_abs_d_roll_sum_deg = 0.0;
@@ -103,21 +102,21 @@ static int __oriented_upright(void) {
     }
 
     f64 d_pitch_norm = fabs(FLOAT_DETECT_TARGET_PITCH_DEG - (latest_euler.pitch * M_PI / 180.0));
-    f64 d_roll_norm =  fabs(FLOAT_DETECT_TARGET_ROLL_DEG - (latest_euler.roll * M_PI / 180.0));
+    f64 d_roll_norm = fabs(FLOAT_DETECT_TARGET_ROLL_DEG - (latest_euler.roll * M_PI / 180.0));
 
     imu_abs_d_pitch_sum_deg -= imu_d_pitch_norm_deg[imu_buffer_offset];
     imu_abs_d_roll_sum_deg -= imu_d_roll_norm_deg[imu_buffer_offset];
 
     imu_d_pitch_norm_deg[imu_buffer_offset] = d_pitch_norm;
     imu_d_roll_norm_deg[imu_buffer_offset] = d_roll_norm;
-    
+
     imu_abs_d_pitch_sum_deg += imu_d_pitch_norm_deg[imu_buffer_offset];
     imu_abs_d_roll_sum_deg += imu_d_roll_norm_deg[imu_buffer_offset];
 
     imu_buffer_offset = (imu_buffer_offset + 1) % FLOAT_DETECT_SMOOTHING_COUNT;
 
-    f64 p_error_average = imu_abs_d_pitch_sum_deg/FLOAT_DETECT_SMOOTHING_COUNT;
-    f64 r_error_average = imu_abs_d_pitch_sum_deg/FLOAT_DETECT_SMOOTHING_COUNT;
+    f64 p_error_average = imu_abs_d_pitch_sum_deg / FLOAT_DETECT_SMOOTHING_COUNT;
+    f64 r_error_average = imu_abs_d_pitch_sum_deg / FLOAT_DETECT_SMOOTHING_COUNT;
 
     return ((p_error_average < 10.0) && (r_error_average < 10.0));
 }
@@ -647,9 +646,9 @@ int updateStateMachine() {
                             recovery_gps_only();
                         }
 #endif // ENABLE_RECOVERY
-                            s_float_triggered = 0;
-                        }
+                        s_float_triggered = 0;
                     }
+                }
             }
 #endif // FLOAT_DETECTION
 

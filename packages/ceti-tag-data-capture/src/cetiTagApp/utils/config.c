@@ -325,7 +325,6 @@ static ConfigError __config_parse_recovery_enable_value(const char *_String) {
     return CONFIG_OK;
 }
 
-
 static ConfigError __config_parse_recovery_tx_on_whale_value(const char *_String) {
     g_config.recovery.tx_on_whale = strtobool(_String, NULL);
     return CONFIG_OK;
