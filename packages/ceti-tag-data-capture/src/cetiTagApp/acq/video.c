@@ -22,6 +22,7 @@
 #define VIDEO_FILE_LENGTH_MS 300000
 
 // 480x640p90, 1280x720p60, 1920x1080p30
+#define VIDEO_EXECUTABLE "rpicam-vid"
 #define VIDEO_WIDTH 1920
 #define VIDEO_HEIGHT 1080
 #define VIDEO_FRAMERATE 30
@@ -42,7 +43,7 @@ void *video_thread(void *paramPtr) {
         char video_filename[256] = "";
         sprintf(video_filename, "/data/%ld.h264", get_global_time_us());
         char *argv[] = {
-            "libcamera-vid",
+            VIDEO_EXECUTABLE,
             "-t", xstr(VIDEO_FILE_LENGTH_MS),
             "--inline",
             "-v", "0",
@@ -51,9 +52,9 @@ void *video_thread(void *paramPtr) {
             "--framerate", xstr(VIDEO_FRAMERATE),
             "-o", video_filename,
             NULL};
-        execvp("libcamera-vid", argv);
+        execvp(VIDEO_EXECUTABLE, argv);
         // we only get here if the child failed
-        CETI_ERR("failed to created libcamera-vid child process");
+        CETI_ERR("failed to created " VIDEO_EXECUTABLE " child process");
         exit(1);
     }
     g_video_thread_is_running = 1;
@@ -73,10 +74,10 @@ void *video_thread(void *paramPtr) {
                 char video_filename[256] = "";
                 sprintf(video_filename, "%ld.h264", get_global_time_us());
                 char *argv[] = {
-                    "libcamera-vid", "-t", xstr(VIDEO_FILE_LENGTH_MS), "--inline", "-o", video_filename, NULL};
-                execvp("libcamera-vid", argv);
+                    VIDEO_EXECUTABLE, "-t", xstr(VIDEO_FILE_LENGTH_MS), "--inline", "-o", video_filename, NULL};
+                execvp(VIDEO_EXECUTABLE, argv);
                 // we only get here if the child failed
-                CETI_ERR("failed to created libcamera-vid child process");
+                CETI_ERR("failed to created " VIDEO_EXECUTABLE " child process");
                 exit(1);
             }
         }
