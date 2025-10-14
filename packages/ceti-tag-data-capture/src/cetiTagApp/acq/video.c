@@ -46,6 +46,8 @@ void *video_thread(void *paramPtr) {
             VIDEO_EXECUTABLE,
             "-t", xstr(VIDEO_FILE_LENGTH_MS),
             "--inline",
+            "--nopreview",
+            "--datetime",
             "-v", "0",
             "--width", xstr(VIDEO_WIDTH),
             "--height", xstr(VIDEO_HEIGHT),
@@ -74,7 +76,17 @@ void *video_thread(void *paramPtr) {
                 char video_filename[256] = "";
                 sprintf(video_filename, "%ld.h264", get_global_time_us());
                 char *argv[] = {
-                    VIDEO_EXECUTABLE, "-t", xstr(VIDEO_FILE_LENGTH_MS), "--inline", "-o", video_filename, NULL};
+                    VIDEO_EXECUTABLE,
+                    "-t", xstr(VIDEO_FILE_LENGTH_MS),
+                    "--inline",
+                    "--nopreview",
+                    "--datetime",
+                    "-v", "0",
+                    "--width", xstr(VIDEO_WIDTH),
+                    "--height", xstr(VIDEO_HEIGHT),
+                    "--framerate", xstr(VIDEO_FRAMERATE),
+                    "-o", video_filename,
+                    NULL};
                 execvp(VIDEO_EXECUTABLE, argv);
                 // we only get here if the child failed
                 CETI_ERR("failed to created " VIDEO_EXECUTABLE " child process");
