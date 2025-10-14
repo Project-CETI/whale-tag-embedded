@@ -14,6 +14,7 @@
 // Includes
 //-----------------------------------------------------------------------------
 
+#include "../../utils/error.h"   // for get_global_time_us
 #include "../../utils/logging.h" // for CETI_LOG()
 #include "../../utils/timing.h"  // for get_global_time_us
 #include "../ecg.h"              // for ECG_INVALID_PLACEHOLDER
@@ -116,7 +117,7 @@ void ecg_adc_config_reset();
 void ecg_adc_config_apply();
 void ecg_adc_write_config_register(uint8_t data);
 uint8_t ecg_adc_read_register(uint8_t reg);
-int ecg_adc_raw_read_data(void);
+WTResult ecg_adc_raw_read_data(int32_t *reading);
 int ecg_adc_read_data(int *exit_flag, long long timeout_us);
 int ecg_adc_read_data_ready();
 

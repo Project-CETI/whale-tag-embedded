@@ -7,7 +7,7 @@
 #  - changed power down method for new BMS device
 #  - modified battery cutoff thresholds to be consistent with new BMS
 
-#handle SIGTERM from systemctl
+#handle SIGTERM and SIGINT from systemctl
 
 # Get the location of this script, since will want to
 #  use the pipes in that directory rather than the calling directory.
@@ -155,6 +155,7 @@ _term() {
 	exit 0
 }
 
+trap _term SIGINT
 trap _term SIGTERM
 
 # # remount rootfs readonly
@@ -168,7 +169,10 @@ child=$!
 
 # Wait for the main loops to start so it is ready to receive commands.
 sleep $STARTUP_TIME
+
+# Initialize some state.
 data_acquisition_running=1
+critical_voltage_shutdown_counter=0
 
 # Periodically monitor the battery, SD storage, and audio overflows.
 while :; do
@@ -194,8 +198,7 @@ while :; do
 		echo "disk space is OK"
 	fi
 
-	#loop timing and initial delay so the user has time to log in before the
-	#script shuts the system down
+	# sleep to set the polling period
 	sleep $SLEEP_TIME
 
 	# check the cell voltages and power off if needed.
@@ -230,7 +233,7 @@ while :; do
 	if [ "$is_discharging" -gt 0 ]; then
 		echo "Batteries are discharging"
 
-		# If either cell is less than 3.10 V:
+		# If either cell is less than 3.10 V for at least 2 samples:
 		#    -signal the FPGA to disable charging and discharging
 		#    -schedule Pi shutdown
 
@@ -238,6 +241,11 @@ while :; do
 		check2=$(echo "$v2 < 3.10" | bc)
 
 		if [ "$check1" -gt 0 ] || [ "$check2" -gt 0 ]; then
+			((critical_voltage_shutdown_counter++))
+		else
+			critical_voltage_shutdown_counter=0
+		fi
+		if ((critical_voltage_shutdown_counter >= 2)); then
 			echo "low battery cell detected; powering down the Pi now!"
 			echo s >/proc/sysrq-trigger
 
@@ -252,6 +260,8 @@ while :; do
 			echo u >/proc/sysrq-trigger
 			shutdown -P +1
 			break
+		elif ((critical_voltage_shutdown_counter >= 1)); then
+			echo "low battery cell detected; will wait to confirm with another sample"
 		else
 			echo "battery is OK"
 		fi

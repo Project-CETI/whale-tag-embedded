@@ -44,15 +44,16 @@ int ecg_lod_init(void) {
 // Will use a single IO expander reading, so
 //   both detections are effectively sampled simultaneously
 //   and the IO expander only needs to be queried once.
-void ecg_get_latest_leadsOff_detections(int *leadsOff_p, int *leadsOff_n) {
+WTResult ecg_get_latest_leadsOff_detections(uint16_t *leadsOff_p, uint16_t *leadsOff_n) {
     // Read the latest result, and request an asynchronous reading for the next iteration.
     if (latest_iox_status != WT_OK) {
         *leadsOff_p = ECG_LEADSOFF_INVALID_PLACEHOLDER;
         *leadsOff_n = ECG_LEADSOFF_INVALID_PLACEHOLDER;
     } else {
-        *leadsOff_p = ((latest_iox_register_value >> IOX_GPIO_ECG_LOD_P) & 1);
-        *leadsOff_n = ((latest_iox_register_value >> IOX_GPIO_ECG_LOD_N) & 1);
+        *leadsOff_p = (int16_t)((latest_iox_register_value >> IOX_GPIO_ECG_LOD_P) & 1);
+        *leadsOff_n = (int16_t)((latest_iox_register_value >> IOX_GPIO_ECG_LOD_N) & 1);
     }
+    return latest_iox_status;
 }
 
 //-----------------------------------------------------------------------------

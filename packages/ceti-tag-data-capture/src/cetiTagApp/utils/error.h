@@ -62,8 +62,9 @@ typedef enum wt_device_id_e {
 #define WT_ERR_IMU_START (WT_ERR_FPGA_START - 1)
 #define WT_ERR_IMU_BAD_PKT_SIZE (WT_ERR_IMU_START - 0)
 #define WT_ERR_IMU_UNEXPECTED_PKT_TYPE (WT_ERR_IMU_START - 1)
+#define WT_ERR_IMU_INVALID_BUFFER (WT_ERR_IMU_START - 2)
 
-#define WT_ERR_IOX_START (WT_ERR_IMU_START - 2)
+#define WT_ERR_IOX_START (WT_ERR_IMU_START - 3)
 #define WT_ERR_BAD_IOX_GPIO (WT_ERR_IOX_START - 0)
 #define WT_ERR_BAD_IOX_MODE (WT_ERR_IOX_START - 1)
 
@@ -132,13 +133,13 @@ const char *wt_strerror_device_name(WTResult errnum);
  * On failure, `__VA_OPT__` instuctions are performed prior
  * to a `WtResult` associated with `dev` and error being returned by the calling function.
  */
-#define PI_TRY(dev, body, ...) ({        \
-    int result = (body);                 \
-    if (result < 0) {                    \
-        __VA_OPT__((__VA_ARGS__);)       \
-        return WT_RESULT((dev), result); \
-    }                                    \
-    result;                              \
+#define PI_TRY(dev, body, ...) ({            \
+    int result = (body);                     \
+    if (__builtin_expect((result < 0), 0)) { \
+        __VA_OPT__((__VA_ARGS__);)           \
+        return WT_RESULT((dev), result);     \
+    }                                        \
+    result;                                  \
 })
 
 #endif // __LIB_WHALE_TAG_ERROR_H__

@@ -50,6 +50,9 @@ extern const size_t imu_subcommand_list_size;
 extern const CommandDescription mission_subcommand_list[];
 extern const size_t mission_subcommand_list_size;
 
+extern const CommandDescription network_subcommand_list[];
+extern const size_t network_subcommand_list_size;
+
 extern const CommandDescription recovery_subcommand_list[];
 extern const size_t recovery_subcommand_list_size;
 

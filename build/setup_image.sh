@@ -15,22 +15,23 @@ export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=yes
 apt update
 
 time apt install "${APT_NONINTERACTIVE}" --fix-broken --fix-missing --no-upgrade \
-	alsa-utils \
 	avahi-utils \
 	bc \
 	build-essential \
+	cryptsetup \
+	cryptsetup-bin \
 	devscripts \
 	dkms \
 	dnsmasq \
 	flac \
 	libcamera-apps \
+	i2c-tools \
 	libflac-dev \
 	libi2c-dev \
 	libpigpio-dev \
-	i2c-tools \
-	netcat \
+	overlayroot \
 	pigpio \
-	zlib1g-dev
+	rsyslog
 
 apt "${APT_NONINTERACTIVE}" autoremove
 
@@ -44,13 +45,13 @@ sed -i '$ s/$/ isolcpus=2,3/' /boot/cmdline.txt
 # Disable rfkill state restore and set default state to wifi on
 sed -i '$ s/$/ systemd.restore_state=0/' /boot/cmdline.txt
 sed -i '$ s/$/ rfkill.default_state=1/' /boot/cmdline.txt
+sed -i '$ s/$/ overlayroot=tmpfs:recurse=0/' /boot/cmdline.txt
 
-# Setup hardware parameters for i2c
-raspi-config nonint do_i2c 0
 {
 	echo "dtparam=i2c_vc=on"
 	echo "dtparam=i2c_vc_baudrate=400000"
 	echo "dtparam=i2c_arm_baudrate=400000"
+	echo "disable_splash=1"
 } >>/boot/config.txt
 
 # Setup UART for flashing recovery board
@@ -87,6 +88,24 @@ rm /etc/init.d/resize2fs_once
 # Copy filesystem overlay.
 tar -cf - -C "${OVERLAY_DIR}" --owner=pi --group=pi . | tar -xf - -C /
 
+# Disable NetworkManager in place of dhcpcd
+time apt install "${APT_NONINTERACTIVE}" --fix-broken --fix-missing --no-upgrade \
+	dhcpcd5
+systemctl disable NetworkManager.service
+echo "hostname" >>/etc/dhcpcd.conf
+systemctl enable dhcpcd.service
+# ln -s /lib/systemd/system/dhcpcd.service /mnt/etc/systemd/system/multi-user.target.wants/dhcpcd.service
+{
+	echo 'country=US'
+	echo 'ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev'
+	echo 'update_config=1'
+	echo 'network={'
+	echo '	ssid="CETI"'
+	echo '	psk="Talk2Whales"'
+	echo '}'
+} >>/etc/wpa_supplicant/wpa_supplicant-wlan0.conf
+chmod 600 /etc/wpa_supplicant/wpa_supplicant-wlan0.conf
+
 # Disable periodic systemd services
 rm -f /etc/systemd/system/timers.target.wants/apt-daily.timer
 rm -f /etc/systemd/system/timers.target.wants/apt-daily-upgrade.timer
@@ -103,7 +122,9 @@ make install -C stm32flash-code -j4
 rm -rf stm32flash-code
 
 # move location of syslogs to volatile partition to ensure logging is captured
+# forward journalctl to rsyslog
 sed -i 's,var/log/\(.[a-zA-Z]*\)\(\.log\)\?,data/\1.log,g' /etc/rsyslog.conf
+sed -i 's/#\(ForwardToSyslog\|MaxLevelSyslog\)/\1/g' /etc/systemd/journald.conf
 
 # add package directories to user PATH for bash to autofill names
 # shellcheck disable=SC2016

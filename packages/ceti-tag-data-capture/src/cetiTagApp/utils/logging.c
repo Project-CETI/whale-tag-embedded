@@ -24,19 +24,27 @@ void init_logging() {
 #pragma GCC diagnostic pop
 }
 
-int init_data_file(FILE *data_file, const char *data_filepath,
+int init_data_file(const char *data_filepath,
                    const char **data_file_headers, int num_data_file_headers,
                    char *data_file_notes, const char *log_tag) {
     // Open an output file to write data.
-    int data_file_exists = (access(data_filepath, F_OK) != -1);
-    data_file = fopen(data_filepath, "at");
+    if (access(data_filepath, F_OK) != -1) {
+        CETI_LOG("%s: Using the existing output data file: %s", log_tag, data_filepath);
+    } else {
+        CETI_LOG("%s: Creating a new output data file: %s", log_tag, data_filepath);
+    }
+    FILE *data_file = fopen(data_filepath, "at");
     if (data_file == NULL) {
-        CETI_LOG("%s: Failed to open/create an output data file: %s", log_tag,
-                 data_filepath);
+        CETI_LOG("%s: Failed to open/create an output data file: %s", log_tag, data_filepath);
         return -1;
     }
-    // Write headers if the file didn't already exist.
-    if (!data_file_exists) {
+
+    // Write headers if the file is empty
+    // Note: There is a chance the file may be empty if a restart occured during
+    // it's creation. Check if the file is empty, and add the header if it is empty (MSH)
+    fseek(data_file, 0, SEEK_END);
+    int size = ftell(data_file);
+    if (size == 0) {
         char header[500] =
             "Timestamp [us]"
             ",RTC Count"
@@ -47,14 +55,12 @@ int init_data_file(FILE *data_file, const char *data_filepath,
         }
         strcat(header, "\n");
         fprintf(data_file, "%s", header);
-        CETI_LOG("%s: Created a new output data file: %s", log_tag, data_filepath);
-    } else {
-        CETI_LOG("%s: Using the existing output data file: %s", log_tag,
-                 data_filepath);
     }
+
     // Add notes for the first timestep to indicate that logging was restarted.
-    if (data_file_notes != NULL)
+    if (data_file_notes != NULL) {
         strcat(data_file_notes, "Restarted! | ");
+    }
     // Close the file.
     fclose(data_file);
     return 0;

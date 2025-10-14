@@ -2,6 +2,10 @@ int recovery_wake(void) {
     return 0;
 }
 
+int recovery_gps_only(void) {
+    return 0;
+}
+
 int recovery_sleep(void) {
     return 0;
 }

@@ -65,7 +65,6 @@ int audio_setup(AudioConfig *config);
 int audio_set_bit_depth(AudioBitDepth bit_depth);
 int audio_set_filter_type(AudioFilterType filter_type);
 int audio_set_sample_rate(AudioSampleRate sample_rate);
-void init_audio_buffers();
 int setup_audio_default(void);
 int reset_audio_fifo(void);
 int start_audio_acq(void);
@@ -80,7 +79,6 @@ void audio_createNewRawFile();
 void *audio_thread_spi(void *paramPtr);
 void *audio_thread_writeFlac(void *paramPtr);
 void *audio_thread_writeRaw(void *paramPtr);
-void audio_check_for_overflow(int location_index);
 
 //-----------------------------------------------------------------------------
 // Global variables

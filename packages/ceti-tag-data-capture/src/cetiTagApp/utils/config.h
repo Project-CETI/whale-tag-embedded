@@ -24,6 +24,7 @@
 #define CONFIG_DEFAULT_TIMEOUT_S (4 * 24 * 60 * 60)
 #define CONFIG_DEFAULT_BURN_INTERVAL_S (5 * 60)
 #define CONFIG_DEFAULT_RECOVERY_ENABLED 0
+#define CONFIG_DEFAULT_RECOVERY_TX_ON_WHALE 0
 #define CONFIG_DEFAULT_RECOVERY_FREQUENCY_MHZ 145.050
 #define CONFIG_DEFAULT_RECOVERY_CALLSIGN "J75Y"
 #define CONFIG_DEFAULT_RECOVERY_SSID 1
@@ -51,6 +52,7 @@ typedef struct tag_configuration {
     time_t burn_interval_s;
     struct {
         int enabled;
+        int tx_on_whale;
         APRSCallsign callsign;
         APRSCallsign recipient;
         float freq_MHz;

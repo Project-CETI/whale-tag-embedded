@@ -24,7 +24,7 @@ TagConfig g_config = {
     .audio = {
         .filter_type = CONFIG_DEFAULT_AUDIO_FILTER_TYPE,
         .sample_rate = CONFIG_DEFAULT_AUDIO_SAMPLE_RATE,
-        .bit_depth = CONFIG_DEFAULT_AUDIO_SAMPLE_RATE,
+        .bit_depth = CONFIG_DEFAULT_AUDIO_BIT_DEPTH,
     },
     .surface_pressure = CONFIG_DEFAULT_SURFACE_PRESSURE_BAR, // depth_m is roughly 10*pressure_bar
     .dive_pressure = CONFIG_DEFAULT_DIVE_PRESSURE_BAR,       // depth_m is roughly 10*pressure_bar
@@ -35,6 +35,7 @@ TagConfig g_config = {
     .burn_interval_s = CONFIG_DEFAULT_BURN_INTERVAL_S,
     .recovery = {
         .enabled = CONFIG_DEFAULT_RECOVERY_ENABLED,
+        .tx_on_whale = CONFIG_DEFAULT_RECOVERY_TX_ON_WHALE,
         .freq_MHz = CONFIG_DEFAULT_RECOVERY_FREQUENCY_MHZ,
         .callsign = {
             .callsign = CONFIG_DEFAULT_RECOVERY_CALLSIGN,
@@ -63,6 +64,7 @@ static ConfigError __config_parse_timeout(const char *_String);
 static ConfigError __config_parse_time_of_day(const char *_String);
 static ConfigError __config_parse_burn_interval_value(const char *_String);
 static ConfigError __config_parse_recovery_enable_value(const char *_String);
+static ConfigError __config_parse_recovery_tx_on_whale_value(const char *_String);
 static ConfigError __config_parse_recovery_callsign_value(const char *_String);
 static ConfigError __config_parse_recovery_recipient_value(const char *_String);
 static ConfigError __config_parse_recovery_freq_value(const char *_String);
@@ -89,6 +91,7 @@ const ConfigList config_keys[] = {
     {.key = STR_FROM("audio_bitdepth"), .parse = __config_parse_audio_bitdepth},
     {.key = STR_FROM("audio_sample_rate"), .parse = __config_parse_audio_sample_rate},
     {.key = STR_FROM("rec_enabled"), .parse = __config_parse_recovery_enable_value},
+    {.key = STR_FROM("rec_tx_on_whale"), .parse = __config_parse_recovery_tx_on_whale_value},
     {.key = STR_FROM("rec_callsign"), .parse = __config_parse_recovery_callsign_value},
     {.key = STR_FROM("rec_recipient"), .parse = __config_parse_recovery_recipient_value},
     {.key = STR_FROM("rec_freq"), .parse = __config_parse_recovery_freq_value},
@@ -322,6 +325,11 @@ static ConfigError __config_parse_recovery_enable_value(const char *_String) {
     return CONFIG_OK;
 }
 
+static ConfigError __config_parse_recovery_tx_on_whale_value(const char *_String) {
+    g_config.recovery.tx_on_whale = strtobool(_String, NULL);
+    return CONFIG_OK;
+}
+
 static ConfigError __config_parse_recovery_callsign_value(const char *_String) {
     int result = callsign_try_from_str(&g_config.recovery.callsign, _String, NULL);
     if (result != 0) {
@@ -501,7 +509,20 @@ void config_log(uint64_t timestamp) {
     // Open file data_config_timestamp.txt
     char config_file_path[256];
 
-    snprintf(config_file_path, 255, "/data/data_config_%lu.txt", timestamp);
+    // Create a name for the info file.
+    // Append a number to the filename base until one is found that doesn't exist yet.
+    int filename_postfix_count = 0;
+    int filename_exists = 0;
+    do {
+        if (filename_postfix_count == 0) {
+            snprintf(config_file_path, 255, "/data/data_config_%lu.txt", timestamp);
+        } else {
+            snprintf(config_file_path, 255, "/data/data_config_%lu_%02d.txt", timestamp, filename_postfix_count);
+        }
+        filename_exists = (access(config_file_path, F_OK) != -1);
+        filename_postfix_count++;
+    } while (filename_exists);
+
     FILE *fConfig = fopen(config_file_path, "wt");
     if (fConfig == NULL) {
         return;

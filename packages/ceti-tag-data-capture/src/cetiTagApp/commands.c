@@ -31,7 +31,7 @@
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
-#define ENABLE_LEGACY_COMMANDS 1
+#define ENABLE_LEGACY_COMMANDS 0
 
 //-----------------------------------------------------------------------------
 // Private type definitions
@@ -51,6 +51,7 @@ static int handle_imu_command(const char *args);
 static int handle_fpga_command(const char *args);
 static int handle_mission_command(const char *args);
 static int handle_recovery_command(const char *args);
+static int handle_network_command(const char *args);
 
 static const CommandDescription command_list[] = {
     {.name = STR_FROM("quit"), .description = "Stop the app", .parse = __command_quit}, // special command must be first
@@ -111,6 +112,8 @@ static const CommandDescription command_list[] = {
 #if ENABLE_RECOVERY
     {.name = STR_FROM("recovery"), .description = "Send subcommand for recovery board", .parse = handle_recovery_command},
 #endif
+
+    {.name = STR_FROM("network"), .description = "Send subcommand for networking hardware", .parse = handle_network_command},
 };
 
 //-----------------------------------------------------------------------------
@@ -211,7 +214,7 @@ static int __handle_subcommand(const char *subcmd, const char *args, const Comma
         size_t subcommand_len = (subcommand_end - subcommand);
         for (int i = 0; i < subsub_size; i++) {
             if ((subsub_list[i].name.len == subcommand_len) && (memcmp(subcommand, subsub_list[i].name.ptr, subcommand_len) == 0)) {
-                CETI_LOG("Received `%s %s", subcmd, subsub_list[i].name.ptr);
+                CETI_DEBUG("Received `%s %s`", subcmd, subsub_list[i].name.ptr);
                 if (subsub_list[i].parse != NULL) {
                     return subsub_list[i].parse(subcommand_end);
                 } else {
@@ -264,6 +267,10 @@ static int handle_recovery_command(const char *args) {
     return __handle_subcommand("recovery", args, recovery_subcommand_list, recovery_subcommand_list_size);
 }
 
+static int handle_network_command(const char *args) {
+    return __handle_subcommand("network", args, network_subcommand_list, network_subcommand_list_size);
+}
+
 int handle_command(void) {
     // parse command identifier
     const char *command_end = NULL;
@@ -275,7 +282,7 @@ int handle_command(void) {
         for (int i = 0; i < sizeof(command_list) / sizeof(*command_list); i++) {
             if ((command_list[i].name.len == command_len) && (memcmp(command, command_list[i].name.ptr, command_len) == 0)) {
                 g_rsp_pipe = fopen(rsp_pipe_path, "w");
-                CETI_LOG("Received Recovery command: %s", command_list[i].name.ptr);
+                CETI_LOG("Received command: %s", g_command);
                 if (command_list[i].parse != NULL) {
                     int return_val = command_list[i].parse(command_end);
                     fclose(g_rsp_pipe);

@@ -109,6 +109,9 @@ struct {
 
 static int audio_writing_to_status_file = 0;
 
+static void __audio_check_for_overflow(int location_index);
+static void __init_audio_buffers();
+
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
@@ -119,7 +122,7 @@ int g_audio_thread_writeData_is_running = 0;
 // Static variables
 static bool s_audio_initialized = 0;
 
-WTResult wt_audio_init(void) {
+static WTResult wt_audio_init(void) {
     WT_TRY(iox_init());
     // Initialize 5v enable as ouput and drive high.
     WT_TRY(iox_set_mode(IOX_GPIO_5V_EN, IOX_MODE_OUTPUT));
@@ -134,16 +137,16 @@ WTResult wt_audio_init(void) {
     return WT_OK;
 }
 
-int wt_audio_read_data_ready(void) {
+static int wt_audio_read_data_ready(void) {
     return gpioRead(AUDIO_DATA_AVAILABLE);
 }
 
-int wt_audio_read_overflow(void) {
+static int wt_audio_read_overflow(void) {
     return gpioRead(AUDIO_OVERFLOW_GPIO);
 }
 
 //  Acquisition Hardware Setup and Control Utility Functions
-void init_audio_buffers() {
+static void __init_audio_buffers() {
     shm_audio->block = 0;
     shm_audio->page = 0;
     audio_buffer_toWrite = 0;
@@ -291,7 +294,7 @@ int reset_audio_fifo(void) {
 
 int start_audio_acq(void) {
     CETI_LOG("Starting audio acquisition");
-    init_audio_buffers();
+    __init_audio_buffers();
 #if ENABLE_AUDIO_FLAC
     audio_createNewFlacFile();
 #else
@@ -339,6 +342,7 @@ void audio_status_record(void) {
     fprintf(audio_status_file, "%lld", global_time_us);
     fprintf(audio_status_file, ",%d", rtc_time_s);
     // Write any notes, then clear them so they are only written once.
+    fprintf(audio_status_file, ",");
     if (s_audio_status_reset) {
         fprintf(audio_status_file, "Restarted! | ");
         s_audio_status_reset = 0;
@@ -404,14 +408,16 @@ int audio_thread_init(void) {
     }
 
     // Open an output file to write data.
-    int data_file_exists = (access(AUDIO_STATUS_FILEPATH, F_OK) != -1);
     audio_status_file = fopen(AUDIO_STATUS_FILEPATH, "at");
     if (audio_status_file == NULL) {
         CETI_ERR("Failed to open/create an output data file: " AUDIO_STATUS_FILEPATH ": %s", strerror_r(errno, err_str, sizeof(err_str)));
         thread_result |= THREAD_ERR_DATA_FILE_FAILED;
     } else {
-        // Write headers if the file didn't already exist.
-        if (!data_file_exists) {
+        // There is a chance the file may be empty if a restart occured during
+        // it's creation. Check if the file is empty, and add the header if it is empty (MSH)
+        fseek(audio_status_file, 0, SEEK_END);
+        int size = ftell(audio_status_file);
+        if (size == 0) {
             fprintf(audio_status_file, AUDIO_STATUS_CSV_HEADER "\n");
         }
         fclose(audio_status_file); // Close the file.
@@ -442,7 +448,7 @@ void *audio_thread_spi(void *paramPtr) {
         return NULL;
     }
 
-    init_audio_buffers();
+    __init_audio_buffers();
     int spi_fd = spiOpen(SPI_CE, SPI_CLK_RATE, 1);
 
     if (spi_fd < 0) {
@@ -471,7 +477,7 @@ void *audio_thread_spi(void *paramPtr) {
         CETI_WARN("Failed to set priority");
 
     // Check if the audio is already overflowed.
-    audio_check_for_overflow(0);
+    __audio_check_for_overflow(0);
 
     // Main loop to acquire audio data.
     g_audio_thread_spi_is_running = 1;
@@ -506,7 +512,7 @@ void *audio_thread_spi(void *paramPtr) {
 #endif
 
         // Read a block of data if an overflow has not occurred.
-        audio_check_for_overflow(2);
+        __audio_check_for_overflow(2);
         if (g_audio_overflow_detected) {
             break;
         }
@@ -529,14 +535,14 @@ void *audio_thread_spi(void *paramPtr) {
         // signal new data for other processes working with live streamed data
         sem_post(sem_audio_block);
 
-        // don't wait if more data is ready
-        if (!wt_audio_read_data_ready()) {
-            continue;
-        }
-
         // only perform checks/sleep if we have time to
         // Check if the FPGA buffer overflowed.
-        audio_check_for_overflow(3);
+        __audio_check_for_overflow(3);
+
+        // don't wait if more data is ready
+        if (wt_audio_read_data_ready()) {
+            continue;
+        }
 
         // wait until expected next interrupt
         time_t elapsed_time = get_global_time_us() - (int64_t)(current_timeval.tv_sec * 1000000LL) - (int64_t)(current_timeval.tv_usec);
@@ -549,10 +555,11 @@ void *audio_thread_spi(void *paramPtr) {
     spiClose(spi_fd);
 
     // Log that the thread is stopping.
-    if (g_audio_overflow_detected && !g_stopAcquisition)
+    if (g_audio_overflow_detected && !g_stopAcquisition) {
         CETI_LOG("*** Audio overflow detected at location %d", g_audio_status.overflow_location);
-    else
+    } else {
         CETI_LOG("Done!");
+    }
 
     // Wait for the write-data thread to finish as well.
     while (g_audio_thread_writeData_is_running)
@@ -638,7 +645,12 @@ void *audio_thread_writeFlac(void *paramPtr) {
         audio_status_record();
 
         // Write the buffer to a file.
-        if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24) {
+#if ENABLE_RUNTIME_AUDIO
+        if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24)
+#else
+        if (CONFIG_DEFAULT_AUDIO_BIT_DEPTH == AUDIO_BIT_DEPTH_24)
+#endif
+        {
             for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE24; i_sample++) {
                 for (size_t i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++) {
                     uint8_t *i_ptr = shm_audio->data[audio_buffer_toWrite].sample24[i_sample][i_channel];
@@ -650,9 +662,9 @@ void *audio_thread_writeFlac(void *paramPtr) {
         } else {
             for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE16; i_sample++) {
                 for (size_t i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++) {
-                    uint8_t *i_ptr = shm_audio->data[audio_buffer_toWrite].sample16[i_sample][i_channel];
-                    FLAC__int32 value = ((FLAC__int32)i_ptr[0] << 24) | ((FLAC__int32)i_ptr[1] << 16);
-                    buff[i_sample][i_channel] = value / (1 << 16);
+                    uint16_t usigned_val = be16toh(*(uint16_t *)shm_audio->data[audio_buffer_toWrite].sample16[i_sample][i_channel]);
+                    int16_t signed_val = *(int16_t *)(&usigned_val);
+                    buff[i_sample][i_channel] = (FLAC__int32)signed_val;
                 }
             }
             FLAC__stream_encoder_process_interleaved(flac_encoder, &buff[0][0], AUDIO_BUFFER_SIZE_SAMPLE16);
@@ -681,7 +693,12 @@ void *audio_thread_writeFlac(void *paramPtr) {
         }
 
         int bytes_to_flush = (shm_audio->block * SPI_BLOCK_SIZE);
-        if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24) {
+#if ENABLE_RUNTIME_AUDIO
+        if (g_config.audio.bit_depth == AUDIO_BIT_DEPTH_24)
+#else
+        if (CONFIG_DEFAULT_AUDIO_BIT_DEPTH == AUDIO_BIT_DEPTH_24)
+#endif
+        {
             int samples_to_flush = bytes_to_flush / (AUDIO_CHANNELS * 3);
             CETI_LOG("Flushing partial %d sample buffer.", samples_to_flush);
             for (size_t i_sample = 0; i_sample < samples_to_flush; i_sample++) {
@@ -698,8 +715,9 @@ void *audio_thread_writeFlac(void *paramPtr) {
             for (size_t i_sample = 0; i_sample < samples_to_flush; i_sample++) {
                 for (size_t i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++) {
                     uint8_t *i_ptr = shm_audio->data[shm_audio->page].sample16[i_sample][i_channel];
-                    FLAC__int32 value = ((FLAC__int32)i_ptr[0] << 24) | ((FLAC__int32)i_ptr[1] << 16);
-                    buff[i_sample][i_channel] = value / (1 << 16);
+                    uint16_t usigned_val = be16toh(*(uint16_t *)i_ptr);
+                    int16_t signed_val = *(int16_t *)(&usigned_val);
+                    buff[i_sample][i_channel] = (FLAC__int32)signed_val;
                 }
             }
             CETI_DEBUG("All samples moved to flac buffer");
@@ -882,7 +900,7 @@ void audio_createNewRawFile() {
 //-----------------------------------------------------------------------------
 // Various helpers
 //-----------------------------------------------------------------------------
-void audio_check_for_overflow(int location_index) {
+static void __audio_check_for_overflow(int location_index) {
 #if AUDIO_OVERFLOW_GPIO >= 0
     g_audio_overflow_detected = g_audio_overflow_detected || wt_audio_read_overflow();
     g_audio_status.overflow = g_audio_overflow_detected;

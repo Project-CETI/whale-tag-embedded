@@ -3,15 +3,13 @@
 // Version:      Refer to _versioning.h
 // Copyright:    Cummings Electronics Labs, Harvard University Wood Lab,
 //               MIT CSAIL
-// Contributors: Michael Salino-Hugg
+// Contributors: Michael Salino-Hugg,
+//               [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
+#ifndef IMU_LOG_H
+#define IMU_LOG_H
 
-#ifndef CETI_MEMORY_H
-#define CETI_MEMORY_H
+int imu_init_data_files(void);
+void *imu_log_thread(void *paramPtr);
 
-#include <unistd.h>
-
-void *create_shared_memory_region(const char *name, size_t size);
-void *shm_open_read(const char *pName, size_t size);
-
-#endif // CETI_MEMORY_H
+#endif // IMU_LOG_H

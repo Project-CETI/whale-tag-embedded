@@ -15,6 +15,7 @@
 #include "burnwire.h"
 #include "launcher.h" // for g_exit, g_stopAcquisition, g_stopLogging sampling rate, data filepath, and CPU affinity
 #include "recovery.h"
+#include "sensors/imu.h" // for recovery float detection
 #include "sensors/pressure_temperature.h"
 #include "systemMonitor.h" // for the global CPU assignment variable to update
 
@@ -25,6 +26,7 @@
 #include "utils/timing.h" //for get_global_time_us(), getRtcCount()
 
 #include <errno.h>
+#include <math.h>    // for M_PI
 #include <pthread.h> // to set CPU affinity
 #include <stdint.h>
 #include <stdio.h>  // for FILE
@@ -39,14 +41,24 @@
 // Global/static variables
 //-----------------------------------------------------------------------------
 
-static int presentState = ST_CONFIG;
-static int networking_is_enabled = 1;
+typedef double f64;
+
 // RTC counts
+typedef enum {
+    BSS_NONE,
+    BSS_FILE,
+    BSS_RTC,
+    BSS_NTP,
+} BurnStartSource;
+
+static int presentState = ST_CONFIG;
 static unsigned int start_time_s = 0;
+static BurnStartSource burnwire_start_source_s = BSS_NONE;
 static unsigned int burnwire_timeout_start_s = 0;
 static int64_t burnwire_time_of_day_release_s = 0;
 static uint32_t burnwire_started_time_s = 0;
 static int s_state_machine_paused = 0;
+
 // Output file
 int g_stateMachine_thread_is_running = 0;
 static FILE *stateMachine_data_file = NULL;
@@ -57,10 +69,106 @@ static const char *stateMachine_data_file_headers[] = {
 };
 static const int num_stateMachine_data_file_headers = sizeof(stateMachine_data_file_headers) / sizeof(*stateMachine_data_file_headers);
 
+static int __at_depth(void) {
+    return ((g_pressure->error == WT_OK) && (g_pressure->pressure_bar > g_config.dive_pressure));
+}
+
+static int __at_surface(void) {
+    return (g_pressure->error != WT_OK) || (g_pressure->pressure_bar < g_config.surface_pressure);
+}
+
+//-----------------------------------------------------------------------------
+// FLOAT_DETECTION
+//-----------------------------------------------------------------------------
+#if FLOAT_DETECTION
+#define FLOAT_DETECT_SMOOTHING_COUNT 10
+#define FLOAT_DETECT_TARGET_PITCH_DEG (-85.0) // pitch imperically found to not be -90.0 probably due to suction cups (MSH)
+#define FLOAT_DETECT_TARGET_ROLL_DEG (0.0)
+#define FLOAT_DETECT_ANGLE_RANGE_DEG (10.0)
+#define FLOAT_DETECT_HOLD_TIME MIN_TO_SEC(20)
+#define FLOAT_DETECT_SMOOTHING_COUNT 10
+
+static int s_float_triggered = 0;
+static f64 imu_d_pitch_norm_deg[FLOAT_DETECT_SMOOTHING_COUNT] = {};
+static f64 imu_d_roll_norm_deg[FLOAT_DETECT_SMOOTHING_COUNT] = {};
+static int imu_buffer_offset = 0;
+static f64 imu_abs_d_pitch_sum_deg = 0.0;
+static f64 imu_abs_d_roll_sum_deg = 0.0;
+
+static int __oriented_upright(void) {
+    EulerAngles_f64 latest_euler;
+    if (imu_get_latest_rotation_euler(&latest_euler) != 0) {
+        return 0;
+    }
+
+    f64 d_pitch_norm = fabs(FLOAT_DETECT_TARGET_PITCH_DEG - (latest_euler.pitch * M_PI / 180.0));
+    f64 d_roll_norm = fabs(FLOAT_DETECT_TARGET_ROLL_DEG - (latest_euler.roll * M_PI / 180.0));
+
+    imu_abs_d_pitch_sum_deg -= imu_d_pitch_norm_deg[imu_buffer_offset];
+    imu_abs_d_roll_sum_deg -= imu_d_roll_norm_deg[imu_buffer_offset];
+
+    imu_d_pitch_norm_deg[imu_buffer_offset] = d_pitch_norm;
+    imu_d_roll_norm_deg[imu_buffer_offset] = d_roll_norm;
+
+    imu_abs_d_pitch_sum_deg += imu_d_pitch_norm_deg[imu_buffer_offset];
+    imu_abs_d_roll_sum_deg += imu_d_roll_norm_deg[imu_buffer_offset];
+
+    imu_buffer_offset = (imu_buffer_offset + 1) % FLOAT_DETECT_SMOOTHING_COUNT;
+
+    f64 p_error_average = imu_abs_d_pitch_sum_deg / FLOAT_DETECT_SMOOTHING_COUNT;
+    f64 r_error_average = imu_abs_d_pitch_sum_deg / FLOAT_DETECT_SMOOTHING_COUNT;
+
+    return ((p_error_average < 10.0) && (r_error_average < 10.0));
+}
+
+static int float_start_detected = 0;
+static void __reset_float_detection(void) {
+    float_start_detected = 0;
+
+    // reset buffer
+    bzero(imu_d_pitch_norm_deg, sizeof(imu_d_pitch_norm_deg));
+    bzero(imu_d_roll_norm_deg, sizeof(imu_d_roll_norm_deg));
+    imu_buffer_offset = 0;
+    imu_abs_d_pitch_sum_deg = 0.0f;
+    imu_abs_d_roll_sum_deg = 0.0f;
+}
+
+static int __is_floating(void) {
+#if ENABLE_PRESSURETEMPERATURE_SENSOR && ENABLE_IMU
+    static uint32_t float_start_time_s = 0;
+
+    if (!__at_depth() && __oriented_upright()) {
+        if (!float_start_detected) {
+            float_start_time_s = get_global_time_s();
+            float_start_detected = 1;
+        }
+        return (get_global_time_s() - float_start_time_s > FLOAT_DETECT_HOLD_TIME);
+    }
+
+    if (float_start_detected) {
+        __reset_float_detection();
+    }
+#endif // ENABLE_PRESSURE_TEMPERATURE_SENSOR && ENABLE_IMU
+    return 0;
+}
+#endif // FLOAT_DETECTION
+
+static int __is_charging(void) {
+#if ENABLE_BATTERY_GAUGE
+    if (shm_battery->error != WT_OK) {
+        return 1; // keeps wifi on if BMS is failing to communicate
+    }
+
+    return (shm_battery->current_mA > 0.0);
+#else
+    return 0;
+#endif // ENABLE_BATTERY_GAUGE
+}
+
 int init_stateMachine() {
     CETI_LOG("Successfully initialized the state machine");
     // Open an output file to write data.
-    if (init_data_file(stateMachine_data_file, STATEMACHINE_DATA_FILEPATH,
+    if (init_data_file(STATEMACHINE_DATA_FILEPATH,
                        stateMachine_data_file_headers, num_stateMachine_data_file_headers,
                        stateMachine_data_file_notes, "init_stateMachine()") < 0)
         return -1;
@@ -162,6 +270,12 @@ int stateMachine_set_state(wt_state_t new_state) {
             activity_led_enable();
             break;
 
+        case ST_RECORD_SURFACE:
+#if FLOAT_DETECTION
+            s_float_triggered = 0;
+#endif // FLOAT_DETECTION
+            break;
+
         case ST_BRN_ON:
 #if ENABLE_BURNWIRE
             burnwireOff();
@@ -184,6 +298,9 @@ int stateMachine_set_state(wt_state_t new_state) {
     switch (new_state) {
 
         case ST_RECORD_DIVING:
+#if FLOAT_DETECTION
+            __reset_float_detection();
+#endif // FLOAT_DETECTION
             activity_led_disable();
 #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
@@ -196,6 +313,11 @@ int stateMachine_set_state(wt_state_t new_state) {
             if (access(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, F_OK) == -1) {
 #ifndef UNIT_TEST
                 burnwire_timeout_start_s = get_global_time_s();
+                if (timing_has_syncronized_to_ntp()) {
+                    burnwire_start_source_s = BSS_NTP;
+                } else {
+                    burnwire_start_source_s = BSS_RTC;
+                }
                 CETI_LOG("Starting dive; recording burnwire timeout start time %u", burnwire_timeout_start_s);
                 FILE *file_burnwire_timeout_start_s = NULL;
                 file_burnwire_timeout_start_s = fopen(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, "w");
@@ -212,10 +334,13 @@ int stateMachine_set_state(wt_state_t new_state) {
         case ST_RECORD_SURFACE:
 #if ENABLE_RECOVERY
             if (g_config.recovery.enabled) {
-                recovery_wake();
+                if (g_config.recovery.tx_on_whale) {
+                    recovery_wake();
+                } else {
+                    recovery_gps_only();
+                }
             }
 #endif // ENABLE_RECOVERY
-
             break;
 
         case ST_BRN_ON:
@@ -273,6 +398,13 @@ void stateMachine_pause(void) {
 void stateMachine_resume(void) {
     s_state_machine_paused = 0;
 }
+static int battery_low_voltage_count = 0;
+static int battery_critical_voltage_count = 0;
+
+void reset_voltage_counters(void) {
+    battery_low_voltage_count = 0;
+    battery_critical_voltage_count = 0;
+}
 
 int updateStateMachine() {
     static int s_bms_error_count = 0;
@@ -320,6 +452,11 @@ int updateStateMachine() {
             // Note that the target time will be at first dive to ensure it's a real deployment,
             // but will use current time for now in case there is never a dive.
             burnwire_timeout_start_s = get_global_time_s(); // default to the current time
+            if (timing_has_syncronized_to_ntp()) {
+                burnwire_start_source_s = BSS_NTP;
+            } else {
+                burnwire_start_source_s = BSS_RTC;
+            }
             FILE *file_burnwire_timeout_start_s = NULL;
             char line[512];
             file_burnwire_timeout_start_s = fopen(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH, "r");
@@ -331,6 +468,7 @@ int updateStateMachine() {
                     unsigned int loaded_start_time_s = strtoul(line, NULL, 10);
                     if (loaded_start_time_s != 0) // will be 0 if the conversion to integer failed
                         burnwire_timeout_start_s = loaded_start_time_s;
+                    burnwire_start_source_s = BSS_FILE;
                 }
             }
             CETI_LOG("Using the following burnwire timeout start time: %u", burnwire_timeout_start_s);
@@ -338,17 +476,10 @@ int updateStateMachine() {
                 burnwire_time_of_day_release_s = get_next_time_of_day_occurance_s(&g_config.tod_release.value);
                 CETI_LOG("Time of day release set to %lu", burnwire_time_of_day_release_s);
             }
-// Turn off networking if desired.
-#if FORCE_NETWORKS_OFF_ON_START
-            wifi_disable();
-            wifi_kill();
-            bluetooth_kill();
-            eth0_disable();
-#endif
 
 // Transition to the appropriate recording state.
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
-            if ((g_pressure->error == WT_OK) && (g_pressure->pressure_bar > g_config.dive_pressure)) {
+            if (__at_depth()) {
                 stateMachine_set_state(ST_RECORD_DIVING);
             } else {
                 stateMachine_set_state(ST_RECORD_SURFACE);
@@ -361,19 +492,13 @@ int updateStateMachine() {
         // Recording while sumberged
         case (ST_RECORD_DIVING):
             // Turn off networking if the grace period has passed.
-            if (networking_is_enabled && (get_global_time_s() - start_time_s > (WIFI_GRACE_PERIOD_MIN * 60))) {
-                wifi_disable();
-                wifi_kill();
-                bluetooth_kill();
-                eth0_disable();
-                // usb_kill();
-                activity_led_disable();
-                networking_is_enabled = 0;
+            if (networking_is_enabled() && !networking_ssh_session_active() && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN)) && !__is_charging()) {
+                networking_disable();
             }
 
             // Turn on the burnwire if the timeout has passed since the deployment started.
             if ((get_global_time_s() - burnwire_timeout_start_s) > g_config.timeout_s) {
-                CETI_LOG("TIMEOUT!!! Initializing Burn");
+                CETI_LOG("TIMEOUT!!! Initializing Burn (%ld - %d > %ld)", get_global_time_s(), burnwire_timeout_start_s, g_config.timeout_s);
                 stateMachine_set_state(ST_BRN_ON);
                 break;
             } else if (g_config.tod_release.valid && (burnwire_time_of_day_release_s < get_global_time_s())) {
@@ -387,7 +512,12 @@ int updateStateMachine() {
             if (shm_battery->error == WT_OK) {
                 s_bms_error_count = 0;
                 if ((shm_battery->cell_voltage_v[0] < g_config.release_voltage_v) || (shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
-                    CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
+                    battery_low_voltage_count++;
+                } else {
+                    battery_low_voltage_count = 0;
+                }
+                if (battery_low_voltage_count >= BATTERY_LOW_VOLTAGE_CONSECUTIVE_THRESHOLD) {
+                    CETI_LOG("LOW VOLTAGE!!! Initializing Burn from Diving");
                     stateMachine_set_state(ST_BRN_ON);
                     break;
                 }
@@ -411,7 +541,7 @@ int updateStateMachine() {
 
 // Transition state if at the surface.
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
-            if ((g_pressure->error != WT_OK) || (g_pressure->pressure_bar < g_config.surface_pressure)) {
+            if (__at_surface()) {
                 stateMachine_set_state(ST_RECORD_SURFACE); // came to surface
                 break;
             }
@@ -420,9 +550,30 @@ int updateStateMachine() {
 
         // Recording while at surface, trying to get a GPS fix
         case (ST_RECORD_SURFACE):
+            // Resyncronize clock if networking still up and time has never synced
+            if (networking_is_enabled() && !timing_has_syncronized_to_ntp()) {
+                timing_syncronize_to_ntp();
+                // update burn time if previous burn time was generated via the RTC (not file or NTP)
+                if (timing_has_syncronized_to_ntp() && (burnwire_start_source_s == BSS_RTC)) {
+                    burnwire_start_source_s = BSS_NTP;
+                    burnwire_timeout_start_s = get_global_time_s();
+                    CETI_LOG("Updating burnwire timeout start time %u", burnwire_timeout_start_s);
+
+                    if (g_config.tod_release.valid) {
+                        burnwire_time_of_day_release_s = get_next_time_of_day_occurance_s(&g_config.tod_release.value);
+                        CETI_LOG("Time of day release updated to %lu", burnwire_time_of_day_release_s);
+                    }
+                }
+            }
+
+            // Turn off networking if the grace period has passed and no ssh session is active
+            if (networking_is_enabled() && !networking_ssh_session_active() && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN)) && !__is_charging()) {
+                networking_disable();
+            }
+
             // Turn on the burnwire if the timeout has passed since the deployment started.
             if (get_global_time_s() - burnwire_timeout_start_s > g_config.timeout_s) {
-                CETI_LOG("TIMEOUT!!! Initializing Burn");
+                CETI_LOG("TIMEOUT!!! Initializing Burn (%ld - %d > %ld)", get_global_time_s(), burnwire_timeout_start_s, g_config.timeout_s);
                 stateMachine_set_state(ST_BRN_ON);
                 break;
             } else if (g_config.tod_release.valid && (burnwire_time_of_day_release_s < get_global_time_s())) {
@@ -436,7 +587,12 @@ int updateStateMachine() {
             if (shm_battery->error == WT_OK) {
                 s_bms_error_count = 0;
                 if ((shm_battery->cell_voltage_v[0] < g_config.release_voltage_v) || (shm_battery->cell_voltage_v[1] < g_config.release_voltage_v)) {
-                    CETI_LOG("LOW VOLTAGE!!! Initializing Burn");
+                    battery_low_voltage_count++;
+                } else {
+                    battery_low_voltage_count = 0;
+                }
+                if (battery_low_voltage_count >= BATTERY_LOW_VOLTAGE_CONSECUTIVE_THRESHOLD) {
+                    CETI_LOG("LOW VOLTAGE!!! Initializing Burn from Surface");
                     stateMachine_set_state(ST_BRN_ON);
                     break;
                 }
@@ -462,11 +618,39 @@ int updateStateMachine() {
 
 // Transition state if diving.
 #if ENABLE_PRESSURETEMPERATURE_SENSOR
-            if ((g_pressure->error == WT_OK) && (g_pressure->pressure_bar > g_config.dive_pressure)) {
+            if (__at_depth()) {
                 stateMachine_set_state(ST_RECORD_DIVING); // back down...
                 break;
             }
 #endif
+
+#if FLOAT_DETECTION
+            if (!g_config.recovery.tx_on_whale) {
+                // enable recovery in case we're likely off the whale
+                // will turn back off once whale dives if it did not actually release
+                if (__is_floating()) {
+                    if (!s_float_triggered) {
+                        CETI_LOG("Tag is likely floating at the surface. Enabling APRS until next dive");
+#if ENABLE_RECOVERY
+                        if (g_config.recovery.enabled) {
+                            recovery_wake();
+                        }
+#endif // ENABLE_RECOVERY
+                        s_float_triggered = 1;
+                    }
+                } else {
+                    if (s_float_triggered) {
+                        CETI_LOG("Tag is exited floating position. APRS disabled");
+#if ENABLE_RECOVERY
+                        if (g_config.recovery.enabled) {
+                            recovery_gps_only();
+                        }
+#endif // ENABLE_RECOVERY
+                        s_float_triggered = 0;
+                    }
+                }
+            }
+#endif // FLOAT_DETECTION
 
             break;
 
@@ -480,6 +664,11 @@ int updateStateMachine() {
             if (shm_battery->error == WT_OK) {
                 s_bms_error_count = 0;
                 if ((shm_battery->cell_voltage_v[0] < g_config.critical_voltage_v) || (shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v)) {
+                    battery_critical_voltage_count++;
+                } else {
+                    battery_critical_voltage_count = 0;
+                }
+                if (battery_critical_voltage_count >= BATTERY_CRITICAL_VOLTAGE_CONSECUTIVE_THRESHOLD) {
                     CETI_LOG("CRITICAL VOLTAGE!!! Terminating Burn Early");
                     stateMachine_set_state(ST_SHUTDOWN);
                     break;
@@ -512,6 +701,11 @@ int updateStateMachine() {
             if (shm_battery->error == WT_OK) {
                 s_bms_error_count = 0;
                 if ((shm_battery->cell_voltage_v[0] < g_config.critical_voltage_v) || (shm_battery->cell_voltage_v[1] < g_config.critical_voltage_v)) {
+                    battery_critical_voltage_count++;
+                } else {
+                    battery_critical_voltage_count = 0;
+                }
+                if (battery_critical_voltage_count >= BATTERY_CRITICAL_VOLTAGE_CONSECUTIVE_THRESHOLD) {
                     CETI_LOG("CRITICAL VOLTAGE!!! Terminating Retreival");
                     stateMachine_set_state(ST_SHUTDOWN);
                     break;
@@ -524,7 +718,18 @@ int updateStateMachine() {
 
                 s_bms_error_count++;
                 /* MSH: If BMS communication error better to remain in retrieve mode and allow BMS hardware to handle shutdown */
+#if FLOAT_DETECTION
+                if (__is_floating()) {
+                    if (!s_float_triggered) {
+                        CETI_LOG("Floating at surface detected. Disabling high data-rate sensors for additional energy saving.");
+                        // ToDo: disable power hungry threads to conserve power for recovery
+                        // disable LEDs
+                        s_float_triggered = 1;
+                    }
+                }
+#endif // FLOAT_DETECTION
             }
+
 #endif
 
             break;

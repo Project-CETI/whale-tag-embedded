@@ -1,4 +1,4 @@
-FROM debian:bullseye
+FROM debian:bookworm
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
     binfmt-support \
@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     python3 \
     python3-distutils \
     python3-pip \
-    qemu \
+    qemu-user-static \
     qemu-system-arm \
     sudo \
     unzip \

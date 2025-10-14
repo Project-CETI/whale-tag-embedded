@@ -38,7 +38,7 @@ extern int g_ecg_lod_thread_is_running;
 //-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
-void ecg_get_latest_leadsOff_detections(int *leadsOff_p, int *leadsOff_n);
+WTResult ecg_get_latest_leadsOff_detections(uint16_t *leadsOff_p, uint16_t *leadsOff_n);
 
 // Threading methods
 int ecg_lod_init(void);

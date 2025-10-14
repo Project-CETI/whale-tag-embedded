@@ -168,6 +168,7 @@ WTResult wt_recovery_off(void) {
  */
 WTResult wt_recovery_on(void) {
     return iox_write_pin(IOX_GPIO_3V3_RF_EN, 1);
+    return WT_OK;
 }
 
 /* STATIC
@@ -594,6 +595,18 @@ int recovery_sleep(void) {
     return 0;
 }
 
+int recovery_gps_only(void) {
+    RecPktHeader start_pkt = REC_EMPTY_PKT(REC_CMD_COLLECT_ONLY);
+    WTResult tx_result = __recovery_write(&start_pkt, sizeof(start_pkt));
+    if (tx_result != WT_OK) {
+        char err_str[512];
+        CETI_ERR("Failed to put board to gps only: %s", wt_strerror_r(tx_result, err_str, sizeof(err_str)));
+        return -1;
+    }
+    s_recovery_board_model.state = REC_STATE_APRS;
+    return 0;
+}
+
 /**
  * @brief Applys power to recovery board.
  *
@@ -663,7 +676,7 @@ int recovery_thread_init(TagConfig *pConfig) {
     }
 
     // Open an output file to write data.
-    if (init_data_file(recovery_data_file, RECOVERY_DATA_FILEPATH,
+    if (init_data_file(RECOVERY_DATA_FILEPATH,
                        recovery_data_file_headers, num_recovery_data_file_headers,
                        recovery_data_file_notes, "init_data_file()") < 0) {
         CETI_LOG("Failed to initialize recovery board thread");
