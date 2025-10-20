@@ -109,22 +109,26 @@ chmod 600 /etc/wpa_supplicant/wpa_supplicant-wlan0.conf
 systemctl disable apt-daily.timer
 systemctl disable apt-daily-upgrade.timer
 systemctl disable man-db.timer
-systemctl disable logrotate.timer
 systemctl disable fstrim.timer
+systemctl disable dpkg-db-backup.timer
+systemctl disable cron.service
+systemctl disable e2scrub_all.timer
+systemctl disable logrotate.timer
 systemctl disable cron.service
 
-#disable unused services
-systemctl disable triggerhappy.service
-systemctl disable bluetooth.service
+systemctl disable bluetooth.target
 systemctl disable ModemManager.service
+systemctl disable triggerhappy.socket
 systemctl disable keyboard-setup.service
+systemctl disable fake-hwclock.service
 
 #disable uart console
-sed -i 's/\(.*\)console=serial0,115200 \(.*\)/\1\2/' /boot/firmware/cmdline.txt
+sed -i 's/\(.*\)console=serial0,115200 \(.*\)/\1\2/' /boot/cmdline.txt
+sed -i 's/\(.*\)console=serial0,115200 \(.*\)/\1\2/' /boot/cmdline.txt
 
 #disable hdmi
-sed -i 's/hdmi_blanking=.*/hdmi_blanking=2/' /boot/firmware/config.txt | echo "hdmi_blanking=2" >>/boot/firmware/config.txt
-sed -i 's/hdmi_force_hotplug=.*/hdmi_force_hotplug=0/' /boot/firmware/config.txt | echo "hdmi_force_hotplug=0" >>/boot/firmware/config.txt
+sed -i 's/hdmi_blanking=.*/hdmi_blanking=2/' /boot/config.txt || echo "hdmi_blanking=2" >>/boot/config.txt
+sed -i 's/hdmi_force_hotplug=.*/hdmi_force_hotplug=0/' /boot/config.txt || echo "hdmi_force_hotplug=0" >>/boot/config.txt
 
 # Add useful commands to the bash history.
 rm -f /home/pi/.bash_history
