@@ -106,24 +106,25 @@ systemctl enable dhcpcd.service
 chmod 600 /etc/wpa_supplicant/wpa_supplicant-wlan0.conf
 
 # Disable periodic systemd services
-systemctl disable apt-daily.timer
-systemctl disable apt-daily-upgrade.timer
-systemctl disable man-db.timer
-systemctl disable fstrim.timer
-systemctl disable dpkg-db-backup.timer
-systemctl disable cron.service
-systemctl disable e2scrub_all.timer
-systemctl disable logrotate.timer
-systemctl disable cron.service
+systemctl disable \
+	apt-daily.timer \
+	apt-daily-upgrade.timer \
+	man-db.timer \
+	fstrim.timer \
+	dpkg-db-backup.timer \
+	cron.service \
+	e2scrub_all.timer \
+	logrotate.timer
 
-systemctl disable bluetooth.target
-systemctl disable ModemManager.service
-systemctl disable triggerhappy.socket
-systemctl disable keyboard-setup.service
-systemctl disable fake-hwclock.service
+# Disable unneeded services
+systemctl disable \
+	bluetooth.target \
+	ModemManager.service \
+	triggerhappy.socket \
+	keyboard-setup.service \
+	fake-hwclock.service
 
 #disable uart console
-sed -i 's/\(.*\)console=serial0,115200 \(.*\)/\1\2/' /boot/cmdline.txt
 sed -i 's/\(.*\)console=serial0,115200 \(.*\)/\1\2/' /boot/cmdline.txt
 
 #disable hdmi
