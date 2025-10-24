@@ -52,7 +52,7 @@ int init_burnwire() {
 int burnwireOn(void) {
     
     s_burnwire_led_state = 0;
-
+    LEDCtrl_set_state(LED_STATE_BURN);
     WTResult hal_result = __burnwire_on();
     if (hal_result < 0) {
         char err_str[512];
@@ -63,8 +63,7 @@ int burnwireOn(void) {
 }
 
 int burnwireOff(void) {
-    wt_fpga_led_release_all();
-
+    LEDCtrl_set_state(LED_STATE_FPGA);
     WTResult hal_result = __burnwire_off();
     if (hal_result < 0) {
         char err_str[512];

@@ -346,7 +346,6 @@ int stateMachine_set_state(wt_state_t new_state) {
         case ST_BRN_ON:
 // Turn on the burnwire and record the start time.
 #if ENABLE_BURNWIRE
-            LEDCtrl_set_state(LED_STATE_BURN);
             burnwireOn();
             burnwire_started_time_s = get_global_time_s();
 #endif // ENABLE_BURNWIRE
