@@ -23,7 +23,7 @@
 #include "utils/logging.h"
 #include "utils/power.h"
 #include "utils/str.h"    //for strtoidentifier
-#include "utils/timing.h" //for get_global_time_us(), getRtcCount()
+#include "utils/timing.h"
 
 #include <errno.h>
 #include <math.h>    // for M_PI
@@ -139,10 +139,10 @@ static int __is_floating(void) {
 
     if (!__at_depth() && __oriented_upright()) {
         if (!float_start_detected) {
-            float_start_time_s = get_global_time_s();
+            float_start_time_s = get_monotonic_time_s();
             float_start_detected = 1;
         }
-        return (get_global_time_s() - float_start_time_s > FLOAT_DETECT_HOLD_TIME);
+        return (get_monotonic_time_s() - float_start_time_s > FLOAT_DETECT_HOLD_TIME);
     }
 
     if (float_start_detected) {
@@ -200,10 +200,10 @@ void *stateMachine_thread(void *paramPtr) {
     CETI_LOG("Starting loop to periodically update state");
     int state_to_process;
     long long global_time_us;
-    long long polling_sleep_duration_us;
     int current_rtc_count_s = 0;
     g_stateMachine_thread_is_running = 1;
     while (!g_exit) {
+        int64_t task_start_us = get_monotonic_time_us();
         // Acquire timing information for when the next state will begin processing.
         global_time_us = get_global_time_us();
         current_rtc_count_s = getRtcCount();
@@ -236,8 +236,8 @@ void *stateMachine_thread(void *paramPtr) {
         }
         // Delay to implement a desired sampling rate.
         // Take into account the time it took to process the state.
-        polling_sleep_duration_us = STATEMACHINE_UPDATE_PERIOD_US;
-        polling_sleep_duration_us -= get_global_time_us() - global_time_us;
+        int64_t elapsed_time_us = get_monotonic_time_us() - task_start_us;
+        int64_t polling_sleep_duration_us = STATEMACHINE_UPDATE_PERIOD_US - elapsed_time_us;
         if (polling_sleep_duration_us > 0)
             usleep(polling_sleep_duration_us);
     }
@@ -346,6 +346,7 @@ int stateMachine_set_state(wt_state_t new_state) {
         case ST_BRN_ON:
 // Turn on the burnwire and record the start time.
 #if ENABLE_BURNWIRE
+            LEDCtrl_set_state(LED_STATE_BURN);
             burnwireOn();
             burnwire_started_time_s = get_global_time_s();
 #endif // ENABLE_BURNWIRE
@@ -408,6 +409,9 @@ void reset_voltage_counters(void) {
 
 int updateStateMachine() {
     static int s_bms_error_count = 0;
+    if (networking_ssh_session_active()) {
+        start_time_s = get_monotonic_time_s();
+    }
 
     // Deployment sequencer FSM
     switch (presentState) {
@@ -443,7 +447,7 @@ int updateStateMachine() {
         // ---------------- Startup ----------------
         case (ST_START):
             // Record the time of startup (used to keep wifi-enabled)
-            start_time_s = get_global_time_s();
+            start_time_s = get_monotonic_time_s();
 
             // See if a start time for burnwire timeouts has been previously saved.
             // This would happen if there was an unexpected shutdown during a deployment.
@@ -492,7 +496,7 @@ int updateStateMachine() {
         // Recording while sumberged
         case (ST_RECORD_DIVING):
             // Turn off networking if the grace period has passed.
-            if (networking_is_enabled() && !networking_ssh_session_active() && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN)) && !__is_charging()) {
+            if (networking_is_enabled() && !networking_ssh_session_active() && (get_monotonic_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN)) && !__is_charging()) {
                 networking_disable();
             }
 
@@ -567,7 +571,7 @@ int updateStateMachine() {
             }
 
             // Turn off networking if the grace period has passed and no ssh session is active
-            if (networking_is_enabled() && !networking_ssh_session_active() && (get_global_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN)) && !__is_charging()) {
+            if (networking_is_enabled() && !networking_ssh_session_active() && (get_monotonic_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN)) && !__is_charging()) {
                 networking_disable();
             }
 

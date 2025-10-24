@@ -193,7 +193,7 @@ void *ecg_thread_getData(void *paramPtr) {
     long instantaneous_sampling_period_us = 0;
     int first_sample = 1;
     int should_reinitialize = 0;
-    long long start_time_ms = get_global_time_ms();
+    int64_t start_time_ms = get_monotonic_time_ms();
     while (!g_stopAcquisition) {
         // wait for data to be ready
         if (ecg_adc_read_data_ready() != 0) {
@@ -309,14 +309,14 @@ void *ecg_thread_getData(void *paramPtr) {
         if (ecg_adc_read_data_ready()) {
             continue;
         }
-        int64_t elapsed_time = (get_global_time_us() - prev_ecg_adc_latest_reading_global_time_us);
+        int64_t elapsed_time = (get_monotonic_time_ms() - prev_ecg_adc_latest_reading_global_time_us);
         if ((ECG_SAMPLING_PERIOD_US * 75 / 100 - elapsed_time) > 0) {
             usleep(ECG_SAMPLING_PERIOD_US * 75 / 100 - elapsed_time);
         }
 #endif // SLEEPY_ECG
     }
     // Print the duration and the sampling rate.
-    long long duration_ms = get_global_time_ms() - start_time_ms;
+    long long duration_ms = get_monotonic_time_ms() - start_time_ms;
     CETI_LOG("Average rate %0.2f Hz (%lld samples in %lld ms)",
              1000.0 * (float)sample_index / (float)duration_ms,
              sample_index, duration_ms);

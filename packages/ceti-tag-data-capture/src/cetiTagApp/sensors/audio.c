@@ -510,13 +510,7 @@ void *audio_thread_spi(void *paramPtr) {
             g_audio_force_overflow = 0;
         }
 #endif
-
-        // Read a block of data if an overflow has not occurred.
-        __audio_check_for_overflow(2);
-        if (g_audio_overflow_detected) {
-            break;
-        }
-
+        int64_t task_start_us = get_monotonic_time_us();
         struct timeval current_timeval;
         gettimeofday(&current_timeval, NULL);
         spiRead(spi_fd, shm_audio->data[shm_audio->page].blocks[shm_audio->block], SPI_BLOCK_SIZE);
@@ -545,7 +539,7 @@ void *audio_thread_spi(void *paramPtr) {
         }
 
         // wait until expected next interrupt
-        time_t elapsed_time = get_global_time_us() - (int64_t)(current_timeval.tv_sec * 1000000LL) - (int64_t)(current_timeval.tv_usec);
+        time_t elapsed_time = get_monotonic_time_us() - task_start_us;
         if (elapsed_time < expected_IQR_interval_us) {
             usleep(expected_IQR_interval_us - elapsed_time);
         }

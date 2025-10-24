@@ -308,7 +308,7 @@ void *imu_log_thread(void *paramPtr) {
 
     // begin logging
     while (!g_stopAcquisition) {
-        int64_t log_time_us = get_global_time_us();
+        int64_t task_start_us = get_monotonic_time_us();
         if (g_stopLogging) {
             usleep(IMU_LOGGING_INTERVAL_US);
             continue;
@@ -361,7 +361,7 @@ void *imu_log_thread(void *paramPtr) {
         }
 
         // sleep
-        int64_t elapsed_time_us = (get_global_time_us() - log_time_us);
+        int64_t elapsed_time_us = (get_monotonic_time_us() - task_start_us);
         int64_t remaining_time_us = IMU_LOGGING_INTERVAL_US - elapsed_time_us;
         if (remaining_time_us >= 0) {
             usleep(remaining_time_us);

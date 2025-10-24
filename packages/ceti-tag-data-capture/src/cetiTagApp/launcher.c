@@ -322,14 +322,14 @@ int main(void) {
     int num_threads_running = num_threads;
     int threads_timeout_reached = 0;
     int64_t wait_for_threads_timeout_us = 30000000;
-    int64_t wait_for_threads_startTime_us = get_global_time_us();
+    int64_t wait_for_threads_startTime_us = get_monotonic_time_us();
     while (num_threads_running > 0 && !threads_timeout_reached) {
         usleep(100000);
         num_threads_running = 0;
         for (int thread_index = 0; thread_index < num_threads; thread_index++) {
             num_threads_running += *threads_running[thread_index];
         }
-        threads_timeout_reached = get_global_time_us() - wait_for_threads_startTime_us > wait_for_threads_timeout_us;
+        threads_timeout_reached = get_monotonic_time_us() - wait_for_threads_startTime_us > wait_for_threads_timeout_us;
     }
 
     // Forcefully cancel the threads.

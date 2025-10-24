@@ -155,37 +155,34 @@ void *pressureTemperature_thread(void *paramPtr) {
 
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically acquire data");
-    int64_t polling_sleep_duration_us;
     g_pressureTemperature_thread_is_running = 1;
     while (!g_stopAcquisition) {
+        int64_t task_start_us = get_monotonic_time_us();
         // check if sample should be skipped due to sensor being continually in error.
-        if (!decay_shouldSample(&decay)) {
-            usleep(PRESSURE_SAMPLING_PERIOD_US);
-            continue;
-        }
+        if (decay_shouldSample(&decay)) {
+            // update sample for system
+            pressure_update_sample();
+            update_thread_device_status(THREAD_PRESSURE_ACQ, g_pressure->error, __FUNCTION__);
 
-        // update sample for system
-        pressure_update_sample();
-        update_thread_device_status(THREAD_PRESSURE_ACQ, g_pressure->error, __FUNCTION__);
+            // register decay retry rate
+            decay_update(&decay, g_pressure->error);
 
-        // register decay retry rate
-        decay_update(&decay, g_pressure->error);
-
-        // log sample
-        if (!g_stopLogging) {
-            FILE *fp = fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
-            if (fp == NULL) {
-                CETI_LOG("failed to open data output file: " PRESSURETEMPERATURE_DATA_FILEPATH);
-            } else {
-                pressure_sample_to_csv(fp, g_pressure);
-                fclose(fp);
+            // log sample
+            if (!g_stopLogging) {
+                FILE *fp = fopen(PRESSURETEMPERATURE_DATA_FILEPATH, "at");
+                if (fp == NULL) {
+                    CETI_LOG("failed to open data output file: " PRESSURETEMPERATURE_DATA_FILEPATH);
+                } else {
+                    pressure_sample_to_csv(fp, g_pressure);
+                    fclose(fp);
+                }
             }
         }
 
         // Delay to implement a desired sampling rate.
         // Take into account the time it took to acquire/save data.
-        polling_sleep_duration_us = PRESSURE_SAMPLING_PERIOD_US;
-        polling_sleep_duration_us -= get_global_time_us() - g_pressure->sys_time_us;
+        int64_t elapsed_time_us = get_monotonic_time_us() - task_start_us;
+        int64_t polling_sleep_duration_us = PRESSURE_SAMPLING_PERIOD_US - elapsed_time_us;
         if (polling_sleep_duration_us > 0) {
             usleep(polling_sleep_duration_us);
         }

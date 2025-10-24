@@ -208,13 +208,13 @@ static int __recovery_query(RecoverCommand query_command, uint8_t *pValid) {
     }
 
     // get start time
-    uint64_t start_time_us = get_global_time_us();
+    uint64_t start_time_us = get_monotonic_time_us();
 
     // invalidate old value
     *pValid = 0;
 
     // wait for pong message or timeout
-    while (!*pValid && (get_global_time_us() - start_time_us < RECOVERY_UART_TIMEOUT_US)) {
+    while (!*pValid && (get_monotonic_time_us() - start_time_us < RECOVERY_UART_TIMEOUT_US)) {
         ;
     }
 
@@ -280,8 +280,8 @@ static WTResult __recovery_get_packet(RecoveryPacket *packet, bool (*term_condit
 
 // NOTE: __ping* used internal to verify recovery board connection prior to recovery_rx_thread running
 static uint64_t __ping_timeout;
-static void __ping_start_timeout(void) { __ping_timeout = get_global_time_us(); }
-static bool __ping_check_timeout(void) { return get_global_time_us() - __ping_timeout > RECOVERY_UART_TIMEOUT_US; }
+static void __ping_start_timeout(void) { __ping_timeout = get_monotonic_time_us(); }
+static bool __ping_check_timeout(void) { return get_monotonic_time_us() - __ping_timeout > RECOVERY_UART_TIMEOUT_US; }
 static bool __ping(void) {
     RecPktHeader q_pkt = REC_EMPTY_PKT(REC_CMD_PING);
     RecoveryPacket r_pkt = {.header.type = -1};

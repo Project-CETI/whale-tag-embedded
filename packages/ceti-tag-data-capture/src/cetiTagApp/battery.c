@@ -430,9 +430,9 @@ void *battery_thread(void *paramPtr) {
 
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically acquire data");
-    long long polling_sleep_duration_us;
     g_battery_thread_is_running = 1;
     while (!g_stopAcquisition) {
+        int64_t task_start_us = get_monotonic_time_us();
         battery_update_sample();
 
         // ******************   Battery Temperature Checks *************************
@@ -465,7 +465,6 @@ void *battery_thread(void *paramPtr) {
         }
 
         // ******************   End Battery Temperature Checks *********************
-
         if (!g_stopLogging) {
             /* ToDo: move to seperate logging app.
              * Daemon should only handle sample acq not storage
@@ -481,10 +480,12 @@ void *battery_thread(void *paramPtr) {
 
         // Delay to implement a desired sampling rate.
         // Take into account the time it took to acquire/save data.
-        polling_sleep_duration_us = BATTERY_SAMPLING_PERIOD_US;
-        polling_sleep_duration_us -= get_global_time_us() - shm_battery->sys_time_us;
-        if (polling_sleep_duration_us > 0)
+
+        int64_t elapsed_time_us = get_monotonic_time_us() - task_start_us;
+        int64_t polling_sleep_duration_us = BATTERY_SAMPLING_PERIOD_US - elapsed_time_us;
+        if (polling_sleep_duration_us > 0) {
             usleep(polling_sleep_duration_us);
+        }
     }
     sem_close(sem_battery_data_ready);
     sem_unlink(BATTERY_SEM_NAME);

@@ -13,16 +13,9 @@
 //-----------------------------------------------------------------------------
 // Includes
 //-----------------------------------------------------------------------------
-#include "../../device/iox.h"
 #include "../../utils/error.h" // for WTResult
 
-#include "../../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
-#include "../../systemMonitor.h" // for the global CPU assignment variable to update
-#include "../../utils/timing.h"  // for get_global_time_us
-
-#include <pthread.h>
 #include <stdint.h> // for uint8_t
-#include <unistd.h> // for usleep()
 
 // ------------------------------------------
 // Definitions/Configuration
