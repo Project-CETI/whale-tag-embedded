@@ -14,8 +14,8 @@
 // Includes
 //-----------------------------------------------------------------------------
 
-#include "../../utils/error.h"   // for WTResult
-#include <stdio.h>               // for printing
+#include "../../utils/error.h" // for WTResult
+#include <stdio.h>             // for printing
 
 // ------------------------------------------
 // Definitions/Configuration

@@ -10,7 +10,7 @@
 
 #include "../../device/iox.h"
 #include "../../utils/logging.h"
-#include "../../utils/timing.h" 
+#include "../../utils/timing.h"
 
 #include "../../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
 #include "../../systemMonitor.h" // for the global CPU assignment variable to update
@@ -94,11 +94,10 @@ void *ecg_lod_thread(void *paramPtr) {
         int64_t task_start_us = get_monotonic_time_us();
         latest_iox_status = iox_read_register(IOX_REG_INPUT, &latest_iox_register_value);
 
-
         // Wait for the desired polling period.
         int64_t elapsed_time_us = get_monotonic_time_us() - task_start_us;
         int64_t sleep_duration_us = ECG_LOD_READ_POLLING_PERIOD_US - elapsed_time_us;
-        if (sleep_duration_us > 0){
+        if (sleep_duration_us > 0) {
             usleep(sleep_duration_us);
         }
     }

@@ -7,7 +7,7 @@
 
 #include "device/fpga.h"
 #include "launcher.h"
-
+#include "utils/timing.h"
 
 #define LED_CTRL_UPDATE_INTERVAL_US (250000)
 #define LED_CTRL_ERROR_RESULT_DISPLAY_INTERVAL_S (10)
@@ -26,18 +26,18 @@ static uint32_t s_dive_count = 0;
 
 void LEDCtrl_set_state(LEDState state) {
     switch (state) {
-        case LED_STATE_FPGA : 
+        case LED_STATE_FPGA:
             wt_fpga_led_release_all();
             break;
 
-        case LED_STATE_BURN :
+        case LED_STATE_BURN:
             wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
             wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
             wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
             s_burnwire_led_state = 0;
             break;
 
-        case LED_STATE_SHUTDOWN :
+        case LED_STATE_SHUTDOWN:
             wt_fpga_led_capture_all(FPGA_LED_STATE_OFF);
             break;
 
@@ -117,7 +117,7 @@ static void __LEDCtrl_task(void) {
                     wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
                 }
                 s_error.current_bit++;
-            } else  if ((s_error.current_bit >> 1) == s_error.bit_len) {
+            } else if ((s_error.current_bit >> 1) == s_error.bit_len) {
                 /* HOLD ERROR LEVEL */
                 if ((s_error.current_bit & 1)) {
                     wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
@@ -126,8 +126,7 @@ static void __LEDCtrl_task(void) {
                 } else {
                     if (0 == s_error.err_flags) {
                         wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
-                    }
-                    else {
+                    } else {
                         wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
                     }
                 }
@@ -135,7 +134,7 @@ static void __LEDCtrl_task(void) {
             } else if ((s_error.current_bit >> 1) > s_error.bit_len) {
                 /* TRANSITION TO NEXT STATE*/
                 s_error.current_bit++;
-                if ((s_error.current_bit >> 1) > (s_error.bit_len + 4*LED_CTRL_ERROR_RESULT_DISPLAY_INTERVAL_S)) {
+                if ((s_error.current_bit >> 1) > (s_error.bit_len + 4 * LED_CTRL_ERROR_RESULT_DISPLAY_INTERVAL_S)) {
                     LEDCtrl_set_state(s_error.return_state);
                 }
             }
@@ -149,21 +148,16 @@ static void __LEDCtrl_task(void) {
             } else {
                 wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
             }
-            s_dive_count = (s_dive_count + 1) % (4*10);
+            s_dive_count = (s_dive_count + 1) % (4 * 10);
             break;
         }
     }
-        
 }
 
 void *LEDCtrl_thread(void *paramPtr) {
-    volatile ThreadParam *pParam =  (volatile ThreadParam *)paramPtr;
-    pParam->tid = gettid();    
-
-    
     while (!g_exit) {
         int64_t task_start_us = get_monotonic_time_us();
-        
+
         __LEDCtrl_task();
 
         int64_t elapsed_time_us = get_monotonic_time_us() - task_start_us;

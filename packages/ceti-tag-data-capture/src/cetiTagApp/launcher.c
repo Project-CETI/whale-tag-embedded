@@ -12,7 +12,6 @@
 #include "battery.h"
 #include "burnwire.h"
 #include "device/fpga.h"
-#include "led_ctrl.h"
 #include "log/imu_log.h"
 #include "recovery.h"
 #include "sensors/audio.h"
@@ -49,9 +48,6 @@ int g_exit = 0;
 int g_stopAcquisition = 0;
 int g_stopLogging = 0;
 char g_process_path[256] = "/opt/ceti-tag-data-capture/bin";
-static int num_threads = 0;
-static pthread_t thread_ids[50] = {0};
-
 
 static uint32_t s_threads_in_error = 0;
 
@@ -61,8 +57,6 @@ void sig_handler(int signum) {
     usleep(100000);
     g_exit = 1;
 }
-
-
 
 //-----------------------------------------------------------------------------
 // Main loop.
@@ -92,10 +86,12 @@ int main(void) {
 
     //-----------------------------------------------------------------------------
     // Create threads.
+    pthread_t thread_ids[50] = {0};
     int *threads_running[50];
 #ifdef DEBUG
     char thread_name[50][32];
 #endif
+    int num_threads = 0;
     int audio_acquisition_thread_index = -1;
     int audio_write_thread_index = -1;
     CETI_LOG("-------------------------------------------------");
@@ -177,7 +173,7 @@ int main(void) {
     // Recovery board (GPS).
 #if ENABLE_RECOVERY
     if (g_config.recovery.enabled) {
-        if (!(s_threads_in_error & (1 << THREAD_GPS_ACQ))) {
+        if (!(s_threads_in_error & THREAD_GPS_ACQ)) {
             pthread_create(&thread_ids[num_threads], NULL, &recovery_rx_thread, NULL);
             threads_running[num_threads] = &g_recovery_rx_thread_is_running;
 #ifdef DEBUG
@@ -326,14 +322,14 @@ int main(void) {
     int num_threads_running = num_threads;
     int threads_timeout_reached = 0;
     int64_t wait_for_threads_timeout_us = 30000000;
-    int64_t wait_for_threads_startTime_us = get_monotonic_time_us();
+    int64_t wait_for_threads_startTime_us = get_global_time_us();
     while (num_threads_running > 0 && !threads_timeout_reached) {
         usleep(100000);
         num_threads_running = 0;
         for (int thread_index = 0; thread_index < num_threads; thread_index++) {
             num_threads_running += *threads_running[thread_index];
         }
-        threads_timeout_reached = get_monotonic_time_us() - wait_for_threads_startTime_us > wait_for_threads_timeout_us;
+        threads_timeout_reached = get_global_time_us() - wait_for_threads_startTime_us > wait_for_threads_timeout_us;
     }
 
     // Forcefully cancel the threads.
@@ -354,6 +350,39 @@ int main(void) {
 //-----------------------------------------------------------------------------
 // Helper method to initialize the tag.
 //-----------------------------------------------------------------------------
+void led_signal_thread_errors(uint32_t error_bitfield) {
+    for (int i = 0; i < THREAD_ECG_LOG + 1; i++) {
+        // turn off LEDs
+        wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+        wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+        wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+        usleep(100000);
+        // Clock with Yellow
+        wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+        if (error_bitfield & (1 << i)) {
+            // red for critical, yellow for non-critical
+            if (error_bitfield & ((1 << THREAD_BMS_ACQ) | (1 << THREAD_AUDIO_ACQ))) {
+                wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+            }
+            // green non-critical error
+            wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+        }
+        usleep(250000);
+    }
+    wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+    wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+    wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+
+    if ((error_bitfield & ((1 << THREAD_BMS_ACQ) | (1 << THREAD_AUDIO_ACQ)))) {
+        wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+    } else if (error_bitfield) {
+        wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+    } else {
+        wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+    }
+    sleep(10);
+}
+
 int init_tag() {
     int result = 0;
 
@@ -395,11 +424,8 @@ int init_tag() {
         CETI_ERR("%s", wt_strerror_r(fpga_result, err_str, sizeof(err_str)));
         result += -1;
     }
-
-    // launch LEDController thread
-    pthread_create(&thread_ids[num_threads], NULL, &LEDCtrl_thread, NULL);
-    num_threads++;
-    LEDCtrl_set_state(LED_STATE_SHUTDOWN);
+    // take contol of LEDs
+    wt_fpga_led_capture_all(FPGA_LED_STATE_OFF);
 #endif
 
 #if ENABLE_BATTERY_GAUGE
@@ -490,13 +516,10 @@ int init_tag() {
     }
 #endif
 
-    // state to return to after error report
-    LEDCtrl_set_state(LED_STATE_FPGA);
     if (result < 0 || (s_threads_in_error)) {
         CETI_ERR("Tag initialization failed (at least one component failed to initialize - see previous printouts for more information)");
         if (s_threads_in_error != 0) {
-            uint32_t critical_errors = (s_threads_in_error & ((1 << THREAD_BMS_ACQ) | (1 << THREAD_AUDIO_ACQ)));
-            LEDCtrl_flash_err(THREAD_ECG_LOG, s_threads_in_error, critical_errors);
+            led_signal_thread_errors(s_threads_in_error);
         }
         if (!(s_threads_in_error & (1 << THREAD_GPS_ACQ))) {
             char rec_msg[68] = {};
@@ -508,5 +531,7 @@ int init_tag() {
         }
     }
 
+    // return LED control to FPGA
+    wt_fpga_led_release_all();
     return result - s_threads_in_error;
 }

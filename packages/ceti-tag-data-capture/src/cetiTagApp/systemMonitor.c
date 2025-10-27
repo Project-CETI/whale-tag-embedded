@@ -162,7 +162,6 @@ void *systemMonitor_thread(void *paramPtr) {
         }
 #endif
 
-
         if (!g_stopAcquisition) {
             // Acquire a timestamp for the data about to be read.
             long long global_time_us = get_global_time_us();

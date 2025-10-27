@@ -27,6 +27,11 @@
 #define MIN_TO_SEC(m) ((m) * 60)
 
 //-----------------------------------------------------------------------------
+// Global variables
+//-----------------------------------------------------------------------------
+extern int g_rtc_thread_is_running;
+
+//-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
 int init_timing();
@@ -45,8 +50,5 @@ void set_fake_time(const struct tm *tm_s);
 int timing_syncronize_to_ntp(void);
 int timing_has_syncronized_to_ntp(void);
 int64_t get_next_time_of_day_occurance_s(const struct tm *time_of_day);
-//-----------------------------------------------------------------------------
-// Global variables
-//-----------------------------------------------------------------------------
 
 #endif // TIMING_H

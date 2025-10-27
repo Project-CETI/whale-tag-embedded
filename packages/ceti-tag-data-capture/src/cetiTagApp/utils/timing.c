@@ -27,6 +27,7 @@ static int timing_has_synced = 0; // system has perform ntp syncronization
 static int latest_rtc_count = -1;
 static int latest_rtc_error = WT_OK;
 static int64_t last_rtc_update_time_us = -1;
+int g_rtc_thread_is_running = 0;
 
 int init_timing() {
 #if ENABLE_RTC
@@ -72,9 +73,9 @@ void updateRtcCount() {
 //  instead of having all other threads that request RTC use the bus.
 void *rtc_thread(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
-    volatile ThreadParam *pParam =  (volatile ThreadParam *)paramPtr;
-    pParam->tid = gettid();
+    g_rtc_thread_tid = gettid();
 
+    g_rtc_thread_is_running = 1;
     // Do an initial RTC update.
     updateRtcCount();
 
@@ -106,7 +107,7 @@ void *rtc_thread(void *paramPtr) {
         }
     }
     CETI_LOG("Done!");
-    pParam->tid = 0;
+    g_rtc_thread_is_running = 0;
     return NULL;
 }
 

@@ -33,7 +33,6 @@ static WTResult __burnwire_init(void) {
     return WT_OK;
 }
 
-
 //-----------------------------------------------------------------------------
 // Burnwire interface
 //-----------------------------------------------------------------------------
@@ -50,7 +49,6 @@ int init_burnwire() {
 }
 
 int burnwireOn(void) {
-    
     s_burnwire_led_state = 0;
     LEDCtrl_set_state(LED_STATE_BURN);
     WTResult hal_result = __burnwire_on();

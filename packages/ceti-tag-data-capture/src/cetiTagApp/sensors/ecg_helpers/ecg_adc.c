@@ -12,9 +12,9 @@
 #include "../../utils/logging.h"
 #include "../../utils/timing.h"
 
-#include "../ecg.h"              // for ECG_INVALID_PLACEHOLDER
-#include <pigpio.h>              // for I2C functions
-#include <unistd.h>              // for usleep()
+#include "../ecg.h" // for ECG_INVALID_PLACEHOLDER
+#include <pigpio.h> // for I2C functions
+#include <unistd.h> // for usleep()
 
 //-----------------------------------------------------------------------------
 // Initialization
