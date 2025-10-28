@@ -6,5 +6,6 @@
 #include <stdint.h>
 
 int meta_log(uint64_t timestamp);
+void *meta_log_thread(void *paramPtr);
 
 #endif

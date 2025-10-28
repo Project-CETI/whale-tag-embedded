@@ -1,5 +1,9 @@
 #include "meta.h"
 
+#include "../launcher.h"
+#include "config.h"
+#include "timing.h"
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -7,6 +11,8 @@
 #include <unistd.h>
 
 #define META_FILE_PATH "/opt/ceti-tag-data-capture/config/tag-info.yaml"
+
+#define FILE_LOG_TIMEOUT_S (60)
 
 int meta_log(uint64_t timestamp) {
     int fd_dst, fd_src;
@@ -90,4 +96,31 @@ int meta_log(uint64_t timestamp) {
 
     close(fd_dst);
     return 0;
+}
+
+/**
+ * @brief tag info and config logging thread
+ *
+ * @param paramPtr
+ * @return void*
+ */
+void *meta_log_thread(void *paramPtr) {
+    uint64_t start_clock_ms = get_monotonic_time_ms();
+    uint64_t now_ms = start_clock_ms;
+    while (now_ms - start_clock_ms < (1000 * FILE_LOG_TIMEOUT_S)) {
+        if (g_stopAcquisition) {
+            /* exit early */
+            return NULL;
+        }
+
+        now_ms = get_monotonic_time_ms();
+        usleep(100000); // this doesn't need to be so precise
+    }
+
+    /* timer complete: log meta file*/
+    uint64_t timestamp_us = get_global_time_us();
+    config_log(timestamp_us);
+    meta_log(timestamp_us);
+
+    return NULL;
 }

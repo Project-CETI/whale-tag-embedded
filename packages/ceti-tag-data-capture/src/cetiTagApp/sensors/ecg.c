@@ -35,7 +35,7 @@ static const char *ecg_data_file_headers[] = {
 };
 static const int num_ecg_data_file_headers = sizeof(ecg_data_file_headers) / sizeof(*ecg_data_file_headers);
 
-static int ecg_buffer_select_toWrite = 0; // which buffer will be flushed to the output file
+static volatile int ecg_buffer_select_toWrite = 0; // which buffer will be flushed to the output file
 static uint8_t ecg_restarted[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static uint8_t ecg_new_log[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 static uint8_t ecg_zeros[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
@@ -293,8 +293,12 @@ void *ecg_thread_getData(void *paramPtr) {
         shm_ecg->sample++;
         if (shm_ecg->sample == ECG_BUFFER_LENGTH) {
             shm_ecg->sample = 0;
-            shm_ecg->page++;
-            shm_ecg->page %= ECG_NUM_BUFFERS;
+            int next_page = (shm_ecg->page + 1) % ECG_NUM_BUFFERS;
+            if (next_page == ecg_buffer_select_toWrite) {
+                CETI_ERR("***OVERFLOW*** ECG buffer overflow detected.");
+                /* ToDo: handle this type of overflow */
+            }
+            shm_ecg->page = next_page;
             sem_post(sem_ecg_page);
         }
         sem_post(sem_ecg_sample);
@@ -369,7 +373,9 @@ void *ecg_thread_writeData(void *paramPtr) {
     g_ecg_thread_writeData_is_running = 1;
 
     // Continuously wait for new data and then write it to the file.
+    int nv_ecg_buffer_select_toWrite = ecg_buffer_select_toWrite;
     while (!g_stopAcquisition) {
+
         // Wait for new data to be in the buffer.
         while (shm_ecg->page == ecg_buffer_select_toWrite && !g_stopAcquisition)
             usleep(250000);
@@ -388,23 +394,24 @@ void *ecg_thread_writeData(void *paramPtr) {
                 int ecg_buffer_last_index_toWrite = ECG_BUFFER_LENGTH - 1;
                 // If the program exited though, will want to write only as much
                 //  as the acquisition thread has filled.
-                if (shm_ecg->page == ecg_buffer_select_toWrite) {
+                nv_ecg_buffer_select_toWrite = ecg_buffer_select_toWrite; // grab non-volatile copy (since this thread controls this value)
+                if (shm_ecg->page == nv_ecg_buffer_select_toWrite) {
                     ecg_buffer_last_index_toWrite = shm_ecg->sample - 1;
                     if (ecg_buffer_last_index_toWrite < 0)
                         ecg_buffer_last_index_toWrite = 0;
                 }
                 // Write the buffer data to the file.
                 for (int ecg_buffer_index_toWrite = 0; ecg_buffer_index_toWrite <= ecg_buffer_last_index_toWrite; ecg_buffer_index_toWrite++) {
-                    CetiEcgSample *current_sample = &shm_ecg->data[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite];
+                    CetiEcgSample *current_sample = &shm_ecg->data[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite];
                     // Write timing information.
                     fprintf(ecg_data_file, "%lu", current_sample->sys_time_us);
                     fprintf(ecg_data_file, ",%u", current_sample->rtc_time_s);
                     // Write any notes.
                     fprintf(ecg_data_file, ",");
-                    if (ecg_restarted[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
+                    if (ecg_restarted[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
                         fprintf(ecg_data_file, "Restarted! | ");
                     }
-                    if (ecg_new_log[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
+                    if (ecg_new_log[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
                         fprintf(ecg_data_file, "New log file! | ");
                     }
                     // Note if a device error occured
@@ -413,14 +420,14 @@ void *ecg_thread_writeData(void *paramPtr) {
                         fprintf(ecg_data_file, "ERROR(%s) | ", wt_strerror_r(current_sample->error, err_str, sizeof(err_str)));
                     }
 
-                    if (ecg_zeros[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
+                    if (ecg_zeros[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
                         fprintf(ecg_data_file, "ADC ZEROS | ");
                     }
 
-                    if (ecg_timeout[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
+                    if (ecg_timeout[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
                         fprintf(ecg_data_file, "TIMEOUT | ");
                     }
-                    if (ecg_maybe_invalid[ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
+                    if (ecg_maybe_invalid[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
                         fprintf(ecg_data_file, "INVALID? | ");
                     }
 
@@ -438,11 +445,11 @@ void *ecg_thread_writeData(void *paramPtr) {
                 }
 
                 // clear these note files
-                memset(ecg_restarted[ecg_buffer_select_toWrite], 0, ECG_BUFFER_LENGTH);
-                memset(ecg_new_log[ecg_buffer_select_toWrite], 0, ECG_BUFFER_LENGTH);
-                memset(ecg_zeros[ecg_buffer_select_toWrite], 0, ECG_BUFFER_LENGTH);
-                memset(ecg_timeout[ecg_buffer_select_toWrite], 0, ECG_BUFFER_LENGTH);
-                memset(ecg_maybe_invalid[ecg_buffer_select_toWrite], 0, ECG_BUFFER_LENGTH);
+                memset(ecg_restarted[nv_ecg_buffer_select_toWrite], 0, ECG_BUFFER_LENGTH);
+                memset(ecg_new_log[nv_ecg_buffer_select_toWrite], 0, ECG_BUFFER_LENGTH);
+                memset(ecg_zeros[nv_ecg_buffer_select_toWrite], 0, ECG_BUFFER_LENGTH);
+                memset(ecg_timeout[nv_ecg_buffer_select_toWrite], 0, ECG_BUFFER_LENGTH);
+                memset(ecg_maybe_invalid[nv_ecg_buffer_select_toWrite], 0, ECG_BUFFER_LENGTH);
 
                 // Check the file size and close the file.
                 fseek(ecg_data_file, 0L, SEEK_END);
@@ -458,8 +465,8 @@ void *ecg_thread_writeData(void *paramPtr) {
         }
 
         // Advance to the next buffer.
-        ecg_buffer_select_toWrite++;
-        ecg_buffer_select_toWrite %= ECG_NUM_BUFFERS;
+        nv_ecg_buffer_select_toWrite++;
+        ecg_buffer_select_toWrite = nv_ecg_buffer_select_toWrite % ECG_NUM_BUFFERS;
     }
 
     // Clean up.

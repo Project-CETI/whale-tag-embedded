@@ -257,7 +257,10 @@ int main(void) {
 #ifdef DEBUG
     int logcount = 20;
 #endif
-    int meta_files_iteration_countdown = 600;
+    // create timer to write config and tag-info
+    pthread_create(&thread_ids[num_threads], NULL, &meta_log_thread, NULL);
+    num_threads++;
+
     while (!g_exit) {
         // Let threads do their work.
         usleep(100000);
@@ -281,35 +284,6 @@ int main(void) {
             threads_running[audio_write_thread_index] = &g_audio_thread_writeData_is_running;
 #endif
             usleep(100000);
-        }
-#endif
-
-        // Create files with the configuration and other metadata.
-        // Wait a bit after startup, so the system clock can be adjusted.
-        if (meta_files_iteration_countdown > 0) {
-            meta_files_iteration_countdown--;
-            if (meta_files_iteration_countdown == 0) {
-                // Log the configuration used for this deployment.
-                uint64_t start_timestamp = get_global_time_us();
-                // Log tag metadata and runtime configuration.
-                config_log(start_timestamp);
-                meta_log(start_timestamp);
-            }
-        }
-
-#ifdef DEBUG
-        if (logcount == 0) {
-            int num_threads_running = 0;
-            CETI_LOG("Active Threads");
-            for (int thread_index = 0; thread_index < num_threads; thread_index++) {
-                num_threads_running += *threads_running[thread_index];
-                if (*threads_running[thread_index]) {
-                    CETI_LOG("    %s", thread_name[thread_index]);
-                }
-            }
-            logcount = 20;
-        } else {
-            logcount--;
         }
 #endif
     }
@@ -402,6 +376,21 @@ int init_tag() {
     } else {
         CETI_LOG("Successfully initialized pigpio");
     }
+
+    // Renabling battery power
+    int battery_result = max17320_clear_write_protection();
+    if (WT_OK == battery_result) {
+        battery_result = max17320_enable_discharging();
+    }
+    if (WT_OK == battery_result) {
+        battery_result = max17320_enable_charging();
+    }
+    if (WT_OK != battery_result) {
+        char err_str[128] = {};
+        wt_strerror_r(battery_result, err_str, sizeof(err_str));
+        CETI_WARN("Failed to \"wake\" the tag", err_str);
+    }
+
     if (init_timing() != 0) {
         result += -1;
     }

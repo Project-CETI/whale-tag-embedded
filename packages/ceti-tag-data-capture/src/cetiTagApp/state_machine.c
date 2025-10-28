@@ -14,6 +14,7 @@
 #include "battery.h"
 #include "burnwire.h"
 #include "launcher.h" // for g_exit, g_stopAcquisition, g_stopLogging sampling rate, data filepath, and CPU affinity
+#include "led_ctrl.h"
 #include "recovery.h"
 #include "sensors/imu.h" // for recovery float detection
 #include "sensors/pressure_temperature.h"
@@ -26,6 +27,7 @@
 #include "utils/timing.h"
 
 #include <errno.h>
+#include <linux/reboot.h>
 #include <math.h>    // for M_PI
 #include <pthread.h> // to set CPU affinity
 #include <stdint.h>
@@ -33,6 +35,7 @@
 #include <stdlib.h> // for atof, atol, strtoul, etc
 #include <string.h>
 #include <sys/reboot.h>
+#include <sys/statvfs.h>
 #include <unistd.h> // gethostname
 
 //-----------------------------------------------------------------------------
@@ -43,7 +46,7 @@ typedef double f64;
 
 // Global/static variables
 //-----------------------------------------------------------------------------
-
+// Helper to convert a state ID to a printable string.
 static const char *state_str[] = {
     [ST_START] = "START",
     [ST_PREDEPLOY] = "PREDEPLOYMENT",
@@ -54,33 +57,19 @@ static const char *state_str[] = {
     [ST_LOW_POWER_BURN] = "LOW_POWER_BURN",
     [ST_RETRIEVE] = "RETRIEVE",
     [ST_SHUTDOWN] = "SHUTDOWN",
-    [ST_UNKNOWN] = "UNKNOWN"};
-
-// RTC counts
-typedef enum {
-    BSS_NONE,
-    BSS_FILE,
-    BSS_RTC,
-    BSS_NTP,
-} BurnStartSource;
+    [ST_UNKNOWN] = "UNKNOWN",
+};
 
 static int presentState = ST_UNKNOWN;
-static unsigned int start_time_s = 0;
-static BurnStartSource burnwire_start_source_s = BSS_NONE;
-static unsigned int burnwire_timeout_start_s = 0;
-static int64_t burnwire_time_of_day_release_s = 0;
-static uint32_t burnwire_started_time_s = 0;
 static int s_state_machine_paused = 0;
 
 // Output file
 int g_stateMachine_thread_is_running = 0;
 static FILE *stateMachine_data_file = NULL;
-static char stateMachine_data_file_notes[256] = "";
-static const char *stateMachine_data_file_headers[] = {
-    "State To Process",
-    "Next State",
-};
-static const int num_stateMachine_data_file_headers = sizeof(stateMachine_data_file_headers) / sizeof(*stateMachine_data_file_headers);
+static int s_stateMachine_log_restarted = 1;
+static const char *stateMachine_data_file_headers =
+    "State To Process,"
+    "Next State";
 
 //-----------------------------------------------------------------------------
 // DEPTH DETECTION
@@ -189,6 +178,8 @@ static int __is_floating(void) {
 //-----------------------------------------------------------------------------
 // NETWORKING CHECKS
 //-----------------------------------------------------------------------------
+static unsigned int s_network_last_connection_time_s = 0;
+
 static int __is_charging(void) {
 #if ENABLE_BATTERY_GAUGE
     if (shm_battery->error != WT_OK) {
@@ -209,12 +200,12 @@ static void __update_networking(void) {
 
     // reset wifi disable start time
     if (networking_ssh_session_active() || __is_charging()) {
-        start_time_s = get_monotonic_time_s()
+        s_network_last_connection_time_s = get_monotonic_time_s();
     }
 }
 
 static int __networking_timeout(void) {
-    return (get_monotonic_time_s() - start_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN));
+    return (get_monotonic_time_s() - s_network_last_connection_time_s > MIN_TO_SEC(WIFI_GRACE_PERIOD_MIN));
 }
 
 //-----------------------------------------------------------------------------
@@ -324,10 +315,10 @@ static int s_burnwire_timing_complete = 0;
 
 /**
  * @brief  resyncronizes burnwire timings if more accurate realtime timestamp available
- * 
- * @return  
+ *
+ * @return
  */
-static void __burnwire_timing_update(void){
+static void __burnwire_timing_update(void) {
     // Resyncronize clock if networking still up and time has never synced
     if (!s_burnwire_timing_complete && networking_is_enabled() && !timing_has_syncronized_to_ntp()) {
         timing_syncronize_to_ntp();
@@ -374,11 +365,10 @@ static void __finalize_burnwire_time(void) {
 // State Machine control
 //-----------------------------------------------------------------------------
 
-// Helper to convert a state ID to a printable string.
 __attribute__((const))
 const char *
 get_state_str(wt_state_t state) {
-    if ((state < ST_CONFIG) || (state > ST_UNKNOWN)) {
+    if ((state < ST_START) || (state > ST_UNKNOWN)) {
         CETI_LOG("presentState is out of bounds. Setting to ST_UNKNOWN. Current value: %d", presentState);
         state = ST_UNKNOWN;
     }
@@ -392,7 +382,7 @@ wt_state_t strtomissionstate(const char *_String, const char **_EndPtr) {
     if (name != NULL) {
         size_t len = end_ptr - name;
 
-        for (state = ST_CONFIG; state < ST_UNKNOWN; state++) {
+        for (state = ST_START; state < ST_UNKNOWN; state++) {
             if (len != strlen(state_str[state])) {
                 continue;
             }
@@ -422,9 +412,11 @@ int init_stateMachine() {
     CETI_LOG("Successfully initialized the state machine");
     // Open an output file to write data.
     if (init_data_file(STATEMACHINE_DATA_FILEPATH,
-                       stateMachine_data_file_headers, num_stateMachine_data_file_headers,
-                       stateMachine_data_file_notes, "init_stateMachine()") < 0)
+                       &stateMachine_data_file_headers, 1,
+                       NULL, "init_stateMachine()") < 0) {
         return -1;
+    }
+    s_stateMachine_log_restarted = 1;
 
     return 0;
 }
@@ -434,7 +426,6 @@ wt_state_t stateMachine_get_state(void) {
 }
 
 int stateMachine_set_state(wt_state_t new_state) {
-    static int s_sensor_acq_stopped = 1;
     static int s_burnwire_on = 0;
 
     // nothing to do
@@ -514,6 +505,7 @@ int stateMachine_set_state(wt_state_t new_state) {
     // disable netowrking if transitioning to a state without wifi
     if ((ST_START != new_state) && (ST_PREDEPLOY != new_state)) {
         // don't disable networking if state transistion occured while ssh session is active
+        // this allows users to debug various states without losing network connect (MSH)
         if (networking_is_enabled() && !networking_ssh_session_active()) {
             CETI_LOG("Disabling networking");
             networking_disable();
@@ -595,7 +587,6 @@ int stateMachine_set_state(wt_state_t new_state) {
 
     if (ST_SHUTDOWN == new_state) {
         g_exit = 1;
-        break;
     }
 
     // update state
@@ -616,12 +607,17 @@ int updateStateMachine() {
     switch (presentState) {
         // ---------------- Startup ----------------
         case (ST_START): {
-            stateMachine_setState(ST_PREDEPLOY);
+            stateMachine_set_state(ST_PREDEPLOY);
             break;
         }
 
         // User is doing stuff on tag
         case (ST_PREDEPLOY): {
+            // wait until network connection has timedout has been broken before cutting connection, or changing state.
+            if (!__networking_timeout()) {
+                break;
+            }
+
             // Transition to the appropriate recording state.
             if (__at_depth()) {
                 stateMachine_set_state(ST_RECORD_DIVING);
@@ -865,11 +861,14 @@ void stateMachine_task(void) {
         CETI_LOG("failed to open data output file: %s", STATEMACHINE_DATA_FILEPATH);
     else {
         // Write timing information.
-        fprintf(stateMachine_data_file, "%lld", global_time_us);
+        fprintf(stateMachine_data_file, "%ld", global_time_us);
         fprintf(stateMachine_data_file, ",%d", current_rtc_count_s);
         // Write any notes, then clear them so they are only written once.
-        fprintf(stateMachine_data_file, ",%s", stateMachine_data_file_notes);
-        strcpy(stateMachine_data_file_notes, "");
+        fprintf(stateMachine_data_file, ",");
+        if (s_stateMachine_log_restarted) {
+            fprintf(stateMachine_data_file, "Restarted! | ");
+            s_stateMachine_log_restarted = 0;
+        }
         // Write the sensor data.
         fprintf(stateMachine_data_file, ",%s", get_state_str(state_to_process));
         fprintf(stateMachine_data_file, ",%s", get_state_str(presentState));
@@ -877,7 +876,6 @@ void stateMachine_task(void) {
         fprintf(stateMachine_data_file, "\n");
         fclose(stateMachine_data_file);
     }
-
 }
 
 void *stateMachine_thread(void *paramPtr) {
@@ -919,11 +917,11 @@ void *stateMachine_thread(void *paramPtr) {
     // Clear the persistent burnwire timeout start time if one exists.
     remove(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH);
 
-    if (ST_SHUTDOWN == new_state) {
+    if (ST_SHUTDOWN == presentState) {
         // wait for ALL other threads to stop
         // shut down system
         sync();
-        reboot(LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_POWER_OFF, NULL);
+        reboot(LINUX_REBOOT_CMD_POWER_OFF);
     }
 
     g_stateMachine_thread_is_running = 0;

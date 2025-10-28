@@ -69,7 +69,7 @@ int audio_thread_init(void) {
 //-----------------------------------------------------------------------------
 // Variables
 //-----------------------------------------------------------------------------
-static int audio_buffer_toWrite = 0; // which buffer will be flushed to the output file
+static volatile int audio_buffer_toWrite = 0; // which buffer will be flushed to the output file
 static char audio_acqDataFileName[AUDIO_DATA_FILENAME_LEN] = {};
 static int audio_acqDataFileLength = 0;
 static FLAC__StreamEncoder *flac_encoder = 0;
@@ -522,7 +522,12 @@ void *audio_thread_spi(void *paramPtr) {
             shm_audio->block = 0;
             s_block_start_time = current_timeval;
             CETI_DEBUG("%d blocks read", AUDIO_BUFFER_SIZE_BLOCKS);
-            shm_audio->page ^= 1; // rotate to page
+            int next_page = shm_audio->page ^ 1;
+            if (next_page == audio_buffer_toWrite) {
+                CETI_ERR("***OVERFLOW*** Audio storage buffer overflow detected.");
+                /* ToDo: handle this type of overflow */
+            }
+            shm_audio->page = next_page; // rotate to page
             // signal buffer is half full event to other processes working with buffered data
             sem_post(sem_audio_page);
         }
@@ -620,7 +625,8 @@ void *audio_thread_writeFlac(void *paramPtr) {
         // Note that this can use a long delay to yield the CPU,
         //  since the buffer will fill about once per minute and it only takes
         //  about 2 seconds to write the buffer to a file.
-        if (audio_buffer_toWrite == shm_audio->page) {
+        int nv_audio_buffer_toWrite = audio_buffer_toWrite;
+        if (nv_audio_buffer_toWrite == shm_audio->page) {
             usleep(1000000);
             continue;
         }
@@ -631,7 +637,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
 
         if (g_stopLogging) {
             // Switch to waiting on the other buffer.
-            audio_buffer_toWrite = !audio_buffer_toWrite;
+            audio_buffer_toWrite = !nv_audio_buffer_toWrite;
             continue;
         }
 
@@ -647,7 +653,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
         {
             for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE24; i_sample++) {
                 for (size_t i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++) {
-                    uint8_t *i_ptr = shm_audio->data[audio_buffer_toWrite].sample24[i_sample][i_channel];
+                    uint8_t *i_ptr = shm_audio->data[nv_audio_buffer_toWrite].sample24[i_sample][i_channel];
                     FLAC__int32 value = ((FLAC__int32)i_ptr[0] << 24) | ((FLAC__int32)i_ptr[1] << 16) | ((FLAC__int32)i_ptr[2] << 8);
                     buff[i_sample][i_channel] = value / (1 << 8);
                 }
@@ -656,7 +662,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
         } else {
             for (size_t i_sample = 0; i_sample < AUDIO_BUFFER_SIZE_SAMPLE16; i_sample++) {
                 for (size_t i_channel = 0; i_channel < AUDIO_CHANNELS; i_channel++) {
-                    uint16_t usigned_val = be16toh(*(uint16_t *)shm_audio->data[audio_buffer_toWrite].sample16[i_sample][i_channel]);
+                    uint16_t usigned_val = be16toh(*(uint16_t *)shm_audio->data[nv_audio_buffer_toWrite].sample16[i_sample][i_channel]);
                     int16_t signed_val = *(int16_t *)(&usigned_val);
                     buff[i_sample][i_channel] = (FLAC__int32)signed_val;
                 }
@@ -673,7 +679,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
         }
 
         // Switch to waiting on the other buffer.
-        audio_buffer_toWrite = !audio_buffer_toWrite;
+        audio_buffer_toWrite = !nv_audio_buffer_toWrite;
 
         g_audio_status.done_writing = 1;
         audio_status_record();

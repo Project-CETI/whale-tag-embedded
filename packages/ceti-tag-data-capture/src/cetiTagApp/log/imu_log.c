@@ -37,6 +37,7 @@
 
 static CetiImuReportBuffer *imu_report_buffer;
 
+volatile uint32_t g_imu_processing_page = 0;
 int g_imu_log_thread_is_running = 0;
 
 static bool imu_restarted_log[IMU_DATA_TYPE_COUNT] = {true, true, true, true};
@@ -294,8 +295,6 @@ void *imu_log_thread(void *paramPtr) {
         return NULL;
     }
 
-    static uint32_t processing_page = 0;
-
     // open imu logging files
     while (imu_init_data_files()) {
         char error_str[512];
@@ -315,7 +314,8 @@ void *imu_log_thread(void *paramPtr) {
         }
 
         // check that data is ready to be written
-        if (imu_report_buffer->page == processing_page) {
+        uint32_t nv_processing_page = g_imu_processing_page;
+        if (imu_report_buffer->page == nv_processing_page) {
             // buffer not full wait a bit longer
             usleep(IMU_LOGGING_INTERVAL_US / 10);
             continue;
@@ -323,7 +323,7 @@ void *imu_log_thread(void *paramPtr) {
 
         // write all logged raw samples
         for (int i = 0; i < IMU_REPORT_BUFFER_SIZE; i++) {
-            CetiImuReport *i_report = &imu_report_buffer->reports[processing_page][i];
+            CetiImuReport *i_report = &imu_report_buffer->reports[nv_processing_page][i];
             if ((i_report->report.report_id == IMU_SENSOR_REPORTID_ROTATION_VECTOR) || (i_report->error != WT_OK)) {
                 imu_log_report_to_quat_csv(imu_data_file[IMU_DATA_TYPE_QUAT], i_report);
             }
@@ -337,7 +337,7 @@ void *imu_log_thread(void *paramPtr) {
                 imu_log_report_to_mag_csv(imu_data_file[IMU_DATA_TYPE_MAG], i_report);
             }
         }
-        processing_page ^= 1;
+        g_imu_processing_page = nv_processing_page ^ 1;
 
         // Create new files if files are getting too large.
         size_t imu_data_file_size_b = 0;
