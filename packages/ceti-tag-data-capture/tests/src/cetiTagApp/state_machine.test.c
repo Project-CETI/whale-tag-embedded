@@ -133,7 +133,7 @@ int imu_get_latest_rotation_euler(EulerAngles_f64 *dst) {
 }
 
 /******************************************* TESTS *******************************************/
-#define FUZZY_COUNT 3
+#define FUZZY_COUNT 1000
 
 // ST_PREDEPLOY -> ST_PREDEPLOYMENT
 void test__updateStateMachine_ST_START_lowPressure(void) {
