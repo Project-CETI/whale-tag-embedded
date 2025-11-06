@@ -306,6 +306,9 @@ void *ecg_thread_getData(void *paramPtr) {
              1000.0 * (float)sample_index / (float)duration_ms,
              sample_index, duration_ms);
 
+    // wait for ecg writing thread to stop before freeing up resources
+    threadManager_join_thread(THREAD_ECG_LOG);
+
     // Clean up.
     ecg_adc_cleanup();
     munmap(shm_ecg, sizeof(CetiEcgBuffer));
