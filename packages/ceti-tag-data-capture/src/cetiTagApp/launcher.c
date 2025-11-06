@@ -220,7 +220,7 @@ void threadManager_create_thread(AcqThreadType thread_index) {
     if (create_result != 0) {
         CETI_WARN("Failed to create %s thread: %s", acq_thread_desc[thread_index].name, strerror(errno));
     }
-    acq_thread_valid = 1;
+    acq_thread_valid[thread_index] = 1;
     pthread_attr_destroy(&attr);
 }
 
