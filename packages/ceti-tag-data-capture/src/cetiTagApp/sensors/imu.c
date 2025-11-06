@@ -172,6 +172,8 @@ void *imu_thread(void *paramPtr) {
 
     sem_close(s_imu_page_ready);
     sem_close(s_imu_report_ready);
+    sem_unlink(IMU_PAGE_SEM_NAME);
+    sem_unlink(IMU_REPORT_SEM_NAME);
 
     munmap(imu_report_buffer, sizeof(CetiImuReportBuffer));
     imu_report_buffer = NULL;

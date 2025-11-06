@@ -318,6 +318,7 @@ void *ecg_thread_getData(void *paramPtr) {
     shm_unlink(ECG_SHM_NAME);
     sem_unlink(ECG_SAMPLE_SEM_NAME);
     sem_unlink(ECG_PAGE_SEM_NAME);
+    shm_ecg = NULL;
 
     g_ecg_thread_getData_is_running = 0;
     CETI_LOG("Done!");

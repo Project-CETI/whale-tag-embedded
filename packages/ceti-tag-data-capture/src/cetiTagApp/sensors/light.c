@@ -193,6 +193,7 @@ void *light_thread(void *paramPtr) {
 
     munmap(g_light, sizeof(CetiLightSample));
     shm_unlink(ECG_SHM_NAME);
+    g_light = NULL;
 
     g_light_thread_is_running = 0;
     CETI_LOG("Done!");

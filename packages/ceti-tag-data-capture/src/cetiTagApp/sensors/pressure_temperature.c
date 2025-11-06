@@ -173,6 +173,14 @@ void *pressureTemperature_thread(void *paramPtr) {
             usleep(polling_sleep_duration_us);
         }
     }
+
+    sem_close(s_pressure_data_ready);
+    sem_unlink(PRESSURE_SEM_NAME);
+
+    munmap(g_pressure, sizeof(CetiPressureSample));
+    shm_unlink(PRESSURE_SHM_NAME);
+    g_pressure = NULL;
+
     g_pressureTemperature_thread_is_running = 0;
     CETI_LOG("Done!");
     return NULL;

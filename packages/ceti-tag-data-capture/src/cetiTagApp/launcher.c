@@ -230,6 +230,7 @@ int threadManager_join_thread(AcqThreadType thread_index) {
     if (result == 0) {
         acq_thread_valid[thread_index] = result;
     }
+    return result;
 }
 
 int threadManager_tryjoin_thread(AcqThreadType thread_index) {

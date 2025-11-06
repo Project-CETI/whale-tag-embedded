@@ -91,6 +91,9 @@ TestState test_batteries(FILE *pResultsFile) {
 
     sem_close(sem_bms_ready);
     munmap(shm_battery, sizeof(CetiBatterySample));
+    shm_unlink(BATTERY_SHM_NAME);
+    sem_unlink(BATTERY_SEM_NAME);
+    shm_battery = NULL;
 
     if (input == 27)
         return TEST_STATE_TERMINATE;

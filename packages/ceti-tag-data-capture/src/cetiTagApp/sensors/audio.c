@@ -568,6 +568,17 @@ void *audio_thread_spi(void *paramPtr) {
     // Stop FPGA audio capture and reset its buffer.
     reset_audio_fifo();
 
+    // Close audio Shared Memory Objects
+    sem_close(sem_audio_page);
+    sem_unlink(AUDIO_PAGE_SEM_NAME);
+
+    sem_close(sem_audio_block);
+    sem_unlink(AUDIO_BLOCK_SEM_NAME);
+
+    munmap(shm_audio, sizeof(CetiAudioBuffer));
+    shm_unlink(AUDIO_SHM_NAME);
+    shm_audio = NULL;
+
     // Exit the thread.
     g_audio_thread_spi_is_running = 0;
     CETI_LOG("Done!");
