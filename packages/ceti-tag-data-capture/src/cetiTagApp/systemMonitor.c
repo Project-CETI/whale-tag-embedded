@@ -136,7 +136,7 @@ void *systemMonitor_thread(void *paramPtr) {
     // Set the previous time such that it will print once at most 30s after starting and thereafter according to the desired period.
     long long last_tid_print_time_us = get_monotonic_time_us() + (TID_PRINT_PERIOD_US > 30000000 ? (30000000 - TID_PRINT_PERIOD_US) : 0);
 #endif
-    while (!g_exit) {
+    while (!g_stopAcquisition) {
         int64_t task_start_us = get_monotonic_time_us();
 // Print the thread IDs if desired
 #if TID_PRINT_PERIOD_US >= 0

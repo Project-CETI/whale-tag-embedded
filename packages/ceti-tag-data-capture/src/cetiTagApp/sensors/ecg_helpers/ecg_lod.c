@@ -71,19 +71,6 @@ void *ecg_lod_thread(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_ecg_lod_thread_tid = gettid();
 
-    // Set the thread CPU affinity.
-    if (ECG_LOD_CPU >= 0) {
-        pthread_t thread;
-        thread = pthread_self();
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(ECG_LOD_CPU, &cpuset);
-        if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-            CETI_LOG("Successfully set affinity to CPU %d", ECG_LOD_CPU);
-        else
-            CETI_WARN("Failed to set affinity to CPU %d", ECG_LOD_CPU);
-    }
-
     // Main loop while application is running.
     CETI_LOG("Starting loop to read data in background");
     g_ecg_lod_thread_is_running = 1;

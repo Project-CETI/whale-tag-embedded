@@ -415,19 +415,6 @@ void *battery_thread(void *paramPtr) {
         return NULL;
     }
 
-    // Set the thread CPU affinity.
-    if (BATTERY_CPU >= 0) {
-        pthread_t thread;
-        thread = pthread_self();
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(BATTERY_CPU, &cpuset);
-        if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-            CETI_LOG("Successfully set affinity to CPU %d", BATTERY_CPU);
-        else
-            CETI_ERR("Failed to set affinity to CPU %d", BATTERY_CPU);
-    }
-
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically acquire data");
     g_battery_thread_is_running = 1;

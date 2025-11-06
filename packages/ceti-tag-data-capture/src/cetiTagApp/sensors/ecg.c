@@ -162,25 +162,6 @@ void *ecg_thread_getData(void *paramPtr) {
         return NULL;
     }
 
-    // Set the thread CPU affinity.
-    if (ECG_GETDATA_CPU >= 0) {
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(ECG_GETDATA_CPU, &cpuset);
-        if (pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset) == 0)
-            CETI_LOG("Successfully set affinity to CPU %d", ECG_GETDATA_CPU);
-        else
-            CETI_LOG("XXX Failed to set affinity to CPU %d", ECG_GETDATA_CPU);
-    }
-    // Set the thread priority.
-    struct sched_param sp;
-    memset(&sp, 0, sizeof(sp));
-    sp.sched_priority = sched_get_priority_max(SCHED_RR);
-    if (pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
-        CETI_LOG("Successfully set priority");
-    else
-        CETI_LOG("XXX Failed to set priority");
-
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically acquire data");
     g_ecg_thread_getData_is_running = 1;
@@ -346,27 +327,6 @@ void *ecg_thread_getData(void *paramPtr) {
 void *ecg_thread_writeData(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_ecg_thread_writeData_tid = gettid();
-
-    // Set the thread CPU affinity.
-    if (ECG_WRITEDATA_CPU >= 0) {
-        pthread_t thread;
-        thread = pthread_self();
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(ECG_WRITEDATA_CPU, &cpuset);
-        if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-            CETI_LOG("Successfully set affinity to CPU %d", ECG_WRITEDATA_CPU);
-        else
-            CETI_LOG("XXX Failed to set affinity to CPU %d", ECG_WRITEDATA_CPU);
-    }
-    // Set the thread to a high priority.
-    struct sched_param sp;
-    memset(&sp, 0, sizeof(sp));
-    sp.sched_priority = sched_get_priority_max(SCHED_RR);
-    if (pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
-        CETI_LOG("Successfully set priority");
-    else
-        CETI_LOG("XXX Failed to set priority");
 
     // Main loop while application is running.
     CETI_LOG("Starting loop to write data as it is acquired");

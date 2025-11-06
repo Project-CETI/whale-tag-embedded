@@ -274,19 +274,6 @@ void imu_log_report_to_mag_csv(FILE *fp, CetiImuReport *pReport) {
 void *imu_log_thread(void *paramPtr) {
     g_imu_thread_writeData_tid = gettid();
 
-    // Set the thread CPU affinity.
-    if (IMU_CPU >= 0) {
-        pthread_t thread;
-        thread = pthread_self();
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(IMU_CPU, &cpuset);
-        if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-            CETI_LOG("Successfully set affinity to CPU %d", IMU_CPU);
-        else
-            CETI_ERR("Failed to set affinity to CPU %d", IMU_CPU);
-    }
-
     // open shared memory object
     imu_report_buffer = shm_open_read(IMU_REPORT_BUFFER_SHM_NAME, sizeof(CetiImuReportBuffer));
     if (imu_report_buffer == NULL) {

@@ -695,25 +695,12 @@ static void __recovery_sample_to_csv(CetiRecoverySample *pSample) {
 }
 
 static bool __recovery_rx_thread_should_exit() {
-    return g_exit || g_stopAcquisition;
+    return g_stopAcquisition;
 }
 
 void *recovery_rx_thread(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_recovery_rx_thread_tid = gettid();
-
-    // Set the thread CPU affinity.
-    if (RECOVERY_RX_CPU >= 0) {
-        pthread_t thread;
-        thread = pthread_self();
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(RECOVERY_RX_CPU, &cpuset);
-        if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-            CETI_LOG("Successfully set affinity to CPU %d", RECOVERY_RX_CPU);
-        else
-            CETI_ERR("Failed to set affinity to CPU %d", RECOVERY_RX_CPU);
-    }
 
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically acquire data");

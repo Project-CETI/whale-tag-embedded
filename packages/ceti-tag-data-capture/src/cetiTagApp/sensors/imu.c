@@ -141,19 +141,6 @@ void *imu_thread(void *paramPtr) {
         return NULL;
     }
 
-    // Set the thread CPU affinity.
-    if (IMU_CPU >= 0) {
-        pthread_t thread;
-        thread = pthread_self();
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(IMU_CPU, &cpuset);
-        if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-            CETI_LOG("Successfully set affinity to CPU %d", IMU_CPU);
-        else
-            CETI_ERR("Failed to set affinity to CPU %d", IMU_CPU);
-    }
-
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically acquire data");
     g_imu_thread_is_running = 1;

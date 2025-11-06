@@ -373,23 +373,16 @@ int stateMachine_set_state(wt_state_t new_state) {
         start_time_s = get_monotonic_time_s();
         // Create files with the configuration and other metadata.
         // Wait a bit after startup, so the system clock can be adjusted.
-        threadManager_create_thread(THREAD_CONFIG_LOG);
+        threadManager_create_thread(ACQ_THREAD_);
     }
 
     // check if data acquisition threads can be disabled
     if ((ST_LOW_POWER_BURN == new_state) || (ST_SHUTDOWN == new_state)) {
-        if (!s_sensor_acq_stopped) {
-            threadManager_stop_acquisition_threads();
-            s_sensor_acq_stopped = 1;
-        }
+        threadManager_stop_acquisition_threads();
     } else {
-        if (s_sensor_acq_stopped) {
-            threadManager_start_acquisition_threads();
-            CETI_LOG("-------------------------------------------------");
-            CETI_LOG("Data acquisition is running!");
-            CETI_LOG("-------------------------------------------------");
-            s_sensor_acq_stopped = 0;
-        }
+        threadManager_start_acquisition_threads();
+
+            
     }
 
 #if ENABLE_BURNWIRE

@@ -109,7 +109,6 @@ struct {
 
 static int audio_writing_to_status_file = 0;
 
-static void __audio_check_for_overflow(int location_index);
 static void __init_audio_buffers();
 
 //-----------------------------------------------------------------------------
@@ -142,7 +141,11 @@ static int wt_audio_read_data_ready(void) {
 }
 
 static int wt_audio_read_overflow(void) {
+#if AUDIO_OVERFLOW_GPIO >= 0
     return gpioRead(AUDIO_OVERFLOW_GPIO);
+#else
+    return 0;
+#endif
 }
 
 //  Acquisition Hardware Setup and Control Utility Functions
@@ -456,29 +459,6 @@ void *audio_thread_spi(void *paramPtr) {
         return NULL;
     }
 
-    // Set the thread CPU affinity.
-    if (AUDIO_SPI_CPU >= 0) {
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(AUDIO_SPI_CPU, &cpuset);
-        if (pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset) == 0)
-            CETI_LOG("Successfully set affinity to CPU %d", AUDIO_SPI_CPU);
-        else
-            CETI_WARN("Failed to set affinity to CPU %d", AUDIO_SPI_CPU);
-    }
-
-    // Set the thread priority.
-    struct sched_param sp;
-    memset(&sp, 0, sizeof(sp));
-    sp.sched_priority = sched_get_priority_max(SCHED_RR);
-    if (pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
-        CETI_LOG("Successfully set priority");
-    else
-        CETI_WARN("Failed to set priority");
-
-    // Check if the audio is already overflowed.
-    __audio_check_for_overflow(0);
-
     // Main loop to acquire audio data.
     g_audio_thread_spi_is_running = 1;
     time_t expected_IQR_interval_us = AUDIO_BLOCK_FILL_SPEED_US(g_config.audio.sample_rate * 1000, g_config.audio.bit_depth);
@@ -494,7 +474,7 @@ void *audio_thread_spi(void *paramPtr) {
     // Discard the very first byte in the SPI stream.
     char first_byte;
     spiRead(spi_fd, &first_byte, 1);
-    while (!g_stopAcquisition && !g_audio_overflow_detected) {
+    while (!g_stopAcquisition) {
         // Wait for SPI data to be available.
         while (!wt_audio_read_data_ready()) {
             // Reduce the CPU load a bit.
@@ -534,9 +514,38 @@ void *audio_thread_spi(void *paramPtr) {
         // signal new data for other processes working with live streamed data
         sem_post(sem_audio_block);
 
-        // only perform checks/sleep if we have time to
         // Check if the FPGA buffer overflowed.
-        __audio_check_for_overflow(3);
+        if(wt_audio_read_overflow()) {
+            /*** Handle Overflow ***/
+
+            // stop audio fifo
+            wt_fpga_fifo_stop();
+            wt_fpga_fifo_reset();
+            
+            // signal audio write thread to stop
+            g_audio_overflow_detected = 1;
+
+            // log overflow event
+            CETI_LOG("***OVERFLOW*** Audio FPGA overflow detected at loacation 3");
+            g_audio_status.overflow = 1;
+            g_audio_status.overflow_location = 3;
+            audio_status_record();
+            g_audio_status.overflow = 0;
+            g_audio_status.overflow_location = -1;
+
+            
+            // wait for audio write thread to stop
+            threadManager_join_thread(ACQ_THREAD_AUDIO_LOG);
+            g_audio_overflow_detected = 0;
+        
+            // restart audio write thread and fpga fifo buffer
+            if (g_stopAcquisition) {
+                 break;
+            }
+            threadManager_create_thread(ACQ_THREAD_AUDIO_LOG);
+            start_audio_acq();
+            continue;
+        }
 
         // don't wait if more data is ready
         if (wt_audio_read_data_ready()) {
@@ -553,27 +562,16 @@ void *audio_thread_spi(void *paramPtr) {
     // Close the SPI communication.
     spiClose(spi_fd);
 
-    // Log that the thread is stopping.
-    if (g_audio_overflow_detected && !g_stopAcquisition) {
-        CETI_LOG("*** Audio overflow detected at location %d", g_audio_status.overflow_location);
-    } else {
-        CETI_LOG("Done!");
-    }
-
     // Wait for the write-data thread to finish as well.
-    while (g_audio_thread_writeData_is_running)
-        usleep(100000);
+    threadManager_join_thread(ACQ_THREAD_AUDIO_LOG);
 
     // Stop FPGA audio capture and reset its buffer.
-    // stop_audio_acq();
-    usleep(100000);
     reset_audio_fifo();
-    usleep(100000);
-    g_audio_overflow_detected = g_audio_status.overflow = 0;
-    g_audio_status.overflow_location = -1;
 
     // Exit the thread.
     g_audio_thread_spi_is_running = 0;
+    CETI_LOG("Done!");
+
     return NULL;
 }
 
@@ -583,27 +581,6 @@ void *audio_thread_spi(void *paramPtr) {
 void *audio_thread_writeFlac(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_audio_thread_writeData_tid = gettid();
-
-    // Set the thread CPU affinity.
-    if (AUDIO_WRITEDATA_CPU >= 0) {
-        pthread_t thread;
-        thread = pthread_self();
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(AUDIO_WRITEDATA_CPU, &cpuset);
-        if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-            CETI_LOG("Successfully set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
-        else
-            CETI_WARN("Failed to set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
-    }
-    // Set the thread to a low priority.
-    struct sched_param sp;
-    memset(&sp, 0, sizeof(sp));
-    sp.sched_priority = sched_get_priority_min(SCHED_RR);
-    if (pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
-        CETI_LOG("Successfully set priority");
-    else
-        CETI_WARN("Failed to set priority");
 
     // Calculate expected file size for given configuration
     size_t filesize_bytes = AUDIO_BUFFER_SIZE_BYTES * (g_config.audio.bit_depth / 8);
@@ -740,10 +717,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
     FLAC__stream_encoder_delete(flac_encoder);
     flac_encoder = 0;
     // Exit the thread.
-    if (g_audio_overflow_detected && !g_stopAcquisition)
-        CETI_LOG("*** Audio overflow detected at location %d", g_audio_status.overflow_location);
-    else
-        CETI_LOG("Done!");
+    CETI_LOG("Done!");    
     g_audio_thread_writeData_is_running = 0;
     return NULL;
 }
@@ -810,27 +784,6 @@ void *audio_thread_writeRaw(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_audio_thread_writeData_tid = gettid();
 
-    // Set the thread CPU affinity.
-    if (AUDIO_WRITEDATA_CPU >= 0) {
-        pthread_t thread;
-        thread = pthread_self();
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(AUDIO_WRITEDATA_CPU, &cpuset);
-        if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-            CETI_LOG("Successfully set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
-        else
-            CETI_WARN("Failed to set affinity to CPU %d", AUDIO_WRITEDATA_CPU);
-    }
-    // Set the thread to a low priority.
-    struct sched_param sp;
-    memset(&sp, 0, sizeof(sp));
-    sp.sched_priority = sched_get_priority_min(SCHED_RR);
-    if (pthread_setschedparam(pthread_self(), SCHED_RR, &sp) == 0)
-        CETI_LOG("Successfully set priority");
-    else
-        CETI_WARN("Failed to set priority");
-
     // Wait for the SPI thread to finish initializing and start the main loop.
     while (!g_audio_thread_spi_is_running && !g_stopAcquisition && !g_audio_overflow_detected)
         usleep(1000);
@@ -873,10 +826,7 @@ void *audio_thread_writeRaw(void *paramPtr) {
     }
 
     // Exit the thread.
-    if (g_audio_overflow_detected && !g_stopAcquisition)
-        CETI_LOG("*** Audio overflow detected at location %d", g_audio_status.overflow_location);
-    else
-        CETI_LOG("Done!");
+    CETI_LOG("Done!");
     g_audio_thread_writeData_is_running = 0;
     return NULL;
 }
@@ -895,22 +845,6 @@ void audio_createNewRawFile() {
         return;
     }
     CETI_LOG("Saving hydrophone data to %s", audio_acqDataFileName);
-}
-
-//-----------------------------------------------------------------------------
-// Various helpers
-//-----------------------------------------------------------------------------
-static void __audio_check_for_overflow(int location_index) {
-#if AUDIO_OVERFLOW_GPIO >= 0
-    g_audio_overflow_detected = g_audio_overflow_detected || wt_audio_read_overflow();
-    g_audio_status.overflow = g_audio_overflow_detected;
-    if (!g_audio_overflow_detected) {
-        return;
-    }
-    CETI_LOG("*** OVERFLOW detected at location %d, block %d***", location_index, shm_audio->block);
-    g_audio_status.overflow_location = location_index;
-    audio_status_record();
-#endif
 }
 
 #endif // !ENABLE_FPGA

@@ -518,15 +518,9 @@ int stateMachine_set_state(wt_state_t new_state) {
 
     // general sensor acquisition
     if ((ST_LOW_POWER_BURN == new_state) || (ST_SHUTDOWN == new_state)) {
-        g_stopAcquisition = 1;
+        threadManager_stop_acquisition();
     } else {
-        if (g_stopAcquisition) {
-            g_stopAcquisition = 0;
-            CETI_LOG("-------------------------------------------------");
-            CETI_LOG("Data acquisition is running!");
-            CETI_LOG("-------------------------------------------------");
-            // start data acquisition threads
-        }
+        threadManager_start_acquisition();
     }
 
 #if ENABLE_RECOVERY
@@ -937,14 +931,6 @@ void *stateMachine_thread(void *paramPtr) {
     }
     // Clear the persistent burnwire timeout start time if one exists.
     remove(STATEMACHINE_BURNWIRE_TIMEOUT_START_TIME_FILEPATH);
-
-    if (ST_SHUTDOWN == presentState) {
-        // wait for ALL other threads to stop
-#warning "ToDo: Implement wait for all other threads to stop
-        // shut down system
-        sync();
-        reboot(LINUX_REBOOT_CMD_POWER_OFF);
-    }
 
     g_stateMachine_thread_is_running = 0;
     CETI_LOG("Done!");

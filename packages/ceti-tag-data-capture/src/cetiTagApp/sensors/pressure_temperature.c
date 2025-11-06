@@ -139,20 +139,6 @@ void *pressureTemperature_thread(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_pressureTemperature_thread_tid = gettid();
 
-    // Set the thread CPU affinity.
-    if (PRESSURETEMPERATURE_CPU >= 0) {
-        pthread_t thread;
-        thread = pthread_self();
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(PRESSURETEMPERATURE_CPU, &cpuset);
-        if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0) {
-            CETI_LOG("Successfully set affinity to CPU %d", PRESSURETEMPERATURE_CPU);
-        } else {
-            CETI_WARN("Failed to set affinity to CPU %d", PRESSURETEMPERATURE_CPU);
-        }
-    }
-
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically acquire data");
     g_pressureTemperature_thread_is_running = 1;
