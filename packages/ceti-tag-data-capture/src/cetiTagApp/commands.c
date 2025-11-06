@@ -135,7 +135,7 @@ static int __command_quit(const char *args) {
     fprintf(g_rsp_pipe, "Received Quit command - stopping the app\n"); // echo it back
     CETI_LOG("SETTING EXIT FLAG");
     g_stopLogging = 1;
-    g_stopAcquisition = 1;
+    threadManager_start_acquisition();
     g_exit = 1;
     return 0;
 }

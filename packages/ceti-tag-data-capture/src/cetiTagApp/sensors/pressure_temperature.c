@@ -26,6 +26,8 @@
 #include <semaphore.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h> // for usleep()
 
 //-----------------------------------------------------------------------------
