@@ -41,7 +41,7 @@
 //-----------------------------------------------------------------------------
 #define THREAD_MANAGER_JOIN_TIMEOUT_S (30)
 
-int g_stopAcquisition = 1;
+int g_stopAcquisition    = 1;
 
 static uint32_t s_threads_in_error = 0;
 
@@ -156,6 +156,7 @@ static const struct {
 
 };
 
+static uint8_t acq_thread_valid[NUM_ACQ_THREAD] = {0};
 static pthread_t acq_threads[NUM_ACQ_THREAD];
 static pid_t acq_thread_tids[NUM_ACQ_THREAD];
 
@@ -168,7 +169,7 @@ void threadManager_create_thread(AcqThreadType thread_index) {
     }
 
     // check if thread is already running
-    if (EBUSY == pthread_tryjoin_np(acq_threads[thread_index], NULL)) {
+    if (acq_thread_valid && (EBUSY == pthread_tryjoin_np(acq_threads[thread_index], NULL))) {
         return;
     }
 
@@ -204,7 +205,11 @@ void threadManager_create_thread(AcqThreadType thread_index) {
         } else if (PRI_MIN == acq_thread_desc[thread_index].priority) {
             sp.sched_priority = sched_get_priority_min(SCHED_RR);
         }
-        pri_result = pthread_attr_setschedparam(&attr, &sp);
+        pri_result = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+        if (0 == pri_result) {
+            CETI_LOG("Thread sched attribute inheritance set");
+            pri_result = pthread_attr_setschedparam(&attr, &sp);
+        }
         if (pri_result != 0) {
             CETI_WARN("Failed to set %s thread priority: %s", acq_thread_desc[thread_index].name, strerror(errno));
         }
@@ -215,6 +220,7 @@ void threadManager_create_thread(AcqThreadType thread_index) {
     if (create_result != 0) {
         CETI_WARN("Failed to create %s thread: %s", acq_thread_desc[thread_index].name, strerror(errno));
     }
+    acq_thread_valid = 1;
     pthread_attr_destroy(&attr);
 }
 
@@ -230,6 +236,7 @@ void threadManager_start_acquisition(void) {
     if (0 == g_stopAcquisition) {
         return; // acq already stopped
     }
+    g_stopAcquisition = 0;
 
     // IMU
     threadManager_create_thread(ACQ_THREAD_IMU_ACQ);
