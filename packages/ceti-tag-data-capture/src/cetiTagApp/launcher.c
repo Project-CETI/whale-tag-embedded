@@ -169,7 +169,7 @@ void threadManager_create_thread(AcqThreadType thread_index) {
     }
 
     // check if thread is already running
-    if (acq_thread_valid && (EBUSY == pthread_tryjoin_np(acq_threads[thread_index], NULL))) {
+    if (acq_thread_valid[thread_index] && (EBUSY == pthread_tryjoin_np(acq_threads[thread_index], NULL))) {
         return;
     }
 
