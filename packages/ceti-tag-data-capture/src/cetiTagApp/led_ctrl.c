@@ -7,8 +7,8 @@
 
 #include "device/fpga.h"
 #include "launcher.h"
-#include "utils/timing.h"
 #include "utils/logging.h"
+#include "utils/timing.h"
 
 #define LED_CTRL_UPDATE_INTERVAL_US (250000)
 #define LED_CTRL_ERROR_RESULT_DISPLAY_INTERVAL_S (1)
@@ -26,10 +26,17 @@ static uint8_t s_burnwire_led_state = 0;
 static uint32_t s_dive_count = 0;
 
 void LEDCtrl_set_state(LEDState state) {
+    if (state == LED_STATE_EXIT_REPORT_ERROR) {
+        s_state = LED_STATE_EXIT_REPORT_ERROR;
+        LEDCtrl_set_state(s_error.return_state);
+        return;
+    }
+
     if (s_state == LED_STATE_REPORT_ERROR) {
         s_error.return_state = state;
         return;
     }
+
     switch (state) {
         case LED_STATE_FPGA:
             wt_fpga_led_release_all();
@@ -61,6 +68,7 @@ void LEDCtrl_set_state(LEDState state) {
             LEDCtrl_set_state(s_error.return_state);
             return;
     }
+    CETI_LOG("LED state set to %d", state);
     s_state = state;
 }
 
@@ -105,6 +113,7 @@ static void __LEDCtrl_task(void) {
             break;
 
         case LED_STATE_REPORT_ERROR: {
+            static int error_hold_count = 0;
             if ((s_error.current_bit >> 1) < s_error.bit_len) {
                 /* BLINK ERROR CODE */
                 if ((s_error.current_bit & 1)) {
@@ -138,12 +147,13 @@ static void __LEDCtrl_task(void) {
                         wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
                     }
                     wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
-                    s_error.current_bit = (s_error.bit_len + 1) << 1; 
+                    s_error.current_bit = (s_error.bit_len + 1) << 1;
+                    error_hold_count = 0;
                 }
             } else if ((s_error.current_bit >> 1) > s_error.bit_len) {
                 /* TRANSITION TO NEXT STATE*/
-                s_error.current_bit++;
-                if ((s_error.current_bit >> 1) > (s_error.bit_len + 4 * LED_CTRL_ERROR_RESULT_DISPLAY_INTERVAL_S)) {
+                error_hold_count++;
+                if (error_hold_count > (4 * LED_CTRL_ERROR_RESULT_DISPLAY_INTERVAL_S)) {
                     LEDCtrl_set_state(LED_STATE_EXIT_REPORT_ERROR);
                 }
             }
@@ -160,10 +170,10 @@ static void __LEDCtrl_task(void) {
             s_dive_count = (s_dive_count + 1) % (4 * 10);
             break;
         }
-        
+
         case LED_STATE_EXIT_REPORT_ERROR: {
             LEDCtrl_set_state(LED_STATE_FPGA);
-            break
+            break;
         }
     }
 }

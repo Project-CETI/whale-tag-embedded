@@ -113,9 +113,9 @@ typedef enum {
  */
 #define wt_fpga_led_release_all()                                     \
     {                                                                 \
-        wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_FPGA_ONLY, 0);  \
-        wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_FPGA_ONLY, 0); \
-        wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_FPGA_ONLY, 0);    \
+        wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_FPGA_ONLY, 1);  \
+        wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_FPGA_ONLY, 1); \
+        wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_FPGA_ONLY, 1);    \
     }
 
 /**

@@ -80,7 +80,7 @@ typedef enum {
     ACQ_THREAD_ALS,
     ACQ_THREAD_AUDIO_ACQ,
     ACQ_THREAD_AUDIO_LOG,
-    ACQ_THREAD_BATTERY, 
+    ACQ_THREAD_BATTERY,
     ACQ_THREAD_DEPLOYMENT_CONFIG_LOG,
     ACQ_THREAD_ECG_ACQ,
     ACQ_THREAD_ECG_LOD_ACQ,
@@ -110,6 +110,6 @@ int threadManager_tryjoin_thread(AcqThreadType thread_index);
 void threadManager_start_acquisition(void);
 void threadManager_stop_acquisition(void);
 void threadManager_init(void);
-void *threadManager_thread(void * paramPtr);
+void *threadManager_thread(void *paramPtr);
 
 #endif // LAUNCHER_H

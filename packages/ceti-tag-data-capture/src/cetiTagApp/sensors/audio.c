@@ -515,13 +515,13 @@ void *audio_thread_spi(void *paramPtr) {
         sem_post(sem_audio_block);
 
         // Check if the FPGA buffer overflowed.
-        if(wt_audio_read_overflow()) {
+        if (wt_audio_read_overflow()) {
             /*** Handle Overflow ***/
 
             // stop audio fifo
             wt_fpga_fifo_stop();
             wt_fpga_fifo_reset();
-            
+
             // signal audio write thread to stop
             g_audio_overflow_detected = 1;
 
@@ -533,14 +533,13 @@ void *audio_thread_spi(void *paramPtr) {
             g_audio_status.overflow = 0;
             g_audio_status.overflow_location = -1;
 
-            
             // wait for audio write thread to stop
             threadManager_join_thread(ACQ_THREAD_AUDIO_LOG);
             g_audio_overflow_detected = 0;
-        
+
             // restart audio write thread and fpga fifo buffer
             if (g_stopAcquisition) {
-                 break;
+                break;
             }
             __init_audio_buffers();
             threadManager_create_thread(ACQ_THREAD_AUDIO_LOG);
@@ -718,7 +717,7 @@ void *audio_thread_writeFlac(void *paramPtr) {
     FLAC__stream_encoder_delete(flac_encoder);
     flac_encoder = 0;
     // Exit the thread.
-    CETI_LOG("Done!");    
+    CETI_LOG("Done!");
     g_audio_thread_writeData_is_running = 0;
     return NULL;
 }

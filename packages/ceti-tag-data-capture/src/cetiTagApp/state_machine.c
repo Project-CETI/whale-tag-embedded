@@ -829,8 +829,7 @@ int updateStateMachine() {
 }
 
 #ifdef UNIT_TEST
-void __stateMachine_update_task(void)
-{
+void __stateMachine_update_task(void) {
     // update detection values that should always be updated for the mission
     // state machine to work
     if ((ST_START != presentState) && (ST_UNKNOWN > presentState)) {
@@ -839,7 +838,7 @@ void __stateMachine_update_task(void)
         __burnwire_timing_update();
         __update_networking();
     }
-    
+
     // Determine the next state.
     updateStateMachine();
 }

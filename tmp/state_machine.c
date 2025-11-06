@@ -54,8 +54,7 @@ static const char *state_str[] = {
     [ST_LOW_POWER_BURN] = "LOW_POWER_BURN",
     [ST_RETRIEVE] = "RETRIEVE",
     [ST_SHUTDOWN] = "SHUTDOWN",
-    [ST_UNKNOWN] = "UNKNOWN"
-};
+    [ST_UNKNOWN] = "UNKNOWN"};
 
 static int presentState = ST_UNKNOWN;
 static unsigned int start_time_s = 0;
@@ -67,7 +66,6 @@ static const char *stateMachine_data_file_headers[] = {
     "Next State",
 };
 static const int num_stateMachine_data_file_headers = sizeof(stateMachine_data_file_headers) / sizeof(*stateMachine_data_file_headers);
-
 
 //-----------------------------------------------------------------------------
 // DEPTH DETECTION
@@ -128,7 +126,6 @@ static void __reset_float_detection(void) {
     imu_abs_d_roll_sum_deg = 0.0f;
 }
 
-
 static void __update_float_detection(void) {
     EulerAngles_f64 latest_euler;
     if (imu_get_latest_rotation_euler(&latest_euler) != 0) {
@@ -165,7 +162,6 @@ static void __update_float_detection(void) {
         __reset_float_detection();
     }
 }
-
 
 static int __is_floating(void) {
 #if FLOAT_DETECTION
@@ -204,7 +200,7 @@ static void __update_networking(void) {
 static uint64_t __void_free_data_bytes(void) {
     struct statvfs fs = {};
     statvfs("/data", &fs);
-    uint64_t available_bytes = fs.f_bfree*fs.f_bsize;
+    uint64_t available_bytes = fs.f_bfree * fs.f_bsize;
     return available_bytes;
 }
 
@@ -300,13 +296,12 @@ static unsigned int burnwire_timeout_start_s = 0;
 static int64_t burnwire_time_of_day_release_s = 0;
 static uint32_t burnwire_started_time_s = 0;
 
-
 /**
  * @brief  resyncronizes burnwire timings if more accurate realtime timestamp available
- * 
- * @return  
+ *
+ * @return
  */
-static void __burnwire_timing_update(void){
+static void __burnwire_timing_update(void) {
     // Resyncronize clock if networking still up and time has never synced
     if (networking_is_enabled() && !timing_has_syncronized_to_ntp()) {
         timing_syncronize_to_ntp();
@@ -381,8 +376,6 @@ int stateMachine_set_state(wt_state_t new_state) {
         threadManager_stop_acquisition_threads();
     } else {
         threadManager_start_acquisition_threads();
-
-            
     }
 
 #if ENABLE_BURNWIRE
@@ -427,7 +420,6 @@ int stateMachine_set_state(wt_state_t new_state) {
     }
 #endif
 
-
 #if ENABLE_RECOVERY
     // check state recovery board should be on
     if (g_config.recovery.enabled) {
@@ -437,20 +429,18 @@ int stateMachine_set_state(wt_state_t new_state) {
             recovery_gps_only();
         } else {
             recovery_wake();
-            
-            //set current state in message
+
+            // set current state in message
             char hostname[32];
             gethostname(hostname, 31);
-            
+
             char comment[41] = {};
             snprintf(comment, 40, "%s %s", hostname, get_state_str(new_state));
             // set recovery board comment
             recovery_set_comment(comment);
         }
     }
-#endif //ENABLE_RECOVERY
-    
-
+#endif // ENABLE_RECOVERY
 
     // update state
     CETI_LOG("State transition: %s -> %s\n", get_state_str(presentState), get_state_str(new_state));
@@ -501,7 +491,6 @@ int updateStateMachine() {
                 burnwire_time_of_day_release_s = get_next_time_of_day_occurance_s(&g_config.tod_release.value);
                 CETI_LOG("Time of day release set to %lu", burnwire_time_of_day_release_s);
             }
-
 
 #if ENABLE_RECOVERY
             // configure recovery board
@@ -638,7 +627,6 @@ int updateStateMachine() {
                 break;
             }
 
-
             if (__at_depth()) {
                 stateMachine_set_state(ST_RECORD_DIVING);
             }
@@ -676,7 +664,7 @@ int updateStateMachine() {
                 CETI_LOG("LOW VOLTAGE!!! Initializing Burn from Surface");
                 stateMachine_set_state(ST_LOW_POWER_BURN);
                 break;
-            }        
+            }
 
             // switch state once the burn is complete
             if (get_global_time_s() - burnwire_started_time_s > g_config.burn_interval_s) {
@@ -714,7 +702,6 @@ int updateStateMachine() {
                 stateMachine_set_state(ST_SHUTDOWN);
                 break;
             }
-
 
             if (__is_floating()) {
                 CETI_LOG("Floating at surface detected. Entering low power.");
@@ -787,8 +774,8 @@ wt_state_t strtomissionstate(const char *_String, const char **_EndPtr) {
 //-----------------------------------------------------------------------------
 void *stateMachine_thread(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
-    volatile ThreadParam *pParam =  (volatile ThreadParam *)paramPtr;
-    pParam->tid = gettid();    
+    volatile ThreadParam *pParam = (volatile ThreadParam *)paramPtr;
+    pParam->tid = gettid();
 
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically update state");
@@ -816,7 +803,7 @@ void *stateMachine_thread(void *paramPtr) {
             // Write state information to the data file.
             if (!g_stopLogging) {
                 FILE *stateMachine_data_file = fopen(STATEMACHINE_DATA_FILEPATH, "at");
-                if (stateMachine_data_file == NULL){
+                if (stateMachine_data_file == NULL) {
                     CETI_LOG("failed to open data output file: %s", STATEMACHINE_DATA_FILEPATH);
                 } else {
                     // Write timing information.

@@ -52,7 +52,7 @@ typedef enum {
 } ThreadPri;
 
 static const struct {
-    char* name;
+    char *name;
     void *(*main_fn)(void *);
     ThreadPri priority;
     int affinity;
@@ -66,12 +66,7 @@ static const struct {
 #endif // ENABLE_LIGHT_SENSOR
 
 #if ENABLE_AUDIO
-    [ACQ_THREAD_AUDIO_ACQ] = {
-        .name = "audio acquisition",
-        .main_fn = audio_thread_spi,
-        .affinity = AUDIO_SPI_CPU + 1,
-        .priority = PRI_MAX
-    },
+    [ACQ_THREAD_AUDIO_ACQ] = {.name = "audio acquisition", .main_fn = audio_thread_spi, .affinity = AUDIO_SPI_CPU + 1, .priority = PRI_MAX},
     [ACQ_THREAD_AUDIO_LOG] = {
         .name = "audio logging",
 #if ENABLE_AUDIO_FLAC
@@ -179,7 +174,7 @@ void threadManager_create_thread(AcqThreadType thread_index) {
     if (attr_result != 0) {
         CETI_WARN("Failed to initialize attribute struct for %s thread: %s", acq_thread_desc[thread_index].name, strerror(errno));
     }
-    
+
     // set affinity
     if (acq_thread_desc[thread_index].affinity != 0) {
         int cpu_index;
@@ -228,11 +223,17 @@ void threadManager_create_thread(AcqThreadType thread_index) {
 }
 
 int threadManager_join_thread(AcqThreadType thread_index) {
-    return pthread_join(acq_threads[thread_index], NULL);  
+    if (!acq_thread_valid[thread_index]){
+        return 0;
+    }
+    return pthread_join(acq_threads[thread_index], NULL);
 }
 
 int threadManager_tryjoin_thread(AcqThreadType thread_index) {
-    return pthread_tryjoin_np(acq_threads[thread_index], NULL);  
+    if (!acq_thread_valid[thread_index]){
+        return 0;
+    }
+    return pthread_tryjoin_np(acq_threads[thread_index], NULL);
 }
 
 void threadManager_start_acquisition(void) {
@@ -257,7 +258,7 @@ void threadManager_start_acquisition(void) {
     // Recovery board (GPS).
 #if ENABLE_RECOVERY
     if (g_config.recovery.enabled) {
-        if (!(s_threads_in_error & (1<< THREAD_GPS_ACQ))) {
+        if (!(s_threads_in_error & (1 << THREAD_GPS_ACQ))) {
             threadManager_create_thread(ACQ_THREAD_GPS);
         } else {
             recovery_off();
@@ -277,7 +278,7 @@ void threadManager_start_acquisition(void) {
     threadManager_create_thread(ACQ_THREAD_AUDIO_ACQ);
     threadManager_create_thread(ACQ_THREAD_AUDIO_LOG);
 
-    // Tag deployment info 
+    // Tag deployment info
     threadManager_create_thread(ACQ_THREAD_DEPLOYMENT_CONFIG_LOG);
     CETI_LOG("-------------------------------------------------");
     CETI_LOG("Data acquisition is running!");
@@ -288,7 +289,7 @@ void threadManager_stop_acquisition(void) {
     struct timespec ts;
 
     // signal to acquisition threads to stop
-    if (1 == g_stopAcquisition){
+    if (1 == g_stopAcquisition) {
         return;
     }
 
@@ -304,7 +305,7 @@ void threadManager_stop_acquisition(void) {
 
     // check that all acquisition threads stop
     for (int thread_index = 0; thread_index < NUM_ACQ_THREAD; thread_index++) {
-        if (pthread_timedjoin_np(acq_threads[thread_index], NULL, &ts) != 0) {
+        if (acq_thread_valid[thread_index] &&  (pthread_timedjoin_np(acq_threads[thread_index], NULL, &ts) != 0)) {
             CETI_ERR("%s thread failed to stop. Cancelling thread", acq_thread_desc[thread_index].name);
             pthread_cancel(acq_threads[thread_index]);
         }
@@ -417,7 +418,6 @@ void threadManager_init(void) {
     return;
 }
 
-
 //-----------------------------------------------------------------------------
 // SYSTEM CORE
 //-----------------------------------------------------------------------------
@@ -442,7 +442,6 @@ void threadManager_init(void) {
 
 #define CORE_THREAD_JOIN_TIMEOUT_S 45
 
-
 typedef enum {
     CORE_THREAD_RTC,
     CORE_THREAD_COMMAND_PIPE,
@@ -450,10 +449,9 @@ typedef enum {
     NUM_CORE_THREAD,
 } CoreThreadType;
 
-int g_exit  = 0;
+int g_exit = 0;
 int g_stopLogging = 0;
 char g_process_path[256] = "/opt/ceti-tag-data-capture/bin";
-
 
 const char *core_thread_names[NUM_CORE_THREAD] = {
     [CORE_THREAD_RTC] = "rtc",
@@ -496,7 +494,6 @@ static int core_init(void) {
     config_read(config_file_path);
     CETI_LOG("Reading current settings from %s", CETI_CONFIG_OVERWRITE_FILE);
     config_read(CETI_CONFIG_OVERWRITE_FILE);
-
 
     if (gpioInitialise() < 0) {
         CETI_ERR("Failed to initialize pigpio");
@@ -564,7 +561,7 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, sig_handler);
     signal(SIGTERM, sig_handler);
 
-    if (0 != core_init()){
+    if (0 != core_init()) {
         CETI_ERR("Failed to initialize tag!!!");
         return -1;
     }
@@ -601,7 +598,7 @@ int main(int argc, char *argv[]) {
     gpioTerminate();
 
     CETI_LOG("Done!");
-    if (ST_SHUTDOWN == stateMachine_get_state()){
+    if (ST_SHUTDOWN == stateMachine_get_state()) {
         // shut down system
         sync();
         reboot(LINUX_REBOOT_CMD_POWER_OFF);
