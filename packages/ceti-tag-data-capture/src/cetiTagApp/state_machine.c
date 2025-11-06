@@ -182,6 +182,10 @@ static unsigned int s_network_last_connection_time_s = 0;
 
 static int __is_charging(void) {
 #if ENABLE_BATTERY_GAUGE
+    if (NULL == shm_battery) {
+        return 1;
+    }
+
     if (shm_battery->error != WT_OK) {
         return 1; // keeps wifi on if BMS is failing to communicate
     }
@@ -244,6 +248,9 @@ void reset_voltage_counters(void) {
 
 static void __update_voltage_counters(void) {
 #if ENABLE_BATTERY_GAUGE
+    if (shm_battery == NULL) {
+        return;
+    }
     if (shm_battery->error == WT_OK) {
         s_bms_error_count = 0;
 

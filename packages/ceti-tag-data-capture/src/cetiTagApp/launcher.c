@@ -223,14 +223,14 @@ void threadManager_create_thread(AcqThreadType thread_index) {
 }
 
 int threadManager_join_thread(AcqThreadType thread_index) {
-    if (!acq_thread_valid[thread_index]){
+    if (!acq_thread_valid[thread_index]) {
         return 0;
     }
     return pthread_join(acq_threads[thread_index], NULL);
 }
 
 int threadManager_tryjoin_thread(AcqThreadType thread_index) {
-    if (!acq_thread_valid[thread_index]){
+    if (!acq_thread_valid[thread_index]) {
         return 0;
     }
     return pthread_tryjoin_np(acq_threads[thread_index], NULL);
@@ -305,7 +305,7 @@ void threadManager_stop_acquisition(void) {
 
     // check that all acquisition threads stop
     for (int thread_index = 0; thread_index < NUM_ACQ_THREAD; thread_index++) {
-        if (acq_thread_valid[thread_index] &&  (pthread_timedjoin_np(acq_threads[thread_index], NULL, &ts) != 0)) {
+        if (acq_thread_valid[thread_index] && (pthread_timedjoin_np(acq_threads[thread_index], NULL, &ts) != 0)) {
             CETI_ERR("%s thread failed to stop. Cancelling thread", acq_thread_desc[thread_index].name);
             pthread_cancel(acq_threads[thread_index]);
         }

@@ -479,6 +479,7 @@ void *battery_thread(void *paramPtr) {
 
     munmap(shm_battery, sizeof(CetiBatterySample));
     shm_unlink(BATTERY_SHM_NAME);
+    shm_battery = NULL;
 
     g_battery_thread_is_running = 0;
     CETI_LOG("Done!");
