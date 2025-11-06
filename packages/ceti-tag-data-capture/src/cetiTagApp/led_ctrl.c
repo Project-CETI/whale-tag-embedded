@@ -56,6 +56,10 @@ void LEDCtrl_set_state(LEDState state) {
             wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_FPGA_ONLY, FPGA_LED_STATE_OFF);
             s_dive_count = 0;
             break;
+
+        case LED_STATE_EXIT_REPORT_ERROR:
+            LEDCtrl_set_state(s_error.return_state);
+            return;
     }
     s_state = state;
 }
@@ -103,7 +107,6 @@ static void __LEDCtrl_task(void) {
         case LED_STATE_REPORT_ERROR: {
             if ((s_error.current_bit >> 1) < s_error.bit_len) {
                 /* BLINK ERROR CODE */
-                CETI_LOG("Blinking Error");
                 if ((s_error.current_bit & 1)) {
                     /* BLINK ON */
                     // Clock with Yellow
@@ -125,26 +128,23 @@ static void __LEDCtrl_task(void) {
                 s_error.current_bit++;
             } else if ((s_error.current_bit >> 1) == s_error.bit_len) {
                 /* HOLD ERROR LEVEL */
-                CETI_LOG("Holding Error");
                 if ((s_error.current_bit & 1)) {
                     wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
                     wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
                     wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
+                    s_error.current_bit++;
                 } else {
-                    CETI_LOG("Holding Error");
-                    if (0 == s_error.err_flags) {
+                    if (0 != s_error.err_flags) {
                         wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
-                    } else {
-                        wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
                     }
+                    wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
+                    s_error.current_bit = (s_error.bit_len + 1) << 1; 
                 }
-                s_error.current_bit++;
             } else if ((s_error.current_bit >> 1) > s_error.bit_len) {
                 /* TRANSITION TO NEXT STATE*/
                 s_error.current_bit++;
                 if ((s_error.current_bit >> 1) > (s_error.bit_len + 4 * LED_CTRL_ERROR_RESULT_DISPLAY_INTERVAL_S)) {
-                    CETI_LOG("Exiting Error report to %d", s_error.return_state);
-                    LEDCtrl_set_state(s_error.return_state);
+                    LEDCtrl_set_state(LED_STATE_EXIT_REPORT_ERROR);
                 }
             }
             break;
@@ -159,6 +159,11 @@ static void __LEDCtrl_task(void) {
             }
             s_dive_count = (s_dive_count + 1) % (4 * 10);
             break;
+        }
+        
+        case LED_STATE_EXIT_REPORT_ERROR: {
+            LEDCtrl_set_state(LED_STATE_FPGA);
+            break
         }
     }
 }

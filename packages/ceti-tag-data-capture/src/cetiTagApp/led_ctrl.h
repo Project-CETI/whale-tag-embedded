@@ -15,6 +15,7 @@ typedef enum {
     LED_STATE_SHUTDOWN,
     LED_STATE_REPORT_ERROR,
     LED_STATE_DIVE,
+    LED_STATE_EXIT_REPORT_ERROR,
 } LEDState;
 
 void LEDCtrl_set_state(LEDState state);
