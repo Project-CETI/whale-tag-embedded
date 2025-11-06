@@ -542,6 +542,7 @@ void *audio_thread_spi(void *paramPtr) {
             if (g_stopAcquisition) {
                  break;
             }
+            __init_audio_buffers();
             threadManager_create_thread(ACQ_THREAD_AUDIO_LOG);
             start_audio_acq();
             continue;

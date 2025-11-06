@@ -41,7 +41,7 @@
 //-----------------------------------------------------------------------------
 #define THREAD_MANAGER_JOIN_TIMEOUT_S (30)
 
-int g_stopAcquisition    = 1;
+int g_stopAcquisition = 1;
 
 static uint32_t s_threads_in_error = 0;
 
@@ -205,7 +205,10 @@ void threadManager_create_thread(AcqThreadType thread_index) {
         } else if (PRI_MIN == acq_thread_desc[thread_index].priority) {
             sp.sched_priority = sched_get_priority_min(SCHED_RR);
         }
-        pri_result = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+        pri_result = pthread_attr_setschedpolicy(&attr, SCHED_RR);
+        if (0 == pri_result) {
+            pri_result = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+        }
         if (0 == pri_result) {
             CETI_LOG("Thread sched attribute inheritance set");
             pri_result = pthread_attr_setschedparam(&attr, &sp);
