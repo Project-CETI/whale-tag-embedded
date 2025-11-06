@@ -11,7 +11,7 @@
 #include "utils/logging.h"
 
 #define LED_CTRL_UPDATE_INTERVAL_US (250000)
-#define LED_CTRL_ERROR_RESULT_DISPLAY_INTERVAL_S (10)
+#define LED_CTRL_ERROR_RESULT_DISPLAY_INTERVAL_S (1)
 
 static LEDState s_state = LED_STATE_FPGA;
 static struct {
@@ -131,6 +131,7 @@ static void __LEDCtrl_task(void) {
                     wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
                     wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
                 } else {
+                    CETI_LOG("Holding Error");
                     if (0 == s_error.err_flags) {
                         wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
                     } else {
@@ -140,9 +141,9 @@ static void __LEDCtrl_task(void) {
                 s_error.current_bit++;
             } else if ((s_error.current_bit >> 1) > s_error.bit_len) {
                 /* TRANSITION TO NEXT STATE*/
-                CETI_LOG("Exiting Error report to %d", s_error.return_state);
                 s_error.current_bit++;
                 if ((s_error.current_bit >> 1) > (s_error.bit_len + 4 * LED_CTRL_ERROR_RESULT_DISPLAY_INTERVAL_S)) {
+                    CETI_LOG("Exiting Error report to %d", s_error.return_state);
                     LEDCtrl_set_state(s_error.return_state);
                 }
             }
