@@ -8,6 +8,7 @@
 #include "device/fpga.h"
 #include "launcher.h"
 #include "utils/timing.h"
+#include "utils/logging.h"
 
 #define LED_CTRL_UPDATE_INTERVAL_US (250000)
 #define LED_CTRL_ERROR_RESULT_DISPLAY_INTERVAL_S (10)
