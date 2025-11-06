@@ -41,7 +41,7 @@
 //-----------------------------------------------------------------------------
 #define THREAD_MANAGER_JOIN_TIMEOUT_S (30)
 
-int g_stopAcquisition = 1;
+volatile int g_stopAcquisition = 1;
 
 static uint32_t s_threads_in_error = 0;
 
@@ -226,7 +226,10 @@ int threadManager_join_thread(AcqThreadType thread_index) {
     if (!acq_thread_valid[thread_index]) {
         return 0;
     }
-    return pthread_join(acq_threads[thread_index], NULL);
+    int result = pthread_join(acq_threads[thread_index], NULL);
+    if (result == 0) {
+        acq_thread_valid[thread_index] = result;
+    }
 }
 
 int threadManager_tryjoin_thread(AcqThreadType thread_index) {
@@ -292,8 +295,8 @@ void threadManager_stop_acquisition(void) {
     if (1 == g_stopAcquisition) {
         return;
     }
-
     g_stopAcquisition = 1;
+
     CETI_LOG("-------------------------------------------------");
     CETI_LOG("Data acquisition completed. Waiting for threads to stop.");
 
@@ -309,6 +312,7 @@ void threadManager_stop_acquisition(void) {
             CETI_ERR("%s thread failed to stop. Cancelling thread", acq_thread_desc[thread_index].name);
             pthread_cancel(acq_threads[thread_index]);
         }
+        acq_thread_valid[thread_index] = 0;
     }
     CETI_LOG("All acquisition threads have been stopped");
 }

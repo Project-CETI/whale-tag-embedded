@@ -21,7 +21,7 @@ CetiBatterySample *shm_battery = &fake_battery_sample;
 
 int g_stateMachine_thread_tid;
 int g_exit = 0;
-int g_stopAcquisition = 0;
+volatile int g_stopAcquisition = 0;
 int g_stopLogging = 0;
 
 TagConfig g_config = {

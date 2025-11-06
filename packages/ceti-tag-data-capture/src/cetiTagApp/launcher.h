@@ -96,7 +96,7 @@ typedef enum {
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
-extern int g_stopAcquisition;
+extern volatile int g_stopAcquisition;
 extern int g_stopLogging;
 extern int g_exit;
 

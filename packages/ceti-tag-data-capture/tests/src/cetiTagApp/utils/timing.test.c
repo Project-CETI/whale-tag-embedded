@@ -4,7 +4,7 @@
 #include "cetiTagApp/utils/timing.h"
 
 int g_exit = 0;
-int g_stopAcquisition = 0;
+volatile int g_stopAcquisition = 0;
 int g_stopLogging = 0;
 
 void test__get_next_time_of_day_occurance_s__month_overflow(void) {
