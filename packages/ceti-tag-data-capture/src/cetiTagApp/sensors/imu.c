@@ -167,10 +167,14 @@ void *imu_thread(void *paramPtr) {
     bno086_close();
     imu_is_connected = 0;
 
+    // wait for log thread to finish before clearing memory resources
+    threadManager_join_thread(ACQ_THREAD_IMU_LOG);
+
     sem_close(s_imu_page_ready);
     sem_close(s_imu_report_ready);
 
     munmap(imu_report_buffer, sizeof(CetiImuReportBuffer));
+    imu_report_buffer = NULL;
 
     g_imu_thread_is_running = 0;
     CETI_LOG("Done!");
