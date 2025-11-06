@@ -103,7 +103,7 @@ static const struct {
         .name = "ecg logging",
         .main_fn = ecg_thread_writeData,
         .affinity = ECG_WRITEDATA_CPU + 1,
-        .priority = PRI_MAX,
+        .priority = PRI_MIN,
     },
 #if ENABLE_ECG_LOD
     [ACQ_THREAD_ECG_LOD_ACQ] = {
