@@ -188,6 +188,9 @@ void *light_thread(void *paramPtr) {
         if (polling_sleep_duration_us > 0)
             usleep(polling_sleep_duration_us);
     }
+
+    als_sleep();
+
     sem_close(light_data_ready);
     sem_unlink(LIGHT_SEM_NAME);
 
