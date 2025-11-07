@@ -329,12 +329,10 @@ void *ecg_thread_getData(void *paramPtr) {
 //-----------------------------------------------------------------------------
 // Thread to write data from the rolling buffer to a file
 //-----------------------------------------------------------------------------
-static __ecg_sample_to_csv(CetiEcgSample *sample) {
-    CetiEcgSample *current_sample = &shm_ecg->data[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite];
-    __ecg_sample_to_csv(current_sample);
+static void __ecg_sample_to_csv(const CetiEcgSample *sample) {
     // Write timing information.
-    fprintf(ecg_data_file, "%lu", current_sample->sys_time_us);
-    fprintf(ecg_data_file, ",%u", current_sample->rtc_time_s);
+    fprintf(ecg_data_file, "%lu", sample->sys_time_us);
+    fprintf(ecg_data_file, ",%u", sample->rtc_time_s);
     // Write any notes.
     fprintf(ecg_data_file, ",");
     if (ecg_restarted[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
@@ -344,9 +342,9 @@ static __ecg_sample_to_csv(CetiEcgSample *sample) {
         fprintf(ecg_data_file, "New log file! | ");
     }
     // Note if a device error occured
-    if (current_sample->error != WT_OK) {
+    if (sample->error != WT_OK) {
         char err_str[512];
-        fprintf(ecg_data_file, "ERROR(%s) | ", wt_strerror_r(current_sample->error, err_str, sizeof(err_str)));
+        fprintf(ecg_data_file, "ERROR(%s) | ", wt_strerror_r(sample->error, err_str, sizeof(err_str)));
     }
 
     if (ecg_zeros[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
@@ -361,11 +359,11 @@ static __ecg_sample_to_csv(CetiEcgSample *sample) {
     }
 
     // Write the sensor data.
-    fprintf(ecg_data_file, ",%lu", current_sample->sample_index);
-    fprintf(ecg_data_file, ",%d", current_sample->ecg_reading);
+    fprintf(ecg_data_file, ",%lu", sample->sample_index);
+    fprintf(ecg_data_file, ",%d", sample->ecg_reading);
 #if ENABLE_ECG_LOD
-    fprintf(ecg_data_file, ",%u", current_sample->leadsOff_reading_p);
-    fprintf(ecg_data_file, ",%u", current_sample->leadsOff_reading_n);
+    fprintf(ecg_data_file, ",%u", sample->leadsOff_reading_p);
+    fprintf(ecg_data_file, ",%u", sample->leadsOff_reading_n);
 #else
     fprintf(ecg_data_file, ",,");
 #endif
@@ -432,7 +430,7 @@ void *ecg_thread_writeData(void *paramPtr) {
 
     if (!g_stopLogging) {
         ecg_data_file = fopen(ecg_data_filepath, "at");
-        if (NULL != ecg_data_file == NULL) {
+        if (NULL != ecg_data_file) {
             // flush any complete buffers
             int nv_ecg_buffer_select_toWrite = ecg_buffer_select_toWrite;
             while (shm_ecg->page != nv_ecg_buffer_select_toWrite) {
