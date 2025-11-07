@@ -25,6 +25,7 @@
 // See ADC data sheet (Analog Devices AD7768-4) and sampling.xlsx in the
 // project file for more details on registers settings
 //
+// [1] ad7768/ad667-4 datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/ad7768-ad7768-4.pdf
 //-----------------------------------------------------------------------------
 
 #include "audio.h"
@@ -283,6 +284,10 @@ int audio_set_sample_rate(AudioSampleRate sample_rate) {
             return -1;
         }
     }
+}
+
+void audio_enter_sleep(void) {
+    wt_fpga_adc_write(0x04, 0x80); //sleep, low power, max clock div
 }
 
 int reset_audio_fifo(void) {
@@ -561,6 +566,13 @@ void *audio_thread_spi(void *paramPtr) {
 
     // Close the SPI communication.
     spiClose(spi_fd);
+
+    // put audio hardware to low power/sleep
+    audio_set_filter_type(AUDIO_FILTER_SINC5); // suggested filter for lowest power state [1](pg.54)
+    audio_enter_sleep();
+    
+    // disable 5V to audio???
+    // iox_write_pin(IOX_GPIO_5V_EN, 0);
 
     // Wait for the write-data thread to finish as well.
     threadManager_join_thread(ACQ_THREAD_AUDIO_LOG);
