@@ -382,10 +382,10 @@ void *ecg_thread_writeData(void *paramPtr) {
     g_ecg_thread_writeData_is_running = 1;
 
     // Continuously wait for new data and then write it to the file.
-    int nv_ecg_buffer_select_toWrite = ecg_buffer_select_toWrite;
     while (!g_stopAcquisition) {
         // Wait for new data to be in the buffer.
-        if (shm_ecg->page == ecg_buffer_select_toWrite) {
+        int nv_ecg_buffer_select_toWrite = ecg_buffer_select_toWrite;
+        if (shm_ecg->page == nv_ecg_buffer_select_toWrite) {
             usleep(250000);
             continue;
         }
@@ -444,7 +444,7 @@ void *ecg_thread_writeData(void *paramPtr) {
             }
 
             // flush final imcomplete buffers
-            for (int ecg_buffer_index_toWrite = 0; ecg_buffer_index_toWrite <= shm_ecg->sample; ecg_buffer_index_toWrite++) {
+            for (int ecg_buffer_index_toWrite = 0; ecg_buffer_index_toWrite < shm_ecg->sample; ecg_buffer_index_toWrite++) {
                 CetiEcgSample *current_sample = &shm_ecg->data[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite];
                 uint8_t current_notes = ecg_note_flags[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite];
                 __ecg_sample_to_csv(current_sample, current_notes);
