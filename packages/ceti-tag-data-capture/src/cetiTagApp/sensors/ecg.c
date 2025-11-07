@@ -22,6 +22,14 @@
 // Initialization
 //-----------------------------------------------------------------------------
 
+// ECG Note Flags
+#define ECG_NOTE_RESTARTED (1 << 0)
+#define ECG_NOTE_NEW_LOG (1 << 1)
+#define ECG_NOTE_ZEROS (1 << 2)
+#define ECG_NOTE_TIMEOUT (1 << 3)
+#define ECG_NOTE_MAYBE_INVALID (1 << 4)
+#define ECG_NOTE_ERRORS (1 << 5)
+
 // Global/static variables
 int g_ecg_thread_getData_is_running = 0;
 int g_ecg_thread_writeData_is_running = 0;
@@ -36,11 +44,8 @@ static const char *ecg_data_file_headers[] = {
 static const int num_ecg_data_file_headers = sizeof(ecg_data_file_headers) / sizeof(*ecg_data_file_headers);
 
 static volatile int ecg_buffer_select_toWrite = 0; // which buffer will be flushed to the output file
-static uint8_t ecg_restarted[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
-static uint8_t ecg_new_log[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
-static uint8_t ecg_zeros[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
-static uint8_t ecg_timeout[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
-static uint8_t ecg_maybe_invalid[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
+
+static uint8_t ecg_note_flags[ECG_NUM_BUFFERS][ECG_BUFFER_LENGTH] = {0};
 
 static CetiEcgBuffer *shm_ecg; // share memory of other processes to directly access samples
 static sem_t *sem_ecg_sample;  // semaphore for other processes to sync with new sample becoming available
@@ -128,11 +133,11 @@ int init_ecg_data_file(int restarted_program) {
                                                 ecg_data_file_headers, num_ecg_data_file_headers,
                                                 NULL,
                                                 "init_ecg_data_file()");
-    ecg_restarted[shm_ecg->page][0] = 1;
+    ecg_note_flags[shm_ecg->page][0] |= ECG_NOTE_RESTARTED;
 
     // Change the note from restarted to new file if this is not the first initialization.
     if (!restarted_program) {
-        ecg_new_log[shm_ecg->page][0] = 1;
+        ecg_note_flags[shm_ecg->page][0] |= ECG_NOTE_NEW_LOG;
     }
 
     return init_data_file_success;
@@ -173,7 +178,6 @@ void *ecg_thread_getData(void *paramPtr) {
     long consecutive_zero_ecg_count = 0;
     long instantaneous_sampling_period_us = 0;
     int first_sample = 1;
-    int should_reinitialize = 0;
     int64_t start_time_ms = get_monotonic_time_ms();
     while (!g_stopAcquisition) {
         // wait for data to be ready
@@ -227,7 +231,7 @@ void *ecg_thread_getData(void *paramPtr) {
         //  always have data ready and always return 0.
         // So also check if the ADC returned exactly 0 many times in a row.
         if (adc_status != WT_OK) {
-            should_reinitialize = 1;
+            ecg_note_flags[shm_ecg->page][shm_ecg->sample] |= ECG_NOTE_ERRORS;
             char err_str[512];
             wt_strerror_r(adc_status, err_str, sizeof(err_str));
             CETI_DEBUG("ADC encountered an ERROR(%s)", err_str);
@@ -240,15 +244,13 @@ void *ecg_thread_getData(void *paramPtr) {
         }
 
         if (consecutive_zero_ecg_count > ECG_ZEROCOUNT_THRESHOLD) {
-            ecg_zeros[shm_ecg->page][shm_ecg->sample] = 1;
-            should_reinitialize = 1;
+            ecg_note_flags[shm_ecg->page][shm_ecg->sample] |= ECG_NOTE_ZEROS;
             CETI_DEBUG("ADC returned %ld zero readings in a row", consecutive_zero_ecg_count);
         }
 
         // Check if it took longer than expected to receive the sample (from the ADC and the GPIO expander combined).
         if (instantaneous_sampling_period_us > ECG_SAMPLE_TIMEOUT_US && !first_sample) {
-            ecg_timeout[shm_ecg->page][shm_ecg->sample] = 1;
-            should_reinitialize = 1;
+            ecg_note_flags[shm_ecg->page][shm_ecg->sample] |= ECG_NOTE_TIMEOUT;
             CETI_DEBUG("XXX Reading a sample took %ld us", instantaneous_sampling_period_us);
         }
 
@@ -257,14 +259,14 @@ void *ecg_thread_getData(void *paramPtr) {
 
         // If the ADC or the GPIO expander had an error,
         //  wait a bit and then try to reconnect to them.
-        if (should_reinitialize && !g_stopAcquisition) {
-            ecg_maybe_invalid[shm_ecg->page][shm_ecg->sample] = 1;
+        uint8_t should_reinitilize = (ECG_NOTE_ERRORS | ECG_NOTE_ZEROS | ECG_NOTE_TIMEOUT) & ecg_note_flags[shm_ecg->page][shm_ecg->sample];
+        if (should_reinitilize && !g_stopAcquisition) {
+            ecg_note_flags[shm_ecg->page][shm_ecg->sample] |= ECG_NOTE_MAYBE_INVALID;
             usleep(1000000);
             init_ecg_electronics();
             usleep(10000);
             consecutive_zero_ecg_count = 0;
             first_sample = 1;
-            should_reinitialize = 0;
             continue;
         }
 
@@ -329,16 +331,16 @@ void *ecg_thread_getData(void *paramPtr) {
 //-----------------------------------------------------------------------------
 // Thread to write data from the rolling buffer to a file
 //-----------------------------------------------------------------------------
-static void __ecg_sample_to_csv(const CetiEcgSample *sample) {
+static void __ecg_sample_to_csv(const CetiEcgSample *sample, uint8_t note_flags) {
     // Write timing information.
     fprintf(ecg_data_file, "%lu", sample->sys_time_us);
     fprintf(ecg_data_file, ",%u", sample->rtc_time_s);
     // Write any notes.
     fprintf(ecg_data_file, ",");
-    if (ecg_restarted[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
+    if (ECG_NOTE_RESTARTED & note_flags) {
         fprintf(ecg_data_file, "Restarted! | ");
     }
-    if (ecg_new_log[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
+    if (ECG_NOTE_NEW_LOG & note_flags) {
         fprintf(ecg_data_file, "New log file! | ");
     }
     // Note if a device error occured
@@ -347,14 +349,14 @@ static void __ecg_sample_to_csv(const CetiEcgSample *sample) {
         fprintf(ecg_data_file, "ERROR(%s) | ", wt_strerror_r(sample->error, err_str, sizeof(err_str)));
     }
 
-    if (ecg_zeros[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
+    if (ECG_NOTE_ZEROS & note_flags) {
         fprintf(ecg_data_file, "ADC ZEROS | ");
     }
 
-    if (ecg_timeout[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
+    if (ECG_NOTE_TIMEOUT & note_flags) {
         fprintf(ecg_data_file, "TIMEOUT | ");
     }
-    if (ecg_maybe_invalid[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite]) {
+    if (ECG_NOTE_MAYBE_INVALID & note_flags) {
         fprintf(ecg_data_file, "INVALID? | ");
     }
 
@@ -399,17 +401,14 @@ void *ecg_thread_writeData(void *paramPtr) {
             }
 
             // Write the buffer data to the file.
-            for (int ecg_buffer_index_toWrite = 0; ecg_buffer_index_toWrite <= ECG_BUFFER_LENGTH; ecg_buffer_index_toWrite++) {
+            for (int ecg_buffer_index_toWrite = 0; ecg_buffer_index_toWrite < ECG_BUFFER_LENGTH; ecg_buffer_index_toWrite++) {
                 CetiEcgSample *current_sample = &shm_ecg->data[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite];
-                __ecg_sample_to_csv(current_sample);
+                uint8_t current_notes = ecg_note_flags[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite];
+                __ecg_sample_to_csv(current_sample, current_notes);
             }
 
             // clear these note files
-            memset(ecg_restarted[nv_ecg_buffer_select_toWrite], 0, ECG_BUFFER_LENGTH);
-            memset(ecg_new_log[nv_ecg_buffer_select_toWrite], 0, ECG_BUFFER_LENGTH);
-            memset(ecg_zeros[nv_ecg_buffer_select_toWrite], 0, ECG_BUFFER_LENGTH);
-            memset(ecg_timeout[nv_ecg_buffer_select_toWrite], 0, ECG_BUFFER_LENGTH);
-            memset(ecg_maybe_invalid[nv_ecg_buffer_select_toWrite], 0, ECG_BUFFER_LENGTH);
+            memset(ecg_note_flags[nv_ecg_buffer_select_toWrite], 0, ECG_BUFFER_LENGTH);
 
             // Check the file size and close the file.
             fseek(ecg_data_file, 0L, SEEK_END);
@@ -437,7 +436,8 @@ void *ecg_thread_writeData(void *paramPtr) {
                 // Write the buffer data to the file.
                 for (int ecg_buffer_index_toWrite = 0; ecg_buffer_index_toWrite < ECG_BUFFER_LENGTH; ecg_buffer_index_toWrite++) {
                     CetiEcgSample *current_sample = &shm_ecg->data[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite];
-                    __ecg_sample_to_csv(current_sample);
+                    uint8_t current_notes = ecg_note_flags[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite];
+                    __ecg_sample_to_csv(current_sample, current_notes);
                 }
                 nv_ecg_buffer_select_toWrite = (nv_ecg_buffer_select_toWrite + 1) % ECG_NUM_BUFFERS;
                 ecg_buffer_select_toWrite = nv_ecg_buffer_select_toWrite;
@@ -446,7 +446,8 @@ void *ecg_thread_writeData(void *paramPtr) {
             // flush final imcomplete buffers
             for (int ecg_buffer_index_toWrite = 0; ecg_buffer_index_toWrite <= shm_ecg->sample; ecg_buffer_index_toWrite++) {
                 CetiEcgSample *current_sample = &shm_ecg->data[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite];
-                __ecg_sample_to_csv(current_sample);
+                uint8_t current_notes = ecg_note_flags[nv_ecg_buffer_select_toWrite][ecg_buffer_index_toWrite];
+                __ecg_sample_to_csv(current_sample, current_notes);
             }
 
             // close the file.
