@@ -311,6 +311,7 @@ void *ecg_thread_getData(void *paramPtr) {
 
     // Clean up.
     ecg_adc_cleanup();
+    ecg_adc_powerDown();
     munmap(shm_ecg, sizeof(CetiEcgBuffer));
     sem_close(sem_ecg_sample);
     sem_close(sem_ecg_page);
