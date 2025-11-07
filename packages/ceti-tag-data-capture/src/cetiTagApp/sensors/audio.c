@@ -460,7 +460,7 @@ void __handle_overflow(void) {
 
     // restart audio write thread and fpga fifo buffer
     if (g_stopAcquisition) {
-        return
+        return;
     }
     __init_audio_buffers();
     threadManager_create_thread(ACQ_THREAD_AUDIO_LOG);
@@ -470,7 +470,7 @@ void __handle_overflow(void) {
 void *audio_thread_spi(void *paramPtr) {
     const time_t expected_IQR_interval_us = AUDIO_BLOCK_FILL_SPEED_US(g_config.audio.sample_rate * 1000, g_config.audio.bit_depth);
     const time_t retry_sleep_us = expected_IQR_interval_us / 20;
-    
+
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_audio_thread_spi_tid = gettid();
 
