@@ -287,7 +287,7 @@ int audio_set_sample_rate(AudioSampleRate sample_rate) {
 }
 
 void audio_enter_sleep(void) {
-    wt_fpga_adc_write(0x04, 0x80); //sleep, low power, max clock div
+    wt_fpga_adc_write(0x04, 0x80); // sleep, low power, max clock div
 }
 
 int reset_audio_fifo(void) {
@@ -570,7 +570,7 @@ void *audio_thread_spi(void *paramPtr) {
     // put audio hardware to low power/sleep
     audio_set_filter_type(AUDIO_FILTER_SINC5); // suggested filter for lowest power state [1](pg.54)
     audio_enter_sleep();
-    
+
     // disable 5V to audio???
     // iox_write_pin(IOX_GPIO_5V_EN, 0);
 
