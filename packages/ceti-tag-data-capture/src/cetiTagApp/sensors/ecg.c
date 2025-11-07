@@ -315,7 +315,6 @@ void *ecg_thread_getData(void *paramPtr) {
     // wait for ecg writing thread to stop before freeing up resources
     threadManager_join_thread(ACQ_THREAD_ECG_LOG);
 
-
     munmap(shm_ecg, sizeof(CetiEcgBuffer));
     sem_close(sem_ecg_sample);
     sem_close(sem_ecg_page);

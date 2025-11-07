@@ -448,6 +448,8 @@ int stateMachine_set_state(wt_state_t new_state) {
         return -1;
     }
 
+    stateMachine_pause(); // pause state_machine until state is set
+
 #if !ENABLE_BURNWIRE
     // skip burn states if no burnwire hardware
     if (new_state == ST_BRN_ON) {
@@ -597,6 +599,7 @@ int stateMachine_set_state(wt_state_t new_state) {
     // update state
     CETI_LOG("State transition: %s -> %s\n", get_state_str(presentState), get_state_str(new_state));
     presentState = new_state;
+    stateMachine_resume();
     return 0;
 }
 
@@ -856,8 +859,6 @@ void stateMachine_task(void) {
         return;
     }
 
-    int64_t global_time_us = get_global_time_us();
-    int current_rtc_count_s = getRtcCount();
     wt_state_t state_to_process = presentState;
 
     // update detection values that should always be updated for the mission
@@ -882,6 +883,8 @@ void stateMachine_task(void) {
         CETI_LOG("failed to open data output file: %s", STATEMACHINE_DATA_FILEPATH);
     else {
         // Write timing information.
+        int64_t global_time_us = get_global_time_us();
+        int current_rtc_count_s = getRtcCount();
         fprintf(stateMachine_data_file, "%ld", global_time_us);
         fprintf(stateMachine_data_file, ",%d", current_rtc_count_s);
         // Write any notes, then clear them so they are only written once.

@@ -436,7 +436,41 @@ int audio_thread_init(void) {
     return thread_result;
 }
 
+void __handle_overflow(void) {
+    /*** Handle Overflow ***/
+
+    // stop audio fifo
+    wt_fpga_fifo_stop();
+    wt_fpga_fifo_reset();
+
+    // signal audio write thread to stop
+    g_audio_overflow_detected = 1;
+
+    // log overflow event
+    CETI_LOG("***OVERFLOW*** Audio FPGA overflow detected at location 3");
+    g_audio_status.overflow = 1;
+    g_audio_status.overflow_location = 3;
+    audio_status_record();
+    g_audio_status.overflow = 0;
+    g_audio_status.overflow_location = -1;
+
+    // wait for audio write thread to stop
+    threadManager_join_thread(ACQ_THREAD_AUDIO_LOG);
+    g_audio_overflow_detected = 0;
+
+    // restart audio write thread and fpga fifo buffer
+    if (g_stopAcquisition) {
+        return
+    }
+    __init_audio_buffers();
+    threadManager_create_thread(ACQ_THREAD_AUDIO_LOG);
+    start_audio_acq();
+}
+
 void *audio_thread_spi(void *paramPtr) {
+    const time_t expected_IQR_interval_us = AUDIO_BLOCK_FILL_SPEED_US(g_config.audio.sample_rate * 1000, g_config.audio.bit_depth);
+    const time_t retry_sleep_us = expected_IQR_interval_us / 20;
+    
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_audio_thread_spi_tid = gettid();
 
@@ -466,8 +500,7 @@ void *audio_thread_spi(void *paramPtr) {
 
     // Main loop to acquire audio data.
     g_audio_thread_spi_is_running = 1;
-    time_t expected_IQR_interval_us = AUDIO_BLOCK_FILL_SPEED_US(g_config.audio.sample_rate * 1000, g_config.audio.bit_depth);
-    time_t retry_sleep_us = expected_IQR_interval_us / 20;
+
 
     // Initialize state.
     CETI_LOG("Starting loop to fetch data via SPI");
@@ -521,34 +554,7 @@ void *audio_thread_spi(void *paramPtr) {
 
         // Check if the FPGA buffer overflowed.
         if (wt_audio_read_overflow()) {
-            /*** Handle Overflow ***/
-
-            // stop audio fifo
-            wt_fpga_fifo_stop();
-            wt_fpga_fifo_reset();
-
-            // signal audio write thread to stop
-            g_audio_overflow_detected = 1;
-
-            // log overflow event
-            CETI_LOG("***OVERFLOW*** Audio FPGA overflow detected at loacation 3");
-            g_audio_status.overflow = 1;
-            g_audio_status.overflow_location = 3;
-            audio_status_record();
-            g_audio_status.overflow = 0;
-            g_audio_status.overflow_location = -1;
-
-            // wait for audio write thread to stop
-            threadManager_join_thread(ACQ_THREAD_AUDIO_LOG);
-            g_audio_overflow_detected = 0;
-
-            // restart audio write thread and fpga fifo buffer
-            if (g_stopAcquisition) {
-                break;
-            }
-            __init_audio_buffers();
-            threadManager_create_thread(ACQ_THREAD_AUDIO_LOG);
-            start_audio_acq();
+            __handle_overflow();
             continue;
         }
 
