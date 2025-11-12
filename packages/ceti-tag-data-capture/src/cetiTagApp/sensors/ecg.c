@@ -217,6 +217,7 @@ void *ecg_thread_getData(void *paramPtr) {
         current_ecg_sample->sample_index = sample_index;
         sample_index++;
 
+        ecg_note_flags[shm_ecg->page][shm_ecg->sample] = 0;
         /* MSH: Possible performance improvements:
          * 1) Reserve sample processing (i.e. conversion to strings) for
          * buffer write operation.

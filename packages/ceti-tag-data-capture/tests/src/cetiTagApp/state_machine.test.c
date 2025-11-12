@@ -11,7 +11,6 @@
 #include "cetiTagApp/utils/error.h"
 
 extern void reset_voltage_counters(void);
-
 /* dependencies */
 CetiPressureSample fake_pressure_sample = {};
 CetiBatterySample fake_battery_sample = {};

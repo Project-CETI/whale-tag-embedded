@@ -501,7 +501,6 @@ void *audio_thread_spi(void *paramPtr) {
     // Main loop to acquire audio data.
     g_audio_thread_spi_is_running = 1;
 
-
     // Initialize state.
     CETI_LOG("Starting loop to fetch data via SPI");
     // Start the audio acquisition on the FPGA.

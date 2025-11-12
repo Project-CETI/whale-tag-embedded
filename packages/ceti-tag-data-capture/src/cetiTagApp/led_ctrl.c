@@ -7,7 +7,6 @@
 
 #include "device/fpga.h"
 #include "launcher.h"
-#include "utils/logging.h"
 #include "utils/timing.h"
 
 #define LED_CTRL_UPDATE_INTERVAL_US (250000)
@@ -68,7 +67,6 @@ void LEDCtrl_set_state(LEDState state) {
             LEDCtrl_set_state(s_error.return_state);
             return;
     }
-    CETI_LOG("LED state set to %d", state);
     s_state = state;
 }
 
