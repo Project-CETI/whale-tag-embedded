@@ -166,7 +166,7 @@ void imu_log_report_to_quat_csv(FILE *fp, CetiImuReport *pReport) {
     if (pReport->error != WT_OK) {
         char err_str[512];
         fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pReport->error, err_str, sizeof(err_str)));
-        fprintf(fp, ", , , , , , \n");
+        fprintf(fp, ", , , , ,");
     } else {
         // Write accelerometer data
         fprintf(fp, ",%d", pReport->report.quat.i);
@@ -198,7 +198,7 @@ void imu_log_report_to_accel_csv(FILE *fp, CetiImuReport *pReport) {
     if (pReport->error != WT_OK) {
         char err_str[512];
         fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pReport->error, err_str, sizeof(err_str)));
-        fprintf(fp, ", , , , , \n");
+        fprintf(fp, ", , , ,");
     } else {
         // Write accelerometer data
         fprintf(fp, ",%d", pReport->report.accel.x);
@@ -229,7 +229,7 @@ void imu_log_report_to_gyro_csv(FILE *fp, CetiImuReport *pReport) {
     if (pReport->error != WT_OK) {
         char err_str[512];
         fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pReport->error, err_str, sizeof(err_str)));
-        fprintf(fp, ", , , , , \n");
+        fprintf(fp, ", , , ,");
     } else {
         // Write accelerometer data
         fprintf(fp, ",%d", pReport->report.gyro.x);
@@ -260,7 +260,7 @@ void imu_log_report_to_mag_csv(FILE *fp, CetiImuReport *pReport) {
     if (pReport->error != WT_OK) {
         char err_str[512];
         fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pReport->error, err_str, sizeof(err_str)));
-        fprintf(fp, ", , , , , \n");
+        fprintf(fp, ", , , ,");
     } else {
         // Write accelerometer data
         fprintf(fp, ",%d", pReport->report.mag.x);
