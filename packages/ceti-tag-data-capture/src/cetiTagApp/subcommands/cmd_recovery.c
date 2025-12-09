@@ -200,22 +200,22 @@ static int __recoveryCmd_argos_secret_key(const char *args) {
     }
 
     if ('?' == *args) { // GET
-        char secret_key_str[65];
+        char secret_key_str[33];
         if (0 != recovery_get_argos_secret_key(secret_key_str)) {
             fprintf(g_rsp_pipe, "Failed to query secret key from recovery board\n");
             return -1;
         }
-        secret_key_str[64] = 0;
+        secret_key_str[32] = 0;
         fprintf(g_rsp_pipe, "%s\n", secret_key_str);
     } else { // SET
-        for (int i = 0; i < 64; i++) {
+        for (int i = 0; i < 32; i++) {
             if (!isxdigit(args[i])) {
                 fprintf(g_rsp_pipe, "Invalid secret key provided: %s\n", args);
                 return -1;
             }
         }
 
-        if (0 != recovery_set_argos_secret_key(args, 64)) {
+        if (0 != recovery_set_argos_secret_key(args, 32)) {
             fprintf(g_rsp_pipe, "Failed to set ARGOS secret key\n");
         }
     }
