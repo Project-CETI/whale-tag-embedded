@@ -2,5 +2,5 @@
 
 #DEBHELPER#
 
-mkfifo -m 644 /opt/ceti-tag-data-capture/ipc/cetiCommand || /bin/true
+mkfifo -m 622 /opt/ceti-tag-data-capture/ipc/cetiCommand || /bin/true
 mkfifo -m 644 /opt/ceti-tag-data-capture/ipc/cetiResponse || /bin/true

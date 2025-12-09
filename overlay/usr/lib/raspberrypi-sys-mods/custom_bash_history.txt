@@ -13,12 +13,12 @@ sudo raspi-config nonint do_overlayfs 1 # disable read-only filesystem
 sudo raspi-config nonint do_overlayfs 0 # enable read-only filesystem
 
 sudo systemctl stop ceti-tag-data-capture # stop the app service
-sudo /opt/ceti-tag-data-capture/ipc/sendCommand.sh quit # quit the app
-sudo /opt/ceti-tag-data-capture/ipc/sendCommand.sh stopDataAcq # stop data capture
-sudo /opt/ceti-tag-data-capture/ipc/sendCommand.sh checkCell_1 # check a battery voltage
-sudo ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc/sendCommand.sh quit # quit the app
-sudo ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc/sendCommand.sh stopDataAcq # stop data capture
-sudo ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc/sendCommand.sh checkCell_1 # check a battery voltage
+sudo /opt/ceti-tag-data-capture/ipc/sendCommand quit # quit the app
+sudo /opt/ceti-tag-data-capture/ipc/sendCommand stopDataAcq # stop data capture
+sudo /opt/ceti-tag-data-capture/ipc/sendCommand checkCell_1 # check a battery voltage
+sudo ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc/sendCommand quit # quit the app
+sudo ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc/sendCommand stopDataAcq # stop data capture
+sudo ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc/sendCommand checkCell_1 # check a battery voltage
 
 sudo rm /data/*.flac /data/*.csv # clear data
 
@@ -26,7 +26,7 @@ sudo pkill tagMonitor # kill the tag monitor process
 sudo pkill cetiTagApp # kill the app process
 ps aux | grep ceti # check if the app or monitor process is running
 
-(mkfifo -m 644 ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc/cetiCommand || /bin/true) && (mkfifo -m 644 ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc/cetiResponse || /bin/true) # make IPC channels for the scratch directory
+(mkfifo -m 622 ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc/cetiCommand || /bin/true) && (mkfifo -m 644 ~/whale-tag-embedded/packages/ceti-tag-data-capture/ipc/cetiResponse || /bin/true) # make IPC channels for the scratch directory
 (find src/ -name "*.o" -type f -delete); (rm bin/cetiTagApp); make # build the app from scratch
 (cd bin; sudo ./cetiTagApp) # run the app
 ((sleep 20 && echo "quit" > ipc/cetiCommand) &) && (echo "" > ipc/cetiCommand) && (cd bin; sudo ./cetiTagApp; cd ..) # run the app for 20 seconds

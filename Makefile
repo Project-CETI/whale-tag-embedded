@@ -183,7 +183,7 @@ lint_fix:
 	git update-index --chmod=+x build/*.sh
 	git update-index --chmod=+x overlay/usr/lib/raspberrypi-sys-mods/firstboot
 	git update-index --chmod=+x packages/ceti-tag-data-capture/ipc/*.sh
-	git update-index --chmod=+x packages/ceti-tag-data-capture/ipc/cetiCommand
+	git update-index --chmod=+x packages/ceti-tag-data-capture/ipc/sendCommand
 
 
 # Docker helpers
