@@ -8,7 +8,15 @@
 //-----------------------------------------------------------------------------
 #include "ecg_lod.h"
 
+#include "../../device/iox.h"
 #include "../../utils/logging.h"
+#include "../../utils/timing.h"
+
+#include "../../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
+#include "../../systemMonitor.h" // for the global CPU assignment variable to update
+
+#include <pthread.h>
+#include <unistd.h> // for usleep()
 
 //-----------------------------------------------------------------------------
 // Initialization
@@ -63,44 +71,22 @@ void *ecg_lod_thread(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_ecg_lod_thread_tid = gettid();
 
-    // Set the thread CPU affinity.
-    if (ECG_LOD_CPU >= 0) {
-        pthread_t thread;
-        thread = pthread_self();
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(ECG_LOD_CPU, &cpuset);
-        if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-            CETI_LOG("Successfully set affinity to CPU %d", ECG_LOD_CPU);
-        else
-            CETI_WARN("Failed to set affinity to CPU %d", ECG_LOD_CPU);
-    }
-
     // Main loop while application is running.
     CETI_LOG("Starting loop to read data in background");
     g_ecg_lod_thread_is_running = 1;
-    long long sample_time_us;
     while (!g_stopAcquisition) {
 
         // Read the IO expander to get the latest detections.
         // The way the ecg code handles hardware errors, it makes sense to just directly call.
-        sample_time_us = get_global_time_us();
+        int64_t task_start_us = get_monotonic_time_us();
         latest_iox_status = iox_read_register(IOX_REG_INPUT, &latest_iox_register_value);
 
-        // If there was an error, wait a bit and then try to reinitialize.
-        // if(latest_iox_status != WT_OK) {
-        //   CETI_LOG("XXX The GPIO expander encountered an error retrieving the ECG leads-off detections");
-        //   usleep(1000000);
-        //   ecg_lod_init();
-        //   usleep(10000);
-        // }
-        // this causes the log file to explode
-
         // Wait for the desired polling period.
-        long long elapsed_time_us = get_global_time_us() - sample_time_us;
-        long long sleep_duration_us = ECG_LOD_READ_POLLING_PERIOD_US - elapsed_time_us;
-        if (sleep_duration_us > 0)
+        int64_t elapsed_time_us = get_monotonic_time_us() - task_start_us;
+        int64_t sleep_duration_us = ECG_LOD_READ_POLLING_PERIOD_US - elapsed_time_us;
+        if (sleep_duration_us > 0) {
             usleep(sleep_duration_us);
+        }
     }
     g_ecg_lod_thread_is_running = 0;
     CETI_LOG("Done!");

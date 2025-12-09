@@ -23,11 +23,11 @@
 //-----------------------------------------------------------------------------
 
 // Global/static variables
-int g_rtc_thread_is_running = 0;
 static int timing_has_synced = 0; // system has perform ntp syncronization
 static int latest_rtc_count = -1;
 static int latest_rtc_error = WT_OK;
 static int64_t last_rtc_update_time_us = -1;
+int g_rtc_thread_is_running = 0;
 
 int init_timing() {
 #if ENABLE_RTC
@@ -62,7 +62,7 @@ void updateRtcCount() {
     latest_rtc_error = rtc_get_count(&count_s);
     if (latest_rtc_error == WT_OK) {
         latest_rtc_count = (int)count_s;
-        last_rtc_update_time_us = get_global_time_us();
+        last_rtc_update_time_us = get_monotonic_time_us();
     } else {
         latest_rtc_count = -1;
         last_rtc_update_time_us = -1;
@@ -75,19 +75,7 @@ void *rtc_thread(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_rtc_thread_tid = gettid();
 
-    // Set the thread CPU affinity.
-    if (RTC_CPU >= 0) {
-        pthread_t thread;
-        thread = pthread_self();
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(RTC_CPU, &cpuset);
-        if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-            CETI_LOG("Successfully set affinity to CPU %d", RTC_CPU);
-        else
-            CETI_WARN("Failed to set affinity to CPU %d", RTC_CPU);
-    }
-
+    g_rtc_thread_is_running = 1;
     // Do an initial RTC update.
     updateRtcCount();
 
@@ -96,7 +84,6 @@ void *rtc_thread(void *paramPtr) {
     int old_rtc_count = -1;
     int delay_duration_us = 0;
     int prev_num_updates_required = 0;
-    g_rtc_thread_is_running = 1;
     while (!g_exit) {
         // Wait the long polling period since the last update.
         // Unless the last time only required a single update to find a new RTC
@@ -104,9 +91,8 @@ void *rtc_thread(void *paramPtr) {
         // should use fast polling again to get near the RTC update boundary.
         //    Note that this is hopefully only the case on the first loop.
         if (prev_num_updates_required > 1) {
-            delay_duration_us =
-                (last_rtc_update_time_us + RTC_UPDATE_PERIOD_LONG_US) -
-                get_global_time_us();
+            int64_t elapsed_time_us = get_monotonic_time_us() - last_rtc_update_time_us;
+            delay_duration_us = RTC_UPDATE_PERIOD_LONG_US - elapsed_time_us;
             if (delay_duration_us > RTC_UPDATE_PERIOD_SHORT_US)
                 usleep(delay_duration_us);
         }
@@ -120,8 +106,8 @@ void *rtc_thread(void *paramPtr) {
             prev_num_updates_required++;
         }
     }
-    g_rtc_thread_is_running = 0;
     CETI_LOG("Done!");
+    g_rtc_thread_is_running = 0;
     return NULL;
 }
 
@@ -138,19 +124,28 @@ int64_t get_global_time_us() {
     return current_time_us;
 }
 
-int64_t get_global_time_ms() {
-    int64_t current_time_ms;
-    struct timeval current_timeval;
-    gettimeofday(&current_timeval, NULL);
-    current_time_ms = (int64_t)(current_timeval.tv_sec * 1000LL) +
-                      (int64_t)(current_timeval.tv_usec / 1000);
-    return current_time_ms;
-}
-
 int64_t get_global_time_s(void) {
     struct timeval current_timeval;
     gettimeofday(&current_timeval, NULL);
     return (int64_t)(current_timeval.tv_sec);
+}
+
+int64_t get_monotonic_time_us(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ((int64_t)ts.tv_sec * 1000000) + (int64_t)(ts.tv_nsec / 1000);
+}
+
+int64_t get_monotonic_time_ms(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ((int64_t)ts.tv_sec * 1000) + (int64_t)(ts.tv_nsec / 1000000);
+}
+
+time_t get_monotonic_time_s(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec;
 }
 
 int timing_has_syncronized_to_ntp(void) {

@@ -27,6 +27,11 @@
 #define MIN_TO_SEC(m) ((m) * 60)
 
 //-----------------------------------------------------------------------------
+// Global variables
+//-----------------------------------------------------------------------------
+extern int g_rtc_thread_is_running;
+
+//-----------------------------------------------------------------------------
 // Methods
 //-----------------------------------------------------------------------------
 int init_timing();
@@ -34,8 +39,10 @@ void updateRtcCount();
 int getRtcCount();
 void *rtc_thread(void *paramPtr);
 int64_t get_global_time_us();
-int64_t get_global_time_ms();
 int64_t get_global_time_s(void);
+int64_t get_monotonic_time_us(void);
+time_t get_monotonic_time_ms(void);
+time_t get_monotonic_time_s(void);
 int sync_global_time_init(void);
 #ifdef UNIT_TEST
 void set_fake_time(const struct tm *tm_s);
@@ -43,9 +50,5 @@ void set_fake_time(const struct tm *tm_s);
 int timing_syncronize_to_ntp(void);
 int timing_has_syncronized_to_ntp(void);
 int64_t get_next_time_of_day_occurance_s(const struct tm *time_of_day);
-//-----------------------------------------------------------------------------
-// Global variables
-//-----------------------------------------------------------------------------
-extern int g_rtc_thread_is_running;
 
 #endif // TIMING_H

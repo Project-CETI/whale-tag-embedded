@@ -14,6 +14,7 @@
 
 #include <stdint.h>
 
+WTResult als_sleep(void);
 WTResult als_wake(void);
 WTResult als_get_measurement(int *pVisible, int *pInfrared);
 WTResult als_get_manufacturer_id(uint8_t *pManuId);

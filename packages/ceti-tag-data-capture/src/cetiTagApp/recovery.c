@@ -237,13 +237,13 @@ static int __recovery_query(RecoverCommand query_command, uint8_t *pValid) {
     }
 
     // get start time
-    uint64_t start_time_us = get_global_time_us();
+    uint64_t start_time_us = get_monotonic_time_us();
 
     // invalidate old value
     *pValid = 0;
 
     // wait for pong message or timeout
-    while (!*pValid && (get_global_time_us() - start_time_us < RECOVERY_UART_TIMEOUT_US)) {
+    while (!*pValid && (get_monotonic_time_us() - start_time_us < RECOVERY_UART_TIMEOUT_US)) {
         ;
     }
 
@@ -309,8 +309,8 @@ static WTResult __recovery_get_packet(RecoveryPacket *packet, bool (*term_condit
 
 // NOTE: __ping* used internal to verify recovery board connection prior to recovery_rx_thread running
 static uint64_t __ping_timeout;
-static void __ping_start_timeout(void) { __ping_timeout = get_global_time_us(); }
-static bool __ping_check_timeout(void) { return get_global_time_us() - __ping_timeout > RECOVERY_UART_TIMEOUT_US; }
+static void __ping_start_timeout(void) { __ping_timeout = get_monotonic_time_us(); }
+static bool __ping_check_timeout(void) { return get_monotonic_time_us() - __ping_timeout > RECOVERY_UART_TIMEOUT_US; }
 static bool __ping(void) {
     RecPktHeader q_pkt = REC_EMPTY_PKT(REC_CMD_PING);
     RecoveryPacket r_pkt = {.header.type = -1};
@@ -750,25 +750,12 @@ static void __recovery_sample_to_csv(CetiRecoverySample *pSample) {
 }
 
 static bool __recovery_rx_thread_should_exit() {
-    return g_exit || g_stopAcquisition;
+    return g_stopAcquisition;
 }
 
 void *recovery_rx_thread(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_recovery_rx_thread_tid = gettid();
-
-    // Set the thread CPU affinity.
-    if (RECOVERY_RX_CPU >= 0) {
-        pthread_t thread;
-        thread = pthread_self();
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(RECOVERY_RX_CPU, &cpuset);
-        if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-            CETI_LOG("Successfully set affinity to CPU %d", RECOVERY_RX_CPU);
-        else
-            CETI_ERR("Failed to set affinity to CPU %d", RECOVERY_RX_CPU);
-    }
 
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically acquire data");

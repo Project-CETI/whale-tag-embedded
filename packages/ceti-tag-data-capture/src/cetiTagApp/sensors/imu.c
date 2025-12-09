@@ -9,7 +9,8 @@
 
 #include "imu.h"
 #include "../cetiTag.h"
-#include "../launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
+#include "../launcher.h" // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
+#include "../log/imu_log.h"
 #include "../systemMonitor.h" // for the global CPU assignment variable to update
 #include "../utils/logging.h"
 #include "../utils/memory.h"
@@ -140,25 +141,12 @@ void *imu_thread(void *paramPtr) {
         return NULL;
     }
 
-    // Set the thread CPU affinity.
-    if (IMU_CPU >= 0) {
-        pthread_t thread;
-        thread = pthread_self();
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(IMU_CPU, &cpuset);
-        if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-            CETI_LOG("Successfully set affinity to CPU %d", IMU_CPU);
-        else
-            CETI_ERR("Failed to set affinity to CPU %d", IMU_CPU);
-    }
-
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically acquire data");
     g_imu_thread_is_running = 1;
 
     while (!g_stopAcquisition) {
-        int64_t wake_time_us = get_global_time_us();
+        int64_t task_start_us = get_monotonic_time_us();
 
         // sleep a bit and try again if read is unsucessful
         // ToDo: return ACTUAL errors and try recovering hardware
@@ -169,7 +157,7 @@ void *imu_thread(void *paramPtr) {
 
         // It's ok to sleep as sensor reports will just get
         // concatenated by the sensor hardware.
-        int64_t elapsed_time = get_global_time_us() - wake_time_us;
+        int64_t elapsed_time = get_monotonic_time_us() - task_start_us;
         int64_t remaining_time = IMU_9DOF_SAMPLE_PERIOD_US - elapsed_time;
         if (remaining_time > 0) {
             usleep(remaining_time);
@@ -179,10 +167,16 @@ void *imu_thread(void *paramPtr) {
     bno086_close();
     imu_is_connected = 0;
 
+    // wait for log thread to finish before clearing memory resources
+    threadManager_join_thread(ACQ_THREAD_IMU_LOG);
+
     sem_close(s_imu_page_ready);
     sem_close(s_imu_report_ready);
+    sem_unlink(IMU_PAGE_SEM_NAME);
+    sem_unlink(IMU_REPORT_SEM_NAME);
 
     munmap(imu_report_buffer, sizeof(CetiImuReportBuffer));
+    imu_report_buffer = NULL;
 
     g_imu_thread_is_running = 0;
     CETI_LOG("Done!");
@@ -281,8 +275,14 @@ int imu_read_data() {
         imu_report_buffer->sample++;
         if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
             imu_report_buffer->sample = 0;
-            imu_report_buffer->page ^= 1;
-            sem_post(s_imu_page_ready);
+            uint32_t next_page = (imu_report_buffer->page ^ 1);
+            if (next_page == g_imu_processing_page) {
+                CETI_ERR("***OVERFLOW*** IMU buffer overflow detected.");
+                /* ToDo: Handle overflow recovery*/
+            } else {
+                imu_report_buffer->page = next_page;
+                sem_post(s_imu_page_ready);
+            }
         }
         sem_post(s_imu_report_ready);
         return -1;

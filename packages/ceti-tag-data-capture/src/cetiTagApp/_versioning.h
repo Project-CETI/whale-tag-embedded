@@ -19,11 +19,12 @@
 //  2.3.0   05/31/24   Changes for V2_3 hardware, new branch, preliminary work
 //  2.3.1   01/31/25   Improved Error Handling, directly stored syslogs, time of day release, metadata
 //  2.3.2   06/20/22   Improve IMU reliability, improve ecg efficiency, faster startup time, improve ntp sync reliability
+//  2.5.1   11/12/25   LED controller thread, state machine cleanup, impl acquisition thread manager
 
 #ifndef CETI_VERSIONING_H
 #define CETI_VERSIONING_H
 
-#define CETI_VERSION "branch v2_5 Low battery windowing - V2.5"
+#define CETI_VERSION "State Machine Simplified - V2.5.1"
 
 #endif // CETI_VERSIONING_H
 

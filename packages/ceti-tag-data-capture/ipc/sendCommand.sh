@@ -7,8 +7,8 @@ if pgrep -x "cetiTagApp" >/dev/null; then
 	IPC_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 
 	# Send a command to the ceti app
-	echo "SENDING : $1"
-	if echo "$1" >"$IPC_DIR/cetiCommand"; then
+	echo "SENDING : $*"
+	if echo "$*" >"$IPC_DIR/cetiCommand"; then
 		# Read and print the response
 		echo "RESPONSE:"
 		cat "$IPC_DIR/cetiResponse"

@@ -40,8 +40,9 @@ static int __command_quit(const char *args);
 static int __command_dbg(const char *args);
 static int __command_ping(const char *args);
 static int __command_powerdown(const char *args);
-static int __command_initTag(const char *args);
+// static int __command_initTag(const char *args);
 static int __command_stopDataAcq(const char *args);
+static int __command_startDataAcq(const char *args);
 static int __command_startLogging(const char *args);
 static int __command_stopLogging(const char *args);
 static int handle_audio_command(const char *args);
@@ -58,7 +59,8 @@ static const CommandDescription command_list[] = {
     {.name = STR_FROM("dbg"), .description = "Run debug routine", .parse = __command_dbg},
     {.name = STR_FROM("ping"), .description = "Ping cetiTagApp", .parse = __command_ping},
     {.name = STR_FROM("powerdown"), .description = "Power down the Tag", .parse = __command_powerdown},
-    {.name = STR_FROM("initTag"), .description = "Initialize the Tag", .parse = __command_initTag},
+    // {.name = STR_FROM("initTag"), .description = "Initialize the Tag", .parse = __command_initTag},
+    {.name = STR_FROM("startDataAcq"), .description = "Start acquiring data", .parse = __command_startDataAcq},
     {.name = STR_FROM("stopDataAcq"), .description = "Stop acquiring data", .parse = __command_stopDataAcq},
     {.name = STR_FROM("startLogging"), .description = "Start logging collected samples to disk.", .parse = __command_startLogging},
     {.name = STR_FROM("stopLogging"), .description = "Stop logging sensor data to disk.", .parse = __command_stopLogging},
@@ -133,7 +135,7 @@ static int __command_quit(const char *args) {
     fprintf(g_rsp_pipe, "Received Quit command - stopping the app\n"); // echo it back
     CETI_LOG("SETTING EXIT FLAG");
     g_stopLogging = 1;
-    g_stopAcquisition = 1;
+    threadManager_start_acquisition();
     g_exit = 1;
     return 0;
 }
@@ -174,19 +176,25 @@ static int __command_powerdown(const char *args) {
     return 0;
 }
 
-static int __command_initTag(const char *args) {
-    if (!init_tag()) {
-        CETI_LOG("Tag initialization successful");
-        fprintf(g_rsp_pipe, "handle_command(): Tag initialization successful\n");
-    } else {
-        CETI_LOG("XXXX Tag Initialization Failed XXXX");
-        fprintf(g_rsp_pipe, "handle_command(): Tag initialization failed\n");
-    }
+// static int __command_initTag(const char *args) {
+//     if (!init_tag()) {
+//         CETI_LOG("Tag initialization successful");
+//         fprintf(g_rsp_pipe, "handle_command(): Tag initialization successful\n");
+//     } else {
+//         CETI_LOG("XXXX Tag Initialization Failed XXXX");
+//         fprintf(g_rsp_pipe, "handle_command(): Tag initialization failed\n");
+//     }
+//     return 0;
+// }
+
+static int __command_startDataAcq(const char *args) {
+    threadManager_start_acquisition();
+    fprintf(g_rsp_pipe, "Data acquisition starting\n"); // echo it
     return 0;
 }
 
 static int __command_stopDataAcq(const char *args) {
-    g_stopAcquisition = 1;
+    threadManager_stop_acquisition();
     fprintf(g_rsp_pipe, "Data acquisition stopping\n"); // echo it
     return 0;
 }

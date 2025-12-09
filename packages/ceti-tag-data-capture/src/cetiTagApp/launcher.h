@@ -76,17 +76,40 @@
 // Includes
 //-----------------------------------------------------------------------------
 
+typedef enum {
+    ACQ_THREAD_ALS,
+    ACQ_THREAD_AUDIO_ACQ,
+    ACQ_THREAD_AUDIO_LOG,
+    ACQ_THREAD_BATTERY,
+    ACQ_THREAD_DEPLOYMENT_CONFIG_LOG,
+    ACQ_THREAD_ECG_ACQ,
+    ACQ_THREAD_ECG_LOD_ACQ,
+    ACQ_THREAD_ECG_LOG,
+    ACQ_THREAD_GPS,
+    ACQ_THREAD_IMU_ACQ,
+    ACQ_THREAD_IMU_LOG,
+    ACQ_THREAD_PRESSURE,
+    ACQ_THREAD_SYSTEM_MONITOR,
+    NUM_ACQ_THREAD,
+} AcqThreadType;
+
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
-extern int g_exit;
-extern int g_stopAcquisition;
+extern volatile int g_stopAcquisition;
 extern int g_stopLogging;
-extern char g_process_path[256];
+extern int g_exit;
 
+extern char g_process_path[256];
 //-----------------------------------------------------------------------------
 // Helper methods
 //-----------------------------------------------------------------------------
-int init_tag();
+void threadManager_create_thread(AcqThreadType thread_index);
+int threadManager_join_thread(AcqThreadType thread_index);
+int threadManager_tryjoin_thread(AcqThreadType thread_index);
+void threadManager_start_acquisition(void);
+void threadManager_stop_acquisition(void);
+void threadManager_init(void);
+void *threadManager_thread(void *paramPtr);
 
 #endif // LAUNCHER_H

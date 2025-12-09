@@ -155,24 +155,11 @@ void *light_thread(void *paramPtr) {
         return NULL;
     }
 
-    // Set the thread CPU affinity.
-    if (LIGHT_CPU >= 0) {
-        pthread_t thread;
-        thread = pthread_self();
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(LIGHT_CPU, &cpuset);
-        if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-            CETI_LOG("Successfully set affinity to CPU %d", LIGHT_CPU);
-        else
-            CETI_WARN("Failed to set affinity to CPU %d", LIGHT_CPU);
-    }
-
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically acquire data");
-    int64_t polling_sleep_duration_us;
     g_light_thread_is_running = 1;
     while (!g_stopAcquisition) {
+        int64_t task_start_us = get_monotonic_time_us();
         if (!decay_shouldSample(&decay)) {
             usleep(LIGHT_SAMPLING_PERIOD_US);
             continue;
@@ -196,16 +183,20 @@ void *light_thread(void *paramPtr) {
 
         // Delay to implement a desired sampling rate.
         // Take into account the time it took to acquire/save data.
-        polling_sleep_duration_us = LIGHT_SAMPLING_PERIOD_US;
-        polling_sleep_duration_us -= get_global_time_us() - g_light->sys_time_us;
+        int64_t elapsed_time_us = get_monotonic_time_us() - task_start_us;
+        int64_t polling_sleep_duration_us = LIGHT_SAMPLING_PERIOD_US - elapsed_time_us;
         if (polling_sleep_duration_us > 0)
             usleep(polling_sleep_duration_us);
     }
+
+    als_sleep();
+
     sem_close(light_data_ready);
     sem_unlink(LIGHT_SEM_NAME);
 
     munmap(g_light, sizeof(CetiLightSample));
     shm_unlink(ECG_SHM_NAME);
+    g_light = NULL;
 
     g_light_thread_is_running = 0;
     CETI_LOG("Done!");

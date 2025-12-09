@@ -33,7 +33,7 @@ static int __missionCmd_resume(const char *args) {
 
 static int __missionCmd_restart(const char *args) {
     stateMachine_pause();
-    stateMachine_set_state(ST_CONFIG);
+    stateMachine_set_state(ST_START);
     stateMachine_resume();
     return 0;
 }

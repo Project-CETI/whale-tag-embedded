@@ -33,8 +33,6 @@ static unsigned long long cpu_prev_system[NUM_CPU_ENTRIES], cpu_prev_idle[NUM_CP
 static unsigned long long cpu_prev_ioWait[NUM_CPU_ENTRIES], cpu_prev_irq[NUM_CPU_ENTRIES], cpu_prev_irqSoft[NUM_CPU_ENTRIES];
 static double cpu_percents[NUM_CPU_ENTRIES];
 static FILE *cpu_proc_stat_file;
-// State for limiting log file sizes.
-static long long last_logrotate_time_us = 0;
 // The main process ID of the program.
 static int cetiApp_pid = -1;
 // Thread IDs, which will be updated by the relevant threads if they are enabled.
@@ -131,25 +129,18 @@ void *systemMonitor_thread(void *paramPtr) {
             CETI_WARN("Failed to set affinity to CPU %d", SYSTEMMONITOR_CPU);
     }
 
-    // Initialize state for limiting log file sizes.
-    last_logrotate_time_us = get_global_time_us();
-
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically check system resources");
-    long long ram_free;
-    long long swap_free;
-    long long global_time_us;
-    int rtc_count;
-    long long polling_sleep_duration_us;
     g_systemMonitor_thread_is_running = 1;
 #if TID_PRINT_PERIOD_US >= 0
     // Set the previous time such that it will print once at most 30s after starting and thereafter according to the desired period.
-    long long last_tid_print_time_us = get_global_time_us() + (TID_PRINT_PERIOD_US > 30000000 ? (30000000 - TID_PRINT_PERIOD_US) : 0);
+    long long last_tid_print_time_us = get_monotonic_time_us() + (TID_PRINT_PERIOD_US > 30000000 ? (30000000 - TID_PRINT_PERIOD_US) : 0);
 #endif
-    while (!g_exit) {
+    while (!g_stopAcquisition) {
+        int64_t task_start_us = get_monotonic_time_us();
 // Print the thread IDs if desired
 #if TID_PRINT_PERIOD_US >= 0
-        if (get_global_time_us() - last_tid_print_time_us >= TID_PRINT_PERIOD_US) {
+        if (get_monotonic_time_us() - last_tid_print_time_us >= TID_PRINT_PERIOD_US) {
             CETI_LOG("......");
             CETI_LOG("Thread IDs:");
             CETI_LOG(" %6d: audio_thread_spi", g_audio_thread_spi_tid);
@@ -167,18 +158,17 @@ void *systemMonitor_thread(void *paramPtr) {
             CETI_LOG(" %6d: ecg_lod_thread", g_ecg_lod_thread_tid);
             CETI_LOG(" %6d: systemMonitor_thread", g_systemMonitor_thread_tid);
             CETI_LOG("......");
-            last_tid_print_time_us = get_global_time_us();
+            last_tid_print_time_us = get_monotonic_time_us();
         }
 #endif
 
-        // Acquire a timestamp for the data about to be read.
-        global_time_us = get_global_time_us();
-        rtc_count = getRtcCount();
-
         if (!g_stopAcquisition) {
+            // Acquire a timestamp for the data about to be read.
+            long long global_time_us = get_global_time_us();
+            int rtc_count = getRtcCount();
             // Acquire system information as close as possible to the above timestamps.
-            ram_free = get_ram_free();
-            swap_free = get_swap_free();
+            long long ram_free = get_ram_free();
+            long long swap_free = get_swap_free();
             update_cpu_usage();
 
             if (!g_stopLogging) {
@@ -230,8 +220,8 @@ void *systemMonitor_thread(void *paramPtr) {
 
         // Delay to implement a desired sampling rate.
         // Take into account the time it took to acquire/save data.
-        polling_sleep_duration_us = SYSTEMMONITOR_SAMPLING_PERIOD_US;
-        polling_sleep_duration_us -= get_global_time_us() - global_time_us;
+        int64_t polling_sleep_duration_us = SYSTEMMONITOR_SAMPLING_PERIOD_US;
+        polling_sleep_duration_us -= get_monotonic_time_us() - task_start_us;
         if (polling_sleep_duration_us > 0)
             usleep(polling_sleep_duration_us);
     }

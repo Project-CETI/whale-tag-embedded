@@ -9,6 +9,13 @@
 
 #include "ecg_adc.h"
 
+#include "../../utils/logging.h"
+#include "../../utils/timing.h"
+
+#include "../ecg.h" // for ECG_INVALID_PLACEHOLDER
+#include <pigpio.h> // for I2C functions
+#include <unistd.h> // for usleep()
+
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
@@ -243,9 +250,9 @@ int ecg_adc_start_data_acquisition_via_timer() {
 #if ECG_ADC_DATA_READY_USE_TIMER
     // Try to reach a point in the ADC cycle just a bit after data is ready.
     int data_is_ready = 0;
-    long long wait_for_data_startTime_us = get_global_time_us();
+    long long wait_for_data_startTime_us = get_monotonic_time_us();
     long timeout_us = 1000000;
-    while (!data_is_ready && get_global_time_us() - wait_for_data_startTime_us < timeout_us)
+    while (!data_is_ready && get_monotonic_time_us() - wait_for_data_startTime_us < timeout_us)
         data_is_ready = (ecg_adc_read_data_ready() == 0 ? 1 : 0);
     usleep(50);
     // Start the timer.
@@ -284,7 +291,7 @@ void ecg_adc_data_ready_interrupt_fn(int gpio, int level, uint32_t tick) {
         // Indicate that there was an error, so the main program will try to set up the ECG again.
         g_ecg_adc_latest_reading = ECG_INVALID_PLACEHOLDER;
         // Update the data timestamp, which will also trigger the main program to read the new sample/timestamp.
-        g_ecg_adc_latest_reading_global_time_us = get_global_time_us();
+        g_ecg_adc_latest_reading_global_time_us = get_monotonic_time_us();
     } else {
         // Acquire the new data sample and timestamp.
         // Will update g_ecg_adc_latest_reading and g_ecg_adc_latest_reading_global_time_us.
@@ -327,8 +334,8 @@ int ecg_adc_read_data(int *exit_flag, long long timeout_us) {
 //  (in which case assume this function is called since data is ready).
 #if !(ECG_ADC_DATA_READY_USE_INTERRUPT || ECG_ADC_DATA_READY_USE_TIMER)
     int data_is_ready = 0;
-    long long wait_for_data_startTime_us = get_global_time_us();
-    while (!data_is_ready && !*exit_flag && get_global_time_us() - wait_for_data_startTime_us < timeout_us) {
+    long long wait_for_data_startTime_us = get_monotonic_time_us();
+    while (!data_is_ready && !*exit_flag && get_monotonic_time_us() - wait_for_data_startTime_us < timeout_us) {
         data_is_ready = (ecg_adc_read_data_ready() == 0);
     }
 
@@ -336,7 +343,7 @@ int ecg_adc_read_data(int *exit_flag, long long timeout_us) {
         // Indicate that there was an error, so the main program will try to set up the ECG again.
         g_ecg_adc_latest_reading = ECG_INVALID_PLACEHOLDER;
         // Update the data timestamp, which will also trigger the main program to read the new sample/timestamp.
-        g_ecg_adc_latest_reading_global_time_us = get_global_time_us();
+        g_ecg_adc_latest_reading_global_time_us = get_monotonic_time_us();
         return -1;
     }
 #endif
@@ -355,7 +362,7 @@ int ecg_adc_read_data(int *exit_flag, long long timeout_us) {
     g_ecg_adc_latest_reading = result_data;
 
     // Update the data timestamp, which will also trigger the main program to read the new sample/timestamp.
-    g_ecg_adc_latest_reading_global_time_us = get_global_time_us();
+    g_ecg_adc_latest_reading_global_time_us = get_monotonic_time_us();
     return 0;
 }
 

@@ -118,4 +118,4 @@ $(TEST_BIN_DIR)/cetiTagApp/utils/str.test: TEST_REAL_DEP = cetiTagApp/utils/str.
 
 $(TEST_BIN_DIR)/cetiTagApp/state_machine.test: TEST_TEST_DEP = cetiTagApp/state_machine.o 
 $(TEST_BIN_DIR)/cetiTagApp/state_machine.test: TEST_REAL_DEP = cetiTagApp/state_machine.o cetiTagApp/aprs.o cetiTagApp/utils/error.o cetiTagApp/utils/logging.o cetiTagApp/utils/str.o
-$(TEST_BIN_DIR)/cetiTagApp/state_machine.test: TEST_STUB_DEP = cetiTagApp/utils/power.o cetiTagApp/burnwire.o cetiTagApp/recovery.o
+$(TEST_BIN_DIR)/cetiTagApp/state_machine.test: TEST_STUB_DEP = cetiTagApp/utils/power.o cetiTagApp/burnwire.o cetiTagApp/recovery.o cetiTagApp/led_ctrl.o cetiTagApp/launcher.o

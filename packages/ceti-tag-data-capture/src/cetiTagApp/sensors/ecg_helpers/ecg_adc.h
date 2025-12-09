@@ -14,13 +14,8 @@
 // Includes
 //-----------------------------------------------------------------------------
 
-#include "../../utils/error.h"   // for get_global_time_us
-#include "../../utils/logging.h" // for CETI_LOG()
-#include "../../utils/timing.h"  // for get_global_time_us
-#include "../ecg.h"              // for ECG_INVALID_PLACEHOLDER
-#include <pigpio.h>              // for I2C functions
-#include <stdio.h>               // for printing
-#include <unistd.h>              // for usleep()
+#include "../../utils/error.h" // for WTResult
+#include <stdio.h>             // for printing
 
 // ------------------------------------------
 // Definitions/Configuration

@@ -9,6 +9,10 @@
 #ifndef IMU_LOG_H
 #define IMU_LOG_H
 
+#include <stdint.h>
+
+extern volatile uint32_t g_imu_processing_page;
+
 int imu_init_data_files(void);
 void *imu_log_thread(void *paramPtr);
 

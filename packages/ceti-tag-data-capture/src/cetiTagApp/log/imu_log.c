@@ -37,6 +37,7 @@
 
 static CetiImuReportBuffer *imu_report_buffer;
 
+volatile uint32_t g_imu_processing_page = 0;
 int g_imu_log_thread_is_running = 0;
 
 static bool imu_restarted_log[IMU_DATA_TYPE_COUNT] = {true, true, true, true};
@@ -165,7 +166,7 @@ void imu_log_report_to_quat_csv(FILE *fp, CetiImuReport *pReport) {
     if (pReport->error != WT_OK) {
         char err_str[512];
         fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pReport->error, err_str, sizeof(err_str)));
-        fprintf(fp, ", , , , , , \n");
+        fprintf(fp, ", , , , ,");
     } else {
         // Write accelerometer data
         fprintf(fp, ",%d", pReport->report.quat.i);
@@ -197,7 +198,7 @@ void imu_log_report_to_accel_csv(FILE *fp, CetiImuReport *pReport) {
     if (pReport->error != WT_OK) {
         char err_str[512];
         fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pReport->error, err_str, sizeof(err_str)));
-        fprintf(fp, ", , , , , \n");
+        fprintf(fp, ", , , ,");
     } else {
         // Write accelerometer data
         fprintf(fp, ",%d", pReport->report.accel.x);
@@ -228,7 +229,7 @@ void imu_log_report_to_gyro_csv(FILE *fp, CetiImuReport *pReport) {
     if (pReport->error != WT_OK) {
         char err_str[512];
         fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pReport->error, err_str, sizeof(err_str)));
-        fprintf(fp, ", , , , , \n");
+        fprintf(fp, ", , , ,");
     } else {
         // Write accelerometer data
         fprintf(fp, ",%d", pReport->report.gyro.x);
@@ -259,7 +260,7 @@ void imu_log_report_to_mag_csv(FILE *fp, CetiImuReport *pReport) {
     if (pReport->error != WT_OK) {
         char err_str[512];
         fprintf(fp, "ERROR(%s) | ", wt_strerror_r(pReport->error, err_str, sizeof(err_str)));
-        fprintf(fp, ", , , , , \n");
+        fprintf(fp, ", , , ,");
     } else {
         // Write accelerometer data
         fprintf(fp, ",%d", pReport->report.mag.x);
@@ -273,19 +274,6 @@ void imu_log_report_to_mag_csv(FILE *fp, CetiImuReport *pReport) {
 void *imu_log_thread(void *paramPtr) {
     g_imu_thread_writeData_tid = gettid();
 
-    // Set the thread CPU affinity.
-    if (IMU_CPU >= 0) {
-        pthread_t thread;
-        thread = pthread_self();
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(IMU_CPU, &cpuset);
-        if (pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset) == 0)
-            CETI_LOG("Successfully set affinity to CPU %d", IMU_CPU);
-        else
-            CETI_ERR("Failed to set affinity to CPU %d", IMU_CPU);
-    }
-
     // open shared memory object
     imu_report_buffer = shm_open_read(IMU_REPORT_BUFFER_SHM_NAME, sizeof(CetiImuReportBuffer));
     if (imu_report_buffer == NULL) {
@@ -293,8 +281,6 @@ void *imu_log_thread(void *paramPtr) {
         CETI_ERR("Failed to create shared memory " IMU_REPORT_BUFFER_SHM_NAME ": %s", strerror_r(errno, err_str, sizeof(err_str)));
         return NULL;
     }
-
-    static uint32_t processing_page = 0;
 
     // open imu logging files
     while (imu_init_data_files()) {
@@ -308,14 +294,15 @@ void *imu_log_thread(void *paramPtr) {
 
     // begin logging
     while (!g_stopAcquisition) {
-        int64_t log_time_us = get_global_time_us();
+        int64_t task_start_us = get_monotonic_time_us();
         if (g_stopLogging) {
             usleep(IMU_LOGGING_INTERVAL_US);
             continue;
         }
 
         // check that data is ready to be written
-        if (imu_report_buffer->page == processing_page) {
+        uint32_t nv_processing_page = g_imu_processing_page;
+        if (imu_report_buffer->page == nv_processing_page) {
             // buffer not full wait a bit longer
             usleep(IMU_LOGGING_INTERVAL_US / 10);
             continue;
@@ -323,7 +310,7 @@ void *imu_log_thread(void *paramPtr) {
 
         // write all logged raw samples
         for (int i = 0; i < IMU_REPORT_BUFFER_SIZE; i++) {
-            CetiImuReport *i_report = &imu_report_buffer->reports[processing_page][i];
+            CetiImuReport *i_report = &imu_report_buffer->reports[nv_processing_page][i];
             if ((i_report->report.report_id == IMU_SENSOR_REPORTID_ROTATION_VECTOR) || (i_report->error != WT_OK)) {
                 imu_log_report_to_quat_csv(imu_data_file[IMU_DATA_TYPE_QUAT], i_report);
             }
@@ -337,7 +324,7 @@ void *imu_log_thread(void *paramPtr) {
                 imu_log_report_to_mag_csv(imu_data_file[IMU_DATA_TYPE_MAG], i_report);
             }
         }
-        processing_page ^= 1;
+        g_imu_processing_page = nv_processing_page ^ 1;
 
         // Create new files if files are getting too large.
         size_t imu_data_file_size_b = 0;
@@ -361,7 +348,7 @@ void *imu_log_thread(void *paramPtr) {
         }
 
         // sleep
-        int64_t elapsed_time_us = (get_global_time_us() - log_time_us);
+        int64_t elapsed_time_us = (get_monotonic_time_us() - task_start_us);
         int64_t remaining_time_us = IMU_LOGGING_INTERVAL_US - elapsed_time_us;
         if (remaining_time_us >= 0) {
             usleep(remaining_time_us);

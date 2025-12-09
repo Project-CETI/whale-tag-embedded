@@ -19,7 +19,6 @@
 //-----------------------------------------------------------------------------
 typedef enum {          // Tag operational states for deployment sequencing
     ST_START = 0,       // turn on the audio recorder, illuminate ready LED
-    ST_PREDEPLOY,       // wait with networking enabled
     ST_RECORD_DIVING,   // recording while underwater
     ST_RECORD_FLOATING, // recording but likely that the tag has detatched for the whale
     ST_RECORD_SURFACE,  // recording while surfaced - trying for a GPS fix
@@ -31,7 +30,7 @@ typedef enum {          // Tag operational states for deployment sequencing
 } wt_state_t;
 
 #define WIFI_GRACE_PERIOD_MIN 5
-#define FLOAT_DETECTION 0
+#define FLOAT_DETECTION 1
 #define MISSION_BMS_CONSECUTIVE_ERROR_THRESHOLD 5
 #define BATTERY_LOW_VOLTAGE_CONSECUTIVE_THRESHOLD 10
 #define BATTERY_CRITICAL_VOLTAGE_CONSECUTIVE_THRESHOLD 10
@@ -39,7 +38,6 @@ typedef enum {          // Tag operational states for deployment sequencing
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
-extern int g_stateMachine_thread_is_running;
 
 //-----------------------------------------------------------------------------
 // Methods
@@ -54,7 +52,4 @@ const char *get_state_str(wt_state_t state);
 wt_state_t strtomissionstate(const char *_String, const char **_EndPtr);
 void *stateMachine_thread(void *paramPtr);
 
-#ifdef UNIT_TEST
-void __stateMachine_update_task(void);
-#endif
 #endif // STATE_MACHINE_H

@@ -9,6 +9,7 @@
 #include "burnwire.h"
 #include "device/fpga.h" // for LED control
 #include "device/iox.h"
+#include "led_ctrl.h"
 
 #include "utils/logging.h"
 
@@ -32,6 +33,9 @@ static WTResult __burnwire_init(void) {
     return WT_OK;
 }
 
+//-----------------------------------------------------------------------------
+// Burnwire interface
+//-----------------------------------------------------------------------------
 int init_burnwire() {
     WTResult hal_result = __burnwire_init();
     if (hal_result != WT_OK) {
@@ -44,39 +48,9 @@ int init_burnwire() {
     return 0;
 }
 
-//-----------------------------------------------------------------------------
-// Burnwire interface
-//-----------------------------------------------------------------------------
-void burnwire_update_leds(void) {
-    switch (s_burnwire_led_state) {
-        case 0:
-            wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
-            wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
-            s_burnwire_led_state = 1;
-            break;
-
-        case 1:
-            wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
-            wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
-            s_burnwire_led_state = 2;
-            break;
-
-        case 2:
-        default:
-            wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
-            wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
-            s_burnwire_led_state = 0;
-            break;
-    }
-}
-
 int burnwireOn(void) {
-    // add LED Control
-    wt_fpga_led_set(FPGA_LED_GREEN, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
-    wt_fpga_led_set(FPGA_LED_YELLOW, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_OFF);
-    wt_fpga_led_set(FPGA_LED_RED, FPGA_LED_MODE_PI_ONLY, FPGA_LED_STATE_ON);
     s_burnwire_led_state = 0;
-
+    LEDCtrl_set_state(LED_STATE_BURN);
     WTResult hal_result = __burnwire_on();
     if (hal_result < 0) {
         char err_str[512];
@@ -87,8 +61,7 @@ int burnwireOn(void) {
 }
 
 int burnwireOff(void) {
-    wt_fpga_led_release_all();
-
+    LEDCtrl_set_state(LED_STATE_FPGA);
     WTResult hal_result = __burnwire_off();
     if (hal_result < 0) {
         char err_str[512];

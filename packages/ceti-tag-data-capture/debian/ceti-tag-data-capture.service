@@ -6,7 +6,7 @@ After=local-fs.target
 Type=simple
 WorkingDirectory=/opt/ceti-tag-data-capture/ipc
 ExecStartPre=systemctl restart rsyslog
-ExecStart=/opt/ceti-tag-data-capture/ipc/tagMonitor.sh
+ExecStart=/opt/ceti-tag-data-capture/bin/cetiTagApp
 Restart=always
 RestartSec=60
 

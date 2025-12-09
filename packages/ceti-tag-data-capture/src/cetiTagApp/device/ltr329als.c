@@ -58,6 +58,14 @@ typedef enum {
     ALS_REG_STATUS = 0x8C,
 } AlsRegAddr;
 
+WTResult als_sleep(void) {
+    int fd = PI_TRY(WT_DEV_LIGHT, i2cOpen(ALS_I2C_BUS, ALS_I2C_DEV_ADDR, 0));
+    PI_TRY(WT_DEV_LIGHT, i2cWriteByteData(fd, ALS_REG_CONTRL, ALS_CONTRL_GAIN_1 | ALS_CONTRL_MODE_STANDBY), i2cClose(fd)); // standby the light sensor up
+    i2cClose(fd);
+    usleep(ALS_WAKEUP_TIME_US); // wait for sensor to wake before using
+    return WT_OK;
+}
+
 WTResult als_wake(void) {
     int fd = PI_TRY(WT_DEV_LIGHT, i2cOpen(ALS_I2C_BUS, ALS_I2C_DEV_ADDR, 0));
     PI_TRY(WT_DEV_LIGHT, i2cWriteByteData(fd, ALS_REG_CONTRL, ALS_CONTRL_GAIN_1 | ALS_CONTRL_MODE_ACTIVE), i2cClose(fd)); // wake the light sensor up
