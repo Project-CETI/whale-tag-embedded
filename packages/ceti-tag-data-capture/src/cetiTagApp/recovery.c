@@ -34,43 +34,69 @@
 #define RECOVERY_PACKET_KEY_VALUE '$'
 #define RECOVERY_UART_TIMEOUT_US 50000
 
-#define RECOVERY_WDT_ENABLED 0
-#define RECOVERY_WDT_TRIGGER_TIME_MIN 10
-
 /* TYPE DEFINITIONS **********************************************************/
 typedef enum recovery_commands_e {
     /* Set recovery state*/
-    REC_CMD_START = 0x01,        // pi --> rec: sets rec into recovery state
-    REC_CMD_STOP = 0x02,         // pi --> rec: sets rec into waiting state
-    REC_CMD_COLLECT_ONLY = 0x03, // pi --> rec: sets rec into rx gps state
-    REC_CMD_CRITICAL = 0x04,     // pi --> rec: sets rec into critical state
+    REC_CMD_START            = 0x01, //pi --> rec: sets rec into active state (GPS logging + Argos transmissions)
+    REC_CMD_STOP             = 0x02, //pi --> rec: sets rec into inactive state
+    REC_CMD_COLLECT_ONLY     = 0x03, //pi --> rec: sets rec into rx gps state (just GPS logging)
+    REC_CMD_PROGRAM_ARRIBADA = 0x04,
+    // free: 0x05 - 0x0F
 
     /* recovery packet */
-    REC_CMD_GPS_PACKET = 0x10, // rec --> pi: raw gps packet
-    REC_CMD_APRS_MESSAGE,      // pi --> rec: addressee and message for tx on APRS
-    REC_CMD_PING,
-    REC_CMD_PONG,
+    REC_CMD_NMEA_PACKET   = 0x10, //rec --> pi: raw gps packet
+    REC_CMD_MESSAGE = 0x11,
+    PI_COMM_PING = 0x12,
+    PI_COMM_PONG = 0x13,
+    // free: 0x14 - 0x1F
 
-    /* recovery configuration */
-    REC_CMD_CONFIG_CRITICAL_VOLTAGE = 0x20,
-    REC_CMD_CONFIG_VHF_POWER_LEVEL, // 0x21,
-    REC_CMD_CONFIG_APRS_FREQ,       // 0x22,
-    REC_CMD_CONFIG_APRS_CALLSIGN,   // 0x23,
-    REC_CMD_CONFIG_APRS_COMMENT,    // 0x24,
-    REC_CMD_CONFIG_APRS_SSID,
-    REC_CMD_CONFIG_MSG_RCPT_CALLSIGN,
-    REC_CMD_CONFIG_MSG_RCPT_SSID,
-    REC_CMD_CONFIG_HOSTNAME,
+    REC_CMD_CONFIG_CRITICAL_VOLTAGE       = 0x20,
+    /* APRS configuration */
+    REC_CMD_CONFIG_APRS_VHF_POWER_LEVEL   = 0x21,
+    REC_CMD_CONFIG_APRS_FREQ              = 0x22,
+    REC_CMD_CONFIG_APRS_CALLSIGN          = 0x23,
+    REC_CMD_CONFIG_APRS_COMMENT           = 0x24,
+    REC_CMD_CONFIG_APRS_SSID              = 0x25,
+    REC_CMD_CONFIG_APRS_MSG_RCPT_CALLSIGN = 0x26,
+    REC_CMD_CONFIG_APRS_MSG_RCPT_SSID     = 0x27,
+    REC_CMD_CONFIG_APRS_HOSTNAME          = 0x28,
+
+    /* Arribada/argos configuration */
+    REC_CMD_CONFIG_ARGOS_ID         = 0x29,
+    REC_CMD_CONFIG_ARGOS_ADDR       = 0x2A,
+    REC_CMD_CONFIG_ARGOS_SECKEY     = 0x2B,
+    REC_CMD_CONFIG_ARGOS_MODULATION = 0x2C,
+    // free: 0x2D - 0x2F
+    
+    /* RTC Config*/
+    REC_CMD_SET_RTC_TIME_OF_DAY = 0x30, 
+    /*  uint8_t data[3] = {
+            year(0..99), month (1..12), day(1..31), 
+            hour(0..23), minute(0..59), second(0..59)
+        }; 
+    */
+    // free: 0x31 - 0x3F
+
+
+    /* Arribada/argos query */
+    REC_CMD_QUERY_STATE                  = 0x40,
+    // free: 0x41 - 0x3F
 
     /* recovery query */
-    REC_CMD_QUERY_STATE = 0x40,
-
-    REC_CMD_QUERY_CRITICAL_VOLTAGE = 0x60,
-    REC_CMD_QUERY_VHF_POWER_LEVEL, // 0x61,
-    REC_CMD_QUERY_APRS_FREQ,       // 0x62,
-    REC_CMD_QUERY_APRS_CALLSIGN,   // 0x63,
-    REC_CMD_QUERY_APRS_MESSAGE,    // 0x64,
-    REC_CMD_QUERY_APRS_SSID,
+    REC_CMD_QUERY_CRITICAL_VOLTAGE       = 0x60,
+    REC_CMD_QUERY_APRS_VHF_POWER_LEVEL   = 0x61,
+    REC_CMD_QUERY_APRS_FREQ              = 0x62,
+    REC_CMD_QUERY_APRS_CALLSIGN          = 0x63,
+    REC_CMD_QUERY_APRS_COMMENT           = 0x64,
+    REC_CMD_QUERY_APRS_SSID              = 0x65,
+    REC_CMD_QUERY_APRS_MSG_RCPT_CALLSIGN = 0x66,
+    REC_CMD_QUERY_APRS_MSG_RCPT_SSID     = 0x67,
+    REC_CMD_QUERY_APRS_HOSTNAME          = 0x68,
+	REC_CMD_QUERY_ARGOS_ID               = 0x69,
+	REC_CMD_QUERY_ARGOS_ADDR             = 0x6A,
+	REC_CMD_QUERY_ARGOS_SECKEY           = 0x6B,
+	REC_CMD_QUERY_ARGOS_MODULATION       = 0x6C,
+    // free: 0x6D - 0xFF
 } RecoverCommand;
 
 typedef struct __attribute__((__packed__, scalar_storage_order("little-endian"))) {
@@ -96,6 +122,9 @@ typedef struct
 } RecoveryPacket;
 
 /* GLOBAL/STATIC VARIABLES ******************************************************/
+#define RECOVERY_WDT_ENABLED 0
+#define RECOVERY_WDT_TRIGGER_TIME_MIN 10
+
 
 int g_recovery_rx_thread_is_running = 0;
 static FILE *recovery_data_file = NULL;
@@ -468,7 +497,7 @@ static int __recovery_set_aprs_rx_callsign(const char *callsign) {
     RecoveryPacket pkt = {
         .header = {
             .key = RECOVERY_PACKET_KEY_VALUE,
-            .type = REC_CMD_CONFIG_MSG_RCPT_CALLSIGN,
+            .type = REC_CMD_CONFIG_APRS_MSG_RCPT_CALLSIGN,
             .length = (uint8_t)callsign_len,
         },
     };
@@ -486,7 +515,7 @@ static int __recovery_set_aprs_rx_ssid(uint8_t ssid) {
     RecoveryPacket pkt = {
         .header = {
             .key = RECOVERY_PACKET_KEY_VALUE,
-            .type = REC_CMD_CONFIG_MSG_RCPT_SSID,
+            .type = REC_CMD_CONFIG_APRS_MSG_RCPT_SSID,
             .length = sizeof(uint8_t),
         },
         .data.u8 = ssid,
@@ -539,7 +568,7 @@ int recovery_set_power_level(RecoveryPowerLevel power_level) {
     RecoveryPacket pkt = {
         .header = {
             .key = RECOVERY_PACKET_KEY_VALUE,
-            .type = REC_CMD_CONFIG_VHF_POWER_LEVEL,
+            .type = REC_CMD_CONFIG_APRS_VHF_POWER_LEVEL,
             .length = sizeof(uint8_t)},
         .data.u8 = power_level,
     };
@@ -555,7 +584,7 @@ int recovery_message(const char *message) {
     RecoveryPacket pkt = {
         .header = {
             .key = RECOVERY_PACKET_KEY_VALUE,
-            .type = REC_CMD_APRS_MESSAGE,
+            .type = REC_CMD_MESSAGE,
             .length = message_len,
         }};
     memcpy(pkt.data.raw, message, message_len);
@@ -569,6 +598,32 @@ int recovery_ping(void) {
 //-----------------------------------------------------------------------------
 // On/Off
 //-----------------------------------------------------------------------------
+
+WTResult recovery_sync_time(void) {    
+    // get system time as date time
+    struct tm now_tm;
+    get_date_time(now_tm);
+
+    // parse system time
+    RecoveryPacket pkt = {
+        .header = {
+            .key = RECOVERY_PACKET_KEY_VALUE,
+            .type = REC_CMD_SET_RTC_TIME_OF_DAY,
+            .length = 6,
+        },
+    };
+    
+    pkt.data.raw[0] = (uint8_t)(now_tm.tm_year - 100); // year since 2000
+    pkt.data.raw[1] = (uint8_t)(now_tm.tm_mon + 1);
+    pkt.data.raw[2] = (uint8_t)now_tm.tm_mday;
+    pkt.data.raw[3] = (uint8_t)now_tm.tm_hout;
+    pkt.data.raw[4] = (uint8_t)now_tm.tm_min;
+    pkt.data.raw[5] = (uint8_t)now_tm.tm_sec;
+
+    // send systemtime to recovery board
+    return __recovery_write_packet(&pkt);
+
+}
 
 // // sets recovery board into "arps" state
 int recovery_wake(void) {
@@ -735,7 +790,7 @@ void *recovery_rx_thread(void *paramPtr) {
 
         // handle return packet based on type
         switch (pkt.header.type) {
-            case REC_CMD_GPS_PACKET:
+            case REC_CMD_NMEA_PACKET:
                 // TODO check message length
                 shm_nmea_sentence->sys_time_us = get_global_time_us();
                 shm_nmea_sentence->rtc_time_s = getRtcCount();
@@ -792,7 +847,7 @@ void *recovery_rx_thread(void *paramPtr) {
                 recovery_board.freq_Mhz.valid = 1;
                 break;
 
-            case REC_CMD_CONFIG_MSG_RCPT_CALLSIGN:
+            case REC_CMD_CONFIG_APRS_MSG_RCPT_CALLSIGN:
                 if (pkt.header.length > 6) {
                     CETI_WARN("Received APRS recipient callsign that is too long. Ignoring.");
                     break;
@@ -803,7 +858,7 @@ void *recovery_rx_thread(void *paramPtr) {
                 recovery_board.recipient.callsign.valid = 1;
                 break;
 
-            case REC_CMD_CONFIG_MSG_RCPT_SSID:
+            case REC_CMD_CONFIG_APRS_MSG_RCPT_SSID:
                 if (pkt.header.length != 1) {
                     CETI_WARN("Received APRS recipient ssid packet that is an incorrect size. Ignoring.");
                     break;
