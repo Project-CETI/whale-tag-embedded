@@ -1,6 +1,7 @@
 #include "../commands_internal.h"
 #include "../recovery.h"
 
+#include <ctype.h>
 #include <stdlib.h> // for strtof()
 
 static int __recoveryCmd_off(const char *args) {
@@ -82,6 +83,7 @@ static int __recoveryCmd_sendMessage(const char *args) {
     return 0;
 }
 
+#if RECOVERY_BOARD_TYPE_APRS == RECOVERY_BOARD_TYPE
 static int __recoveryCmd_set_frequency(const char *arg) {
     float f_MHz = strtof(arg, NULL);
     if ((f_MHz < 134.0000) || (f_MHz > 174.0000)) {
@@ -121,17 +123,122 @@ static int __recoveryCmd_set_recipient(const char *args) {
     fprintf(g_rsp_pipe, "APRS recipient set to: %s\n", callsign_str);
     return 0;
 }
+#endif // RECOVERY_BOARD_TYPE_APRS
+
+#if RECOVERY_BOARD_TYPE_ARGOS == RECOVERY_BOARD_TYPE
+static int __recoveryCmd_argos_address(const char *args) {
+    // skip whitespace
+    while (isspace(*args)) {
+        args++;
+    }
+
+    if ('?' == *args) { // GET
+        char addr_str[9];
+        if (0 != recovery_get_argos_address(addr_str)) {
+            fprintf(g_rsp_pipe, "Failed to query ARGOS MAC address from recovery board\n");
+            return -1;
+        }
+        addr_str[8] = 0;
+        fprintf(g_rsp_pipe, "%s\n", addr_str);
+    } else { // SET
+        for (int i = 0; i < 8; i++) {
+            if (!isxdigit(args[i])) {
+                fprintf(g_rsp_pipe, "Invalid ARGOS MAC address provided: %s\n", args);
+                return -1;
+            }
+        }
+
+        if (isxdigit(args[8])) {
+            fprintf(g_rsp_pipe, "Invalid length ARGOS MAC address provided: %s\n", args);
+            return -1;
+        }
+
+        if (0 != recovery_set_argos_address(args, 8)) {
+            fprintf(g_rsp_pipe, "Failed to set ARGOS MAC address\n");
+        }
+    }
+
+    return 0;
+}
+
+static int __recoveryCmd_argos_id(const char *args) {
+    // skip whitespace
+    while (isspace(*args)) {
+        args++;
+    }
+
+    if ('?' == *args) { // GET
+        char id_str[16] = {0};
+        if (0 != recovery_get_argos_id(id_str)) {
+            fprintf(g_rsp_pipe, "Failed to query Argos ID from recovery board\n");
+            return -1;
+        }
+        fprintf(g_rsp_pipe, "%s\n", id_str);
+    } else { // SET
+        const char *args_end = args;
+        while (isdigit(*args_end)) {
+            args_end++;
+        }
+        size_t id_len = args_end - args;
+        if ((id_len != 6)) {
+            fprintf(g_rsp_pipe, "Invalid secret key provided: %s\n", args);
+            return -1;
+        }
+
+        if (0 != recovery_set_argos_id(args, id_len)) {
+            fprintf(g_rsp_pipe, "Failed to set ARGOS ID\n");
+        }
+    }
+
+    return 0;
+}
+
+static int __recoveryCmd_argos_secret_key(const char *args) {
+    // skip whitespace
+    while (isspace(*args)) {
+        args++;
+    }
+
+    if ('?' == *args) { // GET
+        char secret_key_str[65];
+        if (0 != recovery_get_argos_secret_key(secret_key_str)) {
+            fprintf(g_rsp_pipe, "Failed to query secret key from recovery board\n");
+            return -1;
+        }
+        secret_key_str[64] = 0;
+        fprintf(g_rsp_pipe, "%s\n", secret_key_str);
+    } else { // SET
+        for (int i = 0; i < 64; i++) {
+            if (!isxdigit(args[i])) {
+                fprintf(g_rsp_pipe, "Invalid secret key provided: %s\n", args);
+                return -1;
+            }
+        }
+
+        if (0 != recovery_set_argos_secret_key(args, 64)) {
+            fprintf(g_rsp_pipe, "Failed to set ARGOS secret key\n");
+        }
+    }
+    return 0;
+}
+#endif // RECOVERY_BOARD_TYPE_ARGOS
 
 const CommandDescription recovery_subcommand_list[] = {
     {.name = STR_FROM("off"), .description = "Turn off recovery board", .parse = __recoveryCmd_off},
-    {.name = STR_FROM("on"), .description = "Turn on  recovery board", .parse = __recoveryCmd_on},
+    {.name = STR_FROM("on"), .description = "Turn on recovery board", .parse = __recoveryCmd_on},
     {.name = STR_FROM("sleep"), .description = "Put recovery board to sleep", .parse = __recoveryCmd_sleep},
     {.name = STR_FROM("wake"), .description = "Wake the recovery board", .parse = __recoveryCmd_wake},
     {.name = STR_FROM("ping"), .description = "Ping the recovery board to verify serial connection", .parse = __recoveryCmd_ping},
     {.name = STR_FROM("message"), .description = "Send a direct message via APRS.", .parse = __recoveryCmd_sendMessage},
+#if RECOVERY_BOARD_TYPE_APRS == RECOVERY_BOARD_TYPE
     {.name = STR_FROM("setFrequency"), .description = "Sets APRS frequency in MHz", .parse = __recoveryCmd_set_frequency},
     {.name = STR_FROM("setCallsign"), .description = "Sets APRS callsign", .parse = __recoveryCmd_set_callsign},
     {.name = STR_FROM("setRecipient"), .description = "Sets APRS direct message recipient callsign", .parse = __recoveryCmd_set_recipient},
+#elif RECOVERY_BOARD_TYPE_ARGOS == RECOVERY_BOARD_TYPE
+    {.name = STR_FROM("address"), .description = "Gets Argos MAC address if '?', else sets Argos MAC address", .parse = __recoveryCmd_argos_address},
+    {.name = STR_FROM("id"), .description = "Gets Argos ID if '?', else sets Argos ID", .parse = __recoveryCmd_argos_id},
+    {.name = STR_FROM("secret_key"), .description = "Gets Argos secret key if '?', else sets Argos secret key", .parse = __recoveryCmd_argos_secret_key},
+#endif
 };
 
 const size_t recovery_subcommand_list_size = sizeof(recovery_subcommand_list) / sizeof(*recovery_subcommand_list);

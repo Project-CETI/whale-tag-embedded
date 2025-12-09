@@ -13,17 +13,17 @@
 //-----------------------------------------------------------------------------
 #include "aprs.h"
 #include "utils/config.h" //for TagConfig
+#include "utils/error.h"
 
 #include <time.h> //for time_t
 
 //-----------------------------------------------------------------------------
 // Definitions/Configuration
 //-----------------------------------------------------------------------------
-#define RECOVERY_BOARD_TYPE_APRS (0)
-#define RECOVERY_BOARD_TYPE_ARGOS (1)
+#define RECOVERY_BOARD_TYPE_APRS 0
+#define RECOVERY_BOARD_TYPE_ARGOS 1
 
 #define RECOVERY_BOARD_TYPE RECOVERY_BOARD_TYPE_ARGOS
-
 
 typedef enum recovery_power_level_e {
     RECOVERY_POWER_LOW,
@@ -51,11 +51,14 @@ int recovery_get_aprs_freq_mhz(float *p_freq_MHz);
 int recovery_set_aprs_callsign(const APRSCallsign *callsign);
 int recovery_set_aprs_freq_mhz(float f_MHz);
 int recovery_set_aprs_message_recipient(const APRSCallsign *callsign);
-int recovery_set_comment(const char *message);
+int recovery_set_aprs_comment(const char *message);
 #elif RECOVERY_BOARD_TYPE_ARGOS == RECOVERY_BOARD_TYPE
-int recovery_set_argos_id(char *id, size_t id_len);
-int recovery_set_argos_address(char *address, size_t address_len);
-int recovery_set_argos_secret_key(uint8_t *secret_key, size_t secret_key);
+int recovery_get_argos_address(char address[static 9]);
+int recovery_set_argos_address(const char *address, size_t address_len);
+int recovery_get_argos_id(char address[static 7]);
+int recovery_set_argos_id(const char *id, size_t id_len);
+int recovery_get_argos_secret_key(char secret_key[static 32]);
+int recovery_set_argos_secret_key(const char *secret_key, size_t secret_key_len);
 #endif
 int recovery_gps_only(void);
 int recovery_message(const char *message);
@@ -63,7 +66,7 @@ int recovery_off(void);
 int recovery_on(void);
 int recovery_set_critical_voltage(float voltage);
 int recovery_sleep(void);
-int recovery_sync_time(void);    
+WTResult recovery_sync_time(void);
 int recovery_wake(void);
 
 //-----------------------------------------------------------------------------

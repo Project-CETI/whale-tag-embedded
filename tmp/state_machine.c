@@ -437,7 +437,7 @@ int stateMachine_set_state(wt_state_t new_state) {
             char comment[41] = {};
             snprintf(comment, 40, "%s %s", hostname, get_state_str(new_state));
             // set recovery board comment
-            recovery_set_comment(comment);
+            recovery_set_aprs_comment(comment);
         }
     }
 #endif // ENABLE_RECOVERY

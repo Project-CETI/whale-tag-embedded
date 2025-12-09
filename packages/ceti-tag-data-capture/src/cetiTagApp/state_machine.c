@@ -541,7 +541,7 @@ int stateMachine_set_state(wt_state_t new_state) {
             recovery_gps_only();
         } else {
             recovery_wake();
-
+#if RECOVERY_BOARD_TYPE_APRS == RECOVERY_BOARD_TYPE
             // set current state in message
             char hostname[32];
             gethostname(hostname, 31);
@@ -549,7 +549,8 @@ int stateMachine_set_state(wt_state_t new_state) {
             char comment[41] = {};
             snprintf(comment, 40, "%s %s", hostname, get_state_str(new_state));
             // set recovery board comment
-            recovery_set_comment(comment);
+            recovery_set_aprs_comment(comment);
+#endif // RECOVERY_BOARD_TYPE_APRS
         }
     }
 #endif // ENABLE_RECOVERY
