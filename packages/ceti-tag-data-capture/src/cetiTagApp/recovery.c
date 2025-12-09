@@ -271,7 +271,7 @@ WTResult wt_recovery_init(void) {
     WT_TRY(wt_recovery_on());
 
     // let board boot
-    usleep(500000);
+    usleep(5000000);
 
     // Open serial communication
     recovery_fd = PI_TRY(WT_DEV_RECOVERY, serOpen("/dev/serial0", 115200, 0), wt_recovery_off());
@@ -568,7 +568,7 @@ int recovery_set_argos_id(const char *id, size_t id_len) {
         .header = {
             .key = RECOVERY_PACKET_KEY_VALUE,
             .type = REC_CMD_CONFIG_ARGOS_ID,
-            .length = 8,
+            .length = id_len,
         }};
     memcpy(pkt.data.raw, id, id_len);
     return __recovery_write_packet(&pkt);
