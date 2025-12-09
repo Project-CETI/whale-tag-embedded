@@ -12,6 +12,7 @@
 // Includes
 //-----------------------------------------------------------------------------
 #include "aprs.h"
+#include "cetiRecovery.h"
 #include "utils/config.h" //for TagConfig
 #include "utils/error.h"
 
@@ -54,10 +55,13 @@ int recovery_set_aprs_message_recipient(const APRSCallsign *callsign);
 int recovery_set_aprs_comment(const char *message);
 #elif RECOVERY_BOARD_TYPE_ARGOS == RECOVERY_BOARD_TYPE
 int recovery_get_argos_address(char address[static 9]);
-int recovery_set_argos_address(const char *address, size_t address_len);
 int recovery_get_argos_id(char address[static 7]);
-int recovery_set_argos_id(const char *id, size_t id_len);
+int recovery_get_argos_modulation(RecoveryArgoModulation *mod_scheme);
 int recovery_get_argos_secret_key(char secret_key[static 32]);
+
+int recovery_set_argos_address(const char *address, size_t address_len);
+int recovery_set_argos_id(const char *id, size_t id_len);
+int recovery_set_argos_modulation(RecoveryArgoModulation mod_scheme);
 int recovery_set_argos_secret_key(const char *secret_key, size_t secret_key_len);
 #endif
 int recovery_gps_only(void);

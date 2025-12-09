@@ -237,6 +237,7 @@ const CommandDescription recovery_subcommand_list[] = {
 #elif RECOVERY_BOARD_TYPE_ARGOS == RECOVERY_BOARD_TYPE
     {.name = STR_FROM("address"), .description = "Gets Argos MAC address if '?', else sets Argos MAC address", .parse = __recoveryCmd_argos_address},
     {.name = STR_FROM("id"), .description = "Gets Argos ID if '?', else sets Argos ID", .parse = __recoveryCmd_argos_id},
+    // ToDo: {.name = STR_FROM("modulation"), .description = "Gets Argos modulation if '?', else sets Argos modulation", .parse = __recoveryCmd_argos_id},
     {.name = STR_FROM("secret_key"), .description = "Gets Argos secret key if '?', else sets Argos secret key", .parse = __recoveryCmd_argos_secret_key},
 #endif
 };

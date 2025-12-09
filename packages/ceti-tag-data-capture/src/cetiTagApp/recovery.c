@@ -7,7 +7,6 @@
 
 #include "recovery.h"
 
-#include "cetiRecovery.h"
 #include "cetiTag.h"
 #include "device/iox.h"
 #include "launcher.h"      // for g_stopAcquisition, sampling rate, data filepath, and CPU affinity
@@ -134,7 +133,7 @@ static WTResult __recovery_write_packet(const RecoveryPacket *pkt) {
     return __recovery_write(pkt, sizeof(RecPktHeader) + pkt->header.length);
 }
 
-static int __recovery_query(RecoverCommand query_command, uint8_t *pValid) {
+static int __recovery_query(RecoveryCommand query_command, uint8_t *pValid) {
     // assert(pVail != NULL)
     if (pValid == NULL) {
         CETI_ERR("No validation pointer provided.");
@@ -498,12 +497,42 @@ struct {
     uint8_t valid;
     char value[7];
 } s_id = {.valid = 0};
+struct {
+    uint8_t valid;
+    uint8_t value;
+} s_modulation_scheme = {.valid = 0};
 
 int recovery_get_argos_address(char address[static 9]) {
     if (!__recovery_query(REC_CMD_QUERY_ARGOS_ADDR, &s_address.valid)) {
         return -1;
     }
     memcpy(address, s_address.value, 8);
+    return 0;
+}
+
+int recovery_get_argos_id(char address[static 7]) {
+    if (!__recovery_query(REC_CMD_QUERY_ARGOS_ID, &s_id.valid)) {
+        return -1;
+    }
+    memcpy(address, s_id.value, 6);
+    return 0;
+}
+
+int recovery_get_argos_modulation(RecoveryArgoModulation *mod_scheme) {
+    if (!__recovery_query(REC_CMD_QUERY_ARGOS_MODULATION, &s_modulation_scheme.valid)) {
+        return -1;
+    }
+    if (mod_scheme != NULL) {
+        *mod_scheme = s_modulation_scheme.value;
+    }
+    return 0;
+}
+
+int recovery_get_argos_secret_key(char secret_key[static 32]) {
+    if (!__recovery_query(REC_CMD_QUERY_ARGOS_SECKEY, &s_secret_key.valid)) {
+        return -1;
+    }
+    memcpy(secret_key, s_secret_key.value, 32);
     return 0;
 }
 
@@ -528,14 +557,6 @@ int recovery_set_argos_address(const char *address, size_t address_len) {
     return 0;
 }
 
-int recovery_get_argos_id(char address[static 7]) {
-    if (!__recovery_query(REC_CMD_QUERY_ARGOS_ID, &s_id.valid)) {
-        return -1;
-    }
-    memcpy(address, s_id.value, 6);
-    return 0;
-}
-
 int recovery_set_argos_id(const char *id, size_t id_len) {
     for (int i = 0; i < id_len; i++) {
         if (!isdigit(id[i])) {
@@ -554,12 +575,16 @@ int recovery_set_argos_id(const char *id, size_t id_len) {
     return 0;
 }
 
-int recovery_get_argos_secret_key(char secret_key[static 32]) {
-    if (!__recovery_query(REC_CMD_QUERY_ARGOS_SECKEY, &s_secret_key.valid)) {
-        return -1;
-    }
-    memcpy(secret_key, s_secret_key.value, 32);
-    return 0;
+int recovery_set_argos_modulation(RecoveryArgoModulation mod_scheme) {
+    RecoveryPacket pkt = {
+        .header = {
+            .key = RECOVERY_PACKET_KEY_VALUE,
+            .type = REC_CMD_CONFIG_ARGOS_MODULATION,
+            .length = 1,
+        },
+        .data.u8 = (uint8_t)mod_scheme,
+    };
+    return __recovery_write_packet(&pkt);
 }
 
 int recovery_set_argos_secret_key(const char *secret_key, size_t secret_key_len) {
@@ -579,8 +604,6 @@ int recovery_set_argos_secret_key(const char *secret_key, size_t secret_key_len)
         }};
     memcpy(pkt.data.raw, secret_key, 32);
     return __recovery_write_packet(&pkt);
-
-    return 0;
 }
 #endif // RECOVERY_BOARD_TYPE_ARGOS
 
@@ -904,6 +927,15 @@ void *recovery_rx_thread(void *paramPtr) {
                 }
                 memcpy(s_id.value, pkt.data.raw, 6);
                 s_id.valid = 1;
+                break;
+
+            case REC_CMD_CONFIG_ARGOS_MODULATION:
+                if (pkt.header.length != 1) {
+                    CETI_WARN("Received ARGOS ID packet that is an incorrect size. Ignoring.");
+                    break;
+                }
+                s_modulation_scheme.value = pkt.data.u8;
+                s_modulation_scheme.valid = 1;
                 break;
 
             case REC_CMD_CONFIG_ARGOS_SECKEY:
