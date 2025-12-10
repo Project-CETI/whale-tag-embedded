@@ -111,7 +111,7 @@ $(TEST_BIN_DIR)/cetiTagApp/aprs.test: TEST_REAL_DEP = cetiTagApp/aprs.o
 
 $(TEST_BIN_DIR)/cetiTagApp/utils/timing.test: TEST_TEST_DEP = cetiTagApp/utils/timing.o
 $(TEST_BIN_DIR)/cetiTagApp/utils/timing.test: TEST_REAL_DEP = cetiTagApp/utils/timing.o cetiTagApp/utils/error.o
-$(TEST_BIN_DIR)/cetiTagApp/utils/timing.test: TEST_STUB_DEP = cetiTagApp/device/rtc.o
+$(TEST_BIN_DIR)/cetiTagApp/utils/timing.test: TEST_STUB_DEP = cetiTagApp/device/rtc.o cetiTagApp/recovery.o
 
 $(TEST_BIN_DIR)/cetiTagApp/utils/str.test: TEST_TEST_DEP = cetiTagApp/utils/str.o
 $(TEST_BIN_DIR)/cetiTagApp/utils/str.test: TEST_REAL_DEP = cetiTagApp/utils/str.o
