@@ -11,6 +11,7 @@
 
 #include "../device/rtc.h"
 #include "../launcher.h" // for g_exit, the state machine data filepath, to get an initial RTC timestamp if needed
+#include "../recovery.h"
 #include "../systemMonitor.h"
 #include "logging.h"
 
@@ -172,6 +173,15 @@ int timing_syncronize_to_ntp(void) {
     }
     timing_has_synced = 1;
     CETI_LOG("RTC synchronized to system clock: %ld)", current_timeval.tv_sec);
+
+    hw_result = recovery_sync_time();
+    if (hw_result != WT_OK) {
+        char err_str[512];
+        CETI_ERR("Could not syncronize recovery board: %s", wt_strerror_r(hw_result, err_str, sizeof(err_str)));
+        return -3;
+    }
+    CETI_LOG("recovery board synchronized to system clock: %ld)", current_timeval.tv_sec);
+
     return 0;
 }
 

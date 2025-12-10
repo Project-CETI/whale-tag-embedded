@@ -271,7 +271,7 @@ WTResult wt_recovery_init(void) {
     WT_TRY(wt_recovery_on());
 
     // let board boot
-    usleep(5000000);
+    usleep(500000);
 
     // Open serial communication
     recovery_fd = PI_TRY(WT_DEV_RECOVERY, serOpen("/dev/serial0", 115200, 0), wt_recovery_off());
@@ -757,6 +757,8 @@ int recovery_thread_init(TagConfig *pConfig) {
     if (hw_result == WT_OK)
         hw_result = recovery_set_aprs_message_recipient(&pConfig->recovery.recipient);
 #elif RECOVERY_BOARD_TYPE_ARGOS == RECOVERY_BOARD_TYPE
+    if ((WT_OK == hw_result) && timing_has_syncronized_to_ntp())
+        hw_result = recovery_sync_time();
 #endif
     if (hw_result == WT_OK)
         hw_result = recovery_set_critical_voltage(2.0 * pConfig->critical_voltage_v);
