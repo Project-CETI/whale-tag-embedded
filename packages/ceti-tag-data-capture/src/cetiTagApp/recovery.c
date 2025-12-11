@@ -31,7 +31,7 @@
 // Initialization
 //-----------------------------------------------------------------------------
 /* MACRO DEFINITIONS *********************************************************/
-#define RECOVERY_UART_TIMEOUT_US 100000
+#define RECOVERY_UART_TIMEOUT_US 500000
 
 /* TYPE DEFINITIONS **********************************************************/
 
@@ -268,13 +268,14 @@ WTResult wt_recovery_init(void) {
     WT_TRY(iox_set_mode(IOX_GPIO_BOOT0, IOX_MODE_OUTPUT));
     WT_TRY(iox_write_pin(IOX_GPIO_BOOT0, 0));
     usleep(5000);
-    WT_TRY(wt_recovery_on());
-
-    // let board boot
-    usleep(200000);
-
     // Open serial communication
     recovery_fd = PI_TRY(WT_DEV_RECOVERY, serOpen("/dev/serial0", 115200, 0), wt_recovery_off());
+    WT_TRY(wt_recovery_on());
+
+    
+    // let board boot
+    usleep(5000000);
+
 
     // test connection
     if (!__ping()) {
