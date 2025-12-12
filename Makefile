@@ -61,6 +61,8 @@ help:
 	@echo "make clean"
 	@echo "make deep_clean"
 	@echo "make packages"
+	@echo "make lint"
+	@echo "make lint_fix"
 
 #convert dos2unix files
 $(DOS2UNIX_TIMESTAMPS): %.timestamp : %.sh
@@ -81,7 +83,7 @@ $(RPI_TOOL_TS): %.timestamp : %
 # - Likewise Docker can be used to make any valid target by manually
 # setting the `TARGET` variable for the `build` recipe. See `packages` recipe
 # for example. 
-build: $(DOCKER_IMAGE)
+build: $(DOCKER_IMAGE) .gitmodules_updated
 	@echo "Building $(TARGET) inside docker image"
 	docker run --privileged -i --tty --workdir /whale-tag-embedded \
 		--volume $(shell pwd):/whale-tag-embedded \
@@ -96,16 +98,23 @@ clean:
 	rm -f $(DOS2UNIX_TIMESTAMPS) $(RPI_TOOL_TS)
 	rm -rf $(BUILD_DIR)/__pycache__
 	rm -rf $(OUT_DIR)
+	rm -f .gitmodules_updated
 
 deep_clean: clean docker-image-remove
 	$(foreach dir, $(DIRS), rm -rf $(dir);)
 	$(foreach package, $(PACKAGES), $(MAKE) clean -C $(PACKAGE_DIR)/$(package);)
 
-test:
+test: .gitmodules_updated
 	$(foreach package, $(PACKAGES), $(MAKE) test -C $(PACKAGE_DIR)/$(package);)
 
-packages:
+packages: .gitmodules_updated
 	@$(MAKE) build TARGET="$(PACKAGES)"
+
+# Update git submodules
+.gitmodules_updated: .gitmodules
+	@echo "Updating git submodules"
+	@git submodule update --init --recursive
+	@touch .gitmodules_updated
 
 # Create directories
 $(DIRS):

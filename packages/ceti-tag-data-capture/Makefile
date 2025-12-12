@@ -32,7 +32,8 @@ CC         = gcc
 LD		   = ld
 
 ### Flags ###
-CFLAGS     = -Wall -O2 -Wdate-time -D_FORTIFY_SOURCE=2 -D_GNU_SOURCE
+INCLUDE_CFLAGS = -I lib/libCetiRecovery
+CFLAGS     = -Wall -O2 -Wdate-time -D_FORTIFY_SOURCE=2 -D_GNU_SOURCE $(INCLUDE_CFLAGS)
 LDFLAGS    = -lpthread -lpigpio -lFLAC -lm -lrt
 
 ### Recipes ###
@@ -47,7 +48,7 @@ LDFLAGS    = -lpthread -lpigpio -lFLAC -lm -lrt
 	
 build: $(APPS)
 
-debug: CFLAGS := -Wall -g -Wdate-time -D_FORTIFY_SOURCE=2 -D_GNU_SOURCE -DDEBUG 
+debug: CFLAGS := -Wall -g -Wdate-time -D_FORTIFY_SOURCE=2 -D_GNU_SOURCE -DDEBUG $(INCLUDE_CFLAGS)
 debug: $(APPS)
 
 binary: $(APPS)

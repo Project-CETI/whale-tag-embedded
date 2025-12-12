@@ -1,3 +1,6 @@
 [submodule "packages/ceti-tag-data-capture/tests/lib/Unity"]
 	path = packages/ceti-tag-data-capture/tests/lib/Unity
 	url = https://github.com/ThrowTheSwitch/Unity.git
+[submodule "packages/ceti-tag-data-capture/lib/libCetiRecovery"]
+	path = packages/ceti-tag-data-capture/lib/libCetiRecovery
+	url = git@github.com:Project-CETI/libCetiRecovery.git
