@@ -272,10 +272,8 @@ WTResult wt_recovery_init(void) {
     recovery_fd = PI_TRY(WT_DEV_RECOVERY, serOpen("/dev/serial0", 115200, 0), wt_recovery_off());
     WT_TRY(wt_recovery_on());
 
-    
     // let board boot
     usleep(5000000);
-
 
     // test connection
     if (!__ping()) {

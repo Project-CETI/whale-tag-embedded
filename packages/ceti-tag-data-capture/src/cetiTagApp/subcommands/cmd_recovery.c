@@ -232,8 +232,8 @@ static int __recoveryCmd_argos_rconf(const char *args) {
 
     recovery_set_argos_modulation(scheme);
     char char_str[24];
-    memcpy(char_str, command, command_end-command);
-    char_str[command_end-command] = 0;
+    memcpy(char_str, command, command_end - command);
+    char_str[command_end - command] = 0;
     fprintf(g_rsp_pipe, "Modulation scheme set to %s\n", char_str);
     return 0;
 }

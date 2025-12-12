@@ -134,5 +134,7 @@ raspios.img
 raspios/
 packages/ceti-tag-data-capture/bin/
 packages/ceti-tag-data-capture/data
+tmp/
+design/
 *.timestamp
 .gitmodules_updated
