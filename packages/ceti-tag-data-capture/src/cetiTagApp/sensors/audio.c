@@ -464,6 +464,7 @@ void __handle_overflow(void) {
     }
     __init_audio_buffers();
     threadManager_create_thread(ACQ_THREAD_AUDIO_LOG);
+    gettimeofday(&s_file_start_time, NULL);
     start_audio_acq();
 }
 
