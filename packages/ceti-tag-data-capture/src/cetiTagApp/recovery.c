@@ -853,7 +853,7 @@ void *recovery_rx_thread(void *paramPtr) {
             case REC_CMD_PONG:
                 recovery_board.pong = 1;
                 break;
-#ifdef RECOVERY_BOARD_TYPE_APRS == RECOVERY_BOARD_TYPE
+#if RECOVERY_BOARD_TYPE_APRS == RECOVERY_BOARD_TYPE
             case REC_CMD_CONFIG_APRS_CALLSIGN:
                 if (pkt.header.length > 6) {
                     CETI_WARN("Received APRS callsign that is too long. Ignoring.");
@@ -912,7 +912,7 @@ void *recovery_rx_thread(void *paramPtr) {
                 recovery_board.recipient.ssid.valid = 1;
                 break;
 #endif // RECOVERY_BOARD_TYPE_APRS == RECOVERY_BOARD_TYPE
-#ifdef RECOVERY_BOARD_TYPE_ARGOS == RECOVERY_BOARD_TYPE
+#if RECOVERY_BOARD_TYPE_ARGOS == RECOVERY_BOARD_TYPE
             case REC_CMD_CONFIG_ARGOS_ADDR:
                 if (pkt.header.length != 8) {
                     CETI_WARN("Received ARGOS MAC address packet that is an incorrect size. Ignoring.");
