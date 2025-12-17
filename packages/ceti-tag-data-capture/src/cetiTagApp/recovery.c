@@ -273,7 +273,7 @@ WTResult wt_recovery_init(void) {
     WT_TRY(wt_recovery_on());
 
     // let board boot
-    usleep(5000000);
+    usleep(500000);
 
     // test connection
     if (!__ping()) {
