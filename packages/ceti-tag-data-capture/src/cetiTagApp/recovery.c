@@ -949,6 +949,7 @@ void *recovery_rx_thread(void *paramPtr) {
                 s_secret_key.valid = 1;
                 break;
 #endif // RECOVERY_BOARD_TYPE_ARGOS == RECOVERY_BOARD_TYPE
+
             default: // unknown packet type
                 CETI_LOG("Received packet type 0x%02X", pkt.header.type);
                 break;
