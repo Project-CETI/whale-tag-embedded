@@ -739,7 +739,7 @@ int recovery_off(void) {
 int recovery_thread_init(TagConfig *pConfig) {
     char err_str[512];
     int t_result = THREAD_OK;
-
+    WTResult hw_result = WT_OK;
     // test connection
     while(!__ping()) {
         // check for timeout timeout occured
