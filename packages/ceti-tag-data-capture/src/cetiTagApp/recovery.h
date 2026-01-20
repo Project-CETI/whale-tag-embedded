@@ -43,6 +43,11 @@ extern int g_recovery_rx_thread_is_running;
 //-----------------------------------------------------------------------------
 // Hardware Methods
 //-----------------------------------------------------------------------------
+WTResult wt_recovery_init(void);
+
+//-----------------------------------------------------------------------------
+// Control Methods
+//-----------------------------------------------------------------------------
 // initialize recovery board hardware
 // int recovery_restart(void);
 int recovery_ping(void);

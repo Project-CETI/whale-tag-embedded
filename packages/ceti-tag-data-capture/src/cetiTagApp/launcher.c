@@ -550,6 +550,11 @@ static int core_init(void) {
     init_burnwire();
 #endif
 
+#if ENABLE_RECOVERY
+    // start recovery board hardware so it can start booting
+    wt_recovery_init();
+#endif
+
     // thread to manage acqusition threads
     threadManager_init();
 

@@ -47,6 +47,7 @@ static const char *recovery_data_file_headers[] = {
 };
 static const int num_recovery_data_file_headers = sizeof(recovery_data_file_headers) / sizeof(*recovery_data_file_headers);
 static int recovery_fd = PI_INIT_FAILED;
+static int64_t s_recovery_hardware_start_time_us = -1;
 
 typedef enum {
     REC_STATE_WAIT,
@@ -250,11 +251,10 @@ static bool __ping(void) {
     return 0;
 }
 
-/**
- * @brief Initializes pi hardware to be able to control the recovery board
- *
- * @return WTResult
- */
+
+/// @brief Initializes pi hardware to be able to control the recovery board
+/// @param  
+/// @return WTResult
 WTResult wt_recovery_init(void) {
     // Initialize iox pins.
     WT_TRY(iox_init());
@@ -271,15 +271,7 @@ WTResult wt_recovery_init(void) {
     // Open serial communication
     recovery_fd = PI_TRY(WT_DEV_RECOVERY, serOpen("/dev/serial0", 115200, 0), wt_recovery_off());
     WT_TRY(wt_recovery_on());
-
-    // let board boot
-    usleep(500000);
-
-    // test connection
-    if (!__ping()) {
-        return WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT);
-    }
-
+    s_recovery_hardware_start_time_us = get_monotonic_time_us();
     return WT_OK;
 }
 
@@ -747,7 +739,15 @@ int recovery_off(void) {
 int recovery_thread_init(TagConfig *pConfig) {
     char err_str[512];
     int t_result = THREAD_OK;
-    WTResult hw_result = wt_recovery_init();
+
+    // test connection
+    while(!__ping()) {
+        // check for timeout timeout occured
+        if (s_recovery_hardware_start_time_us >= 5*1000000) {
+            return WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT);
+        }
+    }
+
 #if RECOVERY_BOARD_TYPE_APRS == RECOVERY_BOARD_TYPE
     if (hw_result == WT_OK)
         hw_result = recovery_set_aprs_freq_mhz(pConfig->recovery.freq_MHz);
@@ -810,6 +810,8 @@ static bool __recovery_rx_thread_should_exit() {
 void *recovery_rx_thread(void *paramPtr) {
     // Get the thread ID, so the system monitor can check its CPU assignment.
     g_recovery_rx_thread_tid = gettid();
+
+    // ping board
 
     // Main loop while application is running.
     CETI_LOG("Starting loop to periodically acquire data");

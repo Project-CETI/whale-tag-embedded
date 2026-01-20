@@ -14,18 +14,17 @@
 # This is the CETI makefile for the top level
 #-----------------------------------------------------------------------------
 SRC_DIR = src
-
-APPS = $(shell ls src/*/ -d | xargs basename -a)
-APP_BIN = $(addprefix $(BINDIR)/, $(APPS))
-APP_SRC = $(shell find $(SRC_DIR) -type f -iname '*.c' 2> /dev/null)
-APP_OBJ = $(APP_SRC:.c=.o)
-
-
 BINDIR    ?= bin
 IPCDIR    ?= ipc
 CONFIGDIR ?= config
 DATADIR   ?= data
 DESTDIR   ?= opt/ceti-tag-data-capture
+
+APPS = $(shell ls src/*/ -d | xargs basename -a)
+APP_BIN = $(addprefix $(BINDIR)/, $(APPS))
+APP_SRC = $(shell find $(SRC_DIR) -type f -iname '*.c' 2> /dev/null)
+APP_OBJ = $(APP_SRC:.c=.o)
+IPC_SCRIPTS = $(shell find $(IPCDIR) -type f -iname '*' 2> /dev/null)
 
 ### Tools ###
 CC         = gcc
@@ -44,6 +43,7 @@ LDFLAGS    = -lpthread -lpigpio -lFLAC -lm -lrt
 	install \
 	clean \
 	debug \
+	reinstall \
 	$(APPS)
 	
 build: $(APPS)
@@ -52,6 +52,13 @@ debug: CFLAGS := -Wall -g -Wdate-time -D_FORTIFY_SOURCE=2 -D_GNU_SOURCE -DDEBUG 
 debug: $(APPS)
 
 binary: $(APPS)
+
+# Reinstalls the binary on RO filesystem
+reinstall: $(APPS) $(IPC_SCRIPTS)
+	mount -o remount,rw /media/root-ro
+	cp -Rp $(BINDIR) /media/root-ro/$(DESTDIR)
+	cp -Rp $(IPCDIR) /media/root-ro/$(DESTDIR)
+	mount -o remount,ro /media/root-ro
 
 $(BINDIR):
 	@mkdir -p $@
