@@ -251,9 +251,8 @@ static bool __ping(void) {
     return 0;
 }
 
-
 /// @brief Initializes pi hardware to be able to control the recovery board
-/// @param  
+/// @param
 /// @return WTResult
 WTResult wt_recovery_init(void) {
     // Initialize iox pins.
@@ -741,9 +740,9 @@ int recovery_thread_init(TagConfig *pConfig) {
     int t_result = THREAD_OK;
     WTResult hw_result = WT_OK;
     // test connection
-    while(!__ping()) {
+    while (!__ping()) {
         // check for timeout timeout occured
-        if (s_recovery_hardware_start_time_us >= 5*1000000) {
+        if (s_recovery_hardware_start_time_us >= 10 * 1000000) {
             return WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT);
         }
     }
