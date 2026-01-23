@@ -750,7 +750,8 @@ int recovery_thread_init(TagConfig *pConfig) {
                 wt_recovery_restart();
                 s_recovery_hardware_start_time_us = get_monotonic_time_us();
             } else {
-                recovery_restart_count++ return WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT);
+                recovery_restart_count++;
+                return WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT);
             }
         }
     }
