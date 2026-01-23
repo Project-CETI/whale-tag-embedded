@@ -32,6 +32,8 @@
 //-----------------------------------------------------------------------------
 /* MACRO DEFINITIONS *********************************************************/
 #define RECOVERY_UART_TIMEOUT_US 500000
+#define RECOVERY_STARTUP_TIMEOUT_S 10
+#define RECOVERY_STARTUP_MAX_RETRY_COUNT 5
 
 /* TYPE DEFINITIONS **********************************************************/
 
@@ -736,14 +738,20 @@ int recovery_off(void) {
 // Main thread
 //-----------------------------------------------------------------------------
 int recovery_thread_init(TagConfig *pConfig) {
+    static uint8_t recovery_restart_count = 0;
     char err_str[512];
     int t_result = THREAD_OK;
     WTResult hw_result = WT_OK;
     // test connection
     while (!__ping()) {
         // check for timeout timeout occured
-        if (s_recovery_hardware_start_time_us >= 10 * 1000000) {
-            return WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT);
+        if (s_recovery_hardware_start_time_us >= RECOVERY_STARTUP_TIMEOUT_S * 1000000) {
+            if (recovery_restart_count < RECOVERY_STARTUP_MAX_RETRY_COUNT) {
+                wt_recovery_restart();
+                s_recovery_hardware_start_time_us = get_monotonic_time_us();
+            } else {
+                recovery_restart_count++ return WT_RESULT(WT_DEV_RECOVERY, WT_ERR_RECOVERY_TIMEOUT);
+            }
         }
     }
 

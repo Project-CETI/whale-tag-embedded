@@ -10,7 +10,7 @@
 #include "utils/timing.h"
 
 #define LED_CTRL_UPDATE_INTERVAL_US (250000)
-#define LED_CTRL_ERROR_RESULT_DISPLAY_INTERVAL_S (1)
+#define LED_CTRL_ERROR_RESULT_DISPLAY_INTERVAL_S (20)
 
 static LEDState s_state = LED_STATE_FPGA;
 static struct {
