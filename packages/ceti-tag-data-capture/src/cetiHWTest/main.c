@@ -58,7 +58,7 @@ HardwareTest g_test_list[] = {
     },
     {
         .name = "Recovery",
-        .update = test_ToDo,
+        .update = test_recovery,
     },
 };
 #define TEST_COUNT (sizeof(g_test_list) / sizeof(g_test_list[0]))
