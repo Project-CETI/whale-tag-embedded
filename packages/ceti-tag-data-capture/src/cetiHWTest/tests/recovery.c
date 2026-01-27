@@ -51,7 +51,8 @@ TestState test_recovery(FILE *pResultsFile) {
     printf("              Enter the 4-character code received via radio.\n\n");
     
     // Send APRS message with random code
-        snprintf(aprs_command, sizeof(aprs_command), "sendCommand recovery message \"%s\"", rand_str);    if (send_ceti_command(aprs_command) != 0) {
+        snprintf(aprs_command, sizeof(aprs_command), "recovery message \"%s\"", rand_str);    
+        if (send_ceti_command(aprs_command) != 0) {
         fprintf(pResultsFile, "[FAIL]: Recovery: Failed to send APRS command\n");
         printf(RED(FAIL) " Failed to send APRS command\n");
         while ((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)) {
