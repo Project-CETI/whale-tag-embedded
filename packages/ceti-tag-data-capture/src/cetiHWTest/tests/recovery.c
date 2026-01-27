@@ -13,27 +13,20 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <stdint.h>
+#include <ctype.h> 
 
 #define RECOVERY_CODE_LENGTH 4
 
 // External function to send CETI commands
 extern int send_ceti_command(const char *command);
 
-// Generate random 4-character alphanumeric string
-static void generate_random_string(char *str) {
-    const char charset[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    const int charset_size = sizeof(charset) - 1;
-    
-    for (int i = 0; i < RECOVERY_CODE_LENGTH; i++) {
-        int index = rand() % charset_size;
-        str[i] = charset[index];
-    }
-    str[RECOVERY_CODE_LENGTH] = '\0';
+static uint32_t generate_random_code(u_int32_t *expected_code) {
+    expected_code = (uint32_t)rand() << 16 | rand();
+    return expected_code;
 }
-
 // Test APRS recovery transmission
 TestState test_recovery(FILE *pResultsFile) {
-    char rand_str[RECOVERY_CODE_LENGTH + 1];
     char user_input[RECOVERY_CODE_LENGTH + 1];
     char aprs_command[256];
     int cursor = 0;
@@ -41,17 +34,18 @@ TestState test_recovery(FILE *pResultsFile) {
     int aprs_pass = 0;
     time_t last_tx_time = 0;
     time_t current_time = 0;
+    uint32_t expected_code;
     
     // Initialize random seed
     srand(time(NULL));
     memset(user_input, 0, sizeof(user_input));
-    generate_random_string(rand_str);
+    generate_random_string(expected_code);
     
     printf("Instructions: Listen on APRS frequency for message from tag.\n");
-    printf("              Enter the 4-character code received via radio.\n\n");
+    printf("Enter the case sensitive 4-character code received via radio.\n\n");
     
     // Send APRS message with random code
-        snprintf(aprs_command, sizeof(aprs_command), "recovery message \"%s\"", rand_str);    
+        snprintf(aprs_command, sizeof(aprs_command), "recovery message \"%08X\"", expected_code);   
         if (send_ceti_command(aprs_command) != 0) {
         fprintf(pResultsFile, "[FAIL]: Recovery: Failed to send APRS command\n");
         printf(RED(FAIL) " Failed to send APRS command\n");
@@ -90,14 +84,23 @@ TestState test_recovery(FILE *pResultsFile) {
             if (!aprs_pass) {
                 if ((('0' <= input) && (input <= '9')) ||
                     (('A' <= input) && (input <= 'Z')) ||
-                    (('a' <= input) && (input <= 'z'))) {
+                    (('a' <= input) && (input <= 'z')) || 
+                    ((0x21 <= input) && (input <= 0x7E))) { 
                     // Valid alphanumeric character
                     if (cursor < RECOVERY_CODE_LENGTH) {
                         user_input[cursor] = input;
                         cursor++;
                         // Check for match
                         if (cursor == RECOVERY_CODE_LENGTH) {
-                            if (memcmp(rand_str, user_input, RECOVERY_CODE_LENGTH) == 0) {
+                            uint32_t user_code = ((uint32_t)(uint8_t)toupper((unsigned char)user_input[0]) << 24) |
+                                                 ((uint32_t)(uint8_t)toupper((unsigned char)user_input[1]) << 16) |
+                                                 ((uint32_t)(uint8_t)toupper((unsigned char)user_input[2]) << 8) |
+                                                 ((uint32_t)(uint8_t)toupper((unsigned char)user_input[3]));
+                            uint32_t expected_upper = ((uint32_t)(uint8_t)toupper((unsigned char)(expected_code >> 24)) << 24) |
+                                                      ((uint32_t)(uint8_t)toupper((unsigned char)(expected_code >> 16)) << 16) |
+                                                      ((uint32_t)(uint8_t)toupper((unsigned char)(expected_code >> 8)) << 8) |
+                                                      ((uint32_t)(uint8_t)toupper((unsigned char)(expected_code)));
+                            if (user_code == expected_upper) {
                                 aprs_pass = 1;
                             } else {
                                 // allow retry
