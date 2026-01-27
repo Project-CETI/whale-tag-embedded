@@ -137,4 +137,4 @@ packages/ceti-tag-data-capture/data
 tmp/
 design/
 *.timestamp
-.gitmodules_updated
+.gitmodules_updated.history/

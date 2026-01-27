@@ -4,159 +4,132 @@
 // Contributors: Michael Salino-Hugg, [TODO: Add other contributors here]
 //-----------------------------------------------------------------------------
 #include "../tests.h"
-
-#include "../../cetiTagApp/cetiTag.h"
 #include "../tui.h"
+#include "../../cetiTagApp/cetiTag.h"
 
 #include <fcntl.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
 #include <unistd.h>
 
-// // Test for changes in light intensity
-TestState test_recovery(FILE *pResultsFile) {
-    return TEST_STATE_FAILED;
+#define RECOVERY_CODE_LENGTH 4
+
+// External function to send CETI commands
+extern int send_ceti_command(const char *command);
+
+// Generate random 4-character alphanumeric string
+static void generate_random_string(char *str) {
+    const char charset[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    const int charset_size = sizeof(charset) - 1;
+    
+    for (int i = 0; i < RECOVERY_CODE_LENGTH; i++) {
+        int index = rand() % charset_size;
+        str[i] = charset[index];
+    }
+    str[RECOVERY_CODE_LENGTH] = '\0';
 }
-// // 2FA for VHF, polling of GPS
-// TestState test_recovery(void){
-//     char input = 0;
-//     int vhf_pass = false;
-//     int gps_pass = false;
-//     time_t last_tx_time;
-//     char rand_str[5] = {};
-//     char user_input[5] = {};
-//     int cursor = 0;
-//     char sentence[GPS_LOCATION_LENGTH];
-//     APRSCallsign src_callsign = {
-//         .callsign = "KC1TUJ",
-//         .ssid = 3,
-//     };
 
-//     sentence[0] = 0;
-//     if (recovery_init()  != 0) {
-//         printf(RED(FAIL) "UART Communication Failure.\n");
-//         while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)){ ; }
-//         fprintf(results_file, "[FAIL]: UART communication failure.\n");
-//         recovery_kill();
-//         return TEST_STATE_FAILED; //imu communication error
-//     }
+// Test APRS recovery transmission
+TestState test_recovery(FILE *pResultsFile) {
+    char rand_str[RECOVERY_CODE_LENGTH + 1];
+    char user_input[RECOVERY_CODE_LENGTH + 1];
+    char aprs_command[256];
+    int cursor = 0;
+    char input = '\0';
+    int aprs_pass = 0;
+    time_t last_tx_time = 0;
+    time_t current_time = 0;
+    
+    // Initialize random seed
+    srand(time(NULL));
+    memset(user_input, 0, sizeof(user_input));
+    generate_random_string(rand_str);
+    
+    printf("Instructions: Listen on APRS frequency for message from tag.\n");
+    printf("              Enter the 4-character code received via radio.\n\n");
+    
+    // Send APRS message with random code
+        snprintf(aprs_command, sizeof(aprs_command), "sendCommand recovery message \"%s\"", rand_str);    if (send_ceti_command(aprs_command) != 0) {
+        fprintf(pResultsFile, "[FAIL]: Recovery: Failed to send APRS command\n");
+        printf(RED(FAIL) " Failed to send APRS command\n");
+        while ((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)) {
+            ;
+        }
+        return TEST_STATE_FAILED;
+    }  
+    last_tx_time = time(NULL);
+    printf("APRS message sent with code: (hidden - check your radio)\n");
+    
+    do {
+        current_time = time(NULL); 
+        // Clear dynamic portion of screen
+        for (int i = 7; i < 11; i++) {
+            printf("\e[%d;1H\e[0K", i);
+        }
+        // Display status
+        if (aprs_pass) {
+            printf("\e[7;1H" GREEN(PASS) " Code verified!\n");
+        } else {
+            printf("\e[7;1H" YELLOW("In progress...") "\n");
+        }
+        printf("\e[8;1HEnter code: %s", user_input);
 
-//     // UART Communication test:
-//     // - query and record recovery board's UID - requires 2 way communmication
-//     // Set callsign:
-//     APRSCallsign callsign;
-//     recovery_set_aprs_callsign(&src_callsign);
-//     if ( recovery_get_aprs_callsign(&callsign) != 0 ) {
-//         printf(RED(FAIL) "Recovery query failure.\n");
-//         while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)){ ; }
-//         fprintf(results_file, "[FAIL]: Recovery query failure.\n");
-//         recovery_kill();
-//         return TEST_STATE_FAILED; //imu communication error
-//     }
-//     if ( memcmp(&callsign, &src_callsign, sizeof(APRSCallsign)) != 0) {
-//         printf(RED(FAIL) "Recovery callsign failed to set properly.\n");
-//         while((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)){ ; }
-//         fprintf(results_file, "[FAIL]: Recovery callsign failed to set properly.\n");
-//         recovery_kill();
-//         return TEST_STATE_FAILED; //imu communication error
-//     }
-//     recovery_set_aprs_message_recipient(&(APRSCallsign){.callsign = "KC1QXQ", .ssid = 8});
-
-//     // recovery_set_critical_voltage(6.2f);
-
-//     // recovery_set_aprs_freq_mhz(145.05f);
-//     // float result_freq;
-//     // if(recovery_get_aprs_freq_mhz(&result_freq) != 0){
-//     //     printf(RED(FAIL) "Recovery frequency query failure.\n");
-//     //     while(input == 0){ read(STDIN_FILENO, &input, 1); }
-//     //     fprintf(results_file, "[FAIL]: Recovery frequency query failure.\n");
-//     //     recovery_kill();
-//     //     return TEST_STATE_FAILED; //imu communication error
-//     // }
-//     // if (result_freq != 145.05f) {
-//     //     printf(RED(FAIL) "Recovery frequency failed to set properly.\n");
-//     //     while(input == 0){ read(STDIN_FILENO, &input, 1); }
-//     //     fprintf(results_file, "[FAIL]: Recovery frequency config failure.\n");
-//     //     recovery_kill();
-//     //     return TEST_STATE_FAILED; //imu communication error
-//     // }
-
-//     // VHF/APRS TEST
-//     // generate random 4 character string
-//     for (int i = 0; i < sizeof(rand_str) - 1; i++){
-//         char val = rand() % (10 + 26 + 26);
-//         if (val < 10) {
-//             val = '0' + val;
-//         } else if (val < (10 + 26)) {
-//             val = 'A' + (val - 10);
-//         } else {
-//             val = 'a' + (val - (10 + 26));
-//         }
-//         rand_str[i] = val;
-//     }
-//     rand_str[4] = 0;
-//     recovery_message(rand_str);
-//     last_tx_time = get_global_time_us();
-
-//     printf("Instructions:\n");
-//     printf("    APRS: Write 4 character comment being transmitted via APRS every minute by KC1TUJ-3.\n");
-//     printf("    GPS:  Take tag somewhere it can receive GPS signal.\n");
-
-//     while((input == 0) && !(vhf_pass && gps_pass)){
-//         time_t current_time = get_global_time_us();
-
-//         printf("\e[6;1H\e[0KAPRS: %s\n", vhf_pass ? GREEN(PASS) : YELLOW("Enter code:  "));
-//         printf("\e[6;24H\e[0K%s\n", user_input);
-
-//         // - transmit string via APRS
-//         if( !vhf_pass
-//             && ((current_time - last_tx_time) > (60 * 1000000))
-//         ){
-//             recovery_message(rand_str);
-//             last_tx_time = current_time;
-//         }
-
-//         //check if gps pass
-//         //offload to subprocess?
-//         int result = recovery_get_gps_data(sentence, 10000);
-//         if (result == 0) {
-//             gps_pass = true;
-//         }
-//         printf("\e[9;1H\e[0KGPS: %s\n", gps_pass ? GREEN(PASS) : YELLOW("Waiting for lock... "));
-//         printf("\e[10;4H\e[0K%s\n", sentence);
-
-//         // get user input
-//         if(read(STDIN_FILENO, &input, 1) == 1){
-//             if(!vhf_pass){
-//                 if( (('0' <= input) && (input <= '9'))
-//                     || (('A' <= input) && (input <= 'Z'))
-//                     || (('a' <= input) && (input <= 'z'))
-//                 ){ //character
-//                     user_input[cursor] = input;
-//                     if (cursor < 3) {
-//                         cursor += 1;
-//                     }
-//                     input = 0;
-//                     if(memcmp(rand_str, user_input, 5) == 0){
-//                         vhf_pass = true;
-//                     }
-//                 } else if ( input == '\177') { //backspace
-//                     if(cursor != 0) {
-//                         cursor -= 1;
-//                     }
-//                     user_input[cursor] = 0;
-//                     input = 0;
-//                 }
-//             }
-//         }
-//     }
-//     //record results
-//     fprintf(results_file, "[%s]: aprs\n", vhf_pass ? "PASS" : "FAIL");
-//     fprintf(results_file, "[%s]: gps\n", gps_pass ? "PASS" : "FAIL");
-//     recovery_kill();
-//     return (input == 27) ? TEST_STATE_TERMINATE
-//          : (vhf_pass && gps_pass) ? TEST_STATE_PASSED
-//          : TEST_STATE_FAILED;
-// }
+        // Retransmit every 60 seconds if not passed
+        if (!aprs_pass && ((current_time - last_tx_time) >= 60)) {
+            if (send_ceti_command(aprs_command) == 0) {
+                last_tx_time = current_time;
+                printf("\e[10;1H(Message retransmitted)");
+            }
+        }
+        
+        // user input
+        if (read(STDIN_FILENO, &input, 1) == 1) {
+            if (!aprs_pass) {
+                if ((('0' <= input) && (input <= '9')) ||
+                    (('A' <= input) && (input <= 'Z')) ||
+                    (('a' <= input) && (input <= 'z'))) {
+                    // Valid alphanumeric character
+                    if (cursor < RECOVERY_CODE_LENGTH) {
+                        user_input[cursor] = input;
+                        cursor++;
+                        // Check for match
+                        if (cursor == RECOVERY_CODE_LENGTH) {
+                            if (memcmp(rand_str, user_input, RECOVERY_CODE_LENGTH) == 0) {
+                                aprs_pass = 1;
+                            } else {
+                                // allow retry
+                                printf("\e[9;1H" RED("Incorrect code - try again"));
+                                memset(user_input, 0, sizeof(user_input));
+                                cursor = 0;
+                            }
+                        }
+                    }
+                    input = '\0';
+                } else if (input == '\177' || input == '\b') {
+                    if (cursor > 0) {
+                        cursor--;
+                        user_input[cursor] = '\0';
+                    }
+                    input = '\0';
+                } else if (input == 27) {
+                    break;
+                }
+            } else if (input == 27) {
+                break;
+            } else {
+                input = '\0';
+            }
+        }
+        
+    } while (!aprs_pass && input != 27);
+    fprintf(pResultsFile, "[%s]: APRS Recovery Transmission\n", aprs_pass ? "PASS" : "FAIL");
+    if (input == 27) {
+        return TEST_STATE_TERMINATE;
+    }
+    if (!aprs_pass) {
+        return TEST_STATE_FAILED;
+    }
+    return TEST_STATE_PASSED;
+}

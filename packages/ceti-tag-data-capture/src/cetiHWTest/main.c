@@ -69,7 +69,7 @@ FILE *results_file;
  * Send a command to cetiTagApp via IPC pipe
  * Returns 0 on success, -1 on failure
  */
-static int send_ceti_command(const char *command) {
+int send_ceti_command(const char *command) {
     char command_pipe_path[512];
     char response_pipe_path[512];
     FILE *cmd_pipe = NULL;
