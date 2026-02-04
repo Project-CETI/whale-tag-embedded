@@ -21,10 +21,6 @@
 // External function to send CETI commands
 extern int send_ceti_command(const char *command);
 
-static uint32_t generate_random_code(u_int32_t *expected_code) {
-    expected_code = (uint32_t)rand() << 16 | rand();
-    return expected_code;
-}
 // Test APRS recovery transmission
 TestState test_recovery(FILE *pResultsFile) {
     char user_input[RECOVERY_CODE_LENGTH + 1];
@@ -39,14 +35,14 @@ TestState test_recovery(FILE *pResultsFile) {
     // Initialize random seed
     srand(time(NULL));
     memset(user_input, 0, sizeof(user_input));
-    generate_random_string(expected_code);
+    expected_code = ((uint32_t)rand() << 16) | rand();  // ████ FIXED - Generate directly ████
     
     printf("Instructions: Listen on APRS frequency for message from tag.\n");
-    printf("Enter the case sensitive 4-character code received via radio.\n\n");
+    printf("Enter the 4-character code received via radio.\n\n");  // ████ FIXED - Removed "case sensitive" ████
     
     // Send APRS message with random code
-        snprintf(aprs_command, sizeof(aprs_command), "recovery message \"%08X\"", expected_code);   
-        if (send_ceti_command(aprs_command) != 0) {
+    snprintf(aprs_command, sizeof(aprs_command), "recovery message \"%08X\"", expected_code);   
+    if (send_ceti_command(aprs_command) != 0) {
         fprintf(pResultsFile, "[FAIL]: Recovery: Failed to send APRS command\n");
         printf(RED(FAIL) " Failed to send APRS command\n");
         while ((read(STDIN_FILENO, &input, 1) != 1) && (input == 0)) {

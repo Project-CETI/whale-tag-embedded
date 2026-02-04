@@ -103,7 +103,7 @@ int send_ceti_command(const char *command) {
 
     char response[256];
     if (fgets(response, sizeof(response), rsp_pipe) != NULL) {
-        printf("Command response: %s", response);
+        // printf("Command response: %s", response); //debug line
         result = 0;
     } else {
         fprintf(stderr, "Failed to read response from pipe\n");
