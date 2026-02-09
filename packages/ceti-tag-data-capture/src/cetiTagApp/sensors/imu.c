@@ -314,8 +314,14 @@ int imu_read_data() {
                 imu_report_buffer->sample++;
                 if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
                     imu_report_buffer->sample = 0;
-                    imu_report_buffer->page ^= 1;
-                    sem_post(s_imu_page_ready);
+                    uint32_t next_page = (imu_report_buffer->page ^ 1);
+                    if (next_page == g_imu_processing_page) {
+                        CETI_ERR("***OVERFLOW*** IMU buffer overflow detected.");
+                        /* ToDo: Handle overflow recovery*/
+                    } else {
+                        imu_report_buffer->page = next_page;
+                        sem_post(s_imu_page_ready);
+                    }
                 }
                 sem_post(s_imu_report_ready);
                 read_offset += 10;
@@ -331,8 +337,14 @@ int imu_read_data() {
                 imu_report_buffer->sample++;
                 if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
                     imu_report_buffer->sample = 0;
-                    imu_report_buffer->page ^= 1;
-                    sem_post(s_imu_page_ready);
+                    uint32_t next_page = (imu_report_buffer->page ^ 1);
+                    if (next_page == g_imu_processing_page) {
+                        CETI_ERR("***OVERFLOW*** IMU buffer overflow detected.");
+                        /* ToDo: Handle overflow recovery*/
+                    } else {
+                        imu_report_buffer->page = next_page;
+                        sem_post(s_imu_page_ready);
+                    }
                 }
                 sem_post(s_imu_report_ready);
                 read_offset += 10;
@@ -348,8 +360,14 @@ int imu_read_data() {
                 imu_report_buffer->sample++;
                 if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
                     imu_report_buffer->sample = 0;
-                    imu_report_buffer->page ^= 1;
-                    sem_post(s_imu_page_ready);
+                    uint32_t next_page = (imu_report_buffer->page ^ 1);
+                    if (next_page == g_imu_processing_page) {
+                        CETI_ERR("***OVERFLOW*** IMU buffer overflow detected.");
+                        /* ToDo: Handle overflow recovery*/
+                    } else {
+                        imu_report_buffer->page = next_page;
+                        sem_post(s_imu_page_ready);
+                    }
                 }
                 sem_post(s_imu_report_ready);
                 read_offset += 10;
@@ -365,8 +383,14 @@ int imu_read_data() {
                 imu_report_buffer->sample++;
                 if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
                     imu_report_buffer->sample = 0;
-                    imu_report_buffer->page ^= 1;
-                    sem_post(s_imu_page_ready);
+                    uint32_t next_page = (imu_report_buffer->page ^ 1);
+                    if (next_page == g_imu_processing_page) {
+                        CETI_ERR("***OVERFLOW*** IMU buffer overflow detected.");
+                        /* ToDo: Handle overflow recovery*/
+                    } else {
+                        imu_report_buffer->page = next_page;
+                        sem_post(s_imu_page_ready);
+                    }
                 }
                 sem_post(s_imu_report_ready);
                 read_offset += 14;
