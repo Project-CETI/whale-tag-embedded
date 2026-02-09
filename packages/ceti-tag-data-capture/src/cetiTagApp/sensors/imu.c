@@ -245,6 +245,25 @@ int imu_enable_feature_report(int report_id, uint32_t report_interval_us) {
 
 //-----------------------------------------------------------------------------
 
+/// @brief advances the write position on the report buffer checking for
+///        overflows and posting to appropriate semiphores
+/// @param  
+static void __imu_advance_report_buffer_position(void) {
+    imu_report_buffer->sample++;
+    if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
+        imu_report_buffer->sample = 0;
+        uint32_t next_page = (imu_report_buffer->page ^ 1);
+        if (next_page == g_imu_processing_page) {
+            CETI_ERR("***OVERFLOW*** IMU buffer overflow detected.");
+            /* ToDo: Handle overflow recovery*/
+        } else {
+            imu_report_buffer->page = next_page;
+            sem_post(s_imu_page_ready);
+        }
+    }
+    sem_post(s_imu_report_ready);
+}
+
 int imu_read_data() {
     int numBytesAvail;
     uint8_t pktBuff[256] = {0};
@@ -272,19 +291,7 @@ int imu_read_data() {
         i_buffer->rtc_time_s = rtc_count;
         i_buffer->reading_delay = timestamp_delay;
         i_buffer->error = retval;
-        imu_report_buffer->sample++;
-        if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
-            imu_report_buffer->sample = 0;
-            uint32_t next_page = (imu_report_buffer->page ^ 1);
-            if (next_page == g_imu_processing_page) {
-                CETI_ERR("***OVERFLOW*** IMU buffer overflow detected.");
-                /* ToDo: Handle overflow recovery*/
-            } else {
-                imu_report_buffer->page = next_page;
-                sem_post(s_imu_page_ready);
-            }
-        }
-        sem_post(s_imu_report_ready);
+        __imu_advance_report_buffer_position();
         return -1;
     }
     // Parse the data.
@@ -305,72 +312,17 @@ int imu_read_data() {
                 break;
             }
 
-            case IMU_SENSOR_REPORTID_ACCELEROMETER: {
+            case IMU_SENSOR_REPORTID_ACCELEROMETER:             // [[fallthrough]];
+            case IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED:      // [[fallthrough]];
+            case IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED: // [[fallthrough]];
+            {
                 i_buffer->sys_time_us = global_time_us;
                 i_buffer->rtc_time_s = rtc_count;
                 i_buffer->reading_delay = timestamp_delay;
                 i_buffer->error = retval;
-                memcpy(&i_buffer->report, &pktBuff[read_offset], sizeof(CetiImuAccelReport));
-                imu_report_buffer->sample++;
-                if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
-                    imu_report_buffer->sample = 0;
-                    uint32_t next_page = (imu_report_buffer->page ^ 1);
-                    if (next_page == g_imu_processing_page) {
-                        CETI_ERR("***OVERFLOW*** IMU buffer overflow detected.");
-                        /* ToDo: Handle overflow recovery*/
-                    } else {
-                        imu_report_buffer->page = next_page;
-                        sem_post(s_imu_page_ready);
-                    }
-                }
-                sem_post(s_imu_report_ready);
-                read_offset += 10;
-                break;
-            }
-
-            case IMU_SENSOR_REPORTID_GYROSCOPE_CALIBRATED: {
-                i_buffer->sys_time_us = global_time_us;
-                i_buffer->rtc_time_s = rtc_count;
-                i_buffer->reading_delay = timestamp_delay;
-                i_buffer->error = retval;
-                memcpy(&i_buffer->report, &pktBuff[read_offset], sizeof(CetiImuGyroReport));
-                imu_report_buffer->sample++;
-                if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
-                    imu_report_buffer->sample = 0;
-                    uint32_t next_page = (imu_report_buffer->page ^ 1);
-                    if (next_page == g_imu_processing_page) {
-                        CETI_ERR("***OVERFLOW*** IMU buffer overflow detected.");
-                        /* ToDo: Handle overflow recovery*/
-                    } else {
-                        imu_report_buffer->page = next_page;
-                        sem_post(s_imu_page_ready);
-                    }
-                }
-                sem_post(s_imu_report_ready);
-                read_offset += 10;
-                break;
-            }
-
-            case IMU_SENSOR_REPORTID_MAGNETIC_FIELD_CALIBRATED: {
-                i_buffer->sys_time_us = global_time_us;
-                i_buffer->rtc_time_s = rtc_count;
-                i_buffer->reading_delay = timestamp_delay;
-                i_buffer->error = retval;
-                memcpy(&i_buffer->report, &pktBuff[read_offset], sizeof(CetiImuMagReport));
-                imu_report_buffer->sample++;
-                if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
-                    imu_report_buffer->sample = 0;
-                    uint32_t next_page = (imu_report_buffer->page ^ 1);
-                    if (next_page == g_imu_processing_page) {
-                        CETI_ERR("***OVERFLOW*** IMU buffer overflow detected.");
-                        /* ToDo: Handle overflow recovery*/
-                    } else {
-                        imu_report_buffer->page = next_page;
-                        sem_post(s_imu_page_ready);
-                    }
-                }
-                sem_post(s_imu_report_ready);
-                read_offset += 10;
+                memcpy(&i_buffer->report, &pktBuff[read_offset], sizeof(CetiImuXYZReport));
+                __imu_advance_report_buffer_position();
+                read_offset += sizeof(CetiImuXYZReport);
                 break;
             }
 
@@ -380,20 +332,8 @@ int imu_read_data() {
                 i_buffer->reading_delay = timestamp_delay;
                 i_buffer->error = retval;
                 memcpy(&i_buffer->report, &pktBuff[read_offset], sizeof(CetiImuQuatReport));
-                imu_report_buffer->sample++;
-                if (imu_report_buffer->sample == IMU_REPORT_BUFFER_SIZE) {
-                    imu_report_buffer->sample = 0;
-                    uint32_t next_page = (imu_report_buffer->page ^ 1);
-                    if (next_page == g_imu_processing_page) {
-                        CETI_ERR("***OVERFLOW*** IMU buffer overflow detected.");
-                        /* ToDo: Handle overflow recovery*/
-                    } else {
-                        imu_report_buffer->page = next_page;
-                        sem_post(s_imu_page_ready);
-                    }
-                }
-                sem_post(s_imu_report_ready);
-                read_offset += 14;
+                __imu_advance_report_buffer_position();
+                read_offset += sizeof(CetiImuQuatReport);
                 break;
             }
 
