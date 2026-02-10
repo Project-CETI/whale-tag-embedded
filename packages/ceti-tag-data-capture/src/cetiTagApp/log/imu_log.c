@@ -309,8 +309,10 @@ void *imu_log_thread(void *paramPtr) {
             continue;
         }
 
-        if (g_force_overflow) {
-            usleep(2 * IMU_BUFFER_FLUSH_INTERVAL_US);
+        // force overflow if force overflow is set
+        if (s_force_overflow) {
+            usleep(1.5 * IMU_BUFFER_FLUSH_INTERVAL_US);
+            s_force_overflow = 0;
             continue;
         }
 
