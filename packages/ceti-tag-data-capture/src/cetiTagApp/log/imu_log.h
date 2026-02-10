@@ -15,5 +15,5 @@ extern volatile uint32_t g_imu_processing_page;
 
 int imu_init_data_files(void);
 void *imu_log_thread(void *paramPtr);
-
+void imu_log_force_overflow(void);
 #endif // IMU_LOG_H

@@ -26,7 +26,7 @@
 #include <unistd.h>
 
 // How often data is written to the to IMU log files
-#define IMU_LOGGING_INTERVAL_US (1000000)
+#define IMU_LOGGING_INTERVAL_US (IMU_BUFFER_FLUSH_INTERVAL_US * 0.98)
 
 // Seems to log about 1GiB every 33 hours when nominally streaming quaternion
 // at 20 Hz and accel/gyro/mag at 50 Hz Note that 2GB is the file size maximum
@@ -39,6 +39,7 @@ static CetiImuReportBuffer *imu_report_buffer;
 
 volatile uint32_t g_imu_processing_page = 0;
 int g_imu_log_thread_is_running = 0;
+static uint32_t s_force_overflow = 0;
 
 static bool imu_restarted_log[IMU_DATA_TYPE_COUNT] = {true, true, true, true};
 static bool imu_new_log[IMU_DATA_TYPE_COUNT] = {true, true, true, true};
@@ -308,6 +309,11 @@ void *imu_log_thread(void *paramPtr) {
             continue;
         }
 
+        if (g_force_overflow) {
+            usleep(2 * IMU_BUFFER_FLUSH_INTERVAL_US);
+            continue;
+        }
+
         // write all logged raw samples
         for (int i = 0; i < IMU_REPORT_BUFFER_SIZE; i++) {
             CetiImuReport *i_report = &imu_report_buffer->reports[nv_processing_page][i];
@@ -362,4 +368,10 @@ void *imu_log_thread(void *paramPtr) {
     CETI_LOG("Done!");
 
     return NULL;
+}
+
+/// @brief forces the imu buffer to overflow
+/// @param  
+void imu_log_force_overflow(void) {
+    s_force_overflow = 1;
 }
