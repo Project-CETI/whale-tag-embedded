@@ -201,6 +201,7 @@ static const char *err_str[] = {
     [-WT_ERR_IMU_BAD_PKT_SIZE] = "imu packet size <= 0",
     [-WT_ERR_IMU_UNEXPECTED_PKT_TYPE] = "received an unexpected packet type",
     [-WT_ERR_IMU_INVALID_BUFFER] = "invalid buffer was provided",
+    [-WT_ERR_IMU_BUFFER_OVERFLOW] = "imu data retention buffer overflowed",
     [-WT_ERR_BAD_IOX_GPIO] = "bad io expander gpio",
     [-WT_ERR_BAD_IOX_MODE] = "bad io expander gpio mode",
     [-WT_ERR_RECOVERY_TIMEOUT] = "Recovery board timeout",
