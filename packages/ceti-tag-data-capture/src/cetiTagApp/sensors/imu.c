@@ -249,20 +249,27 @@ int imu_enable_feature_report(int report_id, uint32_t report_interval_us) {
 ///        overflows and posting to appropriate semiphores
 /// @param  
 static void __imu_advance_report_buffer_position(void) {
+    static int in_overflow = 0;
     uint32_t next_sample = imu_report_buffer->sample + 1;
     if (next_sample == IMU_REPORT_BUFFER_SIZE) {
         uint32_t next_page = (imu_report_buffer->page ^ 1);
         if (next_page == g_imu_processing_page) {
-            CETI_ERR("***OVERFLOW*** IMU buffer overflow detected.");
-            CetiImuReport *p_last_valid_sample = &imu_report_buffer->reports[imu_report_buffer->page][imu_report_buffer->sample];
-            p_last_valid_sample->error =  WT_RESULT(WT_DEV_IMU, WT_ERR_IMU_BUFFER_OVERFLOW);
+            if (!in_overflow) {
+                CETI_ERR("***OVERFLOW*** IMU buffer overflow detected.");
+                CetiImuReport *p_last_valid_sample = &imu_report_buffer->reports[imu_report_buffer->page][imu_report_buffer->sample];
+                p_last_valid_sample->error =  WT_RESULT(WT_DEV_IMU, WT_ERR_IMU_BUFFER_OVERFLOW);
+                // don't advance sample or
+                in_overflow = 1;
+            } 
         } else {
-            next_sample = 0;
+            in_overflow = 0;
+            imu_report_buffer->sample = 0;
             imu_report_buffer->page = next_page;
             sem_post(s_imu_page_ready);
         }
+    } else {
+        imu_report_buffer->sample = next_sample;
     }
-    imu_report_buffer->sample = next_sample;
     sem_post(s_imu_report_ready);
 }
 
