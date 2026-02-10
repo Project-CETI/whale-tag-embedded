@@ -176,6 +176,7 @@ void *imu_thread(void *paramPtr) {
     sem_unlink(IMU_REPORT_SEM_NAME);
 
     munmap(imu_report_buffer, sizeof(CetiImuReportBuffer));
+    shm_unlink(IMU_REPORT_BUFFER_SHM_NAME)
     imu_report_buffer = NULL;
 
     g_imu_thread_is_running = 0;
