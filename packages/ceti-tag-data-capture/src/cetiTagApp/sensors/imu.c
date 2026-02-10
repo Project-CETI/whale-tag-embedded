@@ -256,13 +256,16 @@ static void __imu_advance_report_buffer_position(void) {
         if (next_page == g_imu_processing_page) {
             if (!in_overflow) {
                 CETI_ERR("***OVERFLOW*** IMU buffer overflow detected.");
-                CetiImuReport *p_last_valid_sample = &imu_report_buffer->reports[imu_report_buffer->page][imu_report_buffer->sample];
-                p_last_valid_sample->error =  WT_RESULT(WT_DEV_IMU, WT_ERR_IMU_BUFFER_OVERFLOW);
-                // don't advance sample or
+                // don't advance sample
                 in_overflow = 1;
             } 
         } else {
-            in_overflow = 0;
+            if (in_overflow) {
+                // mark overflow point on resolution
+                CetiImuReport *p_last_valid_sample = &imu_report_buffer->reports[imu_report_buffer->page][imu_report_buffer->sample];
+                p_last_valid_sample->error =  WT_RESULT(WT_DEV_IMU, WT_ERR_IMU_BUFFER_OVERFLOW);
+                in_overflow = 0;
+            }
             imu_report_buffer->sample = 0;
             imu_report_buffer->page = next_page;
             sem_post(s_imu_page_ready);
