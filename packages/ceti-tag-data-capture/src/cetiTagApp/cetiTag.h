@@ -83,7 +83,7 @@
 #define ECG_PAGE_FILL_PERIOD_US (ECG_SAMPLING_PERIOD_US * ECG_BUFFER_LENGTH)
 
 // === IMU ===
-#define IMU_BUFFER_FLUSH_INTERVAL_US (2000000)
+#define IMU_BUFFER_FLUSH_INTERVAL_US (3000000)
 
 #define IMU_QUATERNION_SAMPLE_PERIOD_US 50000 // rate for the computed orientation
 #define IMU_9DOF_SAMPLE_PERIOD_US 20000       // rate for the accelerometer/gyroscope/magnetometer
